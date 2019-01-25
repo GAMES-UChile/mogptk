@@ -5,11 +5,11 @@ G. Parra, F. Tobar, Spectral Mixture Kernels for Multi-Output Gaussian Processes
 
 Proceedings link: http://papers.nips.cc/paper/7245-spectral-mixture-kernels-for-multi-output-gaussian-processes
 
-#Requirements
+# Requirements
 -Python 3.6
 -GPFlow 1.3
 
-#Notes on requirements
+# Notes on requirements
 It seems that the latest tensorflow packages can be found in the anaconda channel, so using the
 following command to create a new conda environments yields the easiest results:
 	conda create -n TFGPU -c anaconda scipy scikit-learn matplotlib seaborn tensorflow-gpu 
