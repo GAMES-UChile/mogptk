@@ -1,0 +1,8 @@
+Taken from: http://crcv.ucf.edu/data/UCF-iPhone.php
+
+Aerobic actions were recorded from subjects using the Inertial Measurement Unit (IMU) on an Apple iPhone 4 smartphone. The IMU includes a 3D accelerometer, gyroscope, and magnetometer*. Each sample was taken at 60Hz, and manually trimmed to 500 samples (8.33s) to eliminate starting and stopping movements. iPhone is always clipped to the belt on the right hand side.
+
+Each file contains 500 rows, each row with the following information:
+Acc_x,Acc_y,Acc_z,Gyr_x,Gyr_y,Gyr_z,Mag_x,Mag_y,Mag_z
+
+Each sensor has 3 channels.

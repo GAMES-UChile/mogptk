@@ -13,11 +13,11 @@ from .multikernel import MultiKern
 # float_type = settings.dtypes.float_type
 
 
-class MultiSpectralMixture(MultiKern):
+class MultiSpectralMixtureBlocked(MultiKern):
     def __init__(self, input_dim, output_dim,
                  spectral_constant=None, spectral_mean=None,
                  spectral_variance=None, spectral_delay=None,
-                 spectral_phase=None, active_dims=None):
+                 spectral_phase=None, spectral_noise = None, active_dims=None):
         """
         - input_dim is the input dimension as integer
         - output_dim is the output Dimension as integer
@@ -35,20 +35,25 @@ class MultiSpectralMixture(MultiKern):
         if spectral_constant is None:
             spectral_constant = np.random.randn(output_dim)
         if spectral_mean is None:
-            spectral_mean = np.ones([input_dim, output_dim])
+            # spectral_mean = np.ones([input_dim, output_dim])
+            spectral_mean = np.random.randn(input_dim, output_dim)
         if spectral_variance is None:
-            spectral_variance = np.ones([input_dim, output_dim])
+            # spectral_variance = np.ones([input_dim, output_dim])
+            spectral_variance = np.random.random((input_dim, output_dim))
         if spectral_delay is None:
             spectral_delay = np.zeros([input_dim, output_dim])
         if spectral_phase is None:
             spectral_phase = np.zeros(output_dim)
+        if spectral_noise is None:
+            spectral_noise = np.random.random((output_dim))
 
         MultiKern.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(spectral_constant)
         self.mean = Parameter(spectral_mean)
-        self.variance = Parameter(spectral_variance, transforms.positive)
+        self.variance = Parameter(spectral_variance, transform=transforms.positive)
         self.delay = Parameter(spectral_delay, FixDelay(input_dim, output_dim))
         self.phase = Parameter(spectral_phase, FixPhase())
+        self.noise = Parameter(spectral_noise, transform=transforms.positive)
         self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
 
     def subK(self, index, X, X2=None):
@@ -70,7 +75,7 @@ class MultiSpectralMixture(MultiKern):
                     * tf.sqrt(rprod(self.variance[:, i])) \
                     * tf.square(self.constant[i])
                 return temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
-                    * tf.cos(rsum(mean * self.dist(X, X2), 0))
+                    * tf.cos(rsum(mean * self.dist(X, X2), 0)) + self.noise[i]
         else:
             def cov_function(X, X2):
                 sv = self.variance[:, i] + self.variance[:, j]
@@ -89,6 +94,9 @@ class MultiSpectralMixture(MultiKern):
                     * tf.cos(rsum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
         return cov_function
 
+
+    #* performs element-wise multiplication
+    #-1 means infer shape for that dimension
     def sqdist(self, X, X2, lscales):
         """Return the square distance between two tensors."""
         Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
@@ -100,8 +108,16 @@ class MultiSpectralMixture(MultiKern):
             return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
                 + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))
 
+    # def sqdist(self, X, X2, lscales):
+    #     """Return the square distance between two tensors."""
+    #     Xs = tf.reduce_sum(tf.square(X) * lscales, axis = -1, keepdims=True)
+    #     if X2 is None:
+    #         return -2 * tf.matmul(X * lscales, X2, transpose_b=True) + Xs + tf.matrix_transpose(Xs)
+    #     else:
+    #         X2s = tf.reduce_sum(tf.square(X2) * lscales, axis = -1, keepdims=True)
+    #         return -2 * tf.matmul(X * lscales, X2, transpose_b=True) + Xs + tf.matrix_transpose(X2s)
+
     def dist(self, X, X2):
-        """Return the distance between two tensors (?)."""
         if X2 is None:
             X2 = X
         X = tf.expand_dims(tf.transpose(X), axis=2)
