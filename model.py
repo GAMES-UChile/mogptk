@@ -426,7 +426,6 @@ class mosm_model:
     def compute_selection_list(self, num_elements, starts, ends):
         selection_list = np.ones(num_elements, dtype=bool)
         for start, end in zip(starts, ends):
-            print(int(start*num_elements), int(end*num_elements))
             selection_list[int(start*num_elements):int(end*num_elements)] = False
         return selection_list
 
