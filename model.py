@@ -18,9 +18,6 @@ import time
 from sklearn.metrics import mean_absolute_error
 from itertools import accumulate
 
-""" optimizer can be any of the following: 'Nelder-Mead', 'Powell', 'CG', 'BFGS','Newton-CG', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov' """
-""" However, some of the optimizers need additional parameters (for example, some need a jacobian function). Refer to https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html for more information """
-""" For this particular kernel, L-BFGS-B gives stable results. """
 class mosm_model:
     #At model construction we define the number of components and the optimizer
     def __init__(self, number_of_components_q, optimizer = 'L-BFGS-B'):
@@ -113,6 +110,13 @@ class mosm_model:
         self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel)
         if(likelihood_variance != None):
             self.model.likelihood.variance = likelihood_variance
+
+
+    #optimizer can be any of the following: 'Nelder-Mead', 'Powell', 'CG', 'BFGS','Newton-CG', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov'.
+    #However, some of the optimizers need additional parameters (for example, some need a jacobian function). Refer to https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html for more information.
+    #For this particular kernel, L-BFGS-B gives stable results.
+    def change_optimizer(self, optimizer):
+        self.opt = gpflow.train.ScipyOptimizer(method=optimizer)
 
     #Refer to https://github.com/GPflow/GPflow/issues/756 for slow down issues.
     def optimize(self, iters=5000, display=True, anchor=False):
