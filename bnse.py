@@ -92,11 +92,6 @@ class bse:
         self.gamma = np.exp(res.x[1])
         self.theta = np.exp(res.x[2])
         self.sigma_n = np.exp(res.x[3])
-        print('Hyperparameters are:')
-        print('sigma ={self.sigma}')
-        print('gamma ={self.gamma}')
-        print('theta ={self.theta}')
-        print('sigma_n ={self.sigma_n}')
 
     def compute_moments(self):
         #posterior moments for time

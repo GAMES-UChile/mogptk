@@ -24,9 +24,9 @@ class mosm_model:
         self.Q = number_of_components_q
         self.X_extra = {}
         self.y_extra = {}
-        self.opt = gpflow.train.ScipyOptimizer(method=optimizer)
         self.latent_functions = {}
         self.iterations = 1000
+        self.optimization_method = optimizer
 
 ############################# Add training data to the model ###############################
     #Packages the data according to the expected multioutput representation.
@@ -110,23 +110,47 @@ class mosm_model:
         self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel)
         if(likelihood_variance != None):
             self.model.likelihood.variance = likelihood_variance
-
+        self.make_optimization_tools(self.optimization_method)
+        self.is_model_anchored = True
 
     #optimizer can be any of the following: 'Nelder-Mead', 'Powell', 'CG', 'BFGS','Newton-CG', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov'.
     #However, some of the optimizers need additional parameters (for example, some need a jacobian function). Refer to https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html for more information.
     #For this particular kernel, L-BFGS-B gives stable results.
-    def change_optimizer(self, optimizer):
-        self.opt = gpflow.train.ScipyOptimizer(method=optimizer)
+    # def change_optimizer(self, optimizer):
+    #     # self.opt = gpflow.train.ScipyOptimizer(method=optimizer)
+    #     self.make_optimization_tools(optimizer)
 
+    def make_optimization_tools(self, optimization_method=None, var_list=None):
+        if(optimization_method is None):
+            optimization_method = self.optimization_method
+        self.opt = gpflow.train.ScipyOptimizer(method=optimization_method)
+        self.optimizer_tensor = self.opt.make_optimize_tensor(self.model, gpflow.get_default_session(), var_list=var_list, maxiter=10, disp=True)
     #Refer to https://github.com/GPflow/GPflow/issues/756 for slow down issues.
-    def optimize(self, iters=5000, display=True, anchor=False):
-        #The following code can be used to decrease re-train time if you want to loop optimization rounds.
-        #The idea is to refresh the graph in case a new model is used.
-        # self.opt = gpflow.train.ScipyOptimizer(method=self.opt_method)
-        # tf.reset_default_graph()
-        # graph = tf.get_default_graph()
-        # gpflow.reset_default_session(graph=graph)
-        self.opt.minimize(self.model, maxiter=iters, disp=display, anchor=anchor)
+    # def optimize(self, iters=5000, display=True, anchor=False):
+    #     #The following code can be used to decrease re-train time if you want to loop optimization rounds.
+    #     #The idea is to refresh the graph in case a new model is used.
+    #     # self.opt = gpflow.train.ScipyOptimizer(method=self.opt_method)
+    #     # tf.reset_default_graph()
+    #     # graph = tf.get_default_graph()
+    #     # gpflow.reset_default_session(graph=graph)
+    #     self.opt.minimize(self.model, maxiter=iters, disp=display, anchor=anchor)
+
+    def optimize(self, iterations=1000, display=True):
+        (self.optimizer_tensor.optimizer_kwargs['options'])['maxiter'] = iterations
+        (self.optimizer_tensor.optimizer_kwargs['options'])['disp'] = display
+        session = gpflow.get_default_session()
+        self.optimizer_tensor.minimize(session=session)
+        self.is_model_anchored = False
+
+    def anchor_model(self):
+        self.model.anchor(gpflow.get_default_session())
+        self.is_model_anchored = True
+
+    def optimize2(self, iters=5000):
+        session = gpflow.get_default_session()
+        for it in range(iters):
+            print("ITERATION ", it)
+            session.run(self.optimizer_tensor)
 
     #Returns the GPFlow model.
     def get_model(self):
@@ -567,10 +591,55 @@ class mosm_model:
 ############################################################################################
 
 ################################ Save and Load #############################################
+    #Creates a dictionary containing all the model hyperparameters, mainly so they can be
+    #saved to disk. The original GPFlow names are preserved in the dictionary. This is done
+    #to avoid having to resort to model.anchor(session), due to the massive time cost.
+    #To learn more about this: https://gpflow.readthedocs.io/en/develop/notebooks/tips_and_tricks.html
+    def bundle_hyperparameters(self):
+        bundle = {}
+        session = gpflow.get_default_session()
+        if(self.Q > 1):
+            for q in range(self.Q):
+                bundle['GPR/kern/kernels/%d/constant' % q] = self.model.kern.kernels[q].constant.read_value(session)
+                bundle['GPR/kern/kernels/%d/delay' % q] = self.model.kern.kernels[q].delay.read_value(session)
+                bundle['GPR/kern/kernels/%d/mean' % q] = self.model.kern.kernels[q].mean.read_value(session)
+                bundle['GPR/kern/kernels/%d/phase' % q] = self.model.kern.kernels[q].phase.read_value(session)
+                bundle['GPR/kern/kernels/%d/variance' % q] = self.model.kern.kernels[q].variance.read_value(session)
+        elif(self.Q == 1):
+            bundle['GPR/kern/constant'] = self.model.kern.constant.read_value(session)
+            bundle['GPR/kern/delay'] = self.model.kern.delay.read_value(session)
+            bundle['GPR/kern/mean'] = self.model.kern.mean.read_value(session)
+            bundle['GPR/kern/phase'] = self.model.kern.phase.read_value(session)
+            bundle['GPR/kern/variance'] = self.model.kern.variance.read_value(session)
+        bundle['GPR/likelihood/variance'] = self.model.likelihood.variance.read_value(session)
+        return bundle
+
+    def anchor_fast(self):
+        session = gpflow.get_default_session()
+        if(self.Q > 1):
+            for q in range(self.Q):
+                self.model.kern.kernels[q].constant.value = self.model.kern.kernels[q].constant.read_value(session)
+                self.model.kern.kernels[q].delay.value = self.model.kern.kernels[q].delay.read_value(session)
+                self.model.kern.kernels[q].mean.value = self.model.kern.kernels[q].mean.read_value(session)
+                self.model.kern.kernels[q].phase.value = self.model.kern.kernels[q].phase.read_value(session)
+                self.model.kern.kernels[q].variance.value = self.model.kern.kernels[q].variance.read_value(session)
+        elif(self.Q == 1):
+            self.model.kern.constant.value = self.model.kern.constant.read_value(session)
+            self.model.kern.delay.value = self.model.kern.delay.read_value(session)
+            self.model.kern.mean.value = self.model.kern.mean.read_value(session)
+            self.model.kern.phase.value = self.model.kern.phase.read_value(session)
+            self.model.kern.variance.value = self.model.kern.variance.read_value(session)
+        self.model.likelihood.variance.value = self.model.likelihood.variance.read_value(session)
+        self.is_model_anchored = True
+
     #Saves the model parameters as a dictionary. Also saves the original training data given to the model.
     def save(self, name):
-        self.toggle_trainables(['delays', 'variances', 'constants', 'means', 'phases', 'noises'],[])
-        np.save("parameters_" + name, self.read_trainables())
+        if(self.is_model_anchored):
+            self.toggle_trainables(['delays', 'variances', 'constants', 'means', 'phases', 'noises'],[])
+            hyperparameters = self.read_trainables()
+        else:
+            hyperparameters = self.bundle_hyperparameters()
+        np.save("parameters_" + name, hyperparameters)
         np.save("train_data_" + name, {'X' : self.X_train_original, 'y': self.y_train_original})
 
     #For Q > 1, returns the model parameters of kernel component q, from the dictionary 'parameters'.
@@ -588,15 +657,35 @@ class mosm_model:
             return self.get_spectral_parameters_for_one_mosm_kernel_component_by_q(parameters, q)
 
     #Remakes the model from the saved parameters, which were stored as a dictionary.
+    # def build_model_from_saved_parameters(self, X, y, parameters):
+    #     self.add_training_data(X,y)
+    #     constants, delays, means, noises, phases, variances = self.get_spectral_parameters_for_one_mosm_kernel_component(parameters, 0)
+    #     kernel = MOSM(self.Input_dims, self.Output_dims, spectral_constant = constants, spectral_mean = means, spectral_variance = variances, spectral_delay = delays, spectral_phase = phases, spectral_noise = noises)
+    #     for i in range(1,self.Q):
+    #         constants, delays, means, noises, phases, variances = self.get_spectral_parameters_for_one_mosm_kernel_component(parameters, i)
+    #         kernel += MOSM(self.Input_dims, self.Output_dims, spectral_constant = constants, spectral_mean = means, spectral_variance = variances, spectral_delay = delays, spectral_phase = phases, spectral_noise = noises)
+    #     self.model = gpflow.models.GPR(X,y,kernel)
+    #     self.model.likelihood.variance = parameters['GPR/likelihood/variance']
+    #     self.make_optimization_tools()
+    #     self.is_model_anchored = True
+
     def build_model_from_saved_parameters(self, X, y, parameters):
         self.add_training_data(X,y)
-        constants, delays, means, noises, phases, variances = self.get_spectral_parameters_for_one_mosm_kernel_component(parameters, 0)
-        kernel = MOSM(self.Input_dims, self.Output_dims, spectral_constant = constants, spectral_mean = means, spectral_variance = variances, spectral_delay = delays, spectral_phase = phases, spectral_noise = noises)
-        for i in range(1,self.Q):
+        spectral_constants = []
+        spectral_delays = []
+        spectral_means = []
+        spectral_noises = []
+        spectral_phases = []
+        spectral_variances = []
+        for i in range(self.Q):
             constants, delays, means, noises, phases, variances = self.get_spectral_parameters_for_one_mosm_kernel_component(parameters, i)
-            kernel += MOSM(self.Input_dims, self.Output_dims, spectral_constant = constants, spectral_mean = means, spectral_variance = variances, spectral_delay = delays, spectral_phase = phases, spectral_noise = noises)
-        self.model = gpflow.models.GPR(X,y,kernel)
-        self.model.likelihood.variance = parameters['GPR/likelihood/variance']
+            spectral_constants.append(constants)
+            spectral_delays.append(delays)
+            spectral_means.append(means)
+            spectral_noises.append(noises)
+            spectral_phases.append(phases)
+            spectral_variances.append(variances)
+        self.build_model(spectral_constants=spectral_constants, spectral_means=spectral_means, spectral_variances=spectral_variances, spectral_delays=spectral_delays, spectral_phases=spectral_phases, spectral_noises=spectral_noises, likelihood_variance=parameters['GPR/likelihood/variance'])
 
     #Loads the model parameters from disk.
     def load(self, name):
@@ -678,7 +767,7 @@ class mosm_model:
             freqs.append(peaks)
 
         spectral_means = np.transpose(np.array(freqs).reshape((len(self.channels),self.Q)))
-        return spectral_means
+        return [[x] for x in spectral_means]
 ############################################################################################
 
 ############################# Single channel Spectral Mixture ##############################
@@ -812,15 +901,15 @@ class mosm_model:
         spectral_constants = np.transpose(np.array(spectral_constants).reshape((len(self.channels),self.Q)))
         return spectral_means, spectral_variances, spectral_constants
 
-    def build_model_from_freqs(self, spectral_means):
-        #In case you want to build several models in the same session.
-        # tf.reset_default_graph()
-        # graph = tf.get_default_graph()
-        # gpflow.reset_default_session(graph=graph)
-        kernel = MOSM(self.Input_dims, self.Output_dims, spectral_mean = [spectral_means[0]])
-        for i in range(1, self.Q):
-            kernel+=MOSM(self.Input_dims, self.Output_dims, spectral_mean = [spectral_means[i]])
-        self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel)
+    # def build_model_from_freqs(self, spectral_means):
+    #     #In case you want to build several models in the same session.
+    #     # tf.reset_default_graph()
+    #     # graph = tf.get_default_graph()
+    #     # gpflow.reset_default_session(graph=graph)
+    #     kernel = MOSM(self.Input_dims, self.Output_dims, spectral_mean = [spectral_means[0]])
+    #     for i in range(1, self.Q):
+    #         kernel+=MOSM(self.Input_dims, self.Output_dims, spectral_mean = [spectral_means[i]])
+    #     self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel)
 
     #Trains a single-channel spectral mixture kernel GP for each channel and builds a mosm model
     #with the single-channel GPs hyperparameters. Phases and delays are set to random values.
@@ -864,9 +953,10 @@ class mosm_model:
 ############################ Optimisation heuristics #######################################
     #Computes the most relevant frequencies of the training data and uses them as a starting point
     #to optimise the model.
-    def optimization_heuristic_zero(self):
-        self.build_model_from_freqs(self.get_starting_freq())
-        self.optimize(iters = self.iterations, display=True, anchor=True)
+    def optimization_heuristic_zero(self, iterations=1000):
+        self.build_model(spectral_means=self.get_starting_freq())
+        # self.build_model_from_freqs(self.get_starting_freq())
+        self.optimize(iterations = iterations, display=True)
 
     #Computes the most relevant frequencies of the training data and uses them as a starting point
     #to optimise the model, but optimises the model in cascading fashion.
@@ -874,26 +964,31 @@ class mosm_model:
     #The second step optimises delays, phases and means, while keeping variances and constants static.
     #The third step optimises delays, variances and constants, while keeping means and phases static.
     #The final step optimises all the parameters.
-    def optimization_heuristic_one(self):
-        self.build_model_from_freqs(self.get_starting_freq())
+    def optimization_heuristic_one(self, iterations=1000):
+        # self.build_model_from_freqs(self.get_starting_freq())
+        self.build_model(spectral_means=self.get_starting_freq())
         self.toggle_trainables(['variances', 'constants'],['means', 'phases', 'delays'])
-        self.optimize(iters = self.iterations/2, display=True, anchor=True)
+        self.make_optimization_tools()
+        self.optimize(iterations = iterations/5, display=True)
 
         self.toggle_trainables(['delays', 'phases', 'means'],['variances', 'constants'])
-        self.optimize(iters = self.iterations/2, display=True, anchor=True)
+        self.make_optimization_tools()
+        self.optimize(iterations = iterations/5, display=True)
 
         self.toggle_trainables(['delays', 'variances', 'constants'],['means', 'phases'])
-        self.optimize(iters = self.iterations/2, display=True, anchor=True)
+        self.make_optimization_tools()
+        self.optimize(iterations = iterations/5, display=True)
 
         self.toggle_trainables(['delays', 'variances', 'constants', 'means', 'phases'],[])
-        self.optimize(iters = self.iterations, display=True, anchor=True)
+        self.make_optimization_tools()
+        self.optimize(iterations = iterations*(2/5), display=True)
 
     #Fits single-channel GPs with spectral mixture kernels to each of the signal channels, in
     #order to use the parameters of these single-channel GPs as a starting point to optimise
     #the mosm model.
     def optimization_heuristic_two(self):
         self.compute_starting_parameters()
-        self.optimize(iters = self.iterations, display=True, anchor=True)
+        self.optimize(iters = self.iterations, display=True)
 
     #Fits single-channel GPs with spectral mixture kernels to each of the signal channels,
     #in order to use the parameters of these single-channel GPs as a starting point to
@@ -901,7 +996,7 @@ class mosm_model:
     #single channel GPs are chosen through bayesian optimisation.
     def optimization_heuristic_three(self):
         self.compute_starting_parameters_bayesianly()
-        self.optimize(iters=self.iterations, display=True, anchor=True)
+        self.optimize(iters=self.iterations, display=True)
 ############################################################################################
 
 ##################################### Metrics ##############################################
