@@ -143,8 +143,9 @@ class mosm_model:
         self.is_model_anchored = False
 
     def anchor_model(self):
-        self.model.anchor(gpflow.get_default_session())
-        self.is_model_anchored = True
+        if(not self.is_model_anchored):
+            self.model.anchor(gpflow.get_default_session())
+            self.is_model_anchored = True
 
     def optimize2(self, iters=5000):
         session = gpflow.get_default_session()
@@ -515,8 +516,8 @@ class mosm_model:
         starting_point = int((X[channel].shape[0]*start_percent))
         end = int((X[channel].shape[0]*end_percent))
 
-        X_before = X[channel][0:starting_point]
-        y_before = y[channel][0:starting_point]
+        # X_before = X[channel][0:starting_point]
+        # y_before = y[channel][0:starting_point]
         X_modified = X[channel][starting_point:end]
         y_modified = y[channel][starting_point:end]
         X_after = X[channel][end:X[channel].shape[0]]
@@ -696,6 +697,8 @@ class mosm_model:
     #Prints the model parameters as a pandas table. Cannot be used before fit,
     #since GPFLow model has not been created before that point.
     def as_pandas_table(self):
+        if(not self.is_model_anchored):
+            self.anchor_model()
         return self.model.as_pandas_table()
 
     #Returns a dictionary with all currently trainable parameters of the model.
