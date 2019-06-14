@@ -7,6 +7,8 @@ The kernel learns the cross-channel correlations of the data, so it is particula
 
 All other included kernels can be derived from the Multi Output Spectral Mixture kernel by restricting some parameters or applying some transformations.
 
+One of the main advantages of the present toolbox is the GPU support, which enables the user to train models through TensorFlow, speeding computations significantly. It also includes sparse-variational GP regression functionality, to decrease computation time even further.
+
 # Main Requirements
 -Python 3.6
 -GPFlow 1.3
