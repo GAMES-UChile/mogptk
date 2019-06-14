@@ -4,8 +4,11 @@ from matplotlib.lines import Line2D
 import numpy as np
 import seaborn as sns
 import tensorflow as tf
-from mosm.multi_spectralmixture_blocked import MultiSpectralMixtureBlocked as MOSM
-from mosm.single_spectralmixture import SpectralMixture, sm_unravel_hp
+from kernels.multi_spectralmixture_blocked import MultiSpectralMixtureBlocked as MOSM
+from kernels.single_spectralmixture import SpectralMixture, sm_unravel_hp
+from kernels.csm import CrossSpectralMixture as CSM
+from kernels.sm_lmc import SpectralMixtureLMC as SM_LMC
+from kernels.conv import ConvolutionalGaussian as CONV
 from collections import Counter
 import scipy.stats
 import random
@@ -18,7 +21,7 @@ import time
 from sklearn.metrics import mean_absolute_error
 from itertools import accumulate
 
-class mosm_model:
+class mogp_model:
     #At model construction we define the number of components and the optimizer
     def __init__(self, number_of_components_q, optimizer = 'L-BFGS-B'):
         self.Q = number_of_components_q
@@ -80,10 +83,89 @@ class mosm_model:
     #For y:
     #[np.array([y0,y1,y2]), np.array([y3,y4])] -> A list of numpy arrays.
     #Note that observations must be ordered increasingly by the x-axis.
-    def add_training_data(self, X, y):
-        self.X_train_original = X
-        self.y_train_original = y
-        self.channels, self.elements_per_channel, self.Input_dims, self.Output_dims = self.determine_dims(X, y)
+    def add_training_data(self, X, y, norm = False):
+
+        #Save original non-normalized data for plotting
+        #Normalize if asked
+        X = np.array(X)
+        y = np.array(y)
+
+        self.Output_dims = y.shape[0]
+        first_channel_features = X[0]
+        if( isinstance(first_channel_features[0], np.ndarray) ):
+            self.Input_dims = first_channel_features[0].shape[0]
+        else:
+            self.Input_dims = 1
+        # self.Input_dims = first_channel_features.shape[0]
+
+        self.X_train_input = X
+        self.y_train_input = y
+
+        self.X = {}
+        self.y = {}
+
+        self.normalize = norm
+
+        # number_of_channels = 0
+        # if (isinstance(y, np.ndarray)):
+        #     number_of_channels = y.shape[0]
+        # elif(isinstance(y, list)):
+        #     number_of_channels = len(y)
+
+        # input_dimensions = 0
+        # first_channel_features = X[0]
+        # if (isinstance(first_channel_features[0], np.ndarray)):
+        #     input_dimensions = first_channel_features[0].shape[0]
+        # elif(isinstance(first_channel_features[0], list)):
+        #     input_dimensions = len(first_channel_features[0])
+
+        self.channel_y_means = {}
+        self.channel_y_stds = {}
+
+        if norm is True:
+            for i in range(self.Output_dims):
+                self.channel_y_means[i] = self.y_train_input[i].mean()
+                self.channel_y_stds[i] = self.y_train_input[i].std()
+                self.y_train_input[i] = (self.y_train_input[i]-self.y_train_input[i].mean())/self.y_train_input[i].std()
+                self.X_train_input[i] = (self.X_train_input[i]-self.X_train_input[i].mean())/self.X_train_input[i].std()
+
+        elements_per_channel = []
+        for channel in range(self.Output_dims):
+            elements_per_channel.append(y[channel].shape[0])
+            self.X[channel] = np.array([ [x_element] for x_element in self.X_train_input[channel] ])
+            self.y[channel] = self.y_train_input[channel]
+
+        self.X_train_original, self.y_train_original = self.transform_lists_into_multioutput_format(self.X_train_input, self.y_train_input)
+
+        #Transform to multioutput format
+        # self.X_train_original = new_X
+        # self.y_train_original = new_y
+        # self.Output_dims = number_of_channels
+        # self.Input_dims = input_dimensions
+        self.elements_per_channel = np.array(elements_per_channel)
+        self.channels = np.array([chan for chan in range(self.Output_dims)])
+
+        print("channels ", self.channels)
+        print("elements per channel ", self.elements_per_channel)
+        print("input dimensions ", self.Input_dims)
+        print("output dimensions ", self.Output_dims)
+
+        # self.channels, self.elements_per_channel, self.Input_dims, self.Output_dims = self.determine_dims(new_X, new_y)
+
+    # def determine_dims(self, X, y):
+    #     channels, elements_per_channel = np.unique(X[:,0], return_counts=True)
+    #     self.X = {}
+    #     self.y = {}
+    #     start = 0
+    #     end = 0
+    #     channels = [int(x) for x in channels]
+    #     for channel in channels:
+    #         end = end + elements_per_channel[channel]
+    #         self.X[channel] = [x for x in X[:,1:][start:end]]
+    #         self.y[channel] = y[start:end]
+    #         start = end
+    #     return channels, elements_per_channel, (X[0].shape[0] - 1), len(channels)
+
 ############################################################################################
 
 ############################# Basic model construction #####################################
@@ -100,18 +182,204 @@ class mosm_model:
     #So, for example, spectral_means is a list of 2D arrays with shape (input_dim, output_dim).
     #For a model with Q = 3 (3 components), we need to specify 3 multi-output spectral mixture kernels,
     #so we need 3 elements for spectral_constants, each of size output_dimensions.
-    def build_model(self, spectral_constants=None, spectral_means=None, spectral_variances=None, spectral_delays=None, spectral_phases=None, spectral_noises=None, likelihood_variance=None):
+
+    #Model can have kernels: MOSM, SM-LMC, CONV, CSM, SM(This refers to single-channel spectral mixture, coming soon)
+    #Model can be: full, sparse-variational, sparse
+
+    #Parameters per model:
+    #-MOSM: components, spectral_constants, spectral_means, spectral_variances, spectral_delays, spectral_phases, spectral_noises, likelihood_variance
+    #-SM-LMC: components, Rq, spectral_constants, spectral_means, spectral_variances, likelihood_variance
+    #-CONV: components, spectral_constants, spectral_component_variances, spectral_channel_variances, likelihood_variance
+    #-CSM: components, Rq, spectral_constants, spectral_means, spectral_variances, spectral_phases, likelihood_variance
+
+    #Note that there's no reason, code wise, why we couldn't have a different Rq number for each component. Might be interesting to take a stab at it.
+
+    #parameters: dictionary containing aforementioned parameters. If a parameter is not found, it is taken to be None.
+    #kernel: string that specifies kernel to use: 'MOSM', 'CSM', 'SM-LMC' or 'CONV'.
+    #type: string that specifies whether to consider a full mode, sparse model or sparse-variational model, 'full', 'sparse' and 'sparse-variational', respectively.
+    def build_set_of_kernel_components(self, parameters, kernel):
+        parameter_list = []
+        components = parameters.get('components')
+        Rq = parameters.get('Rq')
+        likelihood_variance = parameters.get('likelihood_variance')
+        if(components is None):
+            components = 1
+        if(Rq is None):
+            Rq = 1
+
+        if(kernel == 'MOSM'):
+            # parameter_list = [parameters.get('spectral_constants'), parameters.get('spectral_means'), parameters.get('spectral_variances'), parameters.get('spectral_delays'), parameters.get('spectral_phases'), parameters.get('spectral_noises')]
+            parameter_list = [[None]*components if x is None else x for x in [parameters.get('spectral_constants'), parameters.get('spectral_means'), parameters.get('spectral_variances'), parameters.get('spectral_delays'), parameters.get('spectral_phases'), parameters.get('spectral_noises')]]
+            kernel_set = MOSM(self.Input_dims, self.Output_dims, parameter_list[0][0], parameter_list[1][0], parameter_list[2][0], parameter_list[3][0], parameter_list[4][0], parameter_list[5][0])
+            for i in range(1, components):
+                kernel_set+=MOSM(self.Input_dims, self.Output_dims, parameter_list[0][i], parameter_list[1][i], parameter_list[2][i], parameter_list[3][i], parameter_list[4][i], parameter_list[5][i])
+        elif(kernel == 'SM_LMC'):
+            # parameter_list = [parameters.get('spectral_constants'), parameters.get('spectral_means'), parameters.get('spectral_variances')]
+            parameter_list = [[None]*components if x is None else x for x in [parameters.get('spectral_constants'), parameters.get('spectral_means'), parameters.get('spectral_variances')]]
+            kernel_set = SM_LMC(self.Input_dims, self.Output_dims, Rq, parameter_list[0][0], parameter_list[1][0], parameter_list[2][0])
+            for i in range(1, components):
+                kernel_set+=SM_LMC(self.Input_dims, self.Output_dims, Rq, parameter_list[0][i], parameter_list[1][i], parameter_list[2][i])
+        elif(kernel == 'CONV'):
+            # parameter_list = [parameters.get('spectral_constants'), parameters.get('spectral_component_variances'), parameters.get('spectral_channel_variances')]
+            parameter_list = [[None]*components if x is None else x for x in [parameters.get('spectral_constants'), parameters.get('spectral_component_variances'), parameters.get('spectral_channel_variances')]]
+            kernel_set = CONV(self.Input_dims, self.Output_dims, parameter_list[0][0], parameter_list[1][0], parameter_list[2][0])
+            for i in range(1, components):
+                kernel_set+=CONV(self.Input_dims, self.Output_dims, parameter_list[0][i], parameter_list[1][i], parameter_list[2][i])
+        elif(kernel == 'CSM'):
+            # parameter_list = [parameters.get('spectral_constants'), parameters.get('spectral_means'), parameters.get('spectral_variances'), parameters.get('spectral_phases')]
+            parameter_list = [[None]*components if x is None else x for x in [parameters.get('spectral_constants'), parameters.get('spectral_means'), parameters.get('spectral_variances'), parameters.get('spectral_phases')]]
+            kernel_set = CSM(self.Input_dims, self.Output_dims, Rq, parameter_list[0][0], parameter_list[1][0], parameter_list[2][0], parameter_list[3][0])
+            for i in range(1, components):
+                kernel_set+=CSM(self.Input_dims, self.Output_dims, Rq, parameter_list[0][i], parameter_list[1][i], parameter_list[2][i], parameter_list[3][i])
+
+        return likelihood_variance, kernel_set
+
+    def build_model(self, kernel, type, parameters = {}):
+        likelihood_variance, kernel_set = self.build_set_of_kernel_components(parameters, kernel)
+        number_of_inducing_points = parameters.get('number_of_inducing_points')
+        if(number_of_inducing_points is None):
+            number_of_inducing_points = 10
+        if(type == 'full'):
+            self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel_set)
+        elif(type == 'sparse'):
+            #Equidistant points covering the whole range of each channel
+            Z = np.linspace(0,4,number_of_inducing_points)[:,None]
+            ZZ = [[channel,sample] for channel in range(self.Output_dims) for sample in Z]
+            self.Z_original = ZZ
+            # likelihood = gpflow.likelihoods.Gaussian()
+            self.model = gpflow.models.SGPR(self.X_train_original, self.y_train_original, kernel_set, Z=ZZ)
+        #This is based on a more recent paper, but its not working now for some reason
+        elif(type == 'sparse_variational'):
+            Z = np.linspace(0,4,10)[:,None]
+            ZZ = [[channel,sample] for channel in range(self.Output_dims) for sample in Z]
+            self.Z_original = ZZ
+            print("Z ", ZZ)
+            # Z = np.linspace(0,4,10)
+            likelihood = gpflow.likelihoods.Gaussian()
+            self.model = gpflow.models.SVGP(self.X_train_original, self.y_train_original, kernel, likelihood, Z=ZZ)
+
+        if(likelihood_variance != None):
+            self.model.likelihood_variance = likelihood_variance
+        self.make_optimization_tools(self.optimization_method)
+        self.is_model_anchored = True
+
+
+
+
+    # def build_model(self, spectral_constants=None, spectral_means=None, spectral_variances=None, spectral_delays=None, spectral_phases=None, spectral_noises=None, likelihood_variance=None):
+    #     args = [spectral_constants, spectral_means, spectral_variances, spectral_delays, spectral_phases, spectral_noises]
+    #     args = [[None]*self.Q if x is None else x for x in args]
+    #     # kernel = MOSM(self.Input_dims, self.Output_dims, spectral_constants[0], spectral_means[0], spectral_variances[0], spectral_delays[0], spectral_phases[0], spectral_noises[0])
+    #     kernel = MOSM(self.Input_dims, self.Output_dims, args[0][0], args[1][0], args[2][0], args[3][0], args[4][0], args[5][0])
+    #     for i in range(1, self.Q):
+    #         kernel+=MOSM(self.Input_dims, self.Output_dims, args[0][i], args[1][i], args[2][i], args[3][i], args[4][i], args[5][i])
+    #     self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel)
+    #     if(likelihood_variance != None):
+    #         self.model.likelihood.variance = likelihood_variance
+    #     self.make_optimization_tools(self.optimization_method)
+    #     self.is_model_anchored = True
+
+    def build_model_svgp(self, spectral_constants=None, spectral_means=None, spectral_variances=None, spectral_delays=None, spectral_phases=None, spectral_noises=None, likelihood_variance=None):
         args = [spectral_constants, spectral_means, spectral_variances, spectral_delays, spectral_phases, spectral_noises]
         args = [[None]*self.Q if x is None else x for x in args]
         # kernel = MOSM(self.Input_dims, self.Output_dims, spectral_constants[0], spectral_means[0], spectral_variances[0], spectral_delays[0], spectral_phases[0], spectral_noises[0])
         kernel = MOSM(self.Input_dims, self.Output_dims, args[0][0], args[1][0], args[2][0], args[3][0], args[4][0], args[5][0])
         for i in range(1, self.Q):
             kernel+=MOSM(self.Input_dims, self.Output_dims, args[0][i], args[1][i], args[2][i], args[3][i], args[4][i], args[5][i])
-        self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel)
+        # self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel)
+        Z = np.linspace(0,4,10)[:,None]
+        ZZ = [[channel,sample] for channel in range(self.Output_dims) for sample in Z]
+        self.Z_original = ZZ
+        print("Z ", ZZ)
+        # Z = np.linspace(0,4,10)
+        likelihood = gpflow.likelihoods.Gaussian()
+        self.model = gpflow.models.SVGP(self.X_train_original, self.y_train_original, kernel, likelihood, Z=ZZ)
         if(likelihood_variance != None):
             self.model.likelihood.variance = likelihood_variance
         self.make_optimization_tools(self.optimization_method)
         self.is_model_anchored = True
+    #
+    # def build_model_sgp(self, spectral_constants=None, spectral_means=None, spectral_variances=None, spectral_delays=None, spectral_phases=None, spectral_noises=None, likelihood_variance=None):
+    #     args = [spectral_constants, spectral_means, spectral_variances, spectral_delays, spectral_phases, spectral_noises]
+    #     args = [[None]*self.Q if x is None else x for x in args]
+    #     kernel = MOSM(self.Input_dims, self.Output_dims, args[0][0], args[1][0], args[2][0], args[3][0], args[4][0], args[5][0])
+    #     for i in range(1, self.Q):
+    #         kernel+=MOSM(self.Input_dims, self.Output_dims, args[0][i], args[1][i], args[2][i], args[3][i], args[4][i], args[5][i])
+    #     Z = np.linspace(0,4,10)[:,None]
+    #     ZZ = [[channel,sample] for channel in range(self.Output_dims) for sample in Z]
+    #     self.Z_original = ZZ
+    #     # likelihood = gpflow.likelihoods.Gaussian()
+    #     self.model = gpflow.models.SGPR(self.X_train_original, self.y_train_original, kernel, Z=ZZ)
+    #     if(likelihood_variance != None):
+    #         self.model.likelihood.variance = likelihood_variance
+    #     self.make_optimization_tools(self.optimization_method)
+    #     self.is_model_anchored = True
+    #
+    # def build_model_csm(self, spectral_constants=None, spectral_means=None, spectral_variances=None, spectral_phases=None, likelihood_variance=None):
+    #     args = [spectral_constants, spectral_means, spectral_variances, spectral_phases]
+    #     args = [[None]*self.Q if x is None else x for x in args]
+    #     # kernel = MOSM(self.Input_dims, self.Output_dims, spectral_constants[0], spectral_means[0], spectral_variances[0], spectral_delays[0], spectral_phases[0], spectral_noises[0])
+    #     kernel = CSM(self.Input_dims, self.Output_dims, 3, args[0][0], args[1][0], args[2][0], args[3][0])
+    #     for i in range(1, self.Q):
+    #         kernel+=CSM(self.Input_dims, self.Output_dims, 3, args[0][i], args[1][i], args[2][i], args[3][i])
+    #
+    #     Z = np.linspace(0,4,10)[:,None]
+    #     ZZ = [[channel,sample] for channel in range(self.Output_dims) for sample in Z]
+    #     self.Z_original = ZZ
+    #     # print("Z ", ZZ)
+    #     # Z = np.linspace(0,4,10)
+    #     # likelihood = gpflow.likelihoods.Gaussian()
+    #     self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel)
+    #     # self.model = gpflow.models.SVGP(self.X_train_original, self.y_train_original, kernel, likelihood, Z=ZZ)
+    #
+    #     if(likelihood_variance != None):
+    #         self.model.likelihood.variance = likelihood_variance
+    #     self.make_optimization_tools(self.optimization_method)
+    #     self.is_model_anchored = True
+    #
+    # def build_model_sm_lmc(self,  spectral_constants=None, spectral_means=None, spectral_variances=None, likelihood_variance=None):
+    #     args = [spectral_constants, spectral_means, spectral_variances]
+    #     args = [[None]*self.Q if x is None else x for x in args]
+    #     kernel = SM_LMC(self.Input_dims, self.Output_dims, 2, args[0][0], args[1][0], args[2][0])
+    #     for i in range(1, self.Q):
+    #         kernel+=SM_LMC(self.Input_dims, self.Output_dims, 2, args[0][i], args[1][i], args[2][i])
+    #
+    #     self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel)
+    #     if(likelihood_variance != None):
+    #         self.model.likelihood.variance = likelihood_variance
+    #     self.make_optimization_tools(self.optimization_method)
+    #     self.is_model_anchored = True
+    #
+    # def build_model_conv(self,  spectral_constants=None, spectral_component_variances=None, spectral_channel_variances = None, likelihood_variance=None):
+    #     args = [spectral_constants, spectral_component_variances, spectral_channel_variances]
+    #     args = [[None]*self.Q if x is None else x for x in args]
+    #     kernel = CONV(self.Input_dims, self.Output_dims, args[0][0], args[1][0], args[2][0])
+    #     for i in range(1, self.Q):
+    #         kernel+=CONV(self.Input_dims, self.Output_dims, args[0][i], args[1][i], args[2][i])
+    #
+    #     self.model = gpflow.models.GPR(self.X_train_original, self.y_train_original, kernel)
+    #     if(likelihood_variance != None):
+    #         self.model.likelihood.variance = likelihood_variance
+    #     self.make_optimization_tools(self.optimization_method)
+    #     self.is_model_anchored = True
+
+    #Used to look at points in a very particular example (the one in sparse_gp notebook), but the idea can be extended to any case.
+    def plot_inducing_points(self, type):
+        if(not self.is_model_anchored):
+            self.anchor_model()
+        trainables = self.read_trainables()
+        if (type == 'sparse_variational'):
+            points = trainables['SVGP/feature/Z']
+        elif(type == 'sparse'):
+            points = trainables['SGPR/feature/Z']
+        Y = points[:,0]
+        X = points[:,1]
+        fig = plt.figure()
+        plt.plot(X,Y - 0.5 ,"+", lw=1.5) #NEW
+        self.Z_original = np.array(self.Z_original)
+        plt.plot(self.Z_original[:,1], self.Z_original[:,0], "+", lw=1.5, c='r')#OLD
+        plt.show()
+
 
     #optimizer can be any of the following: 'Nelder-Mead', 'Powell', 'CG', 'BFGS','Newton-CG', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov'.
     #However, some of the optimizers need additional parameters (for example, some need a jacobian function). Refer to https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html for more information.
@@ -120,11 +388,14 @@ class mosm_model:
     #     # self.opt = gpflow.train.ScipyOptimizer(method=optimizer)
     #     self.make_optimization_tools(optimizer)
 
+    #Adds the operations necessary for training to the graph. Note that if you change optimization conditions you must
+    #replace these operations (call make_optimization_tools again).
     def make_optimization_tools(self, optimization_method=None, var_list=None):
         if(optimization_method is None):
             optimization_method = self.optimization_method
         self.opt = gpflow.train.ScipyOptimizer(method=optimization_method)
         self.optimizer_tensor = self.opt.make_optimize_tensor(self.model, gpflow.get_default_session(), var_list=var_list, maxiter=10, disp=True)
+
     #Refer to https://github.com/GPflow/GPflow/issues/756 for slow down issues.
     # def optimize(self, iters=5000, display=True, anchor=False):
     #     #The following code can be used to decrease re-train time if you want to loop optimization rounds.
@@ -153,6 +424,36 @@ class mosm_model:
             print("ITERATION ", it)
             session.run(self.optimizer_tensor)
 
+
+    def optimize_with_adam(self, iterations=1000, learning_rate = 0.001):
+        import logging
+        from gpflow.actions import Loop, Action
+        from gpflow.training import AdamOptimizer
+        # class PrintAction(Action):
+        #     def __init__(self, text):
+        #         self.text = text
+        #
+        #     def run(self, ctx):
+        #         # m = self.model.get_model()
+        #         likelihood = ctx.session.run(self.model.likelihood_tensor)
+        #         logging.warning('{}: iteration {} likelihood {:.4f}'.format(self.text, ctx.iteration, likelihood))
+        # #         logging.warning(self.model)
+
+        # def run_with_adam(model, lr,iterations, callback=None):
+        # lr = learning_rate
+        adam = AdamOptimizer(learning_rate).make_optimize_action(self.model)
+        # callback = PrintAction("Adam")
+        actions = [adam]#natgrad,
+        # actions = actions if callback is None else actions + [callback]
+
+        Loop(actions, stop=iterations)()
+        self.is_model_anchored = False
+    # model.anchor_model()
+
+
+    #m = model.get_model()
+    # run_with_adam(model,1e-3,50, PrintAction(model,"Adam"))
+
     #Returns the GPFlow model.
     def get_model(self):
         return self.model
@@ -172,14 +473,17 @@ class mosm_model:
 
     #Finds min or max values for X_channel at every input dimension.
     def find_border_points(self, X_channel, min_or_max):
-        input_dims = len(X_channel[0])
+        # input_dims = len(X_channel[0])
+        # print("X_channel ", X_channel)
+        # print(X_channel[:,0])
         points = []
         function = None
         if(min_or_max == 0):
             function = np.min
         else:
             function = np.max
-        for index in range(input_dims):
+        # print("INPUT DIMS AT FIND BORDER POINTS ", self.Input_dims)
+        for index in range(self.Input_dims):
             points.append(function(np.array(X_channel)[:,index]))
         return points
 
@@ -347,6 +651,10 @@ class mosm_model:
                     y_max = max(y_max, np.max(upper_variance_curve))
                 if (latent_function_candidate != None): #If we have a latent function it must also be considered for the limits of the plot.
                     latent_y = latent_function_candidate(X_pred_one_feature.get(channel))
+                    if(self.normalize is True):
+                        # latent_y = (latent_y-latent_y.mean())/latent_y.std()
+                        latent_y = (latent_y-self.channel_y_means[channel])/self.channel_y_stds[channel]
+                        # X_pred_one_feature[channel] = (X_pred_one_feature.get(channel)-X_pred_one_feature.get(channel).mean())/X_pred_one_feature.get(channel).std()
                     is_latent_available = 1
                     y_min = min(np.min(latent_y), y_min)
                     y_max = max(np.max(latent_y), y_max)
@@ -703,6 +1011,8 @@ class mosm_model:
 
     #Returns a dictionary with all currently trainable parameters of the model.
     def read_trainables(self):
+        if(not self.is_model_anchored):
+            self.anchor_model()
         return self.model.read_trainables()
 ############################################################################################
 
@@ -921,7 +1231,9 @@ class mosm_model:
         for channel in self.channels:
             parameters_per_channel[channel], means_guess = self.compute_spectral_mixture_for_a_single_channel(channel)
         spectral_means, spectral_variances, spectral_constants = self.package_parameters_in_spectral_form(parameters_per_channel)
-        self.build_model(spectral_constants=spectral_constants, spectral_means=[spectral_means], spectral_variances=[spectral_variances])
+        parameters = {'components': self.Q, 'spectral_means' : [spectral_means], 'spectral_variances' : [spectral_variances], 'spectral_constants': spectral_constants}
+        self.build_model('MOSM', 'full', parameters=parameters)
+        # self.build_model(spectral_constants=spectral_constants, spectral_means=[spectral_means], spectral_variances=[spectral_variances])
 
     #Trains a single-channel spectral mixture kernel GP for each channel, using bayesian optimization to find starting hyperparameters.
     #Hyperparameters from the single-channel GPs are used to build a mosm model. Phases and delays are set to random values.
@@ -930,7 +1242,9 @@ class mosm_model:
         for channel in self.channels:
             parameters_per_channel[channel], means_guess = self.compute_spectral_mixture_for_a_single_channel_bayesianly(channel)
         spectral_means, spectral_variances, spectral_constants = self.package_parameters_in_spectral_form(parameters_per_channel)
-        self.build_model(spectral_constants=spectral_constants, spectral_means=[spectral_means], spectral_variances=[spectral_variances])
+        parameters = {'components': self.Q, 'spectral_constants': spectral_constants, 'spectral_means': [spectral_means], 'spectral_variances': [spectral_variances]}
+        self.build_model('MOSM', 'full', parameters=parameters)
+        # self.build_model(spectral_constants=spectral_constants, spectral_means=[spectral_means], spectral_variances=[spectral_variances])
 
     def compute_starting_parameters_keep_means(self):
         parameters_per_channel = {}
@@ -940,7 +1254,9 @@ class mosm_model:
             means_guess_per_channel.append(means_guess)
         spectral_means, spectral_variances, spectral_constants = self.package_parameters_in_spectral_form(parameters_per_channel)
         spectral_means = np.transpose(np.array(means_guess_per_channel).reshape((len(self.channels),self.Q)))
-        self.build_model(spectral_constants=spectral_constants, spectral_means=spectral_means, spectral_variances=spectral_variances)
+        parameters = {'components': self.Q, 'spectral_constants': spectral_constants, 'spectral_means': [spectral_means], 'spectral_variances': [spectral_variances]}
+        self.build_model('MOSM', 'full', parameters=parameters)
+        # self.build_model(spectral_constants=spectral_constants, spectral_means=spectral_means, spectral_variances=spectral_variances)
 
     def compute_starting_parameters_keep_means_bayesianly(self):
         parameters_per_channel = {}
@@ -950,14 +1266,18 @@ class mosm_model:
             means_guess_per_channel.append(means_guess)
         spectral_means, spectral_variances, spectral_constants = self.package_parameters_in_spectral_form(parameters_per_channel)
         spectral_means = np.transpose(np.array(means_guess_per_channel).reshape((len(self.channels),self.Q)))
-        self.build_model(spectral_constants=spectral_constants, spectral_means=spectral_means, spectral_variances=spectral_variances)
+        parameters = {'components': self.Q, 'spectral_constants': spectral_constants, 'spectral_means': [spectral_means], 'spectral_variances': [spectral_variances]}
+        self.build_model('MOSM', 'full', parameters=parameters)
+        # self.build_model(spectral_constants=spectral_constants, spectral_means=spectral_means, spectral_variances=spectral_variances)
 ############################################################################################
 
 ############################ Optimisation heuristics #######################################
     #Computes the most relevant frequencies of the training data and uses them as a starting point
     #to optimise the model.
     def optimization_heuristic_zero(self, iterations=1000):
-        self.build_model(spectral_means=self.get_starting_freq())
+        parameters = {'components': self.Q, 'spectral_means' :self.get_starting_freq()}
+        self.build_model('MOSM', 'full', parameters=parameters)
+        # self.build_model(spectral_means=self.get_starting_freq()) with old build method that constructed only MOSM kernels
         # self.build_model_from_freqs(self.get_starting_freq())
         self.optimize(iterations = iterations, display=True)
 
@@ -969,7 +1289,8 @@ class mosm_model:
     #The final step optimises all the parameters.
     def optimization_heuristic_one(self, iterations=1000):
         # self.build_model_from_freqs(self.get_starting_freq())
-        self.build_model(spectral_means=self.get_starting_freq())
+        parameters = {'components': self.Q, 'spectral_means' : self.get_starting_freq()}
+        self.build_model('MOSM', 'full', parameters=parameters)
         self.toggle_trainables(['variances', 'constants'],['means', 'phases', 'delays'])
         self.make_optimization_tools()
         self.optimize(iterations = iterations/5, display=True)
@@ -1038,6 +1359,7 @@ class mosm_model:
     def compute_log_likelihood(self):
         return self.model.compute_log_likelihood()
 ############################################################################################
+
 
 ################################### Old methods ############################################
     #Not defined for q = 1

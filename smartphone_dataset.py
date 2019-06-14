@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 from os import listdir
 import time
-from model import mosm_model
+from model import mogp_model
 
 def conversion(label):
     if(label == 'bike'):
@@ -82,16 +82,16 @@ for index in range(number_of_channels):
     y_list_climb.append(measurements_for_one_instance_of_climbing[:,index]-measurements_for_one_instance_of_climbing[:,index].mean())
 
 starting_time = time.time()
-model = mosm_model(4, optimizer = 'L-BFGS-B') #Powell takes a couple hours to compute, but always converges.
+model = mogp_model(4, optimizer = 'L-BFGS-B') #Powell takes a couple hours to compute, but always converges.
 X_original, y_original = X_list_climb, y_list_climb
 
 
 X_new, y_new, X_deleted, y_deleted = model.remove_slabs(X_list_climb, y_list_climb)
-X_input, Y_input = model.transform_lists_into_multioutput_format(X_new, y_new)
+# X_input, Y_input = model.transform_lists_into_multioutput_format(X_new, y_new)
 model.add_extra_observations(X_deleted, y_deleted, [i for i in range(number_of_channels)])
 
 
-model.add_training_data(X_input,Y_input)
+model.add_training_data(X_new,Y_new)
 
 X_pred_new = model.predict_interval(1000, [x for x in range(number_of_channels)], start = [[0] for x in range(number_of_channels)],end = [[8.4] for x in range(number_of_channels)]) #First argument is the desired resolution (number of points between start and ending point), second argument are the desired channels to predict upon.
 model.optimization_heuristic_zero()

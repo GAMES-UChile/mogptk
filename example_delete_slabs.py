@@ -1,4 +1,4 @@
-from model import mosm_model
+from model import mogp_model
 import numpy as np
 import copy
 import time
@@ -20,7 +20,7 @@ for new_observation in range(3):
     y_list.append(np.sin(6*X_list[new_observation]) + np.random.standard_t(3, X_list[new_observation].shape)*0.3)
 
 #We define the model, stating the number of components Q.
-model = mosm_model(3)
+model = mogp_model(3)
 #Since we know the functions that we're trying to approximate we can declare a
 #set of latent functions. The first argument is the set of functions, and the
 #second argument contains the corresponding channels.
@@ -32,9 +32,9 @@ X_new, y_new, X_deleted, y_deleted = model.remove_slabs(X_list, y_list)
 
 #The model needs a specific format, so we transform our observations
 #to comply with it.
-X, y = model.transform_lists_into_multioutput_format(X_new, y_new)
+# X, y = model.transform_lists_into_multioutput_format(X_new, y_new)
 #With this function we feed the model our training data.
-model.add_training_data(X,y)
+model.add_training_data(X_new, y_new)
 
 #We could add the removed points to plot them in blue.
 model.add_extra_observations(X_deleted,y_deleted,[0,1,2])

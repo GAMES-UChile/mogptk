@@ -1,4 +1,4 @@
-from model import mosm_model
+from model import mogp_model
 import numpy as np
 import csv
 import time
@@ -57,10 +57,10 @@ starting_time = time.time()
 X_y_of_each_object = make_X_y_matrices('./data/PLAsTiCC/training_set.csv')
 #Small example for the first stellar object of id 615
 X, y = X_y_of_each_object[1]
-X_input, Y_input = model.transform_lists_into_multioutput_format(X, y)
+# X_input, Y_input = model.transform_lists_into_multioutput_format(X, y)
 
-model = mosm_model(5, optimizer = 'Powell') #Powell takes a couple hours to compute, but always converges.
-model.add_training_data(X_input, Y_input)
+model = mogp_model(5, optimizer = 'Powell') #Powell takes a couple hours to compute, but always converges.
+model.add_training_data(X, y)
 model.optimization_heuristic_zero()
 X_pred_new = model.predict_interval(3200, [0,1,2,3,4,5]) #First argument is the desired resolution (number of points between start and ending point), second argument are the desired channels to predict upon.
 Y_pred, STD_pred = model.predict(X_pred_new)
