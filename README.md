@@ -31,6 +31,8 @@ To install GPFlow:
 - source the environment TFGPU
 - Go to GPflow folder
 - run pip install .
+
+Note that this toolbox was developed to run on GPflow 1.3.0
 --------------------------------------------------------------------------------------------------
 To install skopt (which is used for initial parameter search using bayesian optimization):
 - pip install scikit-optimize
