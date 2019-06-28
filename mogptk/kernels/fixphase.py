@@ -13,26 +13,26 @@ class FixPhase(Transform):
 
     def forward(self, x):
         total_size = x.shape[0] + self.fixed_inds.shape[0]
-        nonfixed_inds = np.setdiff1d(np.arange(total_size), self.fixed_inds)
+        nonfixed_inds = np.setdiff1d(np.arange(total_size), self.fixed_inds) # TODO: deprecated
         y = np.empty(total_size)
         y[nonfixed_inds] = x
         y[self.fixed_inds] = self.fixed_vals
         return y
 
     def backward(self, y):
-        nonfixed_inds = np.setdiff1d(np.arange(y.shape[0]), self.fixed_inds)
+        nonfixed_inds = np.setdiff1d(np.arange(y.shape[0]), self.fixed_inds) # TODO: deprecated
         x = y[nonfixed_inds]
         return x
 
     def forward_tensor(self, x):
         total_size = tf.shape(x)[0] + self.fixed_inds.shape[0]
-        nonfixed_inds = tf.setdiff1d(tf.range(total_size), self.fixed_inds)[0]
+        nonfixed_inds = tf.setdiff1d(tf.range(total_size), self.fixed_inds)[0] # TODO: deprecated
         y = tf.dynamic_stitch([self.fixed_inds, nonfixed_inds],
                               [self.fixed_vals, x])
         return y
     #New function
     def backward_tensor(self, y):
-        nonfixed_inds = tf.setdiff1d(tf.range(y.shape[0]), self.fixed_inds)
+        nonfixed_inds = tf.setdiff1d(tf.range(y.shape[0]), self.fixed_inds) # TODO: deprecated
         x = y[nonfixed_inds]
         return x
 

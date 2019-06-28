@@ -7,17 +7,14 @@ from tensorflow import reduce_prod as rprod
 
 from .fixphase import FixPhase
 from .fixdelay import FixDelay
-from .multikernel import MultiKern
+from .multikernel import MultiKernel
 
-# from gpflow._settings import settings
-# float_type = settings.dtypes.float_type
-
-
-class MultiSpectralMixtureBlocked(MultiKern):
+class MultiOutputSpectralMixture(MultiKernel):
     def __init__(self, input_dim, output_dim,
                  spectral_constant=None, spectral_mean=None,
                  spectral_variance=None, spectral_delay=None,
                  spectral_phase=None, spectral_noise = None, active_dims=None):
+
         """
         - input_dim is the input dimension as integer
         - output_dim is the output Dimension as integer
@@ -47,7 +44,7 @@ class MultiSpectralMixtureBlocked(MultiKern):
         if spectral_noise is None:
             spectral_noise = np.random.random((output_dim))
 
-        MultiKern.__init__(self, input_dim, output_dim, active_dims)
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(spectral_constant)
         self.mean = Parameter(spectral_mean)
         self.variance = Parameter(spectral_variance, transform=transforms.positive)

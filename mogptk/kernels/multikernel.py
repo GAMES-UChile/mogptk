@@ -4,12 +4,7 @@ import tensorflow as tf
 from gpflow.kernels import Kernel
 from gpflow.decors import params_as_tensors
 
-# from gpflow._settings import settings
-# float_type = settings.dtypes.float_type
-# np_float_type = np.float32 if float_type is tf.float32 else np.float64
-
-
-class MultiKern(Kernel):
+class MultiKernel(Kernel):
     """Abstract class for MultiOutput Kernels.
 
     This abstract kernel assumes input X where the first column is a

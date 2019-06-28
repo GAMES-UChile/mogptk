@@ -7,13 +7,9 @@ from tensorflow import reduce_prod as rprod
 
 from .fixphase import FixPhase
 from .fixdelay import FixDelay
-from .multikernel import MultiKern
+from .multikernel import MultiKernel
 
-# from gpflow._settings import settings
-# float_type = settings.dtypes.float_type
-
-
-class ConvolutionalGaussian(MultiKern):
+class ConvolutionalGaussian(MultiKernel):
     def __init__(self, input_dim, output_dim, spectral_constant=None, spectral_component_variance=None, spectral_channel_variance = None, active_dims=None):
 
         if spectral_constant is None:
@@ -26,7 +22,7 @@ class ConvolutionalGaussian(MultiKern):
             spectral_channel_variance = np.zeros((input_dim, output_dim))
             # spectral_channel_variance = np.random.random((output_dim, input_dim))
 
-        MultiKern.__init__(self, input_dim, output_dim, active_dims)
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(spectral_constant, transform = transforms.positive)
         self.component_variance = Parameter(spectral_component_variance, transform = transforms.positive)
         self.channel_variance = Parameter(spectral_channel_variance, transform = transforms.positive)

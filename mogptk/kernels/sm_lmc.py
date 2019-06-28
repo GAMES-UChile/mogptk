@@ -7,13 +7,9 @@ from tensorflow import reduce_prod as rprod
 
 from .fixphase import FixPhase
 from .fixdelay import FixDelay
-from .multikernel import MultiKern
+from .multikernel import MultiKernel
 
-# from gpflow._settings import settings
-# float_type = settings.dtypes.float_type
-
-
-class SpectralMixtureLMC(MultiKern):
+class SpectralMixtureLMC(MultiKernel):
     def __init__(self, input_dim, output_dim, Rq, spectral_constant=None, spectral_mean=None, spectral_variance=None, active_dims=None):
 
         if spectral_constant is None:
@@ -24,7 +20,7 @@ class SpectralMixtureLMC(MultiKern):
         if spectral_variance is None:
             spectral_variance = np.random.random(input_dim)
 
-        MultiKern.__init__(self, input_dim, output_dim, active_dims)
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(spectral_constant)
         self.mean = Parameter(spectral_mean, transform = transforms.positive)
         self.variance = Parameter(spectral_variance, transform=transforms.positive)

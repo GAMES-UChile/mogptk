@@ -7,13 +7,9 @@ from tensorflow import reduce_prod as rprod
 
 from .fixphase import FixPhase
 from .fixdelay import FixDelay
-from .multikernel import MultiKern
+from .multikernel import MultiKernel
 
-# from gpflow._settings import settings
-# float_type = settings.dtypes.float_type
-
-
-class CrossSpectralMixture(MultiKern):
+class CrossSpectralMixture(MultiKernel):
     def __init__(self, input_dim, output_dim, Rq, spectral_constant=None, spectral_mean=None, spectral_variance=None, spectral_phase=None, active_dims=None):
 
         if spectral_constant is None:
@@ -25,7 +21,7 @@ class CrossSpectralMixture(MultiKern):
         if spectral_phase is None:
             spectral_phase = np.zeros((Rq, output_dim))
 
-        MultiKern.__init__(self, input_dim, output_dim, active_dims)
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(spectral_constant, transform=transforms.positive)
         self.mean = Parameter(spectral_mean, transform = transforms.positive)
         self.variance = Parameter(spectral_variance, transform=transforms.positive)
