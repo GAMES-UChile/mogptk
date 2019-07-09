@@ -1,5 +1,9 @@
 import numpy as np
 import gpflow
+from sklearn import metrics
+
+import logging
+logging.getLogger('tensorflow').propagate = False
 
 def load(filename):
     # data?
@@ -7,22 +11,23 @@ def load(filename):
     return model(None, m)
 
 def Model(data, kernel):
-    x, y = data.get_observations()
+    x, y = data.get_ts_observations()
     m = gpflow.models.GPR(x, y, kernel.build())
-    return model(data, m)
+    return model(data, m, kernel.name)
 
 def SparseModel(data, kernel):
-    x, y = data.get_observations()
+    x, y = data.get_ts_observations()
     m = gpflow.models.SGPR(x, y, kernel.build())
-    return model(data, m)
+    return model(data, m, kernel.name + " (sparse)")
 
 def SparseVariationalModel(data, kernel):
-    x, y = data.get_observations()
+    x, y = data.get_ts_observations()
     m = gpflow.models.SVGP(x, y, kernel.build(), gpflow.likelihoods.Gaussian())
-    return model(data, m)
+    return model(data, m, kernel.name + " (sparse-variational)")
 
 class model:
-    def __init__(self, data, model):
+    def __init__(self, data, model, name=""):
+        self.name = name
         self.data = data
         self.model = model
         self.X_pred = {}
@@ -47,12 +52,18 @@ class model:
 
         self.X_pred[channel] = np.arange(start, end+step, step)
 
-    def optimize(self, optimizer='L-BFGS-B', maxiter=1000, disp=True):
-        opt = gpflow.train.ScipyOptimizer(method=optimizer)
-        opt_tensor = opt.make_optimize_tensor(self.model, gpflow.get_default_session(), maxiter=maxiter, disp=disp)
-        opt_tensor.minimize(session=gpflow.get_default_session())
+    def optimize(self, optimizer='L-BFGS-B', maxiter=1000, disp=True, learning_rate=0.001):
+        if optimizer == 'adam':
+            from gpflow.actions import Loop, Action
+            from gpflow.training import AdamOptimizer
 
-        # TODO: AdamOptimizer from gpflow.training
+            adam = AdamOptimizer(learning_rate).make_optimize_action(self.model)
+            Loop([adam], stop=maxiter)()
+        else:
+            session = gpflow.get_default_session()
+            opt = gpflow.train.ScipyOptimizer(method=optimizer)
+            opt_tensor = opt.make_optimize_tensor(self.model, session, maxiter=maxiter, disp=disp)
+            opt_tensor.minimize(session=session)
 
     def predict(self):
         chan = []
@@ -75,4 +86,44 @@ class model:
                 self.Y_mu_pred[channel] = mu[i:i+n].reshape(1, -1)[0]
                 self.Y_var_pred[channel] = var[i:i+n].reshape(1, -1)[0]
                 i += n
+
+def errors(*args, **kwargs):
+    all_obs = False
+    if "all_obs" in kwargs:
+        all_obs = kwargs["all_obs"]
+    output = False
+    if "print" in kwargs:
+        output = kwargs["print"]
+
+    errors = {
+        "model": [],
+        "MAE": [],
+        "MSE": [],
+    }
+    for model in args:
+        Y_true = np.empty(0)
+        Y_pred = np.empty(0)
+        for channel in range(model.data.get_output_dimensions()):
+            if all_obs:
+                x, y_true = model.data.get_all_observations(channel)
+            else:
+                x, y_true = model.data.get_deleted_observations(channel)
+
+            if len(x) > 0:
+                y_pred = np.interp(x, model.X_pred[channel], model.Y_mu_pred[channel])
+
+                Y_true = np.append(Y_true, y_true)
+                Y_pred = np.append(Y_pred, y_pred)
+            
+        errors["model"].append(model.name)
+        errors["MAE"].append(metrics.mean_absolute_error(Y_true, Y_pred))
+        errors["MSE"].append(metrics.mean_squared_error(Y_true, Y_pred))
+
+    if output:
+        import pandas as pd
+        df = pd.DataFrame(errors)
+        df.set_index('model', inplace=True)
+        display(df)
+    else:
+        return errors
 

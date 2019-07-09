@@ -47,16 +47,7 @@ def plot(model, filename=None, title=None):
             axes[channel, 0].plot(x, y, 'r--', lw=1)
             plotting_F = True
 
-        js = []
-        for i in range(len(data.X[channel])):
-            x = data.X[channel][i]
-            y = data.Y[channel][i]
-            j = np.where(data.X_all[channel] == x)[0]
-            if len(j) == 1 and data.Y_all[channel][j[0]] == y:
-                js.append(j[0])
-
-        X_removed = np.delete(data.X_all[channel], js)
-        Y_removed = np.delete(data.Y_all[channel], js)
+        X_removed, Y_removed = data.get_deleted_observations(channel)
         if len(X_removed) > 0:
             axes[channel, 0].plot(X_removed, Y_removed, 'rx', mew=2, ms=10)
             plotting_all_obs = True
