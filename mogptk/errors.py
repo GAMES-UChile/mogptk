@@ -1,7 +1,13 @@
 import numpy as np
 from sklearn import metrics
+from sklearn.utils import check_arrays
+
+def mean_absolute_percentage_error(y_true, y_pred):
+    y_true, y_pred = check_arrays(y_true, y_pred)
+    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
 def errors(*args, **kwargs):
+    """errors will returns error measures (MAE, MSE, ...) for the model by comparing the deleted observations from the predicted means. The predicted values are interpolated linearly to match the X position of the delete dobservations."""
     all_obs = False
     if "all_obs" in kwargs:
         all_obs = kwargs["all_obs"]
@@ -32,6 +38,7 @@ def errors(*args, **kwargs):
         errors["model"].append(model.name)
         errors["MAE"].append(metrics.mean_absolute_error(Y_true, Y_pred))
         errors["MSE"].append(metrics.mean_squared_error(Y_true, Y_pred))
+        errors["MAPE"].append(mean_absolute_percentage_error(Y_true, Y_pred))
 
     if output:
         import pandas as pd

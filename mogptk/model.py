@@ -23,7 +23,7 @@ class model:
 
     def set_parameter(self, q, key, val):
         if q < 0 or len(self.parameters) <= q:
-            raise Exception("qth component does not exist")
+            raise Exception("qth component %d does not exist" % (q))
         if key not in self.parameters[q]:
             raise Exception("parameter '%s' does not exist" % (key))
         self.parameters[q][key] = val

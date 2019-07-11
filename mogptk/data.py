@@ -12,8 +12,16 @@ class Data:
         self.channel_names = []
 
     def add(self, X, Y, name=None):
-        if type(X) is not np.ndarray or type(Y) is not np.ndarray:
+        """add adds a new channel with data set by X (independant variable) and Y (dependant variable).
+        Optionally, you can set a name to identify the channel and use that in any other function that requires a channel identifier.
+        X and Y need to be of equal length. If X and Y are two dimensional, the second dimension will determine the input dimensionality of the channel."""
+        if isinstance(X, list):
+            X = np.array(X)
+        if isinstance(Y, list):
+            Y = np.array(Y)
+        if isinstance(X, np.ndarray) or isinstance(Y, np.ndarray):
             raise Exception("X and Y must be numpy arrays")
+
         if X.ndim == 2:
             if len(self.X) == 0:
                 self.dims = X.shape[1]
@@ -41,10 +49,12 @@ class Data:
         self.channel_names.append(name)
 
     def set_function(self, channel, f):
+        """set_function sets a (latent) function corresponding to the channel. This is used for plotting functionality and is optional."""
         channel = self.get_channel_index(channel)
         self.F[channel] = f
 
     def add_function(self, f, n, start, end, var=0.0, name=None):
+        """add_function adds a new channel by picking n observations on a (latent) function f, in the interval [start,end]. Optionally, it adds Gaussian noise of variance var to Y (the dependant variable) and allows for naming the channel (see add())."""
         x = np.sort(np.random.uniform(start, end, n))
         y = f(x) + np.random.normal(0.0, var, n)
 
@@ -54,12 +64,15 @@ class Data:
     ################################################################
 
     def get_input_dims(self):
+        """get_input_dims returns the input dimensions (length of the second dimension for X and Y when using add())."""
         return self.dims
 
     def get_output_dims(self):
+        """get_output_dims returns the output dimensions (number of channels) of the data."""
         return len(self.X)
 
     def get_channel_index(self, channel):
+        """get_channel_index returns the channel index for a given channel name and checks if it exists."""
         if isinstance(channel, str):
             if channel not in self.channel_names:
                 raise Exception("channel '%s' does not exist" % (channel))
@@ -69,16 +82,19 @@ class Data:
         return channel
     
     def get_channel_size(self, channel):
+        """get_channel_size returns the number of observations for a channel."""
         channel = self.get_channel_index(channel)
         return self.X[channel].shape[0]
 
     def get_channel_sizes(self):
+        """get_channel_sizes returns the number of observations for all channels as a list."""
         sizes = []
         for x in self.X:
             sizes.append(x.shape[0])
         return sizes
     
     def get_ts_obs(self):
+        """get_ts_obs returns the flattened array format of all observations for use by TensorFlow. In particular this will be an array of all observations of all channels concatenated. For X each entry is a two element array consisting of the channel ID and the X value."""
         chan = []
         for channel in range(len(self.X)):
             chan.append(channel * np.ones(len(self.X[channel])))
@@ -88,14 +104,17 @@ class Data:
         return np.stack((chan, x), axis=1), y.reshape(-1, 1)
     
     def get_obs(self, channel):
+        """get_obs returns the observations for a given channel."""
         channel = self.get_channel_index(channel)
         return self.X[channel], self.Y[channel]
     
     def get_all_obs(self, channel):
+        """get_all_obs returns all observations (including removed observations) for a given channel."""
         channel = self.get_channel_index(channel)
         return self.X_all[channel], self.Y_all[channel]
 
     def get_del_obs(self, channel):
+        """get_del_obs returns the removed observations for a given channel."""
         channel = self.get_channel_index(channel)
 
         js = []
@@ -112,8 +131,8 @@ class Data:
 
     ################################################################
     
-    # remove observations randomly on the whole range for a certain channel, either n observations are removed, or a percentage
     def remove_randomly(self, channel, n=None, pct=None):
+        """remove_randomly removes observations randomly on the whole range for a certain channel, either n observations are removed, or a percentage of the observations."""
         channel = self.get_channel_index(channel)
 
         if n == None:
@@ -126,8 +145,8 @@ class Data:
         self.X[channel] = np.delete(self.X[channel], idx)
         self.Y[channel] = np.delete(self.Y[channel], idx)
     
-    # remove observations on a channel in the interval [start,end]
     def remove_range(self, channel, start=None, end=None):
+        """remove_range removes observations on a channel in the interval [start,end]."""
         channel = self.get_channel_index(channel)
 
         if start == None:
@@ -139,9 +158,9 @@ class Data:
         self.X[channel] = np.delete(self.X[channel], idx)
         self.Y[channel] = np.delete(self.Y[channel], idx)
     
-    # remove observations on a channel between start and end as a percentage of the number of observations.
-    # start and end are in the range [0,1], where 0 is the first observation, 1 the last, and 0.5 the middle observation 
     def remove_relative_range(self, channel, start, end):
+        """remove_relative_range removes observations on a channel between start and end as a percentage of the number of observations.
+        Start and end are in the range [0,1], where 0 is the first observation, 1 the last, and 0.5 the middle observation."""
         channel = self.get_channel_index(channel)
 
         xmin = self.X_all[channel][0]
@@ -151,21 +170,21 @@ class Data:
 
         self.remove_range(channel, start, end)
 
-    # remove a number of ranges on a channel, where ranges is the number of ranges to remove, and range_size the width
-    def remove_random_ranges(self, channel, ranges, range_size):
+    def remove_random_ranges(self, channel, n, size):
+        """remove_random_ranges removes a number of ranges on a channel, where n is the number of ranges to remove, and size the width."""
         channel = self.get_channel_index(channel)
-        if ranges < 1 or range_size < 1:
+        if n < 1 or size < 1:
             return
 
-        n = self.X[channel].shape[0] - ranges*range_size
-        if n <= 0:
+        m = self.X[channel].shape[0] - n*size
+        if m <= 0:
             raise Exception("no data left after removing ranges")
 
-        locs = np.round(np.sort(np.random.rand(ranges)) * n)
+        locs = np.round(np.sort(np.random.rand(n)) * m)
         for i in range(len(locs)):
-            loc = int(locs[i] + i * range_size)
-            self.X[channel] = np.delete(self.X[channel], np.arange(loc, loc+range_size))
-            self.Y[channel] = np.delete(self.Y[channel], np.arange(loc, loc+range_size))
+            loc = int(locs[i] + i * size)
+            self.X[channel] = np.delete(self.X[channel], np.arange(loc, loc+size))
+            self.Y[channel] = np.delete(self.Y[channel], np.arange(loc, loc+size))
 
     ################################################################
 

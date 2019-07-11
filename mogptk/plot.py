@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 def plot(model, filename=None, title=None):
+    """plot will plot the model in graphs per input and output dimensions. Output dimensions will stack the graphs vertically while input dimensions stacks them horizontally. Optionally, you can output the figure to a file and set a title."""
     data = model.data
 
     channels = range(data.get_output_dims())
