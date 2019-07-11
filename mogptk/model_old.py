@@ -1282,8 +1282,7 @@ class model:
 ############################################################################################
 
 ############################ Optimisation heuristics #######################################
-    #Computes the most relevant frequencies of the training data and uses them as a starting point
-    #to optimise the model.
+
     def optimization_heuristic_zero(self, iterations=1000):
         parameters = {'components': self.Q, 'spectral_means' :self.get_starting_freq()}
         self.build_model('MOSM', 'full', parameters=parameters)
@@ -1331,7 +1330,7 @@ class model:
     def optimization_heuristic_three(self):
         self.compute_starting_parameters_bayesianly()
         self.optimize(iters=self.iterations, display=True)
-############################################################################################
+####estimat########################################################################################
 
 ##################################### Metrics ##############################################
     #Given a list of m lists of y values (1 per channel, with m channels) it creates a single list

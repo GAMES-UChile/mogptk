@@ -1,4 +1,5 @@
 import numpy as np
+from mogptk.bnse import *
 
 class Data:
     def __init__(self):
@@ -39,16 +40,23 @@ class Data:
         self.Y_all.append(Y)
         self.channel_names.append(name)
 
-    def set_latent_function(self, channel, f):
+    def set_function(self, channel, f):
         channel = self.get_channel_index(channel)
         self.F[channel] = f
 
+    def add_function(self, f, n, start, end, var=0.0, name=None):
+        x = np.sort(np.random.uniform(start, end, n))
+        y = f(x) + np.random.normal(0.0, var, n)
+
+        self.F[len(self.X)] = f
+        self.add(x, y, name)
+
     ################################################################
 
-    def get_input_dimensions(self):
+    def get_input_dims(self):
         return self.dims
 
-    def get_output_dimensions(self):
+    def get_output_dims(self):
         return len(self.X)
 
     def get_channel_index(self, channel):
@@ -70,7 +78,7 @@ class Data:
             sizes.append(x.shape[0])
         return sizes
     
-    def get_ts_observations(self):
+    def get_ts_obs(self):
         chan = []
         for channel in range(len(self.X)):
             chan.append(channel * np.ones(len(self.X[channel])))
@@ -79,15 +87,15 @@ class Data:
         y = np.concatenate(self.Y)
         return np.stack((chan, x), axis=1), y.reshape(-1, 1)
     
-    def get_observations(self, channel):
+    def get_obs(self, channel):
         channel = self.get_channel_index(channel)
         return self.X[channel], self.Y[channel]
     
-    def get_all_observations(self, channel):
+    def get_all_obs(self, channel):
         channel = self.get_channel_index(channel)
         return self.X_all[channel], self.Y_all[channel]
 
-    def get_deleted_observations(self, channel):
+    def get_del_obs(self, channel):
         channel = self.get_channel_index(channel)
 
         js = []
@@ -161,5 +169,44 @@ class Data:
 
     ################################################################
 
-    # TODO: spectral info
+    def get_nyquist_estimation(self):
+        nyquist = []
+        for channel in range(self.get_output_dims()):
+            x = self.X[channel]
+            dist = np.min(np.abs(x[1:]-x[:-1]))
+            nyquist.append(0.5/dist)
+        return nyquist
+
+    def get_bnse_estimation(self, Q=1):
+        freqs = []
+        amps = []
+        nyquist = self.get_nyquist_estimation()
+        for channel in range(self.get_output_dims()):
+            bnse = bse(self.X[channel], self.Y[channel])
+            bnse.set_freqspace(nyquist[channel])
+            bnse.train()
+            bnse.compute_moments()
+
+            peaks, amplitudes = bnse.get_freq_peaks()
+            peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0])])
+            amplitudes.sort()
+
+            if Q < len(peaks):
+                peaks = peaks[:Q]
+                amplitudes = amplitudes[:Q]
+            elif len(peaks) != 0:
+                i = 0
+                n = len(peaks)
+                while Q > len(peaks):
+                    peaks = np.append(peaks, peaks[i] + (np.random.standard_t(3, 1) * 0.01)[0])
+                    amplitudes = np.append(amplitudes, amplitudes[i])
+                    i = (i+1) % n
+
+            # TODO: use input dims
+            peaks = np.expand_dims(peaks, axis=0)
+            amplitudes = np.expand_dims(amplitudes, axis=0)
+
+            freqs.append(2*np.pi*peaks)
+            amps.append(amplitudes)
+        return freqs, amps
 

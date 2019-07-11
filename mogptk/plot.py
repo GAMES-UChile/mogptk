@@ -5,9 +5,9 @@ import seaborn as sns
 def plot(model, filename=None, title=None):
     data = model.data
 
-    channels = range(data.get_output_dimensions())
+    channels = range(data.get_output_dims())
     for channel in channels:
-        input_dims = data.get_input_dimensions()
+        input_dims = data.get_input_dims()
         if input_dims == 0:
             channels.remove(channel)
         elif input_dims != 1:
@@ -47,7 +47,7 @@ def plot(model, filename=None, title=None):
             axes[channel, 0].plot(x, y, 'r--', lw=1)
             plotting_F = True
 
-        X_removed, Y_removed = data.get_deleted_observations(channel)
+        X_removed, Y_removed = data.get_del_obs(channel)
         if len(X_removed) > 0:
             axes[channel, 0].plot(X_removed, Y_removed, 'rx', mew=2, ms=10)
             plotting_all_obs = True
