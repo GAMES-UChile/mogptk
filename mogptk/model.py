@@ -85,6 +85,15 @@ class model:
                 step = (end-start)/100
             self.X_pred[channel] = np.arange(start, end+step, step)
 
+    def set_prediction_x(self, channel, x):
+        channel = self.data.get_channel_index(channel)
+        if isinstance(x, list):
+            x = np.array(x)
+        elif not isinstance(x, np.ndarray):
+            raise Exception("x expected to be a list or Numpy array")
+
+        self.X_pred[channel] = x
+
     def predict(self):
         chan = []
         for channel in self.X_pred:
