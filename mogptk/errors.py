@@ -1,9 +1,9 @@
 import numpy as np
 from sklearn import metrics
-from sklearn.utils import check_arrays
+from sklearn.utils import check_array
 
 def mean_absolute_percentage_error(y_true, y_pred):
-    y_true, y_pred = check_arrays(y_true, y_pred)
+    y_true, y_pred = check_array(y_true, y_pred)
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
 def errors(*args, **kwargs):

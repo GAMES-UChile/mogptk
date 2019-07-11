@@ -19,7 +19,7 @@ class Data:
             X = np.array(X)
         if isinstance(Y, list):
             Y = np.array(Y)
-        if isinstance(X, np.ndarray) or isinstance(Y, np.ndarray):
+        if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
             raise Exception("X and Y must be numpy arrays")
 
         if X.ndim == 2:
