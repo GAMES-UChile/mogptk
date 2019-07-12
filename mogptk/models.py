@@ -3,6 +3,7 @@ from .kernels import MultiOutputSpectralMixture, SpectralMixtureLMC, Convolution
 import numpy as np
 
 class MOSM(model):
+    """MOSM is the Multi Output Spectral Mixture kernel as proposed by our paper. It takes a number of components Q and allows for recommended initial parameter estimation to improve optimization outputs."""
     def __init__(self, data, Q=1):
         model.__init__(self, "MOSM", data, Q)
 
@@ -34,6 +35,7 @@ class MOSM(model):
         return kernel_set
 
 class CSM(model):
+    """CSM is the Cross Spectral Mixture kernel with Q components and Rq latent functions (TODO: true?)."""
     def __init__(self, data, Q=1, Rq=1):
         model.__init__(self, "CSM", data, Q)
         self.Rq = Rq
@@ -48,6 +50,7 @@ class CSM(model):
         return kernel_set
 
 class SM_LMC(model):
+    """SM_LMC is the Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions (TODO: true?)."""
     def __init__(self, data, Q=1, Rq=1):
         model.__init__(self, "SM-LMC", data, Q)
         self.Rq = Rq
@@ -62,6 +65,7 @@ class SM_LMC(model):
         return kernel_set
 
 class CG(model):
+    """CG is the Convolutional Gaussian kernel with Q components."""
     def __init__(self, data, Q=1):
         model.__init__(self, "CG", data, Q)
 

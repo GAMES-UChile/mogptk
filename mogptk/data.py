@@ -2,6 +2,7 @@ import numpy as np
 from mogptk.bnse import *
 
 class Data:
+    """Data is the data object that holds all the observations and latent functions. It has functionality to add or remove observations in several ways, for example removing data ranges from the observations to simulate sensor failure."""
     def __init__(self):
         self.X = []
         self.Y = []

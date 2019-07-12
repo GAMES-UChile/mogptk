@@ -7,7 +7,7 @@ def mean_absolute_percentage_error(y_true, y_pred):
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
 def errors(*args, **kwargs):
-    """errors will returns error measures (MAE, MSE, ...) for the model by comparing the deleted observations from the predicted means. The predicted values are interpolated linearly to match the X position of the delete dobservations."""
+    """errors will returns error measures (MAE, MSE, MAPE, ...) for the model by comparing the deleted observations from the predicted means. The predicted values are interpolated linearly to match the X position of the delete dobservations. However if a latent function is defined in the data this will be used as the true values, which gets rid of the imposed Gaussian error on the observations."""
     all_obs = False
     if "all_obs" in kwargs:
         all_obs = kwargs["all_obs"]
@@ -30,6 +30,9 @@ def errors(*args, **kwargs):
                 x, y_true = model.data.get_del_obs(channel)
 
             if len(x) > 0:
+                if channel in model.data.F:
+                    y_true = model.data.F[channel](x) # use exact latent function to remove imposed Gaussian error on data points
+
                 y_pred = np.interp(x, model.X_pred[channel], model.Y_mu_pred[channel])
 
                 Y_true = np.append(Y_true, y_true)
