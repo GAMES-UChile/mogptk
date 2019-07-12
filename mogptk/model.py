@@ -86,6 +86,9 @@ class model:
             self.model.anchor(self.session)
             self._update_parameters(self.model.read_trainables())
 
+        if disp:
+            print("Done")
+
 
     ################################################################################
     # Predictions ##################################################################
