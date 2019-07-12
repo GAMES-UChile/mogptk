@@ -17,6 +17,18 @@ class model:
         self.Q = Q
         self.parameters = []
 
+    def _kernel(self):
+        # overridden by specific models
+        raise Exception("kernel not specified")
+
+    def _update_parameters(self, trainables):
+        # overridden by specific models
+        raise Exception("kernel not specified")
+
+    def get_parameters(self):
+        """get_parameters returns all parameters set for the kernel per component."""
+        return self.parameters
+
     def set_parameter(self, q, key, val):
         """set_parameter sets an initial kernel parameter prior to optimizations for component q with key the parameter name."""
         if q < 0 or len(self.parameters) <= q:
@@ -25,21 +37,18 @@ class model:
             raise Exception("parameter name '%s' does not exist" % (key))
         self.parameters[q][key] = val
 
-    def kernel(self):
-        raise Exception("kernel not specified")
-
     def build(self, kind='full'):
         """build builds the model using the kernel and its parameters."""
         x, y = self.data.get_ts_obs()
         if kind == 'full':
-            self.model = gpflow.models.GPR(x, y, self.kernel())
+            self.model = gpflow.models.GPR(x, y, self._kernel())
         elif kind == 'sparse':
             # TODO: test if induction points are set
             self.name += ' (sparse)'
-            self.model = gpflow.models.SGPR(x, y, self.kernel())
+            self.model = gpflow.models.SGPR(x, y, self._kernel())
         elif kind == 'sparse-variational':
             self.name += ' (sparse-variational)'
-            self.model = gpflow.models.SVGP(x, y, self.kernel(), gpflow.likelihoods.Gaussian())
+            self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
         else:
             raise Exception("model type '%s' does not exist" % (kind))
 
@@ -56,20 +65,26 @@ class model:
         if self.model == None:
             raise Exception("build the model before optimizing it")
 
+        if disp:
+            print("Optimizing...")
+
         if optimizer == 'Adam':
             from gpflow.actions import Loop, Action
             from gpflow.training import AdamOptimizer
 
             adam = AdamOptimizer(learning_rate).make_optimize_action(self.model)
             Loop([adam], stop=maxiter)()
+            # TODO: retrieve trainables
         else:
-            session = gpflow.get_default_session()
+            self.session = gpflow.get_default_session()
             opt = gpflow.train.ScipyOptimizer(method=optimizer)
-            opt_tensor = opt.make_optimize_tensor(self.model, session, maxiter=maxiter, disp=disp)
-            opt_tensor.minimize(session=session)
-
-            #self.model.anchor(session)
-            #print(self.model.read_trainables())
+            opt_tensor = opt.make_optimize_tensor(self.model, self.session, maxiter=maxiter, disp=disp)
+            opt_tensor.minimize(session=self.session)
+            
+            if disp:
+                print("Downloading parameters...")
+            self.model.anchor(self.session)
+            self._update_parameters(self.model.read_trainables())
 
 
     ################################################################################

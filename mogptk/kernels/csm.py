@@ -10,22 +10,22 @@ from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
 class CrossSpectralMixture(MultiKernel):
-    def __init__(self, input_dim, output_dim, Rq, spectral_constant=None, spectral_mean=None, spectral_variance=None, spectral_phase=None, active_dims=None):
+    def __init__(self, input_dim, output_dim, Rq, constant=None, mean=None, variance=None, phase=None, active_dims=None):
 
-        if spectral_constant is None:
-            spectral_constant = np.random.random((Rq, output_dim))
-        if spectral_mean is None:
-            spectral_mean = np.random.random(input_dim)
-        if spectral_variance is None:
-            spectral_variance = np.random.random(input_dim)
-        if spectral_phase is None:
-            spectral_phase = np.zeros((Rq, output_dim))
+        if constant is None:
+            constant = np.random.random((Rq, output_dim))
+        if mean is None:
+            mean = np.random.random(input_dim)
+        if variance is None:
+            variance = np.random.random(input_dim)
+        if phase is None:
+            phase = np.zeros((Rq, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = Parameter(spectral_constant, transform=transforms.positive)
-        self.mean = Parameter(spectral_mean, transform = transforms.positive)
-        self.variance = Parameter(spectral_variance, transform=transforms.positive)
-        self.phase = Parameter(spectral_phase, transform = transforms.positive)
+        self.constant = Parameter(constant, transform=transforms.positive)
+        self.mean = Parameter(mean, transform = transforms.positive)
+        self.variance = Parameter(variance, transform=transforms.positive)
+        self.phase = Parameter(phase, transform = transforms.positive)
         self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
 
     def subK(self, index, X, X2=None):

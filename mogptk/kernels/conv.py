@@ -10,22 +10,19 @@ from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
 class ConvolutionalGaussian(MultiKernel):
-    def __init__(self, input_dim, output_dim, spectral_constant=None, spectral_component_variance=None, spectral_channel_variance = None, active_dims=None):
+    def __init__(self, input_dim, output_dim, constant=None, component_variance=None, channel_variance = None, active_dims=None):
 
-        if spectral_constant is None:
-            spectral_constant = np.random.random(output_dim)
-            # spectral_constant = np.random.randn(output_dim)
-        if spectral_component_variance is None:
-            spectral_component_variance = np.random.random(input_dim)
-        if spectral_channel_variance is None:
-            # spectral_channel_variance = np.random.random((input_dim, output_dim))
-            spectral_channel_variance = np.zeros((input_dim, output_dim))
-            # spectral_channel_variance = np.random.random((output_dim, input_dim))
+        if constant is None:
+            constant = np.random.random(output_dim)
+        if component_variance is None:
+            component_variance = np.random.random(input_dim)
+        if channel_variance is None:
+            channel_variance = np.zeros((input_dim, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = Parameter(spectral_constant, transform = transforms.positive)
-        self.component_variance = Parameter(spectral_component_variance, transform = transforms.positive)
-        self.channel_variance = Parameter(spectral_channel_variance, transform = transforms.positive)
+        self.constant = Parameter(constant, transform = transforms.positive)
+        self.component_variance = Parameter(component_variance, transform = transforms.positive)
+        self.channel_variance = Parameter(channel_variance, transform = transforms.positive)
         self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
 
     def subK(self, index, X, X2=None):
