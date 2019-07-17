@@ -8,8 +8,25 @@ def mean_absolute_percentage_error(y_true, y_pred):
     y_pred = y_pred[idx]
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
-def errors(*args, **kwargs):
-    """errors will returns error measures (MAE, MSE, MAPE, ...) for the model by comparing the deleted observations from the predicted means. The predicted values are interpolated linearly to match the X position of the delete dobservations. However if a latent function is defined in the data this will be used as the true values, which gets rid of the imposed Gaussian error on the observations."""
+def errors(model_list, **kwargs):
+    """
+    Return error metrics for given models.
+
+    errors will returns error measures (MAE, MSE, MAPE) for the model by comparing the deleted observations from the predicted means.
+    The predicted values are interpolated linearly to match the X position of the delete dobservations.
+    However if a latent function is defined in the data this will be used as the true values, which gets rid of the imposed Gaussian error on the observations.
+
+    Args:
+        model_list: Iterable with mogptk models to evaluate.
+    
+    Returns:
+        errors (dic): Dictionary with lists of ndarrays containing different error metrics per model, per channel.
+
+        The dictionary has three keys, 'model' which contains model name; 'MAE' contains mean absolute error; 'MSE' mean squared error; 'MAPE' mean absolute percentage error.
+        
+
+
+    """
     all_obs = False
     if "all_obs" in kwargs:
         all_obs = kwargs["all_obs"]
@@ -23,7 +40,7 @@ def errors(*args, **kwargs):
         "MSE": [],
         "MAPE": [],
     }
-    for model in args:
+    for model in model_list:
         Y_true = np.empty(0)
         Y_pred = np.empty(0)
         for channel in range(model.data.get_output_dims()):
