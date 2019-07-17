@@ -22,7 +22,8 @@ class MOSM(model):
     def estimate_means(self):
         peaks, _ = self.data.get_bnse_estimation(self.data.get_output_dims())
         for q in range(self.Q):
-            self.parameters[q]["mean"] = peaks[q]
+            if self.parameters[q]["mean"].shape == peaks[q].shape:
+                self.parameters[q]["mean"] = peaks[q]
 
     def _kernel(self):
         params = self.parameters
