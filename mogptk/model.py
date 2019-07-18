@@ -10,6 +10,24 @@ def load(filename):
     return model(None, m)
 
 class model:
+    """
+    Multioutput Gaussian proccess model. Can be either MOSM, CSM, SM-LMC or CONV.
+
+    This class is used to use a multioutput GP model, train and test data can be added,
+    the model can be used to train a predict.
+
+    Example:
+
+        --
+
+    Atributes:
+        name ():
+        data (obj, instance of mogptk.data):
+        model ():
+        Q ():
+        parameters ():
+    """
+
     def __init__(self, name, data, Q):
         self.name = name
         self.data = data
@@ -26,19 +44,36 @@ class model:
         raise Exception("kernel not specified")
 
     def get_parameters(self):
-        """get_parameters returns all parameters set for the kernel per component."""
+        """
+        Returns all parameters set for the kernel per component.
+        """
         return self.parameters
 
     def set_parameter(self, q, key, val):
-        """set_parameter sets an initial kernel parameter prior to optimizations for component q with key the parameter name."""
+        """
+        Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.
+
+        Args:
+            q (int): Component of kernel.
+
+            key (str): Name of component.
+
+            val (float, ndarray): Value of parameter.
+        """
         if q < 0 or len(self.parameters) <= q:
             raise Exception("qth component %d does not exist" % (q))
         if key not in self.parameters[q]:
             raise Exception("parameter name '%s' does not exist" % (key))
+
         self.parameters[q][key] = val
 
     def build(self, kind='full'):
-        """build builds the model using the kernel and its parameters."""
+        """
+        Builds the model using the kernel and its parameters.
+
+        Args:
+            kind (str): Type of model to use, posible mode are 'full', 'sparse' and 'sparse-variational'.
+        """
         x, y = self.data.get_ts_obs()
         if kind == 'full':
             self.model = gpflow.models.GPR(x, y, self._kernel())
@@ -61,7 +96,24 @@ class model:
         gpflow.saver.Saver().save(filename, self.model)
 
     def optimize(self, optimizer='L-BFGS-B', maxiter=1000, disp=True, learning_rate=0.001):
-        """optimize optimizes the kernel parameters by an optimizer (see scipy.optimize.minimize for available optimizers). It can be bounded by a maximum number of iterations, disp will output final optimization information. When using the 'Adam' optimizer, a learning_rate can be set."""
+        """
+        Optimizes the kernel parameters.
+
+        For different optimizers, see scipy.optimize.minimize.
+        It can be bounded by a maximum number of iterations, disp will output final optimization information.
+        When using the 'Adam' optimizer, a learning_rate can be set.
+
+        Args:
+            optimizer (str): Optimizer to use, if "Adam" is chosen, gpflow.training.Adamoptimizer will be used,
+                otherwise the passed scipy optimizer is used. Default to scipy 'L-BFGS-B'.
+
+            maxiter (int): Maximum number of iterations, default to 1000.
+
+            disp (bool): If true it display information on the optimization, only valid to scipy optimizers.
+                Default to True.
+
+            learning_rate(float): Learning rate of Adam optimizer. Only valid with Adam, default to 0.001.
+        """
         if self.model == None:
             raise Exception("build the model before optimizing it")
 
@@ -101,14 +153,42 @@ class model:
         return self.X_pred, self.Y_mu_pred, self.Y_var_pred
 
     def get_channel_predictions(self, channel):
-        """get_channel_predictions returns the X, Y_mu, Y_var values for a certain channel."""
+        """
+        Returns the input, posterior mean and posterior variance values for a given channel.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+        Returns
+        """
         if len(self.X_pred) == 0:
             raise Exception("use predict before retrieving the predictions on the model")
         channel = self.data.get_channel_index(channel)
+
         return self.X_pred[channel], self.Y_mu_pred[channel], self.Y_var_pred[channel]
 
     def set_prediction_range(self, channel, start=None, end=None, step=None, n=None):
-        """set_prediction_range sets the prediction range for a certain channel in the interval [start,end] with either a stepsize step or a number of points n."""
+        """
+        Sets the prediction range for a certain channel in the interval [start,end].
+        with either a stepsize step or a number of points n.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            start (float, optional): Initial value of range, if not passed the first point of training
+                data is taken. Default to None.
+
+            end (float, optional): Final value of range, if not passed the last point of training
+                data is taken. Default to None.
+
+            step (float, optional): Spacing between values.
+
+            n (int, optional): Number of samples to generate.
+
+            If neither "step" or "n" is passed, default number of points is 100.
+         """
         channel = self.data.get_channel_index(channel)
         if start == None:
             start = self.data.X[channel][0]
@@ -129,8 +209,9 @@ class model:
         Sets the prediction range using a list of Numpy array for a certain channel.
 
         Args:
-        	channel(str): Name of the channel.
-        	x(ndarray): Numpy array with input values for channel.
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+            x (ndarray): Numpy array with input values for channel.
         """
         channel = self.data.get_channel_index(channel)
         if isinstance(x, list):
@@ -140,18 +221,17 @@ class model:
 
         self.X_pred[channel] = x
 
-
     def set_prediction_full(self, x_pred):
-    	"""
-    	Sets input predictions for all channels
+        """
+        Sets input predictions for all channels
 
-    	Args:
-    		x_pred(dict): Dictionary where keys are channel index and elements numpy arrays with 
-    		              channel inputs.
-    	"""
-    	assert isinstance(x_pred, dict), 'x_pred expected to be a dictionary'
+        Args:
+            x_pred (dict): Dictionary where keys are channel index and elements numpy arrays with 
+                          channel inputs.
+        """
+        assert isinstance(x_pred, dict), 'x_pred expected to be a dictionary'
 
-    	self.X_pred = x_pred
+        self.X_pred = x_pred
 
     def predict(self, x=None):
         """
@@ -162,18 +242,18 @@ class model:
         It returns the X, Y_mu, Y_var values per channel.
 
         Args:
-        	x(dict): Dictionary where keys are channel index and elements numpy arrays with 
-    		              channel inputs.
+            x (dict): Dictionary where keys are channel index and elements numpy arrays with 
+                          channel inputs.
 
-		Returns:
-			X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+        Returns:
+            X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
 
         """
         if self.model == None:
             raise Exception("build (and optimize) the model before doing predictions")
 
         if x is not None:
-        	self.set_prediction_full(x)
+            self.set_prediction_full(x)
 
         chan = []
         for channel in self.X_pred:
