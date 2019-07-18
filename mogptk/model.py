@@ -125,7 +125,13 @@ class model:
             self.X_pred[channel] = np.arange(start, end+step, step)
 
     def set_prediction_x(self, channel, x):
-        """set_prediction_x sets the prediction range using a list of Numpy array for a certain channel."""
+        """
+        Sets the prediction range using a list of Numpy array for a certain channel.
+
+        Args:
+        	channel(str): Name of the channel.
+        	x(ndarray): Numpy array with input values for channel.
+        """
         channel = self.data.get_channel_index(channel)
         if isinstance(x, list):
             x = np.array(x)
@@ -134,10 +140,40 @@ class model:
 
         self.X_pred[channel] = x
 
-    def predict(self):
-        """predict will make a prediction in the data ranges set by the various prediction range setters. This function will return the X, Y_mu, Y_var values per channel."""
+
+    def set_prediction_full(self, x_pred):
+    	"""
+    	Sets input predictions for all channels
+
+    	Args:
+    		x_pred(dict): Dictionary where keys are channel index and elements numpy arrays with 
+    		              channel inputs.
+    	"""
+    	assert isinstance(x_pred, dict), 'x_pred expected to be a dictionary'
+
+    	self.X_pred = x_pred
+
+    def predict(self, x=None):
+        """
+        Predict with model.
+
+        Will make a prediction using x as input. If no input value is passed, the prediction will 
+        be made with atribute self.X_pred that can be setted with other functions.
+        It returns the X, Y_mu, Y_var values per channel.
+
+        Args:
+        	x(dict): Dictionary where keys are channel index and elements numpy arrays with 
+    		              channel inputs.
+
+		Returns:
+			X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+
+        """
         if self.model == None:
             raise Exception("build (and optimize) the model before doing predictions")
+
+        if x is not None:
+        	self.set_prediction_full(x)
 
         chan = []
         for channel in self.X_pred:
