@@ -18,13 +18,13 @@ class model:
 
     Example:
 
-        --
+        ---TO-DO---
 
     Atributes:
         name ():
         data (obj, instance of mogptk.data):
         model ():
-        Q ():
+        Q (int): Number of components of the model.
         parameters ():
     """
 
@@ -147,7 +147,13 @@ class model:
     ################################################################################
 
     def get_predictions(self):
-        """get_predictions returns the X, Y_mu, Y_var values per channel."""
+        """
+        Returns the input, posterior mean and posterior variance values all channels.
+
+        Returns:
+            x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
+                posterior variance of the las prediction done. 
+        """
         if len(self.X_pred) == 0:
             raise Exception("use predict before retrieving the predictions on the model")
         return self.X_pred, self.Y_mu_pred, self.Y_var_pred
@@ -160,7 +166,9 @@ class model:
             channel (str, int): Channel to set prediction, can be either a string with the name
                 of the channel or a integer with the index.
 
-        Returns
+        Returns:
+            x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
+                posterior variance of the las prediction done. 
         """
         if len(self.X_pred) == 0:
             raise Exception("use predict before retrieving the predictions on the model")

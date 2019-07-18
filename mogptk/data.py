@@ -2,7 +2,14 @@ import numpy as np
 from mogptk.bnse import *
 
 class Data:
-    """Data is the data object that holds all the observations and latent functions. It has functionality to add or remove observations in several ways, for example removing data ranges from the observations to simulate sensor failure."""
+    """
+    Class that holds all the observations and latent functions.
+
+    It has functionality to add or remove observations in several ways,
+    for example removing data ranges from the observations to simulate sensor failure.
+    
+    Atributes:
+    """
     def __init__(self):
         self.X = []
         self.Y = []
@@ -13,9 +20,20 @@ class Data:
         self.channel_names = []
 
     def add(self, X, Y, name=None):
-        """add adds a new channel with data set by X (independant variable) and Y (dependant variable).
-        Optionally, you can set a name to identify the channel and use that in any other function that requires a channel identifier.
-        X and Y need to be of equal length. If X and Y are two dimensional, the second dimension will determine the input dimensionality of the channel."""
+        """
+        Adds a new channel with data set by X (input) and Y (output).
+
+
+        Optionally, you can set a name to identify the channel and use that in
+        any other function that requires a channel identifier.
+        X and Y need to be of equal length. If X and Y are two dimensional,
+        the second dimension will determine the input dimensionality of the channel.
+
+        Args:
+            X (list, ndarray):
+            Y (list. ndarray):
+            name (str, optional):
+        """
         if isinstance(X, list):
             X = np.array(X)
         if isinstance(Y, list):

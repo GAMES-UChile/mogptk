@@ -3,7 +3,11 @@ from .kernels import MultiOutputSpectralMixture, SpectralMixtureLMC, Convolution
 import numpy as np
 
 class MOSM(model):
-    """MOSM is the Multi Output Spectral Mixture kernel as proposed by our paper. It takes a number of components Q and allows for recommended initial parameter estimation to improve optimization outputs."""
+    """
+    Multi Output Spectral Mixture kernel as proposed by our paper.
+
+    It takes a number of components Q and allows for recommended initial
+    parameter estimation to improve optimization outputs."""
     def __init__(self, data, Q=1, name="MOSM"):
         model.__init__(self, name, data, Q)
 
@@ -28,7 +32,17 @@ class MOSM(model):
     def _kernel(self):
         params = self.parameters
         for q in range(self.Q):
-            kernel = MultiOutputSpectralMixture(self.data.get_input_dims(), self.data.get_output_dims(), params[q]["magnitude"], params[q]["mean"], params[q]["variance"], params[q]["delay"], params[q]["phase"], params[q]["noise"])
+            kernel = MultiOutputSpectralMixture(
+                self.data.get_input_dims(),
+                self.data.get_output_dims(),
+                params[q]["magnitude"],
+                params[q]["mean"],
+                params[q]["variance"],
+                params[q]["delay"],
+                params[q]["phase"],
+                params[q]["noise"],
+                )
+
             if q == 0:
                 kernel_set = kernel
             else:
@@ -44,7 +58,10 @@ class MOSM(model):
                 self.parameters[q][name] = val
 
 class CSM(model):
-    """CSM is the Cross Spectral Mixture kernel with Q components and Rq latent functions (TODO: true?)."""
+    """
+    Cross Spectral Mixture kernel with Q components and Rq latent functions
+    (TODO: true?).
+    """
     def __init__(self, data, Q=1, Rq=1, name="CSM"):
         model.__init__(self, name, data, Q)
         self.Rq = Rq
@@ -62,7 +79,9 @@ class CSM(model):
         pass
 
 class SM_LMC(model):
-    """SM_LMC is the Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions (TODO: true?)."""
+    """
+    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions
+    (TODO: true?)."""
     def __init__(self, data, Q=1, Rq=1, name="SM-LMC"):
         model.__init__(self, name, data, Q)
         self.Rq = Rq
@@ -80,7 +99,9 @@ class SM_LMC(model):
         pass
 
 class CG(model):
-    """CG is the Convolutional Gaussian kernel with Q components."""
+    """
+    CG is the Convolutional Gaussian kernel with Q components.
+    """
     def __init__(self, data, Q=1, name="CG"):
         model.__init__(self, name, data, Q)
 
