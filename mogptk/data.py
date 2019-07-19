@@ -94,16 +94,6 @@ class Data:
             sizes.append(x.shape[0])
         return sizes
     
-    def get_ts_obs(self):
-        """get_ts_obs returns the flattened array format of all observations for use by TensorFlow. In particular this will be an array of all observations of all channels concatenated. For X each entry is a two element array consisting of the channel ID and the X value."""
-        chan = []
-        for channel in range(len(self.X)):
-            chan.append(channel * np.ones(len(self.X[channel])))
-        chan = np.concatenate(chan)
-        x = np.concatenate(self.X)
-        y = np.concatenate(self.Y)
-        return np.stack((chan, x), axis=1), y.reshape(-1, 1)
-    
     def get_obs(self, channel):
         """get_obs returns the observations for a given channel."""
         channel = self.get_channel_index(channel)
@@ -229,4 +219,3 @@ class Data:
             freqs.append(2*np.pi*peaks)
             amps.append(amplitudes)
         return freqs, amps
-

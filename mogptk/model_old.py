@@ -1104,8 +1104,6 @@ class model:
 
         means_guess_orig, amplitudes = self.compute_freq_peaks_bnse(channel_X, channel_y, self.Q)
         weights_orig = amplitudes*channel_y.std()
-        weights_orig = weights_orig/np.sum(weights_orig)
-        weights_orig = np.sqrt(weights_orig)
 
         hp_candidate = None
         nll_value = None

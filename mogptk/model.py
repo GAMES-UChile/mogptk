@@ -20,26 +20,35 @@ class model:
     def _kernel(self):
         # overridden by specific models
         raise Exception("kernel not specified")
-
-    def _update_parameters(self, trainables):
+    
+    def _transform_data(self, x, y):
         # overridden by specific models
         raise Exception("kernel not specified")
 
-    def get_parameters(self):
-        """get_parameters returns all parameters set for the kernel per component."""
+    def get_params(self):
+        """get_params returns all parameters set for the kernel per component."""
         return self.parameters
 
-    def set_parameter(self, q, key, val):
-        """set_parameter sets an initial kernel parameter prior to optimizations for component q with key the parameter name."""
+    def set_param(self, q, key, val):
+        """set_param sets an initial kernel parameter prior to optimizations for component q with key the parameter name."""
         if q < 0 or len(self.parameters) <= q:
             raise Exception("qth component %d does not exist" % (q))
         if key not in self.parameters[q]:
             raise Exception("parameter name '%s' does not exist" % (key))
         self.parameters[q][key] = val
 
-    def build(self, kind='full'):
-        """build builds the model using the kernel and its parameters."""
-        x, y = self.data.get_ts_obs()
+    def save(self, filename):
+        # TODO: needs testing and saving training data?
+        gpflow.saver.Saver().save(filename, self.model)
+
+    def train(self, kind='full', method='L-BFGS-B', maxiter=1000, disp=True, learning_rate=0.001):
+        """train optimizes the kernel parameters by an optimizer (see scipy.optimize.minimize for available optimizers). It can be bounded by a maximum number of iterations, disp will output final optimization information. When using the 'Adam' optimizer, a learning_rate can be set."""
+        
+        if disp:
+            print("Building...")
+
+        x, y = self._transform_data(self.data.X, self.data.Y)
+
         if kind == 'full':
             self.model = gpflow.models.GPR(x, y, self._kernel())
         elif kind == 'sparse':
@@ -56,35 +65,22 @@ class model:
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-    def save(self, filename):
-        # TODO: needs testing and saving training data?
-        gpflow.saver.Saver().save(filename, self.model)
-
-    def optimize(self, optimizer='L-BFGS-B', maxiter=1000, disp=True, learning_rate=0.001):
-        """optimize optimizes the kernel parameters by an optimizer (see scipy.optimize.minimize for available optimizers). It can be bounded by a maximum number of iterations, disp will output final optimization information. When using the 'Adam' optimizer, a learning_rate can be set."""
-        if self.model == None:
-            raise Exception("build the model before optimizing it")
-
         if disp:
             print("Optimizing...")
 
-        if optimizer == 'Adam':
-            from gpflow.actions import Loop, Action
-            from gpflow.training import AdamOptimizer
+        opt = gpflow.train.ScipyOptimizer(method=method)
+        opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter)
 
-            adam = AdamOptimizer(learning_rate).make_optimize_action(self.model)
-            Loop([adam], stop=maxiter)()
-            # TODO: retrieve trainables
-        else:
-            self.session = gpflow.get_default_session()
-            opt = gpflow.train.ScipyOptimizer(method=optimizer)
-            opt_tensor = opt.make_optimize_tensor(self.model, self.session, maxiter=maxiter, disp=disp)
-            opt_tensor.minimize(session=self.session)
-            
-            if disp:
-                print("Downloading parameters...")
-            self.model.anchor(self.session)
-            self._update_parameters(self.model.read_trainables())
+        # Update parameters
+        for key, val in self.model.read_trainables().items():
+            names = key.split("/", 4)
+            if len(names) == 5 and names[1] == 'kern' and names[2] == 'kernels':
+                q = int(names[3])
+                name = names[4]
+                self.parameters[q][name] = val
+            elif len(names) == 3 and names[1] == 'kern':
+                name = names[2]
+                self.parameters[0][name] = val
 
         if disp:
             print("Done")
@@ -123,6 +119,20 @@ class model:
             if step == None:
                 step = (end-start)/100
             self.X_pred[channel] = np.arange(start, end+step, step)
+    
+    def set_predictions(self, xs):
+        """set_predictions sets the prediction ranges for all channels and can be either a list, Numpy array or a dictionary, where the index/key is the channel ID/name and the values are either lists or Numpy arrays."""
+        if isinstance(xs, list):
+            xs = np.array(xs)
+
+        if isinstance(xs, np.ndarray):
+            for channel in range(len(xs)):
+                self.set_prediction_x(channel, xs[channel])
+        elif isinstance(xs, dict):
+            for channel, x in xs.items():
+                self.set_prediction_x(channel, x)
+        else:
+            raise Exception("xs expected to be a list, dict or Numpy array")
 
     def set_prediction_x(self, channel, x):
         """set_prediction_x sets the prediction range using a list of Numpy array for a certain channel."""
@@ -139,13 +149,7 @@ class model:
         if self.model == None:
             raise Exception("build (and optimize) the model before doing predictions")
 
-        chan = []
-        for channel in self.X_pred:
-            chan.append(channel * np.ones(len(self.X_pred[channel])))
-        chan = np.concatenate(chan)
-        x = np.concatenate(list(self.X_pred.values()))
-        x = np.stack((chan, x), axis=1)
-
+        x, _ = self._transform_data(self.X_pred)
         mu, var = self.model.predict_f(x)
 
         n = 0

@@ -17,12 +17,7 @@ def errors(*args, **kwargs):
     if "print" in kwargs:
         output = kwargs["print"]
 
-    errors = {
-        "model": [],
-        "MAE": [],
-        "MSE": [],
-        "MAPE": [],
-    }
+    errors = []
     for model in args:
         Y_true = np.empty(0)
         Y_pred = np.empty(0)
@@ -41,10 +36,12 @@ def errors(*args, **kwargs):
                 Y_true = np.append(Y_true, y_true)
                 Y_pred = np.append(Y_pred, y_pred)
             
-        errors["model"].append(model.name)
-        errors["MAE"].append(metrics.mean_absolute_error(Y_true, Y_pred))
-        errors["MSE"].append(metrics.mean_squared_error(Y_true, Y_pred))
-        errors["MAPE"].append(mean_absolute_percentage_error(Y_true, Y_pred))
+            errors[channel] = {
+                "model": model.name,
+                "MAE": metrics.mean_absolute_error(Y_true, Y_pred),
+                "MSE": metrics.mean_squared_error(Y_true, Y_pred),
+                "MAPE": mean_absolute_percentage_error(Y_true, Y_pred),
+            }
 
     if output:
         import pandas as pd
