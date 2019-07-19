@@ -10,6 +10,24 @@ def load(filename):
     return model(None, m)
 
 class model:
+    """
+    Multioutput Gaussian proccess model. Can be either MOSM, CSM, SM-LMC or CONV.
+
+    This class is used to use a multioutput GP model, train and test data can be added,
+    the model can be used to train a predict.
+
+    Example:
+
+        ---TO-DO---
+
+    Atributes:
+        name ():
+        data (obj, instance of mogptk.data):
+        model ():
+        Q (int): Number of components of the model.
+        parameters ():
+    """
+
     def __init__(self, name, data, Q):
         self.name = name
         self.data = data
@@ -26,15 +44,27 @@ class model:
         raise Exception("kernel not specified")
 
     def get_params(self):
-        """get_params returns all parameters set for the kernel per component."""
+        """
+        Returns all parameters set for the kernel per component.
+        """
         return self.parameters
 
     def set_param(self, q, key, val):
-        """set_param sets an initial kernel parameter prior to optimizations for component q with key the parameter name."""
+        """
+        Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.
+
+        Args:
+            q (int): Component of kernel.
+
+            key (str): Name of component.
+
+            val (float, ndarray): Value of parameter.
+        """
         if q < 0 or len(self.parameters) <= q:
             raise Exception("qth component %d does not exist" % (q))
         if key not in self.parameters[q]:
             raise Exception("parameter name '%s' does not exist" % (key))
+
         self.parameters[q][key] = val
 
     def save(self, filename):
@@ -42,7 +72,25 @@ class model:
         gpflow.saver.Saver().save(filename, self.model)
 
     def train(self, kind='full', method='L-BFGS-B', maxiter=1000, disp=True, learning_rate=0.001):
-        """train optimizes the kernel parameters by an optimizer (see scipy.optimize.minimize for available optimizers). It can be bounded by a maximum number of iterations, disp will output final optimization information. When using the 'Adam' optimizer, a learning_rate can be set."""
+        """
+        Builds and trains the model using the kernel and its parameters.
+
+        For different optimizers, see scipy.optimize.minimize.
+        It can be bounded by a maximum number of iterations, disp will output final optimization information.
+        When using the 'Adam' optimizer, a learning_rate can be set.
+
+        Args:
+            kind (str): Type of model to use, posible mode are 'full', 'sparse' and 'sparse-variational'.
+            method (str): Optimizer to use, if "Adam" is chosen, gpflow.training.Adamoptimizer will be used,
+                otherwise the passed scipy optimizer is used. Default to scipy 'L-BFGS-B'.
+
+            maxiter (int): Maximum number of iterations, default to 1000.
+
+            disp (bool): If true it display information on the optimization, only valid to scipy optimizers.
+                Default to True.
+
+            learning_rate(float): Learning rate of Adam optimizer. Only valid with Adam, default to 0.001.
+        """
         
         if disp:
             print("Building...")
@@ -91,20 +139,56 @@ class model:
     ################################################################################
 
     def get_predictions(self):
-        """get_predictions returns the X, Y_mu, Y_var values per channel."""
+        """
+        Returns the input, posterior mean and posterior variance values all channels.
+
+        Returns:
+            x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
+                posterior variance of the las prediction done. 
+        """
         if len(self.X_pred) == 0:
             raise Exception("use predict before retrieving the predictions on the model")
         return self.X_pred, self.Y_mu_pred, self.Y_var_pred
 
     def get_channel_predictions(self, channel):
-        """get_channel_predictions returns the X, Y_mu, Y_var values for a certain channel."""
+        """
+        Returns the input, posterior mean and posterior variance values for a given channel.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+        Returns:
+            x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
+                posterior variance of the las prediction done. 
+        """
         if len(self.X_pred) == 0:
             raise Exception("use predict before retrieving the predictions on the model")
         channel = self.data.get_channel_index(channel)
+
         return self.X_pred[channel], self.Y_mu_pred[channel], self.Y_var_pred[channel]
 
     def set_prediction_range(self, channel, start=None, end=None, step=None, n=None):
-        """set_prediction_range sets the prediction range for a certain channel in the interval [start,end] with either a stepsize step or a number of points n."""
+        """
+        Sets the prediction range for a certain channel in the interval [start,end].
+        with either a stepsize step or a number of points n.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            start (float, optional): Initial value of range, if not passed the first point of training
+                data is taken. Default to None.
+
+            end (float, optional): Final value of range, if not passed the last point of training
+                data is taken. Default to None.
+
+            step (float, optional): Spacing between values.
+
+            n (int, optional): Number of samples to generate.
+
+            If neither "step" or "n" is passed, default number of points is 100.
+         """
         channel = self.data.get_channel_index(channel)
         if start == None:
             start = self.data.X[channel][0]
@@ -135,7 +219,14 @@ class model:
             raise Exception("xs expected to be a list, dict or Numpy array")
 
     def set_prediction_x(self, channel, x):
-        """set_prediction_x sets the prediction range using a list of Numpy array for a certain channel."""
+        """
+        Sets the prediction range using a list of Numpy array for a certain channel.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+            x (ndarray): Numpy array with input values for channel.
+        """
         channel = self.data.get_channel_index(channel)
         if isinstance(x, list):
             x = np.array(x)
@@ -144,8 +235,34 @@ class model:
 
         self.X_pred[channel] = x
 
-    def predict(self):
-        """predict will make a prediction in the data ranges set by the various prediction range setters. This function will return the X, Y_mu, Y_var values per channel."""
+    def set_prediction_full(self, x_pred):
+        """
+        Sets input predictions for all channels
+
+        Args:
+            x_pred (dict): Dictionary where keys are channel index and elements numpy arrays with 
+                          channel inputs.
+        """
+        assert isinstance(x_pred, dict), 'x_pred expected to be a dictionary'
+
+        self.X_pred = x_pred
+
+    def predict(self, x=None):
+        """
+        Predict with model.
+
+        Will make a prediction using x as input. If no input value is passed, the prediction will 
+        be made with atribute self.X_pred that can be setted with other functions.
+        It returns the X, Y_mu, Y_var values per channel.
+
+        Args:
+            x (dict): Dictionary where keys are channel index and elements numpy arrays with 
+                          channel inputs.
+
+        Returns:
+            X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+
+        """
         if self.model == None:
             raise Exception("build (and optimize) the model before doing predictions")
 
