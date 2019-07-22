@@ -9,6 +9,7 @@ from .fixphase import FixPhase
 from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
+# TODO: swap input/output dimension order, so that the first variable dim is always output_dims, and if it has a second dim it is input_dims
 class MultiOutputSpectralMixture(MultiKernel):
     def __init__(self, input_dim, output_dim, magnitude=None, mean=None, variance=None, delay=None, phase=None, noise=None, active_dim=None):
         """

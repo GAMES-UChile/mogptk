@@ -19,6 +19,8 @@ from gpflow.params import Parameter
 from gpflow.kernels import Kernel,RBF,Cosine
 from gpflow import transforms, autoflow,settings
 
+# TODO: means are angular freqs, not spatial freqs
+# TODO: split out the Q part and use kernel + kernel + ... Q times?
 class SpectralMixture(Kernel):
     def __init__(self, num_mixtures=1, mixture_weights=None,\
                  mixture_scales=None,mixture_means=None,\

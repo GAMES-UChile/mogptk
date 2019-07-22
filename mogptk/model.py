@@ -33,7 +33,7 @@ class model:
         self.data = data
         self.model = None
         self.Q = Q
-        self.parameters = []
+        self.params = []
 
     def _kernel(self):
         # overridden by specific models
@@ -43,11 +43,19 @@ class model:
         # overridden by specific models
         raise Exception("kernel not specified")
 
+    def _update_params(self, trainables):
+        for key, val in trainables.items():
+            names = key.split("/")
+            if len(names) == 5 and names[1] == 'kern' and names[2] == 'kernels':
+                q = int(names[3])
+                name = names[4]
+                self.params[q][name] = val
+
     def get_params(self):
         """
         Returns all parameters set for the kernel per component.
         """
-        return self.parameters
+        return self.params
 
     def set_param(self, q, key, val):
         """
@@ -60,16 +68,38 @@ class model:
 
             val (float, ndarray): Value of parameter.
         """
-        if q < 0 or len(self.parameters) <= q:
+        if q < 0 or len(self.params) <= q:
             raise Exception("qth component %d does not exist" % (q))
-        if key not in self.parameters[q]:
+        if key not in self.params[q]:
             raise Exception("parameter name '%s' does not exist" % (key))
 
-        self.parameters[q][key] = val
+        self.params[q][key] = val
 
     def save(self, filename):
         # TODO: needs testing and saving training data?
         gpflow.saver.Saver().save(filename, self.model)
+
+    def build(self, kind='full', disp=True):
+        if disp:
+            print("Building...")
+
+        x, y = self._transform_data(self.data.X, self.data.Y)
+
+        if kind == 'full':
+            self.model = gpflow.models.GPR(x, y, self._kernel())
+        elif kind == 'sparse':
+            # TODO: test if induction points are set
+            self.name += ' (sparse)'
+            self.model = gpflow.models.SGPR(x, y, self._kernel())
+        elif kind == 'sparse-variational':
+            self.name += ' (sparse-variational)'
+            self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
+        else:
+            raise Exception("model type '%s' does not exist" % (kind))
+
+        self.X_pred = {}
+        self.Y_mu_pred = {}
+        self.Y_var_pred = {}
 
     def train(self, kind='full', method='L-BFGS-B', maxiter=1000, disp=True, learning_rate=0.001):
         """
@@ -92,26 +122,8 @@ class model:
             learning_rate(float): Learning rate of Adam optimizer. Only valid with Adam, default to 0.001.
         """
         
-        if disp:
-            print("Building...")
-
-        x, y = self._transform_data(self.data.X, self.data.Y)
-
-        if kind == 'full':
-            self.model = gpflow.models.GPR(x, y, self._kernel())
-        elif kind == 'sparse':
-            # TODO: test if induction points are set
-            self.name += ' (sparse)'
-            self.model = gpflow.models.SGPR(x, y, self._kernel())
-        elif kind == 'sparse-variational':
-            self.name += ' (sparse-variational)'
-            self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
-        else:
-            raise Exception("model type '%s' does not exist" % (kind))
-
-        self.X_pred = {}
-        self.Y_mu_pred = {}
-        self.Y_var_pred = {}
+        if self.model == None:
+            self.build(kind, disp)
 
         if disp:
             print("Optimizing...")
@@ -119,16 +131,7 @@ class model:
         opt = gpflow.train.ScipyOptimizer(method=method)
         opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter)
 
-        # Update parameters
-        for key, val in self.model.read_trainables().items():
-            names = key.split("/", 4)
-            if len(names) == 5 and names[1] == 'kern' and names[2] == 'kernels':
-                q = int(names[3])
-                name = names[4]
-                self.parameters[q][name] = val
-            elif len(names) == 3 and names[1] == 'kern':
-                name = names[2]
-                self.parameters[0][name] = val
+        self._update_params(self.model.read_trainables())
 
         if disp:
             print("Done")
@@ -146,6 +149,9 @@ class model:
             x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
                 posterior variance of the las prediction done. 
         """
+        if self.model == None:
+            raise Exception("build (and train) the model before doing predictions")
+
         if len(self.X_pred) == 0:
             raise Exception("use predict before retrieving the predictions on the model")
         return self.X_pred, self.Y_mu_pred, self.Y_var_pred
@@ -162,6 +168,9 @@ class model:
             x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
                 posterior variance of the las prediction done. 
         """
+        if self.model == None:
+            raise Exception("build (and train) the model before doing predictions")
+
         if len(self.X_pred) == 0:
             raise Exception("use predict before retrieving the predictions on the model")
         channel = self.data.get_channel_index(channel)
@@ -188,7 +197,10 @@ class model:
             n (int, optional): Number of samples to generate.
 
             If neither "step" or "n" is passed, default number of points is 100.
-         """
+        """
+        if self.model == None:
+            raise Exception("build (and train) the model before doing predictions")
+
         channel = self.data.get_channel_index(channel)
         if start == None:
             start = self.data.X[channel][0]
@@ -206,6 +218,9 @@ class model:
     
     def set_predictions(self, xs):
         """set_predictions sets the prediction ranges for all channels and can be either a list, Numpy array or a dictionary, where the index/key is the channel ID/name and the values are either lists or Numpy arrays."""
+        if self.model == None:
+            raise Exception("build (and train) the model before doing predictions")
+
         if isinstance(xs, list):
             xs = np.array(xs)
 
@@ -227,6 +242,9 @@ class model:
                 of the channel or a integer with the index.
             x (ndarray): Numpy array with input values for channel.
         """
+        if self.model == None:
+            raise Exception("build (and train) the model before doing predictions")
+
         channel = self.data.get_channel_index(channel)
         if isinstance(x, list):
             x = np.array(x)
@@ -234,18 +252,6 @@ class model:
             raise Exception("x expected to be a list or Numpy array")
 
         self.X_pred[channel] = x
-
-    def set_prediction_full(self, x_pred):
-        """
-        Sets input predictions for all channels
-
-        Args:
-            x_pred (dict): Dictionary where keys are channel index and elements numpy arrays with 
-                          channel inputs.
-        """
-        assert isinstance(x_pred, dict), 'x_pred expected to be a dictionary'
-
-        self.X_pred = x_pred
 
     def predict(self, x=None):
         """
@@ -264,7 +270,7 @@ class model:
 
         """
         if self.model == None:
-            raise Exception("build (and optimize) the model before doing predictions")
+            raise Exception("build (and train) the model before doing predictions")
 
         x, _ = self._transform_data(self.X_pred)
         mu, var = self.model.predict_f(x)
