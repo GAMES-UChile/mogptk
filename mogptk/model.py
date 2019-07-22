@@ -205,7 +205,14 @@ class model:
             self.X_pred[channel] = np.arange(start, end+step, step)
     
     def set_predictions(self, xs):
-        """set_predictions sets the prediction ranges for all channels and can be either a list, Numpy array or a dictionary, where the index/key is the channel ID/name and the values are either lists or Numpy arrays."""
+        """
+        Sets the prediction ranges for all channels.
+
+		Args:
+
+		xs (list, ndarray, dict): Prediction ranges, where the index/key is the channel
+			ID/name and the values are either lists or Numpy arrays.
+        """
         if isinstance(xs, list):
             xs = np.array(xs)
 
@@ -235,18 +242,6 @@ class model:
 
         self.X_pred[channel] = x
 
-    def set_prediction_full(self, x_pred):
-        """
-        Sets input predictions for all channels
-
-        Args:
-            x_pred (dict): Dictionary where keys are channel index and elements numpy arrays with 
-                          channel inputs.
-        """
-        assert isinstance(x_pred, dict), 'x_pred expected to be a dictionary'
-
-        self.X_pred = x_pred
-
     def predict(self, x=None):
         """
         Predict with model.
@@ -265,6 +260,9 @@ class model:
         """
         if self.model == None:
             raise Exception("build (and optimize) the model before doing predictions")
+
+        if x is not None:
+        	self.set_predictions(x)
 
         x, _ = self._transform_data(self.X_pred)
         mu, var = self.model.predict_f(x)
