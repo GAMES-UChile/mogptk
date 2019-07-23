@@ -22,32 +22,31 @@ from gpflow import transforms, autoflow,settings
 # TODO: means are angular freqs, not spatial freqs
 # TODO: split out the Q part and use kernel + kernel + ... Q times?
 class SpectralMixture(Kernel):
-    def __init__(self, num_mixtures=1, mixture_weights=None,\
-                 mixture_scales=None,mixture_means=None,\
-                 input_dim=1,active_dims=None,name=None):
+    def __init__(self, num_mixtures=1, mixture_weights=None, mixture_scales=None, mixture_means=None, input_dim=1, active_dims=None, name=None):
         """
-        - num_mixtures is the number of mixtures; denoted as Q in
-        Wilson 2013.
-        - mixture_weights
-        - mixture_variance is
-        - mixture_means is the list (or array) of means of the
-        mixtures.
-        - input_dim is the dimension of the input to the kernel.
-        - active_dims is the dimension of the X which needs to be used.
+        - num_mixtures (int) is Q
+        - weight (np.ndarray) has shape (Q)
+        - mean (np.ndarray) has shape (Q, input_dim)
+        - variance (np.ndarray) has shape (input_dim, Q)
+        - input_dim (int) is the input dimension
+
         References:
         http://hips.seas.harvard.edu/files/wilson-extrapolation-icml-2013_0.pdf
         http://www.cs.cmu.edu/~andrewgw/typo.pdf
         """
-        super().__init__(input_dim,active_dims,name=name)
-        # Q(num_of_mixtures)=1 then SM kernel is SE Kernel.
-        if num_mixtures == 1:
-            print("Using default mixture = 1")
+        Q = num_mixtures
+        if mixture_weights.shape != (Q,):
+            raise Exception("bad weight shape %s" % (mixture_weights.shape,))
+        if mixture_means.shape != (Q, input_dim):
+            raise Exception("bad mean shape %s" % (mixture_means.shape,))
+        if mixture_scales.shape != (input_dim, Q):
+            raise Exception("bad variance shape %s" % (mixture_scales.shape,))
 
-        # number of mixtures is non trainable.
-        self.num_mixtures = Parameter(num_mixtures,trainable=False)
-        self.mixture_weights = Parameter(mixture_weights,transform=transforms.positive)
-        self.mixture_scales = Parameter(mixture_scales,transform=transforms.positive)
-        self.mixture_means = Parameter(mixture_means,transform=transforms.positive)
+        super().__init__(input_dim, active_dims, name=name)
+        self.num_mixtures = Parameter(num_mixtures, trainable=False)
+        self.mixture_weights = Parameter(mixture_weights, transform=transforms.positive)
+        self.mixture_scales = Parameter(mixture_scales, transform=transforms.positive)
+        self.mixture_means = Parameter(mixture_means, transform=transforms.positive)
 
     @params_as_tensors
     def K(self, X1, X2=None):

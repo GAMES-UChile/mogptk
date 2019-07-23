@@ -11,11 +11,22 @@ from .multikernel import MultiKernel
 
 class ConvolutionalGaussian(MultiKernel):
     def __init__(self, input_dim, output_dim, constant=None, variance=None, active_dims=None):
+        """
+        - input_dim (int) is the input dimension
+        - output_dim (int) is the output dimension
+        - constant (np.ndarray) has shape (output_dim)
+        - variance (np.ndarray) has shape (input_dim, output_dim)
+        """
 
         if constant is None:
-            constant = np.random.random(output_dim)
+            constant = np.random.random((output_dim))
         if variance is None:
             variance = np.random.random((input_dim, output_dim))
+
+        if constant.shape != (output_dim,):
+            raise Exception("bad constant shape %s" % (constant.shape,))
+        if variance.shape != (input_dim, output_dim):
+            raise Exception("bad variance shape %s" % (variance.shape,))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(constant, transform = transforms.positive)

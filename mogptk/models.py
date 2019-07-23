@@ -1,3 +1,4 @@
+import logging
 from .data import Data
 from .model import model
 from .kernels import SpectralMixture, sm_init, SpectralMixtureOLD, MultiOutputSpectralMixture, SpectralMixtureLMC, ConvolutionalGaussian, CrossSpectralMixture
@@ -24,7 +25,7 @@ def transform_multioutput_data(x, y=None):
     return x, y
 
 def estimate_from_sm(data, Q):
-    """ returns format: params[q][name][input dim][channel]"""
+    """ returns format: params[q][name][output dim][input dim]"""
     params = []
     for q in range(Q):
         params.append({'weight': [], 'mean': [], 'scale': []})
@@ -34,13 +35,13 @@ def estimate_from_sm(data, Q):
         sm_data.add(data.X[channel], data.Y[channel])
 
         sm = SM(sm_data, Q)
-        sm.estimate_from_bnse()
+        sm.estimate()
         sm.train(method='BFGS', disp=True)
 
         for q in range(Q):
             params[q]['weight'].append(sm.params[q]['mixture_weights']),
             params[q]['mean'].append(sm.params[q]['mixture_means']),
-            params[q]['scale'].append(sm.params[q]['mixture_scales'].T),
+            params[q]['scale'].append(sm.params[q]['mixture_scales']),
 
     for q in range(Q):
         params[q]['weight'] = np.array(params[q]['weight'])
@@ -67,11 +68,14 @@ class SM(model):
                 'mixture_scales': np.array(scales.T[q]),
             })
 
-    def estimate_from_bnse(self):
+    def estimate(self):
         means, amplitudes = self.data.get_bnse_estimation(self.Q)
+        if amplitudes[0].shape[1] != self.Q or means[0].shape[1] != self.Q:
+            logging.warning('BNSE could not find peaks for SM')
+            return
+
         weights = amplitudes[0] * self.data.Y[0].std()
         weights = np.sqrt(weights/np.sum(weights))
-
         for q in range(self.Q):
             self.params[q]['mixture_weights'] = weights[0][q]
             self.params[q]['mixture_means'] = means[0].T[q] / np.pi / 2.0
@@ -117,7 +121,6 @@ class MOSM(model):
 
         input_dims = self.data.get_input_dims()
         output_dims = self.data.get_output_dims()
-
         for _ in range(Q):
             self.params.append({
                 "magnitude": np.random.standard_normal((output_dims)),
@@ -128,18 +131,19 @@ class MOSM(model):
                 "noise": np.random.random((output_dims)),
             })
 
-    def estimate_from_bnse(self):
+    def estimate_means(self):
         peaks, _ = self.data.get_bnse_estimation(self.Q)
-        for channel in range(self.data.get_output_dims()):
-            for q in range(self.Q):
-                self.params[q]["mean"] = peaks[channel].T[q].reshape(-1, 1)
+        for q in range(self.Q):
+            self.params[q]["mean"] = peaks[0].T[q].reshape(-1, 1)
+            for channel in range(1,self.data.get_output_dims()):
+                self.params[q]["mean"] = np.append(self.params[q]["mean"], peaks[channel].T[q].reshape(-1, 1))
 
-    def estimate_from_sm(self):
+    def estimate(self):
         params = estimate_from_sm(self.data, self.Q)
         for q in range(self.Q):
             self.params[q]["magnitude"] = params[q]['weight']
-            self.params[q]["mean"] = params[q]['mean']
-            self.params[q]["variance"] = params[q]['scale']
+            self.params[q]["mean"] = params[q]['mean'].T
+            self.params[q]["variance"] = params[q]['scale'].T
 
     def _transform_data(self, x, y=None):
         return transform_multioutput_data(x, y)
@@ -170,14 +174,55 @@ class CSM(model):
     """
     def __init__(self, data, Q=1, Rq=1, name="CSM"):
         model.__init__(self, name, data, Q)
+
+        if Rq != 1:
+            raise Exception("Rq != 1 is not (yet) supported") # TODO: support
         self.Rq = Rq
+        
+        input_dims = self.data.get_input_dims()
+        output_dims = self.data.get_output_dims()
+        for _ in range(Q):
+            self.params.append({
+                "constant": np.random.random((Rq, output_dims)),
+                "mean": np.random.random((input_dims)),
+                "variance": np.random.random((input_dims)),
+                "phase": np.zeros((Rq, output_dims)),
+            })
+    
+    def estimate(self):
+        data = self.data.copy()
+        data.normalize()
+        all_params = estimate_from_sm(data, self.Q)
+        print(all_params)
+
+        params = {'weight': [], 'mean': [], 'scale': []}
+        for channel in range(len(all_params)):
+            params['weight'] = np.append(params['weight'], all_params[channel]['weight'])
+            params['mean'] = np.append(params['mean'], all_params[channel]['mean'])
+            params['scale'] = np.append(params['scale'], all_params[channel]['scale'])
+
+        indices = np.argsort(params['weight'])[::-1]
+        for q in range(self.Q):
+            if q < len(indices):
+                i = indices[q]
+                self.params[q]['mean'] = np.array([params['mean'][i]])
+                self.params[q]['variance'] = np.array([params['scale'][i]])
 
     def _transform_data(self, x, y=None):
         return transform_multioutput_data(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
-            kernel = CrossSpectralMixture(self.data.get_input_dims(), self.data.get_output_dims(), self.Rq)
+            kernel = CrossSpectralMixture(
+                self.data.get_input_dims(),
+                self.data.get_output_dims(),
+                self.Rq,
+                self.params[q]["constant"],
+                self.params[q]["mean"],
+                self.params[q]["variance"],
+                self.params[q]["phase"],
+            )
+
             if q == 0:
                 kernel_set = kernel
             else:
@@ -190,14 +235,53 @@ class SM_LMC(model):
     (TODO: true?)."""
     def __init__(self, data, Q=1, Rq=1, name="SM-LMC"):
         model.__init__(self, name, data, Q)
+
+        if Rq != 1:
+            raise Exception("Rq != 1 is not (yet) supported") # TODO: support
         self.Rq = Rq
+        
+        input_dims = self.data.get_input_dims()
+        output_dims = self.data.get_output_dims()
+        for _ in range(Q):
+            self.params.append({
+                "constant": np.random.standard_normal((Rq, output_dims)),
+                "mean": np.random.random((input_dims)),
+                "variance": np.random.random((input_dims)),
+            })
+    
+    def estimate(self):
+        data = self.data.copy()
+        data.normalize()
+        all_params = estimate_from_sm(data, self.Q)
+        print(all_params)
+
+        params = {'weight': [], 'mean': [], 'scale': []}
+        for channel in range(len(all_params)):
+            params['weight'] = np.append(params['weight'], all_params[channel]['weight'])
+            params['mean'] = np.append(params['mean'], all_params[channel]['mean'])
+            params['scale'] = np.append(params['scale'], all_params[channel]['scale'])
+
+        indices = np.argsort(params['weight'])[::-1]
+        for q in range(self.Q):
+            if q < len(indices):
+                i = indices[q]
+                self.params[q]['mean'] = np.array([params['mean'][i]])
+                self.params[q]['variance'] = np.array([params['scale'][i]])
 
     def _transform_data(self, x, y=None):
         return transform_multioutput_data(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
-            kernel = SpectralMixtureLMC(self.data.get_input_dims(), self.data.get_output_dims(), self.Rq)
+            kernel = SpectralMixtureLMC(
+                self.data.get_input_dims(),
+                self.data.get_output_dims(),
+                self.Rq,
+                self.params[q]["constant"],
+                self.params[q]["mean"],
+                self.params[q]["variance"],
+            )
+
             if q == 0:
                 kernel_set = kernel
             else:
@@ -210,13 +294,32 @@ class CG(model):
     """
     def __init__(self, data, Q=1, name="CG"):
         model.__init__(self, name, data, Q)
+        
+        input_dims = self.data.get_input_dims()
+        output_dims = self.data.get_output_dims()
+        for _ in range(Q):
+            self.params.append({
+                "constant": np.random.random((output_dims)),
+                "variance": np.random.random((input_dims, output_dims)),
+            })
 
-    def _transform_data(self, x, y=[]):
+    def estimate(self):
+        params = estimate_from_sm(self.data, self.Q) # TODO: fix spectral mean
+        for q in range(self.Q):
+            self.params[q]["variance"] = params[q]['scale'].T
+
+    def _transform_data(self, x, y=None):
         return transform_multioutput_data(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
-            kernel = ConvolutionalGaussian(self.data.get_input_dims(), self.data.get_output_dims())
+            kernel = ConvolutionalGaussian(
+                self.data.get_input_dims(),
+                self.data.get_output_dims(),
+                self.params[q]["constant"],
+                self.params[q]["variance"],
+            )
+
             if q == 0:
                 kernel_set = kernel
             else:

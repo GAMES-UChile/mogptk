@@ -11,13 +11,27 @@ from .multikernel import MultiKernel
 
 class SpectralMixtureLMC(MultiKernel):
     def __init__(self, input_dim, output_dim, Rq, constant=None, mean=None, variance=None, active_dims=None):
+        """
+        - input_dim (int) is the input dimension
+        - output_dim (int) is the output dimension
+        - constant (np.ndarray) has shape (Rq, output_dim)
+        - mean (np.ndarray) has shape (input_dim)
+        - variance (np.ndarray) has shape (input_dim)
+        """
 
         if constant is None:
-            constant = np.random.randn(Rq, output_dim)
+            constant = np.random.standard_normal((Rq, output_dim))
         if mean is None:
-            mean = np.random.random(input_dim)
+            mean = np.random.random((input_dim))
         if variance is None:
-            variance = np.random.random(input_dim)
+            variance = np.random.random((input_dim))
+
+        if constant.shape != (Rq, output_dim):
+            raise Exception("bad constant shape %s" % (constant.shape,))
+        if mean.shape != (input_dim,):
+            raise Exception("bad mean shape %s" % (mean.shape,))
+        if variance.shape != (input_dim,):
+            raise Exception("bad variance shape %s" % (variance.shape,))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(constant)

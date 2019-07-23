@@ -11,6 +11,14 @@ from .multikernel import MultiKernel
 
 class CrossSpectralMixture(MultiKernel):
     def __init__(self, input_dim, output_dim, Rq, constant=None, mean=None, variance=None, phase=None, active_dims=None):
+        """
+        - input_dim (int) is the input dimension
+        - output_dim (int) is the output dimension
+        - constant (np.ndarray) has shape (Rq, output_dim)
+        - mean (np.ndarray) has shape (input_dim)
+        - variance (np.ndarray) has shape (input_dim)
+        - phase (np.ndarray) has shape (Rq, output_dim)
+        """
 
         if constant is None:
             constant = np.random.random((Rq, output_dim))
@@ -20,6 +28,15 @@ class CrossSpectralMixture(MultiKernel):
             variance = np.random.random(input_dim)
         if phase is None:
             phase = np.zeros((Rq, output_dim))
+
+        if constant.shape != (Rq, output_dim):
+            raise Exception("bad constant shape %s" % (constant.shape,))
+        if mean.shape != (input_dim,):
+            raise Exception("bad mean shape %s" % (mean.shape,))
+        if variance.shape != (input_dim,):
+            raise Exception("bad variance shape %s" % (variance.shape,))
+        if phase.shape != (Rq, output_dim):
+            raise Exception("bad phase shape %s" % (phase.shape,))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(constant, transform=transforms.positive)

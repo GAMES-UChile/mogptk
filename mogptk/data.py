@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 from mogptk.bnse import *
 
@@ -79,6 +80,20 @@ class Data:
 
         self.F[len(self.X)] = f
         self.add(x, y, name)
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+    def normalize(self):
+        ymin = np.inf
+        ymax = -np.inf
+        for channel in range(self.get_output_dims()):
+            ymin = np.amin([ymin, np.amin(self.Y[channel])])
+            ymax = np.amax([ymax, np.amax(self.Y[channel])])
+        
+        for channel in range(self.get_output_dims()):
+            self.Y[channel] = (self.Y[channel]-ymin) / (ymax-ymin)
+            self.Y_all[channel] = (self.Y_all[channel]-ymin) / (ymax-ymin)
 
     ################################################################
 

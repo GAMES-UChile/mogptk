@@ -293,5 +293,4 @@ class model:
                 self.Y_mu_pred[channel] = mu[i:i+n].reshape(1, -1)[0]
                 self.Y_var_pred[channel] = var[i:i+n].reshape(1, -1)[0]
                 i += n
-        return self.X_pred, self.Y_mu_pred, self.Y_var_pred
 
