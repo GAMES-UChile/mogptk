@@ -1,5 +1,7 @@
 import numpy as np
 import gpflow
+from .tf import show_default_graph
+import tensorflow as tf
 
 import logging
 logging.getLogger('tensorflow').propagate = False
@@ -85,17 +87,21 @@ class model:
 
         x, y = self._transform_data(self.data.X, self.data.Y)
 
-        if kind == 'full':
-            self.model = gpflow.models.GPR(x, y, self._kernel())
-        elif kind == 'sparse':
-            # TODO: test if induction points are set
-            self.name += ' (sparse)'
-            self.model = gpflow.models.SGPR(x, y, self._kernel())
-        elif kind == 'sparse-variational':
-            self.name += ' (sparse-variational)'
-            self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
-        else:
-            raise Exception("model type '%s' does not exist" % (kind))
+        self.graph = tf.Graph()
+        self.session = tf.Session(graph=self.graph)
+        with self.graph.as_default():
+            with self.session.as_default():
+                if kind == 'full':
+                    self.model = gpflow.models.GPR(x, y, self._kernel())
+                elif kind == 'sparse':
+                    # TODO: test if induction points are set
+                    self.name += ' (sparse)'
+                    self.model = gpflow.models.SGPR(x, y, self._kernel())
+                elif kind == 'sparse-variational':
+                    self.name += ' (sparse-variational)'
+                    self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
+                else:
+                    raise Exception("model type '%s' does not exist" % (kind))
 
         self.X_pred = {}
         self.Y_mu_pred = {}
@@ -122,19 +128,21 @@ class model:
             learning_rate(float): Learning rate of Adam optimizer. Only valid with Adam, default to 0.001.
         """
         
-        if self.model == None:
-            self.build(kind, disp)
+        self.build(kind, disp)
 
         if disp:
             print("Optimizing...")
 
-        opt = gpflow.train.ScipyOptimizer(method=method)
-        opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter)
+        with self.graph.as_default():
+            with self.session.as_default():
+                opt = gpflow.train.ScipyOptimizer(method=method)
+                opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter)
 
-        self._update_params(self.model.read_trainables())
+                self._update_params(self.model.read_trainables())
 
-        if disp:
-            print("Done")
+                if disp:
+                    print("Done")
+                    show_default_graph()
 
 
     ################################################################################
