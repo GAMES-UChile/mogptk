@@ -61,7 +61,17 @@ def transform_multioutput_data(x, y=None):
     return x, y
 
 def estimate_from_sm(data, Q):
-    """ returns format: params[q][name][output dim][input dim]"""
+    """
+    Estimate kernel param with single ouput GP-SM
+
+    Args:
+        data (obj; mogptk.Data): Data class instance.
+
+        Q (int): Number of components.
+
+    returns: 
+        params[q][name][output dim][input dim]
+    """
     params = []
     for q in range(Q):
         params.append({'weight': [], 'mean': [], 'scale': []})
@@ -86,7 +96,9 @@ def estimate_from_sm(data, Q):
     return params
 
 class SM(model):
-    """SM is the standard Spectral Mixture kernel."""
+    """
+    Single output GP with Spectral mixture kernel.
+    """
     def __init__(self, data, Q=1, name="SM"):
         model.__init__(self, name, data, Q)
 
@@ -95,26 +107,60 @@ class SM(model):
         if output_dims != 1:
             raise Exception("Single output Spectral Mixture kernel can only take one output dimension in the data")
 
-        #x, y = self._transform_data(data.X, data.Y)
-        #weights, means, scales = sm_init(x, y, Q)
         for q in range(Q):
             self.params.append({
-                'mixture_weights': 0,#weights[q],
-                'mixture_means': np.zeros((input_dims)),#np.array(means[q]),
-                'mixture_scales': np.zeros((input_dims)),#np.array(scales.T[q]),
+                'mixture_weights': np.random.standard_normal(),
+                'mixture_means': np.random.standard_normal((input_dims)),
+                'mixture_scales': np.random.standard_normal((input_dims)),
             })
 
-    def estimate(self):
-        means, amplitudes = self.data.get_bnse_estimation(self.Q)
-        if amplitudes[0].shape[1] != self.Q or means[0].shape[1] != self.Q:
-            logging.warning('BNSE could not find peaks for SM')
-            return
+    def init_params(self, method='BNSE'):
+        """
+        Initialize parameters of kernel from data using different methods.
 
-        weights = amplitudes[0] * self.data.Y[0].std()
-        weights = np.sqrt(weights/np.sum(weights))
-        for q in range(self.Q):
-            self.params[q]['mixture_weights'] = weights[0][q]
-            self.params[q]['mixture_means'] = means[0].T[q] / np.pi / 2.0
+        Kernel parameters can be initialized using 3 heuristics using the train data:
+
+        -'random' is taking the inverse of lengthscales drawn from truncated Gaussian
+            N(0, max_dist^2), the means drawn from
+            Unif(0, 0.5 / minimum distance between two points),
+            and the mixture weights by taking the stdv of the y values divided by the
+            number of mixtures.
+
+        -'LS' is using Lomb Scargle periodogram for estimating the PSD,
+            and using the first Q peaks as the means and mixture weights.
+
+        -'BNSE' third is using the BNSE (Tobar 2018) to estimate the PSD 
+            and use the first Q peaks as the means and mixture weights.
+
+        *** Only for single input dimension for each channel.
+        """
+
+        if method not in ['random', 'LS', 'BNSE']:
+            raise Exception("Posible methods are 'random', 'LS' and 'BNSE' (see documentation).")
+
+        if method=='random':
+            x, y = self._transform_data(self.data.X, self.data.Y)
+            weights, means, scales = sm_init(x, y, self.Q)
+
+            for q in range(self.Q):
+                self.params[q]['mixture_weights'] = weights[q],
+                self.params[q]['mixture_means'] = np.array(means[q]),
+                self.params[q]['mixture_scales'] = np.array(scales[q]),
+
+        elif method=='LS':
+            pass
+
+        elif method=='BNSE':
+            means, amplitudes = self.data.get_bnse_estimation(self.Q)
+            if amplitudes[0].shape[1] != self.Q or means[0].shape[1] != self.Q:
+                logging.warning('BNSE could not find peaks for SM')
+                return
+
+            weights = amplitudes[0] * self.data.Y[0].std()
+            weights = np.sqrt(weights/np.sum(weights))
+            for q in range(self.Q):
+                self.params[q]['mixture_weights'] = weights[0][q]
+                self.params[q]['mixture_means'] = means[0].T[q] / np.pi / 2.0
 
     def _transform_data(self, x, y=None):
         if isinstance(x, dict):
@@ -131,8 +177,8 @@ class SM(model):
         return SpectralMixture(
             self.Q,
             weights,
-            scales,
             means,
+            scales,
             self.data.get_input_dims()
         )
 
@@ -151,7 +197,8 @@ class MOSM(model):
     Multi Output Spectral Mixture kernel as proposed by our paper.
 
     It takes a number of components Q and allows for recommended initial
-    parameter estimation to improve optimization outputs."""
+    parameter estimation to improve optimization outputs.
+    """
     def __init__(self, data, Q=1, name="MOSM"):
         model.__init__(self, name, data, Q)
 
@@ -167,19 +214,41 @@ class MOSM(model):
                 "noise": np.random.random((output_dims)),
             })
 
-    def estimate_means(self):
+    def init_means(self):
+        """
+        Initialize spectral means using BNSE[1]
+        """
         peaks, _ = self.data.get_bnse_estimation(self.Q)
         for q in range(self.Q):
             self.params[q]["mean"] = peaks[0].T[q].reshape(-1, 1)
             for channel in range(1,self.data.get_output_dims()):
                 self.params[q]["mean"] = np.append(self.params[q]["mean"], peaks[channel].T[q].reshape(-1, 1))
 
-    def estimate(self):
-        params = estimate_from_sm(self.data, self.Q)
-        for q in range(self.Q):
-            self.params[q]["magnitude"] = params[q]['weight']
-            self.params[q]["mean"] = params[q]['mean'].T
-            self.params[q]["variance"] = params[q]['scale'].T
+    def init_params(self, mode='full'):
+        """
+        Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
+
+        The initialization is done fitting a single output GP with Sepectral mixture (SM)
+        kernel for each channel. Furthermore, each GP-SM in fitted initializing
+        its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
+
+        Args:
+            mode (str): Parameters to initialize, 'means' estimates only the means trough BNSE
+                directly. 'full' estimates the spectral mean, variance and weights with GP-SM.
+        """
+
+        if mode not in ['full', 'means']:
+            raise Exception("Posible modes are either 'full' or 'means'.")
+
+        if mode=='means':
+            self.init_means()
+
+        elif mode=='full':
+            params = estimate_from_sm(self.data, self.Q)
+            for q in range(self.Q):
+                self.params[q]["magnitude"] = params[q]['weight']
+                self.params[q]["mean"] = params[q]['mean'].T
+                self.params[q]["variance"] = params[q]['scale'].T
 
     def _transform_data(self, x, y=None):
         return transform_multioutput_data(x, y)
@@ -225,7 +294,14 @@ class CSM(model):
                 "phase": np.zeros((Rq, output_dims)),
             })
     
-    def estimate(self):
+    def init_params(self):
+        """
+        Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
+
+        The initialization is done fitting a single output GP with Sepectral mixture (SM)
+        kernel for each channel. Furthermore, each GP-SM in fitted initializing
+        its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
+        """
         data = self.data.copy()
         data.normalize()
         all_params = estimate_from_sm(data, self.Q)
@@ -285,7 +361,14 @@ class SM_LMC(model):
                 "variance": np.random.random((input_dims)),
             })
     
-    def estimate(self):
+    def init_params(self):
+        """
+        Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
+
+        The initialization is done fitting a single output GP with Sepectral mixture (SM)
+        kernel for each channel. Furthermore, each GP-SM in fitted initializing
+        its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
+        """
         data = self.data.copy()
         data.normalize()
         all_params = estimate_from_sm(data, self.Q)
@@ -339,7 +422,14 @@ class CG(model):
                 "variance": np.random.random((input_dims, output_dims)),
             })
 
-    def estimate(self):
+    def init_params(self):
+        """
+        Initialize kernel parameters, variance and mixture weights. 
+
+        The initialization is done fitting a single output GP with Sepectral mixture (SM)
+        kernel for each channel. Furthermore, each GP-SM in fitted initializing
+        its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
+        """
         params = estimate_from_sm(self.data, self.Q) # TODO: fix spectral mean
         for q in range(self.Q):
             self.params[q]["variance"] = params[q]['scale'].T
