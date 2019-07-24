@@ -107,11 +107,15 @@ class SM(model):
         if output_dims != 1:
             raise Exception("Single output Spectral Mixture kernel can only take one output dimension in the data")
 
+        weights = np.abs(np.random.standard_normal((Q)))
+        means = np.abs(np.random.standard_normal((Q, input_dims)))
+        scales = np.abs(np.random.standard_normal((Q, input_dims)))
+
         for q in range(Q):
             self.params.append({
-                'mixture_weights': np.random.standard_normal(),
-                'mixture_means': np.random.standard_normal((input_dims)),
-                'mixture_scales': np.random.standard_normal((input_dims)),
+                'mixture_weights': weights[q],
+                'mixture_means': np.array(means[q]),
+                'mixture_scales': np.array(scales[q]),
             })
 
     def init_params(self, method='BNSE'):
@@ -143,9 +147,9 @@ class SM(model):
             weights, means, scales = sm_init(x, y, self.Q)
 
             for q in range(self.Q):
-                self.params[q]['mixture_weights'] = weights[q],
-                self.params[q]['mixture_means'] = np.array(means[q]),
-                self.params[q]['mixture_scales'] = np.array(scales[q]),
+                self.params[q]['mixture_weights'] = weights[q]
+                self.params[q]['mixture_means'] = np.array(means[q])
+                self.params[q]['mixture_scales'] = np.array(scales[q])
 
         elif method=='LS':
             pass

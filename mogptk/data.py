@@ -291,14 +291,37 @@ class Data:
             amps.append(amplitudes)
         return freqs, amps
 
-    def get_ls_estimation(self, Q=1):
+    def get_ls_estimation(self, Q=1, n_ls=10000):
         """
-        Peak estiamtion using Lomb Scargle
+        Peak estimation using Lomb Scargle.
+
+        Args:
+            Q (int): Number of components.
+            n_ls (int): Number of points for Lomb Scargle,
+                default to 1000.
         """
         freqs = []
         amps = []
-        nyquist = self.get_nyquist_estimation()
+
+        # angular freq
+        nyquist = self.get_nyquist_estimation() * 2 * np.pi
 
         for channel in range(self.get_output_dims()):
-            freq_space = np.arange(0, 0.5, nyquist[channel]) * 2 * np.pi
+            freq_space = np.linspace(0, nyquist[channel], n_ls)
             pgram = lombscargle(self.X[channel], self.Y[channel], freq_space)
+            peaks_index, _ = find_peaks(pgram)
+
+            freqs_peaks = freq_space[peaks_index]
+            amplitudes = pgram[peaks_index]
+
+            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0])])
+
+            if Q < len(peaks):
+                peaks = peaks[:Q]
+            # if there is less peaks than components
+            elif len(peaks) != 0:
+                i = 0
+                n = len(peaks)
+                while Q > len(peaks):
+                    peaks = np.r_[peaks, peaks[i] + np.random.standard_normal(2)]
+                    i = (i+1) % n
