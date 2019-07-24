@@ -3,6 +3,41 @@ from .data import Data
 from .model import model
 from .kernels import SpectralMixture, sm_init, SpectralMixtureOLD, MultiOutputSpectralMixture, SpectralMixtureLMC, ConvolutionalGaussian, CrossSpectralMixture
 import numpy as np
+import gpflow
+import tensorflow as tf
+
+def load(filename):
+    graph = tf.Graph()
+    session = tf.Session(graph=graph)
+    with graph.as_default():
+        with session.as_default():
+            gpmodel = gpflow.saver.Saver().load(filename)
+
+    model_type = gpmodel.mogptk_type
+    name = gpmodel.mogptk_name
+    data = Data._decode(gpmodel.mogptk_data)
+    Q = gpmodel.mogptk_Q
+    params = gpmodel.mogptk_params
+    print(name, data, Q, params)
+
+    if model_type == 'SM':
+        m = SM(data, Q, name)
+    elif model_type == 'MOGP':
+        m = MOGP(data, Q, name)
+    elif model_type == 'CG':
+        m = CG(data, Q, name)
+    elif model_type == 'CSM':
+        m = CSM(data, Q, name)
+    elif model_type == 'SM_LMC':
+        m = SM_LMC(data, Q, name)
+    else:
+        raise Exception("unknown model type '%s'" % (model_type))
+
+    m.model = gpmodel
+    m.params = params
+    m.graph = graph
+    m.session = session
+    return m
 
 def transform_multioutput_data(x, y=None):
     chan = []
@@ -59,13 +94,13 @@ class SM(model):
         if output_dims != 1:
             raise Exception("Single output Spectral Mixture kernel can only take one output dimension in the data")
 
-        x, y = self._transform_data(data.X, data.Y)
-        weights, means, scales = sm_init(x, y, Q)
+        #x, y = self._transform_data(data.X, data.Y)
+        #weights, means, scales = sm_init(x, y, Q)
         for q in range(Q):
             self.params.append({
-                'mixture_weights': weights[q],
-                'mixture_means': np.array(means[q]),
-                'mixture_scales': np.array(scales.T[q]),
+                'mixture_weights': 0,#weights[q],
+                'mixture_means': np.zeros((input_dims)),#np.array(means[q]),
+                'mixture_scales': np.zeros((input_dims)),#np.array(scales.T[q]),
             })
 
     def estimate(self):

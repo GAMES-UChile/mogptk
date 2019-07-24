@@ -20,6 +20,33 @@ class Data:
         self.dims = 1
         self.channel_names = []
 
+    def __str__(self):
+        return "Input dims: %d\nOutput dims: %d\nX: %s\nY: %s" % (self.get_input_dims(), self.get_output_dims(), self.X, self.Y)
+
+    def _encode(self):
+        return {
+            'X': np.array(self.X),
+            'Y': np.array(self.Y),
+            'X_all': np.array(self.X_all),
+            'Y_all': np.array(self.Y_all),
+            #'F': self.F, # TODO
+            'dims': self.dims,
+            'channel_names': self.channel_names,
+        }
+
+    def _decode(d):
+        self = Data()
+        self.X = list(d['X'])
+        self.Y = list(d['Y'])
+        self.X_all = list(d['X_all'])
+        self.Y_all = list(d['Y_all'])
+        #self.F = d['F']
+        self.dims = d['dims']
+        self.channel_names = d['channel_names']
+
+        print(self.X)
+        return self
+
     def add(self, X, Y, name=None):
         """
         Adds a new channel with data set by X (input) and Y (output).

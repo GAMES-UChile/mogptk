@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import gpflow
 from .tf import show_default_graph
@@ -5,11 +6,6 @@ import tensorflow as tf
 
 import logging
 logging.getLogger('tensorflow').propagate = False
-
-def load(filename):
-    # TODO: load training data too?
-    m = gpflow.saver.Saver().load(filename)
-    return model(None, m)
 
 class model:
     """
@@ -36,6 +32,9 @@ class model:
         self.model = None
         self.Q = Q
         self.params = []
+        self.X_pred = {}
+        self.Y_mu_pred = {}
+        self.Y_var_pred = {}
 
     def _kernel(self):
         # overridden by specific models
@@ -78,8 +77,26 @@ class model:
         self.params[q][key] = val
 
     def save(self, filename):
-        # TODO: needs testing and saving training data?
-        gpflow.saver.Saver().save(filename, self.model)
+        if self.model == None:
+            raise Exception("build (and train) the model before doing predictions")
+
+        if not filename.endswith(".mogptk"):
+            filename += ".mogptk"
+
+        try:
+            os.remove(filename)
+        except OSError:
+            pass
+
+        self.model.mogptk_type = self.__class__.__name__
+        self.model.mogptk_name = self.name
+        self.model.mogptk_data = self.data._encode()
+        self.model.mogptk_Q = self.Q
+        self.model.mogptk_params = self.params
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                gpflow.saver.Saver().save(filename, self.model)
 
     def build(self, kind='full', disp=True):
         if disp:
@@ -102,7 +119,7 @@ class model:
                     self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
                 else:
                     raise Exception("model type '%s' does not exist" % (kind))
-
+        
         self.X_pred = {}
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
@@ -292,7 +309,9 @@ class model:
             self.set_predictions(x)
 
         x, _ = self._transform_data(self.X_pred)
-        mu, var = self.model.predict_f(x)
+        with self.graph.as_default():
+            with self.session.as_default():
+                mu, var = self.model.predict_f(x)
 
         n = 0
         for channel in self.X_pred:
