@@ -18,7 +18,7 @@ def load(filename):
     data = Data._decode(gpmodel.mogptk_data)
     Q = gpmodel.mogptk_Q
     params = gpmodel.mogptk_params
-    print(name, data, Q, params)
+    fixed_params = gpmodel.mogptk_fixed_params
 
     if model_type == 'SM':
         m = SM(data, Q, name)
@@ -35,6 +35,7 @@ def load(filename):
 
     m.model = gpmodel
     m.params = params
+    m.fixed_params = fixed_params
     m.graph = graph
     m.session = session
     return m

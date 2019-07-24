@@ -32,6 +32,7 @@ class model:
         self.model = None
         self.Q = Q
         self.params = []
+        self.fixed_params = []
         self.X_pred = {}
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
@@ -76,6 +77,12 @@ class model:
 
         self.params[q][key] = val
 
+    def fix_params(self, key):
+        self.fixed_params.append(key)
+
+    def unfix_params(self, key):
+        self.fixed_params.remove(key)
+
     def save(self, filename):
         if self.model == None:
             raise Exception("build (and train) the model before doing predictions")
@@ -93,6 +100,7 @@ class model:
         self.model.mogptk_data = self.data._encode()
         self.model.mogptk_Q = self.Q
         self.model.mogptk_params = self.params
+        self.model.mogptk_fixed_params = self.fixed_params
 
         with self.graph.as_default():
             with self.session.as_default():
@@ -119,6 +127,19 @@ class model:
                     self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
                 else:
                     raise Exception("model type '%s' does not exist" % (kind))
+        
+        for key in self.fixed_params:
+            if hasattr(self.model.kern, 'kernels'):
+                for kern in self.model.kern.kernels:
+                    if hasattr(kern, key):
+                        getattr(kern, key).trainable = False
+                    else:
+                        raise Exception("parameter name '%s' does not exist" % (key))
+            else:
+                if hasattr(self.model.kern, key):
+                    getattr(self.model.kern, key).trainable = False
+                else:
+                    raise Exception("parameter name '%s' does not exist" % (key))
         
         self.X_pred = {}
         self.Y_mu_pred = {}
