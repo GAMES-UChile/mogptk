@@ -107,7 +107,7 @@ class model:
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-    def train(self, kind='full', method='L-BFGS-B', maxiter=1000, disp=True, learning_rate=0.001):
+    def train(self, method='L-BFGS-B', kind='full', maxiter=1000, disp=True, learning_rate=0.001):
         """
         Builds and trains the model using the kernel and its parameters.
 
@@ -135,8 +135,12 @@ class model:
 
         with self.graph.as_default():
             with self.session.as_default():
-                opt = gpflow.train.ScipyOptimizer(method=method)
-                opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter)
+                if method == "Adam":
+                    opt = gpflow.training.AdamOptimizer(learning_rate)
+                    opt.minimize(self.model, anchor=True, maxiter=maxiter)
+                else:
+                    opt = gpflow.train.ScipyOptimizer(method=method)
+                    opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter)
 
                 self._update_params(self.model.read_trainables())
 
