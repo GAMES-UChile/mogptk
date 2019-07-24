@@ -22,7 +22,7 @@ from gpflow import transforms, autoflow,settings
 # TODO: means are angular freqs, not spatial freqs
 # TODO: split out the Q part and use kernel + kernel + ... Q times?
 class SpectralMixture(Kernel):
-    def __init__(self, num_mixtures=1, mixture_weights=None, mixture_scales=None, mixture_means=None, input_dim=1, active_dims=None, name=None):
+    def __init__(self, num_mixtures=1, mixture_weights=None, mixture_means=None, mixture_scales=None, input_dim=1, active_dims=None, name=None):
         """
         - num_mixtures (int) is Q
         - weight (np.ndarray) has shape (Q)
@@ -35,6 +35,14 @@ class SpectralMixture(Kernel):
         http://www.cs.cmu.edu/~andrewgw/typo.pdf
         """
         Q = num_mixtures
+
+        if mixture_weights is None:
+            mixture_weights = np.random.standar_normal((Q))
+        if mixture_means is None:
+            mixture_means = np.random.standar_normal((Q, input_dim))
+        if mixture_scales is None:
+            mixture_scales = np.random.standar_normal((input_dim, Q))
+
         if mixture_weights.shape != (Q,):
             raise Exception("bad weight shape %s" % (mixture_weights.shape,))
         if mixture_means.shape != (Q, input_dim):
@@ -153,4 +161,4 @@ def sm_init(train_x, train_y, num_mixtures):
     # dim: 1 x Q
     mixture_weights= np.divide(np.std(train_y,axis=0),num_mixtures)*np.ones(num_mixtures)
 
-    return mixture_weights, mixture_means, mixture_scales.T
+    return mixture_weights, mixture_means, mixture_scales

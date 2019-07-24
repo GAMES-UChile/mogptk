@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 from mogptk.bnse import *
+from scipy.signal import lombscargle, find_peaks
 
 class Data:
     """
@@ -213,6 +214,13 @@ class Data:
     ################################################################
 
     def get_nyquist_estimation(self):
+        """
+        Estimate nyquist frequency for each channel  by taking
+        0.5/min dist of points.
+
+        Returns:
+            Numpy array of length equal to number of channels.
+        """
         nyquist = []
         for channel in range(self.get_output_dims()):
             x = self.X[channel]
@@ -221,6 +229,9 @@ class Data:
         return nyquist
 
     def get_bnse_estimation(self, Q=1):
+        """
+        Peaks estimation using BNSE (Bayesian nonparametric espectral estimation)
+        """
         freqs = []
         amps = []
         nyquist = self.get_nyquist_estimation()
@@ -252,3 +263,15 @@ class Data:
             freqs.append(2*np.pi*peaks)
             amps.append(amplitudes)
         return freqs, amps
+
+    def get_ls_estimation(self, Q=1):
+        """
+        Peak estiamtion using Lomb Scargle
+        """
+        freqs = []
+        amps = []
+        nyquist = self.get_nyquist_estimation()
+
+        for channel in range(self.get_output_dims()):
+            freq_space = np.arange(0, 0.5, nyquist[channel]) * 2 * np.pi
+            pgram = lombscargle(self.X[channel], self.Y[channel], freq_space)

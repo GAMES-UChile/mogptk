@@ -128,7 +128,7 @@ class model:
         if disp:
             print("Optimizing...")
 
-        opt = gpflow.train.ScipyOptimizer(method=method)
+            opt = gpflow.train.ScipyOptimizer(method=method)
         opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter)
 
         self._update_params(self.model.read_trainables())
@@ -293,4 +293,4 @@ class model:
                 self.Y_mu_pred[channel] = mu[i:i+n].reshape(1, -1)[0]
                 self.Y_var_pred[channel] = var[i:i+n].reshape(1, -1)[0]
                 i += n
-
+        return self.X_pred, self.Y_mu_pred, self.Y_var_pred
