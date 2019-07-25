@@ -258,18 +258,20 @@ class Data:
     def get_bnse_estimation(self, Q=1):
         """
         Peaks estimation using BNSE (Bayesian nonparametric espectral estimation)
+
+        ** Only valid to single input dimension**
         """
         freqs = []
         amps = []
         nyquist = self.get_nyquist_estimation()
         for channel in range(self.get_output_dims()):
             bnse = bse(self.X[channel], self.Y[channel])
-            bnse.set_freqspace(nyquist[channel])
+            bnse.set_freqspace(nyquist[channel], dimension=1000)
             bnse.train()
             bnse.compute_moments()
 
             peaks, amplitudes = bnse.get_freq_peaks()
-            peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0])])
+            peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
             amplitudes.sort()
 
             if Q < len(peaks):
@@ -294,27 +296,31 @@ class Data:
     def get_ls_estimation(self, Q=1, n_ls=10000):
         """
         Peak estimation using Lomb Scargle.
+        ***Only for 1 channel for the moment***
+        To-Do: support for multiple channels.
 
         Args:
             Q (int): Number of components.
             n_ls (int): Number of points for Lomb Scargle,
-                default to 1000.
+                default to 10000.
+
+        ** Only valid to single input dimension **
         """
         freqs = []
         amps = []
 
         # angular freq
-        nyquist = self.get_nyquist_estimation() * 2 * np.pi
+        nyquist = np.array(self.get_nyquist_estimation()) * 2 * np.pi
 
         for channel in range(self.get_output_dims()):
-            freq_space = np.linspace(0, nyquist[channel], n_ls)
+            freq_space = np.linspace(1e-6, nyquist[channel], n_ls)
             pgram = lombscargle(self.X[channel], self.Y[channel], freq_space)
             peaks_index, _ = find_peaks(pgram)
 
             freqs_peaks = freq_space[peaks_index]
             amplitudes = pgram[peaks_index]
 
-            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0])])
+            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
 
             if Q < len(peaks):
                 peaks = peaks[:Q]
@@ -325,3 +331,9 @@ class Data:
                 while Q > len(peaks):
                     peaks = np.r_[peaks, peaks[i] + np.random.standard_normal(2)]
                     i = (i+1) % n
+
+            # TODO: use input dims
+            freqs.append(np.expand_dims(peaks[:, 1], 0))
+            amps.append(np.expand_dims(peaks[:, 0], 0))
+
+        return freqs, amps
