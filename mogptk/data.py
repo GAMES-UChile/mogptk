@@ -1,3 +1,4 @@
+import csv
 import copy
 import numpy as np
 from mogptk.bnse import *
@@ -44,10 +45,39 @@ class Data:
         #self.F = d['F']
         self.dims = d['dims']
         self.channel_names = d['channel_names']
-
-        print(self.X)
         return self
 
+    def load_csv(self, filename, x_cols, y_cols, **kwargs):
+        input_dims = 1
+        if isinstance(x_cols, list) and all(isinstance(item, str) for item in x_cols):
+            input_dims = len(x_cols)
+        elif isinstance(x_cols, str):
+            x_cols = [x_cols]
+        else:
+            raise Exception("x_cols must be string or list of strings")
+        
+        output_dims = 1
+        if isinstance(y_cols, list) and all(isinstance(item, str) for item in y_cols):
+            output_dims = len(y_cols)
+        elif isinstance(y_cols, str):
+            y_cols = [y_cols]
+        else:
+            raise Exception("y_cols must be string or list of strings")
+
+        with open(filename, mode='r') as csv_file:
+            rows = list(csv.DictReader(csv_file, **kwargs))
+            
+            X = np.empty((len(rows), input_dims))
+            Y = np.empty((len(rows), output_dims))
+            for j, row in enumerate(rows):
+                for i, x_col in enumerate(x_cols):
+                    X[j,i] = row[x_col]
+                for i, y_col in enumerate(y_cols):
+                    Y[j,i] = row[y_col]
+
+            for i, y_col in enumerate(y_cols):
+                self.add(X, Y[:,i], name=y_col)
+    
     def add(self, X, Y, name=None):
         """
         Adds a new channel with data set by X (input) and Y (output).
