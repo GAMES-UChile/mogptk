@@ -367,11 +367,15 @@ class Data:
         Returns:
             Numpy array of length equal to number of channels.
         """
-        nyquist = []
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
+
+        nyquist = np.empty((output_dims, input_dims))
         for channel in range(self.get_output_dims()):
-            x = self.X[channel]
-            dist = np.min(np.abs(x[1:]-x[:-1]))
-            nyquist.append(0.5/dist)
+            for i in range(self.get_input_dims()):
+                x = self.X[channel][i]
+                dist = np.min(np.abs(x[1:]-x[:-1]))
+                nyquist[channel,i] = 0.5/dist
         return nyquist
 
     def get_bnse_estimation(self, Q=1):
@@ -380,37 +384,40 @@ class Data:
 
         ** Only valid to single input dimension**
         """
-        freqs = []
-        amps = []
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
+
+        freqs = np.zeros((output_dims, input_dims, Q))
+        amps = np.zeros((output_dims, input_dims, Q))
+
         nyquist = self.get_nyquist_estimation()
-        print(nyquist)
         for channel in range(self.get_output_dims()):
-            bnse = bse(self.X[channel], self.Y[channel])
-            bnse.set_freqspace(nyquist[channel], dimension=1000)
-            bnse.train()
-            bnse.compute_moments()
+            for i in range(self.get_input_dims()):
+                bnse = bse(self.X[channel][:,i], self.Y[channel])
+                bnse.set_freqspace(nyquist[channel,i], dimension=1000)
+                bnse.train()
+                bnse.compute_moments()
 
-            peaks, amplitudes = bnse.get_freq_peaks()
-            peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
-            amplitudes.sort()
+                peaks, amplitudes = bnse.get_freq_peaks()
+                if len(peaks) == 0:
+                    continue
 
-            if Q < len(peaks):
-                peaks = peaks[:Q]
-                amplitudes = amplitudes[:Q]
-            elif len(peaks) != 0:
-                i = 0
-                n = len(peaks)
-                while Q > len(peaks):
-                    peaks = np.append(peaks, peaks[i] + (np.random.standard_t(3, 1) * 0.01)[0])
-                    amplitudes = np.append(amplitudes, amplitudes[i])
-                    i = (i+1) % n
+                peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
+                amplitudes.sort()
 
-            # TODO: use input dims
-            peaks = np.expand_dims(peaks, axis=0)
-            amplitudes = np.expand_dims(amplitudes, axis=0)
-
-            freqs.append(2*np.pi*peaks)
-            amps.append(amplitudes)
+                if Q < len(peaks):
+                    peaks = peaks[:Q]
+                    amplitudes = amplitudes[:Q]
+                elif len(peaks) != 0:
+                    i = 0
+                    n = len(peaks)
+                    while Q > len(peaks):
+                        peaks = np.append(peaks, peaks[i] + (np.random.standard_t(3, 1) * 0.01)[0])
+                        amplitudes = np.append(amplitudes, amplitudes[i])
+                        i = (i+1) % n
+                
+                freqs[channel,i] = 2*np.pi*peaks
+                amps[channel,i] = amplitudes
         return freqs, amps
 
     def get_ls_estimation(self, Q=1, n_ls=10000):
