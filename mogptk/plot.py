@@ -5,20 +5,13 @@ import seaborn as sns
 def plot(model, filename=None, title=None):
     """plot will plot the model in graphs per input and output dimensions. Output dimensions will stack the graphs vertically while input dimensions stacks them horizontally. Optionally, you can output the figure to a file and set a title."""
     data = model.data
-
     channels = range(data.get_output_dims())
-    for channel in channels:
-        input_dims = data.get_input_dims()
-        if input_dims == 0:
-            channels.remove(channel)
-        elif input_dims != 1:
-            raise Exception('only one dimensions input data can be plotted')
 
     sns.set(font_scale=2)
     sns.axes_style("darkgrid")
     sns.set_style("whitegrid")
 
-    fig, axes = plt.subplots(len(channels), 1, figsize=(20, len(channels)*5), sharey=False, constrained_layout=True, squeeze=False)
+    fig, axes = plt.subplots(len(channels), data.get_input_dims(), figsize=(20, len(channels)*5), sharey=False, constrained_layout=True, squeeze=False)
     if title != None:
         fig.suptitle(title, fontsize=36)
 
@@ -26,34 +19,34 @@ def plot(model, filename=None, title=None):
     plotting_F = False
     plotting_all_obs = False
     for channel in channels:
-        x_min = data.X_all[channel][0]
-        x_max = data.X_all[channel][-1]
-        
         if channel in model.Y_mu_pred:
-            x_min = min(x_min, model.X_pred[channel][0])
-            x_max = max(x_max, model.X_pred[channel][-1])
-
             lower = model.Y_mu_pred[channel] - model.Y_var_pred[channel]
             upper = model.Y_mu_pred[channel] + model.Y_var_pred[channel]
 
-            axes[channel, 0].plot(model.X_pred[channel], model.Y_mu_pred[channel], 'b-', lw=3)
-            axes[channel, 0].fill_between(model.X_pred[channel], lower, upper, color='b', alpha=0.1)
-            axes[channel, 0].plot(model.X_pred[channel], lower, 'b-', lw=1, alpha=0.5)
-            axes[channel, 0].plot(model.X_pred[channel], upper, 'b-', lw=1, alpha=0.5)
+            for i in range(data.get_input_dims()):
+                axes[channel, i].plot(model.X_pred[channel][:,i], model.Y_mu_pred[channel], 'b-', lw=3)
+                axes[channel, i].fill_between(model.X_pred[channel][:,i], lower, upper, color='b', alpha=0.1)
+                axes[channel, i].plot(model.X_pred[channel][:,i], lower, 'b-', lw=1, alpha=0.5)
+                axes[channel, i].plot(model.X_pred[channel][:,i], upper, 'b-', lw=1, alpha=0.5)
             plotting_pred = True
 
         if channel in data.F:
             x = np.arange(x_min, x_max+0.01, 0.01)
-            y = data.F[channel](x)
+            y = data.F[channel](x) # TODO: multi input dims
             axes[channel, 0].plot(x, y, 'r--', lw=1)
             plotting_F = True
 
         X_removed, Y_removed = data.get_del_obs(channel)
         if len(X_removed) > 0:
-            axes[channel, 0].plot(X_removed, Y_removed, 'rx', mew=2, ms=10)
+            for i in range(data.get_input_dims()):
+                axes[channel, i].plot(X_removed[:,i], Y_removed, 'rx', mew=2, ms=10)
             plotting_all_obs = True
 
-        axes[channel, 0].plot(data.X[channel], data.Y[channel], 'kx', mew=2, ms=10)
+        for i in range(data.get_input_dims()):
+            axes[channel, i].plot(data.X[channel][:,i], data.Y[channel], 'kx', mew=2, ms=10)
+        
+    for i in range(data.get_input_dims()):
+        axes[0, i].set_title('Input dimension %d' % (i))
 
     # build legend
     legend = []

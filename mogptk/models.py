@@ -54,8 +54,9 @@ def transform_multioutput_data(x, y=None):
     else:
         raise Exception("unknown data type for x")
     
+    chan = chan.reshape(-1, 1)
     x = np.concatenate(x)
-    x = np.stack((chan, x), axis=1)
+    x = np.concatenate((chan, x), axis=1)
     if y != None:
         y = np.concatenate(y).reshape(-1, 1)
     return x, y
@@ -81,7 +82,7 @@ def estimate_from_sm(data, Q):
         sm_data.add(data.X[channel], data.Y[channel])
 
         sm = SM(sm_data, Q)
-        sm.estimate()
+        sm.init_params()
         sm.train(method='BFGS', disp=True)
 
         for q in range(Q):
@@ -171,8 +172,9 @@ class SM(model):
             x = np.array(list(x.values()))
         elif isinstance(x, list):
             x = np.array(x)
+        x = np.squeeze(x, axis=0) # not using multi output dims
         y = np.array(y)
-        return x.T, y.T
+        return x, y.T
 
     def _kernel(self):
         weights = np.array([self.params[q]['mixture_weights'] for q in range(self.Q)])
@@ -183,7 +185,7 @@ class SM(model):
             weights,
             means,
             scales,
-            self.data.get_input_dims()
+            self.data.get_input_dims(),
         )
 
     def _update_params(self, trainables):

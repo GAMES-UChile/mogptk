@@ -4,6 +4,7 @@ import numpy as np
 from mogptk.bnse import *
 from scipy.signal import lombscargle, find_peaks
 
+# TODO: as X data may not be sorted (think 2D case), see if remove* and predict* functions work
 class Data:
     """
     Class that holds all the observations and latent functions.
@@ -14,8 +15,8 @@ class Data:
     Atributes:
     """
     def __init__(self):
-        self.X = []
-        self.Y = []
+        self.X = [] # for each channel the shape is (n, input_dims) with n the number of data points
+        self.Y = [] # for each channel the shape is (n) with n the number of data points
         self.X_all = []
         self.Y_all = []
         self.F = {}
@@ -100,23 +101,21 @@ class Data:
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
             raise Exception("X and Y must be numpy arrays")
 
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
         if X.ndim == 2:
             if len(self.X) == 0:
                 self.dims = X.shape[1]
             elif self.dims != X.shape[1]:
                 raise Exception("X must have the same input dimensions for all channels")
-        elif X.ndim != 1:
+        else:
             raise Exception("X must be either a one or two dimensional array of data")
+
         if Y.ndim != 1:
             raise Exception("Y must be a one dimensional array of data")
         if X.shape[0] != Y.shape[0]:
             raise Exception("X and Y must be of the same length")
-        if X.ndim == 1:
-            # TODO: what about multi-dimension input data?
-            for i in range(len(X)-1):
-                if X[i] >= X[i+1]:
-                    raise Exception("X must be ordered from low to high")
-
+        
         if name == None:
             name = str(len(self.channel_names))
 
@@ -125,6 +124,7 @@ class Data:
         self.X_all.append(X)
         self.Y_all.append(Y)
         self.channel_names.append(name)
+        #TODO: check if channel name exists
 
     def set_function(self, channel, f):
         """set_function sets a (latent) function corresponding to the channel. This is used for plotting functionality and is optional."""
@@ -207,8 +207,8 @@ class Data:
             if len(j) == 1 and self.Y_all[channel][j[0]] == y:
                 js.append(j[0])
 
-        X_removed = np.delete(self.X_all[channel], js)
-        Y_removed = np.delete(self.Y_all[channel], js)
+        X_removed = np.delete(self.X_all[channel], js, axis=0)
+        Y_removed = np.delete(self.Y_all[channel], js, axis=0)
         return X_removed, Y_removed
 
     ################################################################
@@ -221,11 +221,11 @@ class Data:
             if pct == None:
                 n = 0
             else:
-                n = int(pct * len(self.X[channel]))
+                n = int(pct * self.X[channel].shape[0])
 
-        idx = np.random.randint(0, len(self.X[channel]), n)
-        self.X[channel] = np.delete(self.X[channel], idx)
-        self.Y[channel] = np.delete(self.Y[channel], idx)
+        idx = np.random.choice(self.X[channel].shape[0], n, replace=False)
+        self.X[channel] = np.delete(self.X[channel], idx, 0)
+        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
     
     def remove_range(self, channel, start=None, end=None):
         """remove_range removes observations on a channel in the interval [start,end]."""
@@ -236,9 +236,9 @@ class Data:
         if end == None:
             end = self.X[channel][-1]
 
-        idx = np.where(np.logical_and(self.X[channel] >= start, self.X[channel] <= end))
-        self.X[channel] = np.delete(self.X[channel], idx)
-        self.Y[channel] = np.delete(self.Y[channel], idx)
+        idx = np.where(np.logical_and(self.X[channel] >= start, self.X[channel] <= end)) # TODO: X may not be sorted or multi dimensional
+        self.X[channel] = np.delete(self.X[channel], idx, 0)
+        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
     
     def remove_relative_range(self, channel, start, end):
         """remove_relative_range removes observations on a channel between start and end as a percentage of the number of observations.
@@ -265,8 +265,8 @@ class Data:
         locs = np.round(np.sort(np.random.rand(n)) * m)
         for i in range(len(locs)):
             loc = int(locs[i] + i * size)
-            self.X[channel] = np.delete(self.X[channel], np.arange(loc, loc+size))
-            self.Y[channel] = np.delete(self.Y[channel], np.arange(loc, loc+size))
+            self.X[channel] = np.delete(self.X[channel], np.arange(loc, loc+size), 0)
+            self.Y[channel] = np.delete(self.Y[channel], np.arange(loc, loc+size), 0)
 
     ################################################################
 

@@ -36,12 +36,14 @@ class SpectralMixture(Kernel):
         """
         Q = num_mixtures
 
+        print(Q, input_dim, mixture_weights.shape, mixture_means.shape, mixture_scales.shape)
+
         if mixture_weights is None:
-            mixture_weights = np.random.standar_normal((Q))
+            mixture_weights = np.random.standard_normal((Q))
         if mixture_means is None:
-            mixture_means = np.random.standar_normal((Q, input_dim))
+            mixture_means = np.random.standard_normal((Q, input_dim))
         if mixture_scales is None:
-            mixture_scales = np.random.standar_normal((input_dim, Q))
+            mixture_scales = np.random.standard_normal((input_dim, Q))
 
         if mixture_weights.shape != (Q,):
             raise Exception("bad weight shape %s" % (mixture_weights.shape,))

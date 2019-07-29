@@ -227,6 +227,22 @@ class model:
 
         return self.X_pred[channel], self.Y_mu_pred[channel], self.Y_var_pred[channel]
 
+    def _normalize_dims(self, x):
+        if x == None:
+            return x
+
+        if isinstance(x, float):
+            x = [x]
+        elif isinstance(x, np.ndarray):
+            x = list(x)
+        elif not isinstance(x, list):
+            raise Exception("input should be a floating point, list or ndarray")
+
+        input_dims = self.data.get_input_dims()
+        if len(x) != input_dims:
+            raise Exception("input must be a list of values for each input dimension")
+        return x
+
     def set_prediction_range(self, channel, start=None, end=None, step=None, n=None):
         """
         Sets the prediction range for a certain channel in the interval [start,end].
@@ -258,13 +274,20 @@ class model:
             end = self.data.X[channel][-1]
         if end <= start:
             raise Exception("start must be lower than end")
+        
+        start = self._normalize_dims(start)
+        end = self._normalize_dims(end)
 
         if step == None and n != None:
-            self.X_pred[channel] = np.linspace(start, end, n)
+            self.X_pred[channel] = np.empty((n, self.data.get_input_dims()))
+            for i in range(self.data.get_input_dims()):
+                self.X_pred[channel][:,i] = np.linspace(start[i], end[i], n)
         else:
+            if self.data.get_input_dims() != 1:
+                raise Exception("cannot use step for multi dimensional input, use n")
             if step == None:
-                step = (end-start)/100
-            self.X_pred[channel] = np.arange(start, end+step, step)
+                step = (end[0]-start[0])/100
+            self.X_pred[channel] = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
     
     def set_predictions(self, xs):
         """
