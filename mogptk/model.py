@@ -58,6 +58,14 @@ class model:
         Returns all parameters set for the kernel per component.
         """
         return self.params
+        
+    def _get_param_across(self, name='mixture_means'):
+        """
+        Get all the name parameters across all components
+        """
+        params = [self.get_params()[q][name] for q in range(self.Q)]
+        
+        return np.array(params)
 
     def set_param(self, q, key, val):
         """
@@ -145,25 +153,33 @@ class model:
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-    def train(self, method='L-BFGS-B', kind='full', maxiter=1000, disp=True, learning_rate=0.001):
+    def train(self, method='L-BFGS-B', kind='full', maxiter=1000, disp=True, learning_rate=0.001, disp_graph=False):
         """
         Builds and trains the model using the kernel and its parameters.
 
         For different optimizers, see scipy.optimize.minimize.
-        It can be bounded by a maximum number of iterations, disp will output final optimization information.
+        It can be bounded by a maximum number of iterations, disp will output final
+        optimization information.
         When using the 'Adam' optimizer, a learning_rate can be set.
 
         Args:
-            kind (str): Type of model to use, posible mode are 'full', 'sparse' and 'sparse-variational'.
-            method (str): Optimizer to use, if "Adam" is chosen, gpflow.training.Adamoptimizer will be used,
-                otherwise the passed scipy optimizer is used. Default to scipy 'L-BFGS-B'.
+            kind (str): Type of model to use, posible mode are 'full', 'sparse' and
+                'sparse-variational'.
+
+            method (str): Optimizer to use, if "Adam" is chosen,
+                gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
+                optimizer is used. Default to scipy 'L-BFGS-B'.
 
             maxiter (int): Maximum number of iterations, default to 1000.
 
-            disp (bool): If true it display information on the optimization, only valid to scipy optimizers.
-                Default to True.
+            disp (bool): If true it display information on the optimization, only valid
+                to scipy optimizers. Default to True.
 
-            learning_rate(float): Learning rate of Adam optimizer. Only valid with Adam, default to 0.001.
+            disp_graph (bool): If true show computational graph.
+                Requires tensorboard and graphviz installed.
+
+            learning_rate(float): Learning rate of Adam optimizer.
+                Only valid with Adam, default to 0.001.
         """
         
         self.build(kind, disp)
@@ -184,6 +200,8 @@ class model:
 
                 if disp:
                     print("Done")
+                if disp_graph:
+                    
                     show_default_graph()
 
 

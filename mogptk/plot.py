@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import norm
 
 def plot(model, filename=None, title=None):
     """plot will plot the model in graphs per input and output dimensions. Output dimensions will stack the graphs vertically while input dimensions stacks them horizontally. Optionally, you can output the figure to a file and set a title."""
@@ -67,6 +68,45 @@ def plot(model, filename=None, title=None):
     plt.legend(handles=legend, loc='best')
 
     if filename != None:
-        plt.savefig(filename, dpi=300)
+        plt.savefig(filename+'.pdf', dpi=300)
     plt.show()
+
+
+def plot_psd(model, title='', filename=None):
+    """
+    Plot power spectral density of 
+    single output GP-SM
+    """
+    means = model._get_param_across('mixture_means').reshape(-1)
+    weights = model._get_param_across('mixture_weights').reshape(-1)
+    scales = model._get_param_across('mixture_scales').reshape(-1)
+    
+    # calculate bounds
+    x_low = norm.ppf(0.001, loc=means, scale=scales).min()
+    x_high = norm.ppf(0.99, loc=means, scale=scales).max()
+    
+    x = np.linspace(x_low, x_high + 1, 1000)
+    psd = np.zeros_like(x)
+    
+    for q in range(model.Q):
+        single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
+        plt.plot(x, single_psd, '--', lw=1.2, c='orange', zorder=2, alpha=0.9)
+        plt.axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color='grey')
+        psd = psd + single_psd
+        
+    # symmetrize PSD
+    if psd[x<0].size != 0:
+        psd = psd + np.r_[psd[x<0][::-1], np.zeros((x>=0).sum())]
+        
+    plt.plot(x, psd, lw=2.5, c='r', alpha=0.7, zorder=1)
+    plt.xlim(0, x[-1] + 0.1)
+    # plt.yscale('log')
+    plt.xlabel(r'$\omega$')
+    plt.ylabel('PSD')
+    plt.title(title)
+
+    if filename != None:
+        plt.savefig(filename+'.pdf', dpi=300)
+
+
 
