@@ -36,8 +36,6 @@ class SpectralMixture(Kernel):
         """
         Q = num_mixtures
 
-        print(Q, input_dim, mixture_weights.shape, mixture_means.shape, mixture_scales.shape)
-
         if mixture_weights is None:
             mixture_weights = np.random.standard_normal((Q))
         if mixture_means is None:

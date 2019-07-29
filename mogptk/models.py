@@ -388,7 +388,6 @@ class SM_LMC(model):
         data = self.data.copy()
         data.normalize()
         all_params = estimate_from_sm(data, self.Q)
-        print(all_params)
 
         params = {'weight': [], 'mean': [], 'scale': []}
         for channel in range(len(all_params)):

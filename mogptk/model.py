@@ -251,6 +251,8 @@ class model:
 
         if isinstance(x, float):
             x = [x]
+        elif isinstance(x, int):
+            x = [float(x)]
         elif isinstance(x, np.ndarray):
             x = list(x)
         elif not isinstance(x, list):
@@ -258,7 +260,7 @@ class model:
 
         input_dims = self.data.get_input_dims()
         if len(x) != input_dims:
-            raise Exception("input must be a list of values for each input dimension")
+            raise Exception("input must be a scalar for single-dimension input or a list of values for each input dimension")
         return x
 
     def set_prediction_range(self, channel, start=None, end=None, step=None, n=None):

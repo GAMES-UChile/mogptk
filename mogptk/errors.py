@@ -8,7 +8,8 @@ def mean_absolute_percentage_error(y_true, y_pred):
     y_pred = y_pred[idx]
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
-def errors(model_list, **kwargs):
+# TODO: use relative error per channel
+def errors(*models, **kwargs):
     """
     Return error metrics for given models.
 
@@ -35,7 +36,13 @@ def errors(model_list, **kwargs):
         output = kwargs["print"]
 
     errors = []
-    for model in args:
+    for model in models:
+        if model.data.get_input_dims() != 1:
+            raise Exception("cannot (yet) estimate errors when using multi input dimensions")
+
+        if len(model.X_pred) == 0:
+            continue
+
         Y_true = np.empty(0)
         Y_pred = np.empty(0)
         for channel in range(model.data.get_output_dims()):
@@ -48,17 +55,17 @@ def errors(model_list, **kwargs):
                 if channel in model.data.F:
                     y_true = model.data.F[channel](x) # use exact latent function to remove imposed Gaussian error on data points
 
-                y_pred = np.interp(x, model.X_pred[channel], model.Y_mu_pred[channel])
+                y_pred = np.interp(x, model.X_pred[channel].reshape(-1), model.Y_mu_pred[channel]) # TODO: multi input dims
 
                 Y_true = np.append(Y_true, y_true)
                 Y_pred = np.append(Y_pred, y_pred)
             
-            errors[channel] = {
-                "model": model.name,
-                "MAE": metrics.mean_absolute_error(Y_true, Y_pred),
-                "MSE": metrics.mean_squared_error(Y_true, Y_pred),
-                "MAPE": mean_absolute_percentage_error(Y_true, Y_pred),
-            }
+        errors.append({
+            "model": model.name,
+            "MAE": metrics.mean_absolute_error(Y_true, Y_pred),
+            "MSE": metrics.mean_squared_error(Y_true, Y_pred),
+            "MAPE": mean_absolute_percentage_error(Y_true, Y_pred),
+        })
 
     if output:
         import pandas as pd
