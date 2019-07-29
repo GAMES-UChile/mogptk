@@ -433,7 +433,7 @@ class Data:
 
         for channel in range(self.get_output_dims()):
             freq_space = np.linspace(1e-6, nyquist[channel], n_ls)
-            pgram = lombscargle(self.X[channel], self.Y[channel], freq_space)
+            pgram = lombscargle(self.X[channel].reshape(-1), self.Y[channel].reshape(-1), freq_space)
             peaks_index, _ = find_peaks(pgram)
 
             freqs_peaks = freq_space[peaks_index]
