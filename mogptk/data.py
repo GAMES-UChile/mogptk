@@ -118,13 +118,16 @@ class Data:
         
         if name == None:
             name = str(len(self.channel_names))
+        
+        for channel_name in self.channel_names:
+            if name == channel_name:
+                raise Exception("channel name '%s' already exists" % (name))
 
         self.X.append(X)
         self.Y.append(Y)
         self.X_all.append(X)
         self.Y_all.append(Y)
         self.channel_names.append(name)
-        #TODO: check if channel name exists
 
     def set_function(self, channel, f):
         """set_function sets a (latent) function corresponding to the channel. This is used for plotting functionality and is optional."""
