@@ -82,8 +82,8 @@ def estimate_from_sm(data, Q):
         sm_data.add(data.X[channel], data.Y[channel])
 
         sm = SM(sm_data, Q)
-        sm.init_params()
-        sm.train(method='BFGS', disp=True)
+        sm.init_params('BNSE')
+        sm.train(method='BFGS', disp=False, maxiter=2000)
 
         for q in range(Q):
             params[q]['weight'].append(sm.params[q]['mixture_weights']),
@@ -232,10 +232,13 @@ class MOSM(model):
         Initialize spectral means using BNSE[1]
         """
         peaks, _ = self.data.get_bnse_estimation(self.Q)
+        peaks = np.array(peaks)
+        # for q in range(self.Q):
+        #    self.params[q]["mean"] = peaks[0].T[q].reshape(-1, 1)
+        #    for channel in range(1,self.data.get_output_dims()):
+        #        self.params[q]["mean"] = np.append(self.params[q]["mean"], peaks[channel].T[q].reshape(-1, 1))
         for q in range(self.Q):
-            self.params[q]["mean"] = peaks[0].T[q].reshape(-1, 1)
-            for channel in range(1,self.data.get_output_dims()):
-                self.params[q]["mean"] = np.append(self.params[q]["mean"], peaks[channel].T[q].reshape(-1, 1))
+            self.params[q]["mean"] = peaks[:, :, q].T
 
     def init_params(self, mode='full'):
         """
