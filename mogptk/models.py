@@ -73,27 +73,31 @@ def estimate_from_sm(data, Q):
     returns: 
         params[q][name][output dim][input dim]
     """
+    input_dims = data.get_input_dims()
+    output_dims = data.get_output_dims()
+
     params = []
     for q in range(Q):
-        params.append({'weight': [], 'mean': [], 'scale': []})
+        params.append({
+            'weight': np.empty((input_dims, output_dims)),
+            'mean': np.empty((input_dims, output_dims)),
+            'scale': np.empty((input_dims, output_dims)),
+        })
 
     for channel in range(data.get_output_dims()):
-        sm_data = Data()
-        sm_data.add(data.X[channel], data.Y[channel])
+        for i in range(data.get_input_dims()):
+            sm_data = Data()
+            sm_data.add(data.X[channel][:,i], data.Y[channel])
 
-        sm = SM(sm_data, Q)
-        sm.init_params('BNSE')
-        sm.train(method='BFGS', disp=False, maxiter=2000)
+            sm = SM(sm_data, Q)
+            sm.init_params('BNSE')
+            sm.train(method='BFGS', disp=False, maxiter=2000)
 
-        for q in range(Q):
-            params[q]['weight'].append(sm.params[q]['mixture_weights']),
-            params[q]['mean'].append(sm.params[q]['mixture_means']),
-            params[q]['scale'].append(sm.params[q]['mixture_scales']),
+            for q in range(Q):
+                params[q]['weight'][channel] = sm.params[q]['mixture_weights']
+                params[q]['mean'][i,channel] = sm.params[q]['mixture_means'] * np.pi * 2.0
+                params[q]['scale'][i,channel] = sm.params[q]['mixture_scales']
 
-    for q in range(Q):
-        params[q]['weight'] = np.array(params[q]['weight'])
-        params[q]['mean'] = np.array(params[q]['mean']) * np.pi * 2
-        params[q]['scale'] = np.array(params[q]['scale'])
     return params
 
 class SM(model):
@@ -262,9 +266,9 @@ class MOSM(model):
         elif mode=='full':
             params = estimate_from_sm(self.data, self.Q)
             for q in range(self.Q):
-                self.params[q]["magnitude"] = params[q]['weight']
-                self.params[q]["mean"] = params[q]['mean'].T
-                self.params[q]["variance"] = params[q]['scale'].T
+                self.params[q]["magnitude"] = np.average(params[q]['weight'], axis=0)
+                self.params[q]["mean"] = params[q]['mean']
+                self.params[q]["variance"] = params[q]['scale']
 
     def _transform_data(self, x, y=None):
         return transform_multioutput_data(x, y)
@@ -321,20 +325,29 @@ class CSM(model):
         data = self.data.copy()
         data.normalize()
         all_params = estimate_from_sm(data, self.Q)
-        print(all_params)
-
-        params = {'weight': [], 'mean': [], 'scale': []}
-        for channel in range(len(all_params)):
-            params['weight'] = np.append(params['weight'], all_params[channel]['weight'])
-            params['mean'] = np.append(params['mean'], all_params[channel]['mean'])
-            params['scale'] = np.append(params['scale'], all_params[channel]['scale'])
+        
+        input_dims = self.data.get_input_dims()
+        output_dims = self.data.get_output_dims()
+        params = {
+            'weight': np.zeros((self.Q*output_dims)),
+            'mean': np.zeros((self.Q*output_dims, input_dims)),
+            'scale': np.zeros((self.Q*output_dims, input_dims)),
+        }
+        for channel in range(output_dims):
+            for q in range(self.Q):
+                weight = np.average(all_params[q]['weight'][:,channel])
+                mean = all_params[q]['mean'][:,channel].reshape(1, -1)
+                scale = all_params[q]['scale'][:,channel].reshape(1, -1)
+                params['weight'] = np.append(params['weight'], weight)
+                params['mean'] = np.concatenate((params['mean'], mean))
+                params['scale'] = np.concatenate((params['scale'], scale))
 
         indices = np.argsort(params['weight'])[::-1]
         for q in range(self.Q):
             if q < len(indices):
                 i = indices[q]
-                self.params[q]['mean'] = np.array([params['mean'][i]])
-                self.params[q]['variance'] = np.array([params['scale'][i]])
+                self.params[q]['mean'] = params['mean'][i]
+                self.params[q]['variance'] = params['scale'][i]
 
     def _transform_data(self, x, y=None):
         return transform_multioutput_data(x, y)
@@ -389,18 +402,28 @@ class SM_LMC(model):
         data.normalize()
         all_params = estimate_from_sm(data, self.Q)
 
-        params = {'weight': [], 'mean': [], 'scale': []}
-        for channel in range(len(all_params)):
-            params['weight'] = np.append(params['weight'], all_params[channel]['weight'])
-            params['mean'] = np.append(params['mean'], all_params[channel]['mean'])
-            params['scale'] = np.append(params['scale'], all_params[channel]['scale'])
+        input_dims = self.data.get_input_dims()
+        output_dims = self.data.get_output_dims()
+        params = {
+            'weight': np.zeros((self.Q*output_dims)),
+            'mean': np.zeros((self.Q*output_dims, input_dims)),
+            'scale': np.zeros((self.Q*output_dims, input_dims)),
+        }
+        for channel in range(output_dims):
+            for q in range(self.Q):
+                weight = np.average(all_params[q]['weight'][:,channel])
+                mean = all_params[q]['mean'][:,channel].reshape(1, -1)
+                scale = all_params[q]['scale'][:,channel].reshape(1, -1)
+                params['weight'] = np.append(params['weight'], weight)
+                params['mean'] = np.concatenate((params['mean'], mean))
+                params['scale'] = np.concatenate((params['scale'], scale))
 
         indices = np.argsort(params['weight'])[::-1]
         for q in range(self.Q):
             if q < len(indices):
                 i = indices[q]
-                self.params[q]['mean'] = np.array([params['mean'][i]])
-                self.params[q]['variance'] = np.array([params['scale'][i]])
+                self.params[q]['mean'] = params['mean'][i]
+                self.params[q]['variance'] = params['scale'][i]
 
     def _transform_data(self, x, y=None):
         return transform_multioutput_data(x, y)
@@ -447,7 +470,7 @@ class CG(model):
         """
         params = estimate_from_sm(self.data, self.Q) # TODO: fix spectral mean
         for q in range(self.Q):
-            self.params[q]["variance"] = params[q]['scale'].T
+            self.params[q]["variance"] = params[q]['scale']
 
     def _transform_data(self, x, y=None):
         return transform_multioutput_data(x, y)

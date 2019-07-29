@@ -383,6 +383,7 @@ class Data:
         freqs = []
         amps = []
         nyquist = self.get_nyquist_estimation()
+        print(nyquist)
         for channel in range(self.get_output_dims()):
             bnse = bse(self.X[channel], self.Y[channel])
             bnse.set_freqspace(nyquist[channel], dimension=1000)
