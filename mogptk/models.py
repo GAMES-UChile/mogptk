@@ -153,7 +153,14 @@ class SM(model):
                 self.params[q]['mixture_scales'] = np.array(scales[q])
 
         elif method=='LS':
-            pass
+            means, amplitudes = self.data.get_ls_estimation(self.Q)
+
+            weights = amplitudes[0] * self.data.Y[0].std()
+            weights = np.sqrt(weights/np.sum(weights))
+
+            for q in range(self.Q):
+                self.params[q]['mixture_weights'] = weights[0][q]
+                self.params[q]['mixture_means'] = means[0].T[q] / np.pi / 2.0
 
         elif method=='BNSE':
             means, amplitudes = self.data.get_bnse_estimation(self.Q)

@@ -11,8 +11,6 @@ class Data:
 
     It has functionality to add or remove observations in several ways,
     for example removing data ranges from the observations to simulate sensor failure.
-    
-    Atributes:
     """
     def __init__(self):
         self.X = [] # for each channel the shape is (n, input_dims) with n the number of data points
@@ -130,12 +128,22 @@ class Data:
         self.channel_names.append(name)
 
     def set_function(self, channel, f):
-        """set_function sets a (latent) function corresponding to the channel. This is used for plotting functionality and is optional."""
+        """
+        Sets a (latent) function corresponding to the channel.
+
+        This is used for plotting functionality and is optional.
+        """
         channel = self.get_channel_index(channel)
         self.F[channel] = f
 
     def add_function(self, f, n, start, end, var=0.0, name=None):
-        """add_function adds a new channel by picking n observations on a (latent) function f, in the interval [start,end]. Optionally, it adds Gaussian noise of variance var to Y (the dependant variable) and allows for naming the channel (see add())."""
+        """
+        Adds a new channel.
+
+        It is done by picking n observations on a (latent) function f, in the
+        interval [start,end]. Optionally, it adds Gaussian noise of variance var
+        to Y (the dependant variable) and allows for naming the channel (see add()).
+        """
         x = np.sort(np.random.uniform(start, end, n))
         y = f(x) + np.random.normal(0.0, var, n)
 
@@ -146,6 +154,10 @@ class Data:
         return copy.deepcopy(self)
 
     def normalize(self):
+        """
+        Normalize output data for all channels
+        """
+
         ymin = np.inf
         ymax = -np.inf
         for channel in range(self.get_output_dims()):
@@ -159,15 +171,29 @@ class Data:
     ################################################################
 
     def get_input_dims(self):
-        """get_input_dims returns the input dimensions (length of the second dimension for X and Y when using add())."""
+        """
+        Returns the input dimensions, where 
+        length of the second dimension for X and Y when using add().
+        """
         return self.dims
 
     def get_output_dims(self):
-        """get_output_dims returns the output dimensions (number of channels) of the data."""
+        """
+        Returns the output dimensions (number of channels) of the data.
+        """
         return len(self.X)
 
     def get_channel_index(self, channel):
-        """get_channel_index returns the channel index for a given channel name and checks if it exists."""
+        """
+        Returns the channel index for a given channel name and checks if it exists.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+        
+        Returns:
+            Integer with number of channels
+        """
         if isinstance(channel, str):
             if channel not in self.channel_names:
                 raise Exception("channel '%s' does not exist" % (channel))
@@ -177,29 +203,39 @@ class Data:
         return channel
     
     def get_channel_size(self, channel):
-        """get_channel_size returns the number of observations for a channel."""
+        """
+        Returns the number of observations for a channel.
+        """
         channel = self.get_channel_index(channel)
         return self.X[channel].shape[0]
 
     def get_channel_sizes(self):
-        """get_channel_sizes returns the number of observations for all channels as a list."""
+        """
+        Returns the number of observations for all channels as a list.
+        """
         sizes = []
         for x in self.X:
             sizes.append(x.shape[0])
         return sizes
     
     def get_obs(self, channel):
-        """get_obs returns the observations for a given channel."""
+        """
+        Returns the observations for a given channel.
+        """
         channel = self.get_channel_index(channel)
         return self.X[channel], self.Y[channel]
     
     def get_all_obs(self, channel):
-        """get_all_obs returns all observations (including removed observations) for a given channel."""
+        """
+        Returns all observations (including removed observations) for a given channel.
+        """
         channel = self.get_channel_index(channel)
         return self.X_all[channel], self.Y_all[channel]
 
     def get_del_obs(self, channel):
-        """get_del_obs returns the removed observations for a given channel."""
+        """
+        Returns the removed observations for a given channel.
+        """
         channel = self.get_channel_index(channel)
 
         js = []
@@ -217,7 +253,21 @@ class Data:
     ################################################################
     
     def remove_randomly(self, channel, n=None, pct=None):
-        """remove_randomly removes observations randomly on the whole range for a certain channel, either n observations are removed, or a percentage of the observations."""
+        """
+        Removes observations randomly on the whole range for a certain channel.
+
+        Either a number observations are removed, or a percentage of the observations.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            n (int, optional): Number of observations to randomly remove.
+
+            pct (float[0, 1], optional): Percentage of observations to remove.
+
+            If neither 'n' or 'pct' are passed, 'n' is set to 0.
+        """
         channel = self.get_channel_index(channel)
 
         if n == None:
@@ -231,7 +281,20 @@ class Data:
         self.Y[channel] = np.delete(self.Y[channel], idx, 0)
     
     def remove_range(self, channel, start=None, end=None):
-        """remove_range removes observations on a channel in the interval [start,end]."""
+        """
+        Removes observations on a channel in the interval [start,end].
+        
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            start (float, optional): Value in input space to erase from. Default to first
+                value in training points.
+
+            end (float, optional): Value in input space to erase to. Default to last 
+                value in training points.
+
+        """
         channel = self.get_channel_index(channel)
 
         if start == None:
@@ -244,8 +307,21 @@ class Data:
         self.Y[channel] = np.delete(self.Y[channel], idx, 0)
     
     def remove_relative_range(self, channel, start, end):
-        """remove_relative_range removes observations on a channel between start and end as a percentage of the number of observations.
-        Start and end are in the range [0,1], where 0 is the first observation, 1 the last, and 0.5 the middle observation."""
+        """
+        Removes observations on a channel between start and end as a percentage of the
+        number of observations.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            start (float in [0, 1]): Start of prediction to remove.
+
+            end (flaot in [0, 1]): End of prediction to remove.
+
+        Start and end are in the range [0,1], where 0 is the first observation,
+        1 the last, and 0.5 the middle observation.
+        """
         channel = self.get_channel_index(channel)
 
         xmin = self.X_all[channel][0]
@@ -256,7 +332,17 @@ class Data:
         self.remove_range(channel, start, end)
 
     def remove_random_ranges(self, channel, n, size):
-        """remove_random_ranges removes a number of ranges on a channel, where n is the number of ranges to remove, and size the width."""
+        """
+        Removes a number of ranges on a channel.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            n (int): Number of ranges to remove.
+
+            size (int): Width of ranges to remove.
+        """
         channel = self.get_channel_index(channel)
         if n < 1 or size < 1:
             return
@@ -291,18 +377,20 @@ class Data:
     def get_bnse_estimation(self, Q=1):
         """
         Peaks estimation using BNSE (Bayesian nonparametric espectral estimation)
+
+        ** Only valid to single input dimension**
         """
         freqs = []
         amps = []
         nyquist = self.get_nyquist_estimation()
         for channel in range(self.get_output_dims()):
             bnse = bse(self.X[channel], self.Y[channel])
-            bnse.set_freqspace(nyquist[channel])
+            bnse.set_freqspace(nyquist[channel], dimension=1000)
             bnse.train()
             bnse.compute_moments()
 
             peaks, amplitudes = bnse.get_freq_peaks()
-            peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0])])
+            peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
             amplitudes.sort()
 
             if Q < len(peaks):
@@ -327,27 +415,31 @@ class Data:
     def get_ls_estimation(self, Q=1, n_ls=10000):
         """
         Peak estimation using Lomb Scargle.
+        ***Only for 1 channel for the moment***
+        To-Do: support for multiple channels.
 
         Args:
             Q (int): Number of components.
             n_ls (int): Number of points for Lomb Scargle,
-                default to 1000.
+                default to 10000.
+
+        ** Only valid to single input dimension **
         """
         freqs = []
         amps = []
 
         # angular freq
-        nyquist = self.get_nyquist_estimation() * 2 * np.pi
+        nyquist = np.array(self.get_nyquist_estimation()) * 2 * np.pi
 
         for channel in range(self.get_output_dims()):
-            freq_space = np.linspace(0, nyquist[channel], n_ls)
+            freq_space = np.linspace(1e-6, nyquist[channel], n_ls)
             pgram = lombscargle(self.X[channel], self.Y[channel], freq_space)
             peaks_index, _ = find_peaks(pgram)
 
             freqs_peaks = freq_space[peaks_index]
             amplitudes = pgram[peaks_index]
 
-            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0])])
+            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
 
             if Q < len(peaks):
                 peaks = peaks[:Q]
@@ -358,3 +450,9 @@ class Data:
                 while Q > len(peaks):
                     peaks = np.r_[peaks, peaks[i] + np.random.standard_normal(2)]
                     i = (i+1) % n
+
+            # TODO: use input dims
+            freqs.append(np.expand_dims(peaks[:, 1], 0))
+            amps.append(np.expand_dims(peaks[:, 0], 0))
+
+        return freqs, amps
