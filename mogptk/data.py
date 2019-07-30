@@ -300,12 +300,12 @@ class Data:
         Either a number observations are removed, or a percentage of the observations.
 
         Args:
-            channel (str, int): Channel to set prediction, can be either a string with the name
-                of the channel or a integer with the index.
+            channel (str, int): Channel to set prediction, can be either a string
+                with the name of the channel or a integer with the index.
 
-            n (int, optional): Number of observations to randomly remove.
+            n (int, optional): Number of observations to randomly keep.
 
-            pct (float[0, 1], optional): Percentage of observations to remove.
+            pct (float[0, 1], optional): Percentage of observations to keep.
 
             If neither 'n' or 'pct' are passed, 'n' is set to 0.
         """
