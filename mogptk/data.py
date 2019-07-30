@@ -1,10 +1,10 @@
 import csv
 import copy
+import inspect
 import numpy as np
 from mogptk.bnse import *
 from scipy.signal import lombscargle, find_peaks
 
-# TODO: as X data may not be sorted (think 2D case), see if remove* and predict* functions work
 class Data:
     """
     Class that holds all the observations and latent functions.
@@ -18,7 +18,7 @@ class Data:
         self.X_all = []
         self.Y_all = []
         self.F = {}
-        self.dims = 1
+        self.dims = None
         self.channel_names = []
 
     def __str__(self):
@@ -45,6 +45,21 @@ class Data:
         self.dims = d['dims']
         self.channel_names = d['channel_names']
         return self
+
+    def _normalize_input_dims(self, x):
+        if x == None:
+            return x
+        if isinstance(x, float):
+            x = [x]
+        elif isinstance(x, int):
+            x = [float(x)]
+        elif isinstance(x, np.ndarray):
+            x = list(x)
+        elif not isinstance(x, list):
+            raise Exception("input should be a floating point, list or ndarray")
+        if self.get_input_dims() != None and len(x) != self.get_input_dims():
+            raise Exception("input must be a scalar for single-dimension input or a list of values for each input dimension")
+        return x
 
     def load_csv(self, filename, x_cols, y_cols, **kwargs):
         input_dims = 1
@@ -102,7 +117,7 @@ class Data:
         if X.ndim == 1:
             X = X.reshape(-1, 1)
         if X.ndim == 2:
-            if len(self.X) == 0:
+            if self.dims == None:
                 self.dims = X.shape[1]
             elif self.dims != X.shape[1]:
                 raise Exception("X must have the same input dimensions for all channels")
@@ -127,13 +142,22 @@ class Data:
         self.Y_all.append(Y)
         self.channel_names.append(name)
 
+    def _check_function(self, f):
+        if not inspect.isfunction(f):
+            raise Exception("F must be a function taking X as a parameter")
+
+        sig = inspect.signature(f)
+        if not len(sig.parameters) == 1:
+            raise Exception("F must be a function taking X as a parameter")
+
     def set_function(self, channel, f):
         """
-        Sets a (latent) function corresponding to the channel.
+        Sets a (latent) function corresponding to the channel. The function must take one parameter X (shape (n,input_dims) and output Y (shape (n)).
 
         This is used for plotting functionality and is optional.
         """
         channel = self.get_channel_index(channel)
+        self._check_function(f)
         self.F[channel] = f
 
     def add_function(self, f, n, start, end, var=0.0, name=None):
@@ -144,11 +168,23 @@ class Data:
         interval [start,end]. Optionally, it adds Gaussian noise of variance var
         to Y (the dependant variable) and allows for naming the channel (see add()).
         """
-        x = np.sort(np.random.uniform(start, end, n))
+        self._check_function(f)
+        
+        start = self._normalize_input_dims(start)
+        end = self._normalize_input_dims(end)
+
+        if self.dims != None:
+            input_dims = self.get_input_dims()
+        else:
+            input_dims = len(start)
+
+        x = np.empty((n, input_dims))
+        for i in range(input_dims):
+            x[:,i] = np.random.uniform(start[i], end[i], n)
         y = f(x) + np.random.normal(0.0, var, n)
 
-        self.F[len(self.X)] = f
         self.add(x, y, name)
+        self.F[len(self.X)-1] = f
 
     def copy(self):
         return copy.deepcopy(self)
@@ -198,7 +234,9 @@ class Data:
             if channel not in self.channel_names:
                 raise Exception("channel '%s' does not exist" % (channel))
             channel = self.channel_names.index(channel)
-        if len(self.X) <= channel:
+        if channel == -1:
+            channel = len(self.X)-1
+        if len(self.X) <= channel or channel < 0:
             raise Exception("channel %d does not exist" % (channel))
         return channel
     
@@ -295,14 +333,17 @@ class Data:
                 value in training points.
 
         """
+        if self.get_input_dims() != 1:
+            raise Exception("can only remove ranges on one dimensional input data")
+
         channel = self.get_channel_index(channel)
 
         if start == None:
-            start = self.X[channel][0]
+            start = np.min(self.X[channel][:,0])
         if end == None:
-            end = self.X[channel][-1]
+            end = np.max(self.X[channel][:,0])
 
-        idx = np.where(np.logical_and(self.X[channel] >= start, self.X[channel] <= end)) # TODO: X may not be sorted or multi dimensional
+        idx = np.where(np.logical_and(self.X[channel][:,0] >= start, self.X[channel][:,0] <= end))
         self.X[channel] = np.delete(self.X[channel], idx, 0)
         self.Y[channel] = np.delete(self.Y[channel], idx, 0)
     
@@ -322,18 +363,21 @@ class Data:
         Start and end are in the range [0,1], where 0 is the first observation,
         1 the last, and 0.5 the middle observation.
         """
+        if self.get_input_dims() != 1:
+            raise Exception("can only remove ranges on one dimensional input data")
+
         channel = self.get_channel_index(channel)
 
-        xmin = self.X_all[channel][0]
-        xmax = self.X_all[channel][-1]
-        start = xmin + np.round(max(0.0, start) * (xmax-xmin))
-        end = xmin + np.round(min(1.0, end) * (xmax-xmin))
+        x_min = np.min(self.X[channel][:,0])
+        x_max = np.max(self.X[channel][:,0])
+        start = x_min + np.round(max(0.0, min(1.0, start)) * (x_max-x_min))
+        end = x_min + np.round(max(0.0, min(1.0, end)) * (x_max-x_min))
 
         self.remove_range(channel, start, end)
 
     def remove_random_ranges(self, channel, n, size):
         """
-        Removes a number of ranges on a channel.
+        Removes a number of ranges on a channel. Makes only sense if your input X is sorted.
 
         Args:
             channel (str, int): Channel to set prediction, can be either a string with the name
@@ -373,7 +417,7 @@ class Data:
         nyquist = np.empty((output_dims, input_dims))
         for channel in range(self.get_output_dims()):
             for i in range(self.get_input_dims()):
-                x = self.X[channel][i]
+                x = np.sort(self.X[channel][:,i])
                 dist = np.min(np.abs(x[1:]-x[:-1]))
                 nyquist[channel,i] = 0.5/dist
         return nyquist
@@ -391,8 +435,8 @@ class Data:
         amps = np.zeros((output_dims, input_dims, Q))
 
         nyquist = self.get_nyquist_estimation()
-        for channel in range(self.get_output_dims()):
-            for i in range(self.get_input_dims()):
+        for channel in range(output_dims):
+            for i in range(input_dims):
                 bnse = bse(self.X[channel][:,i], self.Y[channel])
                 bnse.set_freqspace(nyquist[channel,i], dimension=1000)
                 bnse.train()
@@ -409,15 +453,15 @@ class Data:
                     peaks = peaks[:Q]
                     amplitudes = amplitudes[:Q]
                 elif len(peaks) != 0:
-                    i = 0
+                    j = 0
                     n = len(peaks)
                     while Q > len(peaks):
-                        peaks = np.append(peaks, peaks[i] + (np.random.standard_t(3, 1) * 0.01)[0])
-                        amplitudes = np.append(amplitudes, amplitudes[i])
-                        i = (i+1) % n
+                        peaks = np.append(peaks, peaks[j] + (np.random.standard_t(3, 1) * 0.01)[0])
+                        amplitudes = np.append(amplitudes, amplitudes[j])
+                        j = (j+1) % n
                 
-                freqs[channel,i] = 2*np.pi*peaks
-                amps[channel,i] = amplitudes
+                freqs[channel,i,:] = 2*np.pi*peaks
+                amps[channel,i,:] = amplitudes
         return freqs, amps
 
     def get_ls_estimation(self, Q=1, n_ls=10000):
@@ -433,34 +477,35 @@ class Data:
 
         ** Only valid to single input dimension **
         """
-        freqs = []
-        amps = []
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
 
-        # angular freq
-        nyquist = np.array(self.get_nyquist_estimation()) * 2 * np.pi
+        freqs = np.zeros((output_dims, input_dims, Q))
+        amps = np.zeros((output_dims, input_dims, Q))
 
+        nyquist = self.get_nyquist_estimation() * 2 * np.pi
         for channel in range(self.get_output_dims()):
-            freq_space = np.linspace(1e-6, nyquist[channel], n_ls)
-            pgram = lombscargle(self.X[channel].reshape(-1), self.Y[channel].reshape(-1), freq_space)
-            peaks_index, _ = find_peaks(pgram)
+            for i in range(input_dims):
+                freq_space = np.linspace(1e-6, nyquist[channel], n_ls)
+                pgram = lombscargle(self.X[channel][:,i], self.Y[channel][:,i], freq_space)
+                peaks_index, _ = find_peaks(pgram)
 
-            freqs_peaks = freq_space[peaks_index]
-            amplitudes = pgram[peaks_index]
+                freqs_peaks = freq_space[peaks_index]
+                amplitudes = pgram[peaks_index]
 
-            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
+                peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
 
-            if Q < len(peaks):
-                peaks = peaks[:Q]
-            # if there is less peaks than components
-            elif len(peaks) != 0:
-                i = 0
-                n = len(peaks)
-                while Q > len(peaks):
-                    peaks = np.r_[peaks, peaks[i] + np.random.standard_normal(2)]
-                    i = (i+1) % n
+                if Q < len(peaks):
+                    peaks = peaks[:Q]
+                # if there is less peaks than components
+                elif len(peaks) != 0:
+                    j = 0
+                    n = len(peaks)
+                    while Q > len(peaks):
+                        peaks = np.r_[peaks, peaks[j] + np.random.standard_normal(2)]
+                        j = (j+1) % n
 
-            # TODO: use input dims
-            freqs.append(np.expand_dims(peaks[:, 1], 0))
-            amps.append(np.expand_dims(peaks[:, 0], 0))
+                freqs[channel,i,:] = peaks
+                amps[channel,i,:] = amplitudes
 
         return freqs, amps

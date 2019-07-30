@@ -31,13 +31,18 @@ def plot(model, filename=None, title=None):
                 axes[channel, i].plot(model.X_pred[channel][:,i], upper, 'b-', lw=1, alpha=0.5)
             plotting_pred = True
 
-        if data.get_input_dims() == 1 and channel in data.F:
-            x_min = np.min(np.concatenate((data.X[channel][:,0], model.X_pred[channel][:,0])))
-            x_max = np.max(np.concatenate((data.X[channel][:,0], model.X_pred[channel][:,0])))
-            x = np.arange(x_min, x_max+0.01, 0.01) # TODO: choose distance smarter?
-            y = data.F[channel](x) # TODO: multi input dims
-            axes[channel, 0].plot(x, y, 'r--', lw=1)
-            plotting_F = True
+        if channel in data.F:
+            for i in range(data.get_input_dims()):
+                n = (len(data.X[channel][:,i]) + len(model.X_pred[channel][:,i]))*10
+                x_min = np.min(np.concatenate((data.X[channel][:,i], model.X_pred[channel][:,i])))
+                x_max = np.max(np.concatenate((data.X[channel][:,i], model.X_pred[channel][:,i])))
+
+                x = np.zeros((n, data.get_input_dims())) # assuming other input dimensions are zeros
+                x[:,i] = np.linspace(x_min, x_max, n)
+                y = data.F[channel](x)
+
+                axes[channel, i].plot(x[:,i], y, 'r--', lw=1)
+                plotting_F = True
 
         X_removed, Y_removed = data.get_del_obs(channel)
         if len(X_removed) > 0:

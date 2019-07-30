@@ -245,24 +245,6 @@ class model:
 
         return self.X_pred[channel], self.Y_mu_pred[channel], self.Y_var_pred[channel]
 
-    def _normalize_dims(self, x):
-        if x == None:
-            return x
-
-        if isinstance(x, float):
-            x = [x]
-        elif isinstance(x, int):
-            x = [float(x)]
-        elif isinstance(x, np.ndarray):
-            x = list(x)
-        elif not isinstance(x, list):
-            raise Exception("input should be a floating point, list or ndarray")
-
-        input_dims = self.data.get_input_dims()
-        if len(x) != input_dims:
-            raise Exception("input must be a scalar for single-dimension input or a list of values for each input dimension")
-        return x
-
     def set_prediction_range(self, channel, start=None, end=None, step=None, n=None):
         """
         Sets the prediction range for a certain channel in the interval [start,end].
@@ -295,8 +277,8 @@ class model:
         if end <= start:
             raise Exception("start must be lower than end")
         
-        start = self._normalize_dims(start)
-        end = self._normalize_dims(end)
+        start = self.data._normalize_input_dims(start)
+        end = self.data._normalize_input_dims(end)
 
         if step == None and n != None:
             self.X_pred[channel] = np.empty((n, self.data.get_input_dims()))
@@ -315,15 +297,12 @@ class model:
 
                 Args:
 
-                xs (list, ndarray, dict): Prediction ranges, where the index/key is the channel
+                xs (list, dict): Prediction ranges, where the index/key is the channel
                         ID/name and the values are either lists or Numpy arrays.
         """
         if isinstance(xs, list):
-            xs = np.array(xs)
-
-        if isinstance(xs, np.ndarray):
-            for channel in range(len(xs)):
-                self.set_prediction_x(channel, xs[channel])
+            for channel in range(self.data.get_output_dims()):
+                self.set_prediction_x(channel, xs[channel,:])
         elif isinstance(xs, dict):
             for channel, x in xs.items():
                 self.set_prediction_x(channel, x)
@@ -341,6 +320,8 @@ class model:
         """
         if self.model == None:
             raise Exception("build (and train) the model before doing predictions")
+        if x.ndim != 2 or x.shape[1] != self.data.get_input_dims():
+            raise Exception("x shape must be (n,input_dims)")
 
         channel = self.data.get_channel_index(channel)
         if isinstance(x, list):
