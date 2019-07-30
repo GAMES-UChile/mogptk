@@ -373,7 +373,7 @@ class Data:
         nyquist = np.empty((output_dims, input_dims))
         for channel in range(self.get_output_dims()):
             for i in range(self.get_input_dims()):
-                x = self.X[channel][i]
+                x = np.array(sorted(self.X[channel][:, i]))
                 dist = np.min(np.abs(x[1:]-x[:-1]))
                 nyquist[channel,i] = 0.5/dist
         return nyquist
@@ -382,7 +382,10 @@ class Data:
         """
         Peaks estimation using BNSE (Bayesian nonparametric espectral estimation)
 
-        ** Only valid to single input dimension**
+        Returns:
+            freqs, amps: Each one is a input_dim x n_channels x Q array with 
+                the frequency values and amplitudes of the peaks.
+
         """
         input_dims = self.get_input_dims()
         output_dims = self.get_output_dims()
@@ -418,7 +421,7 @@ class Data:
                 
                 freqs[channel,i] = 2*np.pi*peaks
                 amps[channel,i] = amplitudes
-        return freqs, amps
+        return (freqs, amps)
 
     def get_ls_estimation(self, Q=1, n_ls=10000):
         """
@@ -433,34 +436,37 @@ class Data:
 
         ** Only valid to single input dimension **
         """
-        freqs = []
-        amps = []
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
+
+        freqs = np.zeros((output_dims, input_dims, Q))
+        amps = np.zeros((output_dims, input_dims, Q))
 
         # angular freq
         nyquist = np.array(self.get_nyquist_estimation()) * 2 * np.pi
 
         for channel in range(self.get_output_dims()):
-            freq_space = np.linspace(1e-6, nyquist[channel], n_ls)
-            pgram = lombscargle(self.X[channel].reshape(-1), self.Y[channel].reshape(-1), freq_space)
-            peaks_index, _ = find_peaks(pgram)
+            for i in range(self.get_input_dims()):
+                freq_space = np.linspace(1e-6, nyquist[channel, i], n_ls)
+                pgram = lombscargle(self.X[channel][:, i], self.Y[channel], freq_space)
+                peaks_index, _ = find_peaks(pgram)
 
-            freqs_peaks = freq_space[peaks_index]
-            amplitudes = pgram[peaks_index]
+                freqs_peaks = freq_space[peaks_index]
+                amplitudes = pgram[peaks_index]
 
-            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
+                peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
 
-            if Q < len(peaks):
-                peaks = peaks[:Q]
-            # if there is less peaks than components
-            elif len(peaks) != 0:
-                i = 0
-                n = len(peaks)
-                while Q > len(peaks):
-                    peaks = np.r_[peaks, peaks[i] + np.random.standard_normal(2)]
-                    i = (i+1) % n
+                if Q < len(peaks):
+                    peaks = peaks[:Q]
+                # if there is less peaks than components
+                elif len(peaks) != 0:
+                    i = 0
+                    n = len(peaks)
+                    while Q > len(peaks):
+                        peaks = np.r_[peaks, peaks[i] + np.random.standard_normal(2)]
+                        i = (i+1) % n
 
-            # TODO: use input dims
-            freqs.append(np.expand_dims(peaks[:, 1], 0))
-            amps.append(np.expand_dims(peaks[:, 0], 0))
+                freqs[channel, i] = peaks[:, 1]
+                amps[channel, i] = peaks[:, 0]
 
-        return freqs, amps
+        return (freqs, amps)
