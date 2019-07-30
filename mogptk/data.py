@@ -426,7 +426,10 @@ class Data:
         """
         Peaks estimation using BNSE (Bayesian nonparametric espectral estimation)
 
-        ** Only valid to single input dimension**
+        Returns:
+            freqs, amps: Each one is a input_dim x n_channels x Q array with 
+                the frequency values and amplitudes of the peaks.
+
         """
         input_dims = self.get_input_dims()
         output_dims = self.get_output_dims()
@@ -484,10 +487,10 @@ class Data:
         amps = np.zeros((output_dims, input_dims, Q))
 
         nyquist = self.get_nyquist_estimation() * 2 * np.pi
-        for channel in range(self.get_output_dims()):
+        for channel in range(output_dims):
             for i in range(input_dims):
-                freq_space = np.linspace(1e-6, nyquist[channel], n_ls)
-                pgram = lombscargle(self.X[channel][:,i], self.Y[channel][:,i], freq_space)
+                freq_space = np.linspace(1e-6, nyquist[channel,i], n_ls)
+                pgram = lombscargle(self.X[channel][:,i], self.Y[channel], freq_space)
                 peaks_index, _ = find_peaks(pgram)
 
                 freqs_peaks = freq_space[peaks_index]
@@ -505,7 +508,7 @@ class Data:
                         peaks = np.r_[peaks, peaks[j] + np.random.standard_normal(2)]
                         j = (j+1) % n
 
-                freqs[channel,i,:] = peaks
-                amps[channel,i,:] = amplitudes
+                freqs[channel,i,:] = peaks[:,1]
+                amps[channel,i,:] = peaks[:,0]
 
         return freqs, amps
