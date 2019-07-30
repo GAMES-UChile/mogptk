@@ -20,21 +20,22 @@ class SpectralMixtureOLD(Kernel):
         X1 = tf.transpose(tf.expand_dims(X1, -1), perm=[1, 0, 2])
         X2 = tf.expand_dims(tf.transpose(X2, perm=[1, 0]), -2)
 
-        Tau = tf.subtract(X1, X2)
+        Tau = tf.subtract(X1, X2) # DIFF: no abs
 
-        cos_term = tf.tensordot(self.mixture_means, Tau, axes=((1),(0)))
+        cos_term = tf.tensordot(self.mixture_means, Tau, axes=((1),(0))) # DIFF: means already in angular freq
 
-        scales_expand = tf.expand_dims(tf.expand_dims(tf.transpose(self.mixture_scales), -2), -2)
+        scales_expand = tf.expand_dims(tf.expand_dims(tf.transpose(self.mixture_scales), -2), -2) # DIFF: transpose
 
         Tau_tile = tf.tile(tf.expand_dims(Tau,-1),(1,1,1,self.num_mixtures))
 
-        exp_term_arg = tf.multiply(tf.square(Tau_tile), scales_expand)
-        exp_term = tf.multiply(tf.transpose(tf.reduce_sum(exp_term_arg, 0),perm=[2, 0, 1]), -0.5)
+        exp_term_arg = tf.multiply(tf.square(Tau_tile), scales_expand) # DIFF: scales already squared
+        exp_term = tf.multiply(tf.transpose(tf.reduce_sum(exp_term_arg, 0),perm=[2, 0, 1]), -0.5) # DIFF: 8 * pi
 
+        # DIFF: next three lines, other ends up with squared_weights = self.mixture_weights
         squared_weights = np.power(2*np.pi, self.input_dim/2)*np.power(self.mixture_weights,2)
         det_mixture_scales = tf.reduce_prod(self.mixture_scales, 1)
-
         squared_weights = tf.multiply(squared_weights, tf.sqrt(det_mixture_scales))
+
         weights = tf.expand_dims(tf.expand_dims(squared_weights,-1),-1)
         weights = tf.tile(weights,(1,tf.shape(X1)[1],tf.shape(X2)[2]))
 

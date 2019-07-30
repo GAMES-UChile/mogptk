@@ -1,4 +1,5 @@
 import logging
+from .plot import plot_sm_psd
 from .data import Data
 from .model import model
 from .kernels import SpectralMixture, sm_init, SpectralMixtureOLD, MultiOutputSpectralMixture, SpectralMixtureLMC, ConvolutionalGaussian, CrossSpectralMixture
@@ -61,7 +62,7 @@ def transform_multioutput_data(x, y=None):
         y = np.concatenate(y).reshape(-1, 1)
     return x, y
 
-def estimate_from_sm(data, Q):
+def estimate_from_sm(data, Q, init='BNSE', method='BFGS', disp=False, maxiter=2000, plot=False):
     """
     Estimate kernel param with single ouput GP-SM
 
@@ -90,12 +91,15 @@ def estimate_from_sm(data, Q):
             sm_data.add(data.X[channel][:,i], data.Y[channel])
 
             sm = SM(sm_data, Q)
-            sm.init_params('BNSE')
-            sm.train(method='BFGS', disp=False, maxiter=2000)
+            sm.init_params(init)
+            sm.train(method=method, disp=disp, maxiter=maxiter)
+
+            if plot:
+                plot_sm_psd(sm)
 
             for q in range(Q):
                 params[q]['weight'][i,channel] = sm.params[q]['mixture_weights']
-                params[q]['mean'][i,channel] = sm.params[q]['mixture_means'] * np.pi * 2.0
+                params[q]['mean'][i,channel] = sm.params[q]['mixture_means'] * np.pi * 2
                 params[q]['scale'][i,channel] = sm.params[q]['mixture_scales']
 
     return params
@@ -245,7 +249,7 @@ class MOSM(model):
         for q in range(self.Q):
             self.params[q]["mean"] = peaks[:, :, q].T
 
-    def init_params(self, mode='full'):
+    def init_params(self, mode='full', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, disp=False, plot=False):
         """
         Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
 
@@ -265,7 +269,7 @@ class MOSM(model):
             self.init_means()
 
         elif mode=='full':
-            params = estimate_from_sm(self.data, self.Q)
+            params = estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
             for q in range(self.Q):
                 self.params[q]["magnitude"] = np.average(params[q]['weight'], axis=0)
                 self.params[q]["mean"] = params[q]['mean']
@@ -315,7 +319,7 @@ class CSM(model):
                 "phase": np.zeros((Rq, output_dims)),
             })
     
-    def init_params(self):
+    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, disp=False, plot=False):
         """
         Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
 
@@ -325,7 +329,7 @@ class CSM(model):
         """
         data = self.data.copy()
         data.normalize()
-        all_params = estimate_from_sm(data, self.Q)
+        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
         
         input_dims = self.data.get_input_dims()
         output_dims = self.data.get_output_dims()
@@ -337,11 +341,14 @@ class CSM(model):
         for channel in range(output_dims):
             for q in range(self.Q):
                 weight = np.average(all_params[q]['weight'][:,channel])
+                if weight != 0.0:
+                    weight /= np.sum(all_params[q]['weight'])
                 mean = all_params[q]['mean'][:,channel].reshape(1, -1)
                 scale = all_params[q]['scale'][:,channel].reshape(1, -1)
-                params['weight'] = np.append(params['weight'], weight)
-                params['mean'] = np.concatenate((params['mean'], mean))
-                params['scale'] = np.concatenate((params['scale'], scale))
+                params['weight'][q*channel+channel] = weight
+                params['mean'][q*channel+channel,:] = mean
+                params['scale'][q*channel+channel,:] = scale
+
 
         indices = np.argsort(params['weight'])[::-1]
         for q in range(self.Q):
@@ -391,7 +398,7 @@ class SM_LMC(model):
                 "variance": np.random.random((input_dims)),
             })
     
-    def init_params(self):
+    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, disp=False, plot=False):
         """
         Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
 
@@ -401,7 +408,7 @@ class SM_LMC(model):
         """
         data = self.data.copy()
         data.normalize()
-        all_params = estimate_from_sm(data, self.Q)
+        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
 
         input_dims = self.data.get_input_dims()
         output_dims = self.data.get_output_dims()
@@ -413,11 +420,13 @@ class SM_LMC(model):
         for channel in range(output_dims):
             for q in range(self.Q):
                 weight = np.average(all_params[q]['weight'][:,channel])
+                if weight != 0.0:
+                    weight /= np.sum(all_params[q]['weight'])
                 mean = all_params[q]['mean'][:,channel].reshape(1, -1)
                 scale = all_params[q]['scale'][:,channel].reshape(1, -1)
-                params['weight'] = np.append(params['weight'], weight)
-                params['mean'] = np.concatenate((params['mean'], mean))
-                params['scale'] = np.concatenate((params['scale'], scale))
+                params['weight'][q*channel+channel] = weight
+                params['mean'][q*channel+channel,:] = mean
+                params['scale'][q*channel+channel,:] = scale
 
         indices = np.argsort(params['weight'])[::-1]
         for q in range(self.Q):
@@ -461,7 +470,7 @@ class CG(model):
                 "variance": np.random.random((input_dims, output_dims)),
             })
 
-    def init_params(self):
+    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, disp=False, plot=False):
         """
         Initialize kernel parameters, variance and mixture weights. 
 
@@ -469,7 +478,7 @@ class CG(model):
         kernel for each channel. Furthermore, each GP-SM in fitted initializing
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
         """
-        params = estimate_from_sm(self.data, self.Q) # TODO: fix spectral mean
+        params = estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot) # TODO: fix spectral mean
         for q in range(self.Q):
             self.params[q]["variance"] = params[q]['scale']
 

@@ -9,6 +9,7 @@ from .fixphase import FixPhase
 from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
+# uses angular freq
 class SpectralMixtureLMC(MultiKernel):
     def __init__(self, input_dim, output_dim, Rq, constant=None, mean=None, variance=None, active_dims=None):
         """
