@@ -181,7 +181,10 @@ class Data:
         x = np.empty((n, input_dims))
         for i in range(input_dims):
             x[:,i] = np.random.uniform(start[i], end[i], n)
-        y = f(x) + np.random.normal(0.0, var, n)
+        y = f(x)
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = y[:,0]
+        y += np.random.normal(0.0, var, n)
 
         self.add(x, y, name)
         self.F[len(self.X)-1] = f

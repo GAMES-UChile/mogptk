@@ -94,7 +94,7 @@ def estimate_from_sm(data, Q):
             sm.train(method='BFGS', disp=False, maxiter=2000)
 
             for q in range(Q):
-                params[q]['weight'][channel] = sm.params[q]['mixture_weights']
+                params[q]['weight'][i,channel] = sm.params[q]['mixture_weights']
                 params[q]['mean'][i,channel] = sm.params[q]['mixture_means'] * np.pi * 2.0
                 params[q]['scale'][i,channel] = sm.params[q]['mixture_scales']
 
@@ -150,7 +150,6 @@ class SM(model):
         if method=='random':
             x, y = self._transform_data(self.data.X, self.data.Y)
             weights, means, scales = sm_init(x, y, self.Q)
-
             for q in range(self.Q):
                 self.params[q]['mixture_weights'] = weights[q]
                 self.params[q]['mixture_means'] = np.array(means[q])
@@ -158,17 +157,19 @@ class SM(model):
 
         elif method=='LS':
             means, amplitudes = self.data.get_ls_estimation(self.Q)
+            if np.sum(amplitudes) == 0.0:
+                logging.warning('BNSE could not find peaks for SM')
+                return
 
             weights = amplitudes[0] * self.data.Y[0].std()
             weights = np.sqrt(weights/np.sum(weights))
-
             for q in range(self.Q):
                 self.params[q]['mixture_weights'] = weights[0][q]
                 self.params[q]['mixture_means'] = means[0].T[q] / np.pi / 2.0
 
         elif method=='BNSE':
             means, amplitudes = self.data.get_bnse_estimation(self.Q)
-            if amplitudes[0].shape[1] != self.Q or means[0].shape[1] != self.Q:
+            if np.sum(amplitudes) == 0.0:
                 logging.warning('BNSE could not find peaks for SM')
                 return
 
