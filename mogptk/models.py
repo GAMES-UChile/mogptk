@@ -2,7 +2,7 @@ import logging
 from .plot import plot_sm_psd
 from .data import Data
 from .model import model
-from .kernels import SpectralMixture, sm_init, SpectralMixtureOLD, MultiOutputSpectralMixture, SpectralMixtureLMC, ConvolutionalGaussian, CrossSpectralMixture
+from .kernels import SpectralMixture, sm_init, MultiOutputSpectralMixture, SpectralMixtureLMC, ConvolutionalGaussian, CrossSpectralMixture
 import numpy as np
 import gpflow
 import tensorflow as tf
@@ -480,6 +480,8 @@ class CG(model):
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
         """
         params = estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot) # TODO: fix spectral mean
+
+        print("from SM:", params)
         for q in range(self.Q):
             self.params[q]["variance"] = params[q]['scale']
 

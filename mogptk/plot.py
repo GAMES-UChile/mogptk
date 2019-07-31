@@ -95,12 +95,14 @@ def plot_sm_psd(model, title='', filename=None):
         
         for q in range(model.Q):
             single_psd = weights[q] * norm.pdf(x, loc=means[q,i], scale=scales[q,i])
+            single_psd = np.log(single_psd+1)
             axes[0,i].plot(x, single_psd, '--', c='k', zorder=2)
             psd += single_psd
-        
+       
         axes[0,i].plot(x, psd, 'b-', lw=3, zorder=1)
         axes[0,i].set_xlabel(r'$\omega$')
         axes[0,i].set_ylabel('PSD')
+        axes[0,i].set_yticklabels([])
 
     if filename != None:
         plt.savefig(filename+'.pdf', dpi=300)

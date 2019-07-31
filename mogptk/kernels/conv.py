@@ -45,10 +45,13 @@ class ConvolutionalGaussian(MultiKernel):
         """Return a function that calculates proper sub-kernel."""
         def cov_function(X,X2):
             Tau = self.dist(X,X2)
-            sv = self.variance[:, i] + self.variance[:, j]
             constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
-            cross_var = (2 * self.variance[:, i] * self.variance[:, j]) / sv
-            # cross_var = self.channel_variance[i,:] + self.channel_variance[j,:] + self.component_variance
+
+            if i == j:
+                cross_var = self.variance[i:] + 1e-10
+            else:
+                cross_var = (2 * self.variance[i,:] * self.variance[j,:]) / (self.variance[i,:] + self.variance[j,:])
+
             exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
             exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
             exp = tf.exp(exp_term)

@@ -151,7 +151,7 @@ class model:
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-    def train(self, method='L-BFGS-B', kind='full', maxiter=1000, disp=True, learning_rate=0.001, disp_graph=False):
+    def train(self, method='L-BFGS-B', kind='full', maxiter=2000, disp=False, learning_rate=0.001, disp_graph=False):
         """
         Builds and trains the model using the kernel and its parameters.
 
@@ -198,8 +198,8 @@ class model:
 
                 if disp:
                     print("Done")
+
                 if disp_graph:
-                    
                     show_default_graph()
 
 
@@ -330,7 +330,7 @@ class model:
 
         self.X_pred[channel] = x
 
-    def predict(self, x=None):
+    def predict(self, x=None, disp_graph=False):
         """
         Predict with model.
 
@@ -356,6 +356,9 @@ class model:
         with self.graph.as_default():
             with self.session.as_default():
                 mu, var = self.model.predict_f(x)
+
+                if disp_graph:
+                    show_default_graph()
 
         n = 0
         for channel in self.X_pred:
