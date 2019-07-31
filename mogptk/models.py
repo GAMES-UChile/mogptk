@@ -8,6 +8,9 @@ import gpflow
 import tensorflow as tf
 
 def load(filename):
+    if not filename.endswith(".mogptk"):
+        filename += ".mogptk"
+
     graph = tf.Graph()
     session = tf.Session(graph=graph)
     with graph.as_default():
@@ -299,8 +302,7 @@ class MOSM(model):
 
 class CSM(model):
     """
-    Cross Spectral Mixture kernel with Q components and Rq latent functions
-    (TODO: true?).
+    Cross Spectral Mixture kernel with Q components and Rq latent functions.
     """
     def __init__(self, data, Q=1, Rq=1, name="CSM"):
         model.__init__(self, name, data, Q)
@@ -345,10 +347,9 @@ class CSM(model):
                     weight /= np.sum(all_params[q]['weight'])
                 mean = all_params[q]['mean'][:,channel].reshape(1, -1)
                 scale = all_params[q]['scale'][:,channel].reshape(1, -1)
-                params['weight'][q*channel+channel] = weight
-                params['mean'][q*channel+channel,:] = mean
-                params['scale'][q*channel+channel,:] = scale
-
+                params['weight'][channel*q+q] = weight
+                params['mean'][channel*q+q,:] = mean
+                params['scale'][channel*q+q,:] = scale
 
         indices = np.argsort(params['weight'])[::-1]
         for q in range(self.Q):
@@ -380,8 +381,8 @@ class CSM(model):
 
 class SM_LMC(model):
     """
-    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions
-    (TODO: true?)."""
+    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
+    """
     def __init__(self, data, Q=1, Rq=1, name="SM-LMC"):
         model.__init__(self, name, data, Q)
 
@@ -424,9 +425,9 @@ class SM_LMC(model):
                     weight /= np.sum(all_params[q]['weight'])
                 mean = all_params[q]['mean'][:,channel].reshape(1, -1)
                 scale = all_params[q]['scale'][:,channel].reshape(1, -1)
-                params['weight'][q*channel+channel] = weight
-                params['mean'][q*channel+channel,:] = mean
-                params['scale'][q*channel+channel,:] = scale
+                params['weight'][channel*q+q] = weight
+                params['mean'][channel*q+q,:] = mean
+                params['scale'][channel*q+q,:] = scale
 
         indices = np.argsort(params['weight'])[::-1]
         for q in range(self.Q):

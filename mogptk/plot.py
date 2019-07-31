@@ -76,31 +76,31 @@ def plot_sm_psd(model, title='', filename=None):
     sns.axes_style("darkgrid")
     sns.set_style("whitegrid")
 
-    fig, axes = plt.subplots(1, 1, figsize=(20, 5), sharey=False, constrained_layout=True, squeeze=False)
+    fig, axes = plt.subplots(1, model.data.get_input_dims(), figsize=(20, 5), sharey=False, constrained_layout=True, squeeze=False)
     if title != None:
         fig.suptitle(title, fontsize=36)
 
-    nyquist = model.data.get_nyquist_estimation()[0,0]
-    means = model._get_param_across('mixture_means').reshape(-1)
-    weights = model._get_param_across('mixture_weights').reshape(-1)
-    scales = model._get_param_across('mixture_scales').reshape(-1)
+    nyquist = model.data.get_nyquist_estimation()[0,:]
+    means = model._get_param_across('mixture_means')
+    weights = model._get_param_across('mixture_weights')
+    scales = model._get_param_across('mixture_scales')
 
     means *= np.pi * 2
     
-    # calculate bounds
-    x_low = max(0.0, norm.ppf(0.001, loc=means, scale=scales).min())
-    x_high = min(nyquist, norm.ppf(0.99, loc=means, scale=scales).max())
-    x = np.linspace(x_low, x_high, 1000)
-    psd = np.zeros(x.shape)
-    
-    for q in range(model.Q):
-        single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
-        axes[0,0].plot(x, single_psd, '--', c='k', zorder=2)
-        psd += single_psd
-    
-    axes[0,0].plot(x, psd, 'b-', lw=3, zorder=1)
-    axes[0,0].set_xlabel(r'$\omega$')
-    axes[0,0].set_ylabel('PSD')
+    for i in range(model.data.get_input_dims()):
+        x_low = max(0.0, norm.ppf(0.001, loc=means[:,i], scale=scales[:,i]).min())
+        x_high = min(nyquist[i], norm.ppf(0.99, loc=means[:,i], scale=scales[:,i]).max())
+        x = np.linspace(x_low, x_high, 1000)
+        psd = np.zeros(x.shape)
+        
+        for q in range(model.Q):
+            single_psd = weights[q] * norm.pdf(x, loc=means[q,i], scale=scales[q,i])
+            axes[0,i].plot(x, single_psd, '--', c='k', zorder=2)
+            psd += single_psd
+        
+        axes[0,i].plot(x, psd, 'b-', lw=3, zorder=1)
+        axes[0,i].set_xlabel(r'$\omega$')
+        axes[0,i].set_ylabel('PSD')
 
     if filename != None:
         plt.savefig(filename+'.pdf', dpi=300)

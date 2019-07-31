@@ -63,9 +63,7 @@ class model:
         """
         Get all the name parameters across all components
         """
-        params = [self.get_params()[q][name] for q in range(self.Q)]
-        
-        return np.array(params)
+        return np.array([self.params[q][name] for q in range(self.Q)])
 
     def set_param(self, q, key, val):
         """
@@ -112,7 +110,7 @@ class model:
 
         with self.graph.as_default():
             with self.session.as_default():
-                gpflow.saver.Saver().save(filename, self.model)
+                gpflow.Saver().save(filename, self.model)
 
     def build(self, kind='full', disp=True):
         if disp:
@@ -280,6 +278,7 @@ class model:
         start = self.data._normalize_input_dims(start)
         end = self.data._normalize_input_dims(end)
 
+        # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
         if step == None and n != None:
             self.X_pred[channel] = np.empty((n, self.data.get_input_dims()))
             for i in range(self.data.get_input_dims()):

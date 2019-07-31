@@ -1,6 +1,7 @@
 import csv
 import copy
 import inspect
+import dill
 import numpy as np
 from mogptk.bnse import *
 from scipy.signal import lombscargle, find_peaks
@@ -25,12 +26,20 @@ class Data:
         return "Input dims: %d\nOutput dims: %d\nX: %s\nY: %s" % (self.get_input_dims(), self.get_output_dims(), self.X, self.Y)
 
     def _encode(self):
+        F = []
+        keys = list(self.F.keys())
+        for i in range(len(keys)):
+            s = self.F[keys[i]]
+            s = dill.dumps(s)
+            s = str(s)
+            F.append([keys[i], s])
+
         return {
             'X': np.array(self.X),
             'Y': np.array(self.Y),
             'X_all': np.array(self.X_all),
             'Y_all': np.array(self.Y_all),
-            #'F': self.F, # TODO
+            'F': F,
             'dims': self.dims,
             'channel_names': self.channel_names,
         }
@@ -41,7 +50,15 @@ class Data:
         self.Y = list(d['Y'])
         self.X_all = list(d['X_all'])
         self.Y_all = list(d['Y_all'])
-        #self.F = d['F']
+
+        F = d['F']
+        for f in F:
+            key = f[0]
+            s = f[1]
+            s = eval(s)
+            s = dill.loads(s)
+            self.F[key] = s
+
         self.dims = d['dims']
         self.channel_names = d['channel_names']
         return self
@@ -443,7 +460,9 @@ class Data:
         nyquist = self.get_nyquist_estimation()
         for channel in range(output_dims):
             for i in range(input_dims):
-                bnse = bse(self.X[channel][:,i], self.Y[channel])
+                x = self.X[channel][:,i]
+                y = self.Y[channel]
+                bnse = bse(x, y)
                 bnse.set_freqspace(nyquist[channel,i], dimension=1000)
                 bnse.train()
                 bnse.compute_moments()

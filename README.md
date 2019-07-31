@@ -11,12 +11,12 @@ One of the main advantages of the present toolbox is the GPU support, which enab
 
 # Main Requirements
 -Python 3.6
--GPFlow 1.3
--Tensorflow-gpu 1.12
+-GPFlow 1.4
+-Tensorflow 1.13
 -scikit-learn
 -matplotlib
 -seaborn
--numpy
+-numpy 1.16
 -scipy
 -skopt
 
