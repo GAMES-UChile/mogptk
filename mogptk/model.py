@@ -151,7 +151,7 @@ class model:
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-    def train(self, method='L-BFGS-B', kind='full', maxiter=2000, disp=False, learning_rate=0.001, disp_graph=False):
+    def train(self, method='L-BFGS-B', kind='full', maxiter=2000, tol=None, disp=False, learning_rate=0.001, disp_graph=False):
         """
         Builds and trains the model using the kernel and its parameters.
 
@@ -169,6 +169,8 @@ class model:
                 optimizer is used. Default to scipy 'L-BFGS-B'.
 
             maxiter (int): Maximum number of iterations, default to 1000.
+
+            tol (float, optional): Tolerance for termination. Only valid to scipy optimizer.
 
             disp (bool): If true it display information on the optimization, only valid
                 to scipy optimizers. Default to True.
