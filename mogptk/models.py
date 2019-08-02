@@ -3,6 +3,7 @@ from .plot import plot_sm_psd
 from .data import Data
 from .model import model
 from .kernels import SpectralMixture, sm_init, MultiOutputSpectralMixture, SpectralMixtureLMC, ConvolutionalGaussian, CrossSpectralMixture
+from .kernels.conv_old import ConvolutionalGaussianOLD
 import numpy as np
 import gpflow
 import tensorflow as tf
@@ -468,7 +469,7 @@ class CG(model):
         for _ in range(Q):
             self.params.append({
                 "constant": np.random.random((output_dims)),
-                "variance": np.random.random((input_dims, output_dims)),
+                "variance": np.zeros((input_dims, output_dims)),
             })
 
     def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, disp=False, plot=False):
@@ -490,7 +491,7 @@ class CG(model):
 
     def _kernel(self):
         for q in range(self.Q):
-            kernel = ConvolutionalGaussian(
+            kernel = ConvolutionalGaussianOLD(
                 self.data.get_input_dims(),
                 self.data.get_output_dims(),
                 self.params[q]["constant"],

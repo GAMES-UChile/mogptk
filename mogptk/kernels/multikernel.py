@@ -58,7 +58,7 @@ class MultiKernel(Kernel):
         # split matrix into chunks, then stitch them together in correct order
         Ktmp = self._reconstruct(Ksort, Xsplitn, Xreturn)
         KT = self._reconstruct(tf.transpose(Ktmp), X2splitn, X2return)
-        Kout = tf.transpose(KT)
+        Kout = tf.transpose(KT, name='K')
         return Kout
         #ORIGINAL
 

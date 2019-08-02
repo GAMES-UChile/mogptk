@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from pprint import pprint
 import gpflow
 from .tf import show_default_graph
 import tensorflow as tf
@@ -151,7 +152,7 @@ class model:
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-    def train(self, method='L-BFGS-B', kind='full', maxiter=2000, disp=False, learning_rate=0.001, disp_graph=False):
+    def train(self, method='L-BFGS-B', kind='full', maxiter=2000, disp=False, learning_rate=0.001, export_graph=False):
         """
         Builds and trains the model using the kernel and its parameters.
 
@@ -187,150 +188,42 @@ class model:
 
         with self.graph.as_default():
             with self.session.as_default():
+                if export_graph:
+                    def get_tensor(name):
+                        return self.graph.get_tensor_by_name('GPR-' + self.model._index + '/likelihood_1/' + name + ':0')
+
+                    #print([n.name for n in tf.get_default_graph().as_graph_def().node])
+
+                    writer = tf.summary.FileWriter("log", self.graph)
+                    K_summary = tf.summary.histogram('K', get_tensor('K'))
+
+                step_i = 0
+                def step(theta):
+                    nonlocal step_i
+                    if export_graph:
+                        #writer.add_summary(self.session.run(likelihood_summary), step_i)
+                        #writer.add_summary(self.session.run(prior_summary), step_i)
+                        writer.add_summary(self.session.run(K_summary), step_i)
+                    step_i += 1
+
                 if method == "Adam":
                     opt = gpflow.training.AdamOptimizer(learning_rate)
                     opt.minimize(self.model, anchor=True, maxiter=maxiter)
                 else:
                     opt = gpflow.train.ScipyOptimizer(method=method)
-                    opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter)
+                    opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter, step_callback=step)
 
                 self._update_params(self.model.read_trainables())
 
                 if disp:
                     print("Done")
 
-                if disp_graph:
-                    show_default_graph()
-
 
     ################################################################################
     # Predictions ##################################################################
     ################################################################################
 
-    def get_predictions(self):
-        """
-        Returns the input, posterior mean and posterior variance values all channels.
-
-        Returns:
-            x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
-                posterior variance of the las prediction done. 
-        """
-        if self.model == None:
-            raise Exception("build (and train) the model before doing predictions")
-
-        if len(self.X_pred) == 0:
-            raise Exception("use predict before retrieving the predictions on the model")
-        return self.X_pred, self.Y_mu_pred, self.Y_var_pred
-
-    def get_channel_predictions(self, channel):
-        """
-        Returns the input, posterior mean and posterior variance values for a given channel.
-
-        Args:
-            channel (str, int): Channel to set prediction, can be either a string with the name
-                of the channel or a integer with the index.
-
-        Returns:
-            x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
-                posterior variance of the las prediction done. 
-        """
-        if self.model == None:
-            raise Exception("build (and train) the model before doing predictions")
-
-        if len(self.X_pred) == 0:
-            raise Exception("use predict before retrieving the predictions on the model")
-        channel = self.data.get_channel_index(channel)
-
-        return self.X_pred[channel], self.Y_mu_pred[channel], self.Y_var_pred[channel]
-
-    def set_prediction_range(self, channel, start=None, end=None, step=None, n=None):
-        """
-        Sets the prediction range for a certain channel in the interval [start,end].
-        with either a stepsize step or a number of points n.
-
-        Args:
-            channel (str, int): Channel to set prediction, can be either a string with the name
-                of the channel or a integer with the index.
-
-            start (float, optional): Initial value of range, if not passed the first point of training
-                data is taken. Default to None.
-
-            end (float, optional): Final value of range, if not passed the last point of training
-                data is taken. Default to None.
-
-            step (float, optional): Spacing between values.
-
-            n (int, optional): Number of samples to generate.
-
-            If neither "step" or "n" is passed, default number of points is 100.
-        """
-        if self.model == None:
-            raise Exception("build (and train) the model before doing predictions")
-
-        channel = self.data.get_channel_index(channel)
-        if start == None:
-            start = self.data.X[channel][0]
-        if end == None:
-            end = self.data.X[channel][-1]
-        if end <= start:
-            raise Exception("start must be lower than end")
-        
-        start = self.data._normalize_input_dims(start)
-        end = self.data._normalize_input_dims(end)
-
-        # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
-        if step == None and n != None:
-            self.X_pred[channel] = np.empty((n, self.data.get_input_dims()))
-            for i in range(self.data.get_input_dims()):
-                self.X_pred[channel][:,i] = np.linspace(start[i], end[i], n)
-        else:
-            if self.data.get_input_dims() != 1:
-                raise Exception("cannot use step for multi dimensional input, use n")
-            if step == None:
-                step = (end[0]-start[0])/100
-            self.X_pred[channel] = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
-    
-    def set_predictions(self, xs):
-        """
-        Sets the prediction ranges for all channels.
-
-                Args:
-
-                xs (list, dict): Prediction ranges, where the index/key is the channel
-                        ID/name and the values are either lists or Numpy arrays.
-        """
-        if isinstance(xs, list):
-            for channel in range(self.data.get_output_dims()):
-                self.set_prediction_x(channel, xs[channel,:])
-        elif isinstance(xs, dict):
-            for channel, x in xs.items():
-                self.set_prediction_x(channel, x)
-        else:
-            raise Exception("xs expected to be a list, dict or Numpy array")
-
-    def set_prediction_x(self, channel, x):
-        """
-        Sets the prediction range using a list of Numpy array for a certain channel.
-
-        Args:
-            channel (str, int): Channel to set prediction, can be either a string with the name
-                of the channel or a integer with the index.
-            x (ndarray): Numpy array with input values for channel.
-        """
-        if self.model == None:
-            raise Exception("build (and train) the model before doing predictions")
-        if x.ndim != 2 or x.shape[1] != self.data.get_input_dims():
-            raise Exception("x shape must be (n,input_dims)")
-
-        channel = self.data.get_channel_index(channel)
-        if isinstance(x, list):
-            x = np.array(x)
-        elif not isinstance(x, np.ndarray):
-            raise Exception("x expected to be a list or Numpy array")
-
-        self.X_pred[channel] = x
-
-    def predict(self, x=None, disp_graph=False):
+    def predict(self, X_pred, disp_graph=False):
         """
         Predict with model.
 
@@ -349,26 +242,25 @@ class model:
         if self.model == None:
             raise Exception("build (and train) the model before doing predictions")
 
-        if x is not None:
-            self.set_predictions(x)
-
-        x, _ = self._transform_data(self.X_pred)
         with self.graph.as_default():
             with self.session.as_default():
+                x, _ = self._transform_data(X_pred)
                 mu, var = self.model.predict_f(x)
 
                 if disp_graph:
                     show_default_graph()
 
         n = 0
-        for channel in self.X_pred:
-            n += self.X_pred[channel].shape[0]
+        for channel in X_pred:
+            n += X_pred[channel].shape[0]
         
         i = 0
-        for channel in self.X_pred:
-            n = self.X_pred[channel].shape[0]
+        Y_mu_pred = {}
+        Y_var_pred = {}
+        for channel in X_pred:
+            n = X_pred[channel].shape[0]
             if n != 0:
-                self.Y_mu_pred[channel] = mu[i:i+n].reshape(1, -1)[0]
-                self.Y_var_pred[channel] = var[i:i+n].reshape(1, -1)[0]
+                Y_mu_pred[channel] = mu[i:i+n].reshape(1, -1)[0]
+                Y_var_pred[channel] = var[i:i+n].reshape(1, -1)[0]
                 i += n
-        return self.X_pred, self.Y_mu_pred, self.Y_var_pred
+        return Y_mu_pred, Y_var_pred

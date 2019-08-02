@@ -9,20 +9,28 @@ from .fixphase import FixPhase
 from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
-class ConvolutionalGaussian(MultiKernel):
-    def __init__(self, input_dim, output_dim, constant=None, component_variance=None, channel_variance = None, active_dims=None):
+class ConvolutionalGaussianOLD(MultiKernel):
+    def __init__(self, input_dim, output_dim, constant=None, variance = None, active_dims=None):
+        """
+        - input_dim (int) is the input dimension
+        - output_dim (int) is the output dimension
+        - constant (np.ndarray) has shape (output_dim)
+        - variance (np.ndarray) has shape (input_dim, output_dim)
+        """
 
         if constant is None:
             constant = np.random.random(output_dim)
-        if component_variance is None:
-            component_variance = np.random.random(input_dim)
-        if channel_variance is None:
-            channel_variance = np.zeros((input_dim, output_dim))
+        if variance is None:
+            variance = np.zeros((input_dim, output_dim))
+
+        if constant.shape != (output_dim,):
+            raise Exception("bad constant shape %s" % (constant.shape,))
+        if variance.shape != (input_dim, output_dim):
+            raise Exception("bad variance shape %s" % (variance.shape,))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(constant, transform = transforms.positive)
-        self.component_variance = Parameter(component_variance, transform = transforms.positive)
-        self.channel_variance = Parameter(channel_variance, transform = transforms.positive)
+        self.variance = Parameter(variance, transform = transforms.positive)
         self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
 
     def subK(self, index, X, X2=None):
@@ -38,8 +46,12 @@ class ConvolutionalGaussian(MultiKernel):
         def cov_function(X,X2):
             Tau = self.dist(X,X2)
             constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
-            complete_variance = self.channel_variance[:,i] + self.channel_variance[:,j] + self.component_variance
-            # complete_variance = self.channel_variance[i,:] + self.channel_variance[j,:] + self.component_variance
+
+            if i == j:
+                complete_variance = self.variance[:,i]
+            else:
+                complete_variance = 2 * self.variance[:,i] * self.variance[:,j] / (self.variance[:,i] + self.variance[:,j])
+
             exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(complete_variance,1),2)
             exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
             exp = tf.exp(exp_term)
