@@ -463,7 +463,7 @@ class Data:
                 x = self.X[channel][:,i]
                 y = self.Y[channel]
                 bnse = bse(x, y)
-                bnse.set_freqspace(nyquist[channel,i], dimension=1000)
+                bnse.set_freqspace(nyquist[channel,i], dimension=5000)
                 bnse.train()
                 bnse.compute_moments()
 
@@ -489,7 +489,7 @@ class Data:
                 amps[channel,i,:] = amplitudes
         return freqs, amps
 
-    def get_ls_estimation(self, Q=1, n_ls=10000):
+    def get_ls_estimation(self, Q=1, n_ls=30000):
         """
         Peak estimation using Lomb Scargle.
         ***Only for 1 channel for the moment***

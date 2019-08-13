@@ -4,7 +4,12 @@ import seaborn as sns
 from scipy.stats import norm
 
 def plot(model, filename=None, title=None):
-    """plot will plot the model in graphs per input and output dimensions. Output dimensions will stack the graphs vertically while input dimensions stacks them horizontally. Optionally, you can output the figure to a file and set a title."""
+    """
+    plot the model in graphs per input and output dimensions.
+
+    Output dimensions will stack the graphs vertically while input dimensions stacks
+    them horizontally. Optionally, you can output the figure to a file and set a title.
+    """
     data = model.data
     channels = range(data.get_output_dims())
 
@@ -123,24 +128,40 @@ def plot_psd(model, title='', filename=None):
     
     x = np.linspace(x_low, x_high + 1, 1000)
     psd = np.zeros_like(x)
-    
+
     for q in range(model.Q):
         single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
-        plt.plot(x, single_psd, '--', lw=1.2, c='orange', zorder=2, alpha=0.9)
-        plt.axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color='grey')
+        if q==0:
+            plt.plot(x, single_psd,
+                '--',
+                lw=1.2,
+                c='orange',
+                zorder=2,
+                alpha=0.9,
+                label=r'Component $_q$')
+            plt.axvline(means[q],
+                ymin=0.001,
+                ymax=0.1,
+                lw=2,
+                color='grey',
+                label=r'Mean $_q$')
+        else:
+            plt.plot(x, single_psd, '--', lw=1.2, c='orange', zorder=2, alpha=0.9)
+            plt.axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color='grey')
         psd = psd + single_psd
         
     # symmetrize PSD
     if psd[x<0].size != 0:
         psd = psd + np.r_[psd[x<0][::-1], np.zeros((x>=0).sum())]
         
-    plt.plot(x, psd, lw=2.5, c='r', alpha=0.7, zorder=1)
+    plt.plot(x, psd, lw=2.5, c='r', alpha=0.7, zorder=1, label='PSD')
     plt.xlim(0, x[-1] + 0.1)
     # plt.yscale('log')
     plt.xlabel(r'$\omega$')
     plt.ylabel('PSD')
     plt.title(title)
-    plt.show()
+    plt.legend()
+    # plt.show()
 
     if filename != None:
         plt.savefig(filename+'.pdf', dpi=300)
