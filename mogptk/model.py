@@ -193,7 +193,7 @@ class model:
                     opt = gpflow.training.AdamOptimizer(learning_rate)
                     opt.minimize(self.model, anchor=True, maxiter=maxiter)
                 else:
-                    opt = gpflow.train.ScipyOptimizer(method=method)
+                    opt = gpflow.train.ScipyOptimizer(method=method, tol=tol)
                     opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter)
 
                 self._update_params(self.model.read_trainables())

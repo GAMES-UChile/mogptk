@@ -438,7 +438,8 @@ class Data:
         for channel in range(self.get_output_dims()):
             for i in range(self.get_input_dims()):
                 x = np.sort(self.X[channel][:,i])
-                dist = np.min(np.abs(x[1:]-x[:-1]))
+                aux = np.abs(x[1:]-x[:-1])
+                dist = np.min(aux[np.nonzero(aux)])
                 nyquist[channel,i] = 0.5/dist
         return nyquist
 
