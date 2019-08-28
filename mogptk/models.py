@@ -1,5 +1,5 @@
 import logging
-from .plot import plot_sm_psd
+from .plot import plot_spectrum
 from .data import Data
 from .model import model
 from .kernels import SpectralMixture, sm_init, MultiOutputSpectralMixture, SpectralMixtureLMC, ConvolutionalGaussian, CrossSpectralMixture
@@ -99,7 +99,11 @@ def estimate_from_sm(data, Q, init='BNSE', method='BFGS', disp=False, maxiter=20
             sm.train(method=method, disp=disp, maxiter=maxiter)
 
             if plot:
-                plot_sm_psd(sm)
+                nyquist = sm_data.get_nyquist_estimation()[0,:]
+                means = sm._get_param_across('mixture_means')
+                weights = sm._get_param_across('mixture_weights')
+                scales = sm._get_param_across('mixture_scales')
+                plot_spectrum(means, scales, weights=weights, nyquist=nyquist)
 
             for q in range(Q):
                 params[q]['weight'][i,channel] = sm.params[q]['mixture_weights']
@@ -173,7 +177,7 @@ class SM(model):
             weights = np.sqrt(weights/np.sum(weights))
             for q in range(self.Q):
                 self.params[q]['mixture_weights'] = weights[0][q]
-                self.params[q]['mixture_means'] = means[0].T[q] / np.pi / 2.0
+                self.params[q]['mixture_means'] = means[0].T[q]
 
         elif method=='BNSE':
             means, amplitudes = self.data.get_bnse_estimation(self.Q)
@@ -185,7 +189,7 @@ class SM(model):
             weights = np.sqrt(weights/np.sum(weights))
             for q in range(self.Q):
                 self.params[q]['mixture_weights'] = weights[0][q]
-                self.params[q]['mixture_means'] = means[0].T[q] / np.pi / 2.0
+                self.params[q]['mixture_means'] = means[0].T[q]
 
     def _transform_data(self, x, y=None):
         if isinstance(x, dict):
@@ -251,7 +255,7 @@ class MOSM(model):
         #    for channel in range(1,self.data.get_output_dims()):
         #        self.params[q]["mean"] = np.append(self.params[q]["mean"], peaks[channel].T[q].reshape(-1, 1))
         for q in range(self.Q):
-            self.params[q]["mean"] = peaks[:, :, q].T
+            self.params[q]["mean"] = peaks[:, :, q].T * np.pi * 2
 
     def init_params(self, mode='full', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, disp=False, plot=False):
         """
@@ -267,7 +271,7 @@ class MOSM(model):
         """
 
         if mode not in ['full', 'means']:
-            raise Exception("Posible modes are either 'full' or 'means'.")
+            raise Exception("posible modes are either 'full' or 'means'.")
 
         if mode=='means':
             self.init_means()
@@ -278,6 +282,22 @@ class MOSM(model):
                 self.params[q]["magnitude"] = np.average(params[q]['weight'], axis=0)
                 self.params[q]["mean"] = params[q]['mean']
                 self.params[q]["variance"] = params[q]['scale']
+
+    def plot(self):
+        # TODO: output dims
+        nyquist = self.data.get_nyquist_estimation()[0,:]
+        means = self._get_param_across('mean')
+        weights = self._get_param_across('magnitude')**2
+        scales = self._get_param_across('variance')
+        plot_spectrum(means, scales, weights=weights, nyquist=nyquist)
+
+    def info(self):
+        for q in range(self.Q):
+            for channel in range(self.data.get_output_dims()):
+                mean = self.params[q]["mean"][:,channel]
+                var = self.params[q]["variance"][:,channel]
+                if np.linalg.norm(mean) < np.linalg.norm(var):
+                    print("‣ MOSM approaches RBF kernel for Q=%d in channel='%s'" % (q, self.data.channel_names[channel]))
 
     def _transform_data(self, x, y=None):
         return transform_multioutput_data(x, y)

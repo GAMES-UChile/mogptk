@@ -9,6 +9,7 @@ from .fixphase import FixPhase
 from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
+# TODO: dont use angular frequency
 class MultiOutputSpectralMixture(MultiKernel):
     def __init__(self, input_dim, output_dim, magnitude=None, mean=None, variance=None, delay=None, phase=None, noise=None, active_dim=None):
         """
@@ -50,7 +51,7 @@ class MultiOutputSpectralMixture(MultiKernel):
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
         self.magnitude = Parameter(magnitude)
-        self.mean = Parameter(mean)
+        self.mean = Parameter(mean, transform=transforms.positive)
         self.variance = Parameter(variance, transform=transforms.positive)
         self.delay = Parameter(delay, FixDelay(input_dim, output_dim))
         self.phase = Parameter(phase, FixPhase())

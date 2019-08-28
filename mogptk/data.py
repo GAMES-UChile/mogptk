@@ -5,6 +5,114 @@ import dill
 import numpy as np
 from mogptk.bnse import *
 from scipy.signal import lombscargle, find_peaks
+import dateutil, datetime
+import matplotlib
+import matplotlib.pyplot as plt
+
+class FormatNumber:
+    def format(val):
+        return val
+
+    def parse(val, loc=None):
+        try:
+            return float(val)
+        except ValueError:
+            if loc == None:
+                raise Exception("could not convert input to number")
+            else:
+                raise Exception("could not convert input to number at %s" % (loc))
+
+    def scale(maxfreq=None):
+        return 1, None
+
+class FormatDate:
+    def format(val):
+        return datetime.datetime.utcfromtimestamp(val*3600*24).strftime('%Y-%m-%d')
+
+    def parse(val, loc=None):
+        try:
+            return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()/3600/24
+        except ValueError:
+            if loc == None:
+                raise Exception("could not convert input to date")
+            else:
+                raise Exception("could not convert input to date at %s" % (loc))
+
+    def scale(maxfreq=None):
+        if maxfreq == 'year':
+            return 356.2425, 'year'
+        if maxfreq == 'month':
+            return 30.4369, 'month'
+        if maxfreq == None or maxfreq == 'day':
+            return 1, 'day'
+        if maxfreq == 'hour':
+            return 1/24, 'hour'
+        if maxfreq == 'minute':
+            return 1/24/60, 'minute'
+        if maxfreq == 'second':
+            return 1/24/3600, 'second'
+
+class FormatDateTime:
+    def format(val):
+        return datetime.datetime.utcfromtimestamp(val).strftime('%Y-%m-%d %H:%M')
+
+    def parse(val, loc=None):
+        try:
+            return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()
+        except ValueError:
+            if loc == None:
+                raise Exception("could not convert input to datetime")
+            else:
+                raise Exception("could not convert input to datetime at %s" % (loc))
+
+    def scale(maxfreq=None):
+        if maxfreq == 'year':
+            return 3600*24*356.2425, 'year'
+        if maxfreq == 'month':
+            return 3600*24*30.4369, 'month'
+        if maxfreq == 'day':
+            return 3600*24, 'day'
+        if maxfreq == 'hour':
+            return 3600, 'hour'
+        if maxfreq == 'minute':
+            return 60, 'minute'
+        if maxfreq == None or maxfreq == 'second':
+            return 1, 'second'
+
+class TransformDetrend:
+    def __init__(self, data, channel):
+        if data.get_input_dims() != 1:
+            raise Exception("can only remove ranges on one dimensional input data")
+
+        # TODO: do not assume order in X
+        self.coef = np.polyfit(data.X[channel][:,0], data.Y[channel], 1)
+
+    def forward(self, x, y):
+        return y-self.coef[1]-self.coef[0]*x[:,0]
+    
+    def backward(self, x, y):
+        return y+self.coef[1]+self.coef[0]*x[:,0]
+
+class TransformNormalize:
+    def __init__(self, data, channel):
+        self.ymin = np.inf
+        self.ymax = -np.inf
+        for channel in range(self.get_output_dims()):
+            self.ymin = np.amin([self.ymin, np.amin(self.Y[channel])])
+            self.ymax = np.amax([self.ymax, np.amax(self.Y[channel])])
+
+    def forward(self, x, y):
+        return (y-self.ymin)/(self.ymax-self.ymin)
+    
+    def backward(self, x, y):
+        return y*(self.ymax-self.ymin)+self.ymin
+
+class TransformLog:
+    def forward(x, y):
+        return np.log(y)
+    
+    def backward(x, y):
+        return np.exp(y)
 
 class Data:
     """
@@ -21,10 +129,15 @@ class Data:
         self.F = {}
         self.dims = None
         self.channel_names = []
+        self.formatters = []
+        self.input_labels = []
+        self.output_labels = []
+        self.transformations = []
 
     def __str__(self):
         return "Input dims: %d\nOutput dims: %d\nX: %s\nY: %s" % (self.get_input_dims(), self.get_output_dims(), self.X, self.Y)
 
+    # TODO: update encode/decode with new data members
     def _encode(self):
         F = []
         keys = list(self.F.keys())
@@ -78,7 +191,24 @@ class Data:
             raise Exception("input must be a scalar for single-dimension input or a list of values for each input dimension")
         return x
 
-    def load_csv(self, filename, x_cols, y_cols, **kwargs):
+    def set_labels(self, channel, input, output):
+        if isinstance(input, str):
+            input = [input]
+        elif not isinstance(input, list) or not all(isinstance(item, str) for item in input):
+            raise Exception("input labels must be list of strings")
+        if not isinstance(output, str):
+            raise Exception("output label must be string")
+
+        if self.dims == None:
+            raise Exception("set data first before setting labels")
+        elif len(input) != self.dims:
+            raise Exception("input labels must have the same input dimensions as the data")
+
+        channel = self.get_channel_index(channel)
+        self.input_labels[channel] = input
+        self.output_labels[channel] = output
+
+    def load_csv(self, filename, x_cols, y_cols, formatters={}, filter=None, name=None, **kwargs):
         input_dims = 1
         if isinstance(x_cols, list) and all(isinstance(item, str) for item in x_cols):
             input_dims = len(x_cols)
@@ -97,19 +227,52 @@ class Data:
 
         with open(filename, mode='r') as csv_file:
             rows = list(csv.DictReader(csv_file, **kwargs))
+
+            def _to_number(val, row, col):
+                try:
+                    if col in formatters:
+                        return formatters[col].parse(val, loc="row %d column %s" % (row, col)), True
+                    else:
+                        return FormatNumber.parse(val, loc="row %d column %s" % (row, col)), True
+                except ValueError:
+                    return np.nan, False
             
             X = np.empty((len(rows), input_dims))
             Y = np.empty((len(rows), output_dims))
+            remove = []
             for j, row in enumerate(rows):
+                if filter != None and not filter(row):
+                    remove.append(j)
+                    continue
+
                 for i, x_col in enumerate(x_cols):
-                    X[j,i] = row[x_col]
+                    X[j,i], ok = _to_number(row[x_col], j+1, x_col)
+                    if not ok:
+                        remove.append(j)
+
                 for i, y_col in enumerate(y_cols):
-                    Y[j,i] = row[y_col]
+                    Y[j,i], ok = _to_number(row[y_col], j+1, y_col)
+                    if not ok:
+                        remove.append(j)
+
+            X = np.delete(X, remove, 0)
+            Y = np.delete(Y, remove, 0)
+
+            fmts = []
+            for x_col in x_cols:
+                if x_col in formatters:
+                    fmts.append(formatters[x_col])
+                else:
+                    fmts.append(FormatNumber)
 
             for i, y_col in enumerate(y_cols):
-                self.add(X, Y[:,i], name=y_col)
+                channel_name = y_col
+                if name is not None:
+                    channel_name = name
+                self.add(X, Y[:,i], name=channel_name, formatters=fmts)
+                self.set_labels(channel_name, x_cols, y_col)
     
-    def add(self, X, Y, name=None):
+    def add(self, X, Y, name=None, formatters=None):
         """
         Adds a new channel with data set by X (input) and Y (output).
 
@@ -153,11 +316,20 @@ class Data:
             if name == channel_name:
                 raise Exception("channel name '%s' already exists" % (name))
 
+        if formatters == None:
+            formatters = [FormatNumber] * X.shape[1]
+        if len(formatters) != X.shape[1]:
+            raise Exception("formatters must be defined for all input dimensions")
+
         self.X.append(X)
         self.Y.append(Y)
-        self.X_all.append(X)
-        self.Y_all.append(Y)
+        self.X_all.append(X.copy())
+        self.Y_all.append(Y.copy())
         self.channel_names.append(name)
+        self.formatters.append(formatters)
+        self.input_labels.append([''] * X.shape[1])
+        self.output_labels.append('')
+        self.transformations.append([])
 
     def _check_function(self, f):
         if not inspect.isfunction(f):
@@ -177,7 +349,7 @@ class Data:
         self._check_function(f)
         self.F[channel] = f
 
-    def add_function(self, f, n, start, end, var=0.0, name=None):
+    def load_function(self, f, n, start, end, var=0.0, name=None):
         """
         Adds a new channel.
 
@@ -198,6 +370,8 @@ class Data:
         x = np.empty((n, input_dims))
         for i in range(input_dims):
             x[:,i] = np.random.uniform(start[i], end[i], n)
+        x = np.sort(x, axis=0)
+
         y = f(x)
         if y.ndim == 2 and y.shape[1] == 1:
             y = y[:,0]
@@ -209,20 +383,28 @@ class Data:
     def copy(self):
         return copy.deepcopy(self)
 
-    def normalize(self):
-        """
-        Normalize output data for all channels
-        """
+    def transform(self, transformer, channel=None):
+        if channel == None:
+            for channel in range(self.get_output_dims()):
+                t = transformer
+                if '__init__' in vars(transformer):
+                    t = transformer(self, channel)
 
-        ymin = np.inf
-        ymax = -np.inf
-        for channel in range(self.get_output_dims()):
-            ymin = np.amin([ymin, np.amin(self.Y[channel])])
-            ymax = np.amax([ymax, np.amax(self.Y[channel])])
-        
-        for channel in range(self.get_output_dims()):
-            self.Y[channel] = (self.Y[channel]-ymin) / (ymax-ymin)
-            self.Y_all[channel] = (self.Y_all[channel]-ymin) / (ymax-ymin)
+                self.Y[channel] = t.forward(self.X[channel], self.Y[channel])
+                self.Y_all[channel] = t.forward(self.X_all[channel], self.Y_all[channel])
+                if channel in self.F:
+                    f = self.F[channel]
+                    self.F[channel] = lambda x: t.forward(x, f(x))
+        else:
+            t = transformer
+            if '__init__' in vars(transformer):
+                t = transformer(self, channel)
+
+            self.Y[channel] = t.forward(self.X[channel], self.Y[channel])
+            self.Y_all[channel] = t.forward(self.X_all[channel], self.Y_all[channel])
+            if channel in self.F:
+                f = self.F[channel]
+                self.F[channel] = lambda x: t.forward(x, f(x))
 
     ################################################################
 
@@ -322,7 +504,7 @@ class Data:
 
             n (int, optional): Number of observations to randomly keep.
 
-            pct (float[0, 1], optional): Percentage of observations to keep.
+            pct (float[0, 1], optional): Percentage of observations to remove.
 
             If neither 'n' or 'pct' are passed, 'n' is set to 0.
         """
@@ -332,7 +514,7 @@ class Data:
             if pct == None:
                 n = 0
             else:
-                n = int(pct * self.X[channel].shape[0])
+                n = int((1-pct) * self.X[channel].shape[0])
 
         idx = np.random.choice(self.X[channel].shape[0], n, replace=False)
         self.X[channel] = np.delete(self.X[channel], idx, 0)
@@ -360,8 +542,12 @@ class Data:
 
         if start == None:
             start = np.min(self.X[channel][:,0])
+        else:
+            start = self.formatters[channel][0].parse(start)
         if end == None:
             end = np.max(self.X[channel][:,0])
+        else:
+            end = self.formatters[channel][0].parse(end)
 
         idx = np.where(np.logical_and(self.X[channel][:,0] >= start, self.X[channel][:,0] <= end))
         self.X[channel] = np.delete(self.X[channel], idx, 0)
@@ -378,7 +564,7 @@ class Data:
 
             start (float in [0, 1]): Start of prediction to remove.
 
-            end (flaot in [0, 1]): End of prediction to remove.
+            end (float in [0, 1]): End of prediction to remove.
 
         Start and end are in the range [0,1], where 0 is the first observation,
         1 the last, and 0.5 the middle observation.
@@ -387,13 +573,17 @@ class Data:
             raise Exception("can only remove ranges on one dimensional input data")
 
         channel = self.get_channel_index(channel)
+        start = self.formatters[channel][0].parse(start)
+        end = self.formatters[channel][0].parse(end)
 
         x_min = np.min(self.X[channel][:,0])
         x_max = np.max(self.X[channel][:,0])
         start = x_min + np.round(max(0.0, min(1.0, start)) * (x_max-x_min))
         end = x_min + np.round(max(0.0, min(1.0, end)) * (x_max-x_min))
 
-        self.remove_range(channel, start, end)
+        idx = np.where(np.logical_and(self.X[channel][:,0] >= start, self.X[channel][:,0] <= end))
+        self.X[channel] = np.delete(self.X[channel], idx, 0)
+        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
 
     def remove_random_ranges(self, channel, n, size):
         """
@@ -425,7 +615,7 @@ class Data:
 
     def get_nyquist_estimation(self):
         """
-        Estimate nyquist frequency for each channel  by taking
+        Estimate nyquist frequency for each channel by taking
         0.5/min dist of points.
 
         Returns:
@@ -438,13 +628,13 @@ class Data:
         for channel in range(self.get_output_dims()):
             for i in range(self.get_input_dims()):
                 x = np.sort(self.X[channel][:,i])
-                dist = np.min(np.abs(x[1:]-x[:-1]))
+                dist = np.min(np.abs(x[1:]-x[:-1])) # TODO: assumes X is sorted, use average distance instead of minimal distance?
                 nyquist[channel,i] = 0.5/dist
         return nyquist
 
     def get_bnse_estimation(self, Q=1):
         """
-        Peaks estimation using BNSE (Bayesian nonparametric espectral estimation)
+        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation)
 
         Returns:
             freqs, amps: Each one is a input_dim x n_channels x Q array with 
@@ -487,7 +677,7 @@ class Data:
                 
                 freqs[channel,i,:] = 2*np.pi*peaks
                 amps[channel,i,:] = amplitudes
-        return freqs, amps
+        return freqs / np.pi / 2, amps
 
     def get_ls_estimation(self, Q=1, n_ls=10000):
         """
@@ -511,7 +701,7 @@ class Data:
         nyquist = self.get_nyquist_estimation() * 2 * np.pi
         for channel in range(output_dims):
             for i in range(input_dims):
-                freq_space = np.linspace(1e-6, nyquist[channel,i], n_ls)
+                freq_space = np.linspace(0, nyquist[channel,i], n_ls+1)[1:]
                 pgram = lombscargle(self.X[channel][:,i], self.Y[channel], freq_space)
                 peaks_index, _ = find_peaks(pgram)
 
@@ -533,4 +723,94 @@ class Data:
                 freqs[channel,i,:] = peaks[:,1]
                 amps[channel,i,:] = peaks[:,0]
 
-        return freqs, amps
+        return freqs / np.pi / 2, amps
+
+    def plot(self, show=True, filename=None, title=None):
+        sns.set(font_scale=2)
+        sns.axes_style("darkgrid")
+        sns.set_style("whitegrid")
+
+        fig, axes = plt.subplots(self.get_output_dims(), self.get_input_dims(), figsize=(20, self.get_output_dims()*5), sharey=False, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title, fontsize=36)
+
+        plotting_F = False
+        plotting_all_obs = False
+        for i in range(self.get_input_dims()):
+            for channel in range(self.get_output_dims()):
+                if channel in self.F:
+                    n = len(self.X[channel][:,i])*10
+                    x_min = np.min(self.X[channel][:,i])
+                    x_max = np.max(self.X[channel][:,i])
+
+                    x = np.zeros((n, self.get_input_dims())) # assuming other input dimensions are zeros
+                    x[:,i] = np.linspace(x_min, x_max, n)
+                    y = self.F[channel](x)
+
+                    axes[channel, i].plot(x[:,i], y, 'r--', lw=1)
+                    plotting_F = True
+
+                axes[channel, i].plot(self.X[channel][:,i], self.Y[channel], 'k-', mew=2, ms=10)
+                axes[channel, i].set_xlabel(self.input_labels[channel][i])
+                axes[channel, i].set_ylabel(self.output_labels[channel])
+                axes[channel, i].set_title(self.channel_names[channel])
+            
+                formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[channel][i].format(x))
+                axes[channel, i].xaxis.set_major_formatter(formatter)
+
+        # build legend
+        if plotting_F:
+            legend = []
+            legend.append(plt.Line2D([0], [0], ls='-', color='k', mew=2, ms=10, label='Data'))
+            legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent function'))
+            plt.legend(handles=legend, loc='best')
+
+        if filename != None:
+            plt.savefig(filename+'.pdf', dpi=300)
+        if show:
+            plt.show()
+
+    def plot_spectrum(self, method='lombscargle', angular=False, per=None, maxfreq=None, show=True, filename=None, title=None):
+        sns.set(font_scale=2)
+        sns.axes_style("darkgrid")
+        sns.set_style("whitegrid")
+
+        fig, axes = plt.subplots(self.get_output_dims(), self.get_input_dims(), figsize=(20, self.get_output_dims()*5), sharey=False, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title, fontsize=36)
+
+        for i in range(self.get_input_dims()):
+            for channel in range(self.get_output_dims()):
+                X_space = self.X[channel][:,i].copy()
+
+                formatter = self.formatters[channel][i]
+                factor, name = formatter.scale(per)
+                if name != None:
+                    axes[channel,i].set_xlabel('Frequency (1/'+name+')')
+                else:
+                    axes[channel,i].set_xlabel('Frequency')
+
+                if not angular:
+                    X_space *= 2 * np.pi
+                X_space /= factor
+
+                freq = maxfreq
+                if freq == None:
+                    dist = np.abs(X_space[1:]-X_space[:-1])
+                    freq = 1/np.average(dist)
+
+                X = np.linspace(0.0, freq, 1001)[1:]
+                if method == 'lombscargle':
+                    Y = lombscargle(X_space, self.Y[channel], X)
+                else:
+                    raise Exception('Periodogram method "%s" does not exist' % (method))
+
+                axes[channel,i].plot(X, Y, 'k-', mew=2, ms=10)
+                axes[channel,i].set_title(self.channel_names[channel])
+                axes[channel,i].set_yticks([])
+                axes[channel,i].set_ylim(0, None)
+
+        if filename != None:
+            plt.savefig(filename+'.pdf', dpi=300)
+        if show:
+            plt.show()

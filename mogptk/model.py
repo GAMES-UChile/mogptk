@@ -1,8 +1,8 @@
 import os
+import time
 import numpy as np
 from pprint import pprint
 import gpflow
-from .tf import show_default_graph
 import tensorflow as tf
 
 import logging
@@ -34,9 +34,6 @@ class model:
         self.Q = Q
         self.params = []
         self.fixed_params = []
-        self.X_pred = {}
-        self.Y_mu_pred = {}
-        self.Y_var_pred = {}
 
     def _kernel(self):
         # overridden by specific models
@@ -45,6 +42,12 @@ class model:
     def _transform_data(self, x, y):
         # overridden by specific models
         raise Exception("kernel not specified")
+
+    def info(self):
+        pass
+
+    def plot(self):
+        pass
 
     def _update_params(self, trainables):
         for key, val in trainables.items():
@@ -90,6 +93,12 @@ class model:
     def unfix_params(self, key):
         self.fixed_params.remove(key)
 
+    def print_params(self):
+        import pandas as pd
+        df = pd.DataFrame(self.get_params())
+        df.index.name = 'Q'
+        display(df)
+
     def save(self, filename):
         if self.model == None:
             raise Exception("build (and train) the model before doing predictions")
@@ -113,10 +122,7 @@ class model:
             with self.session.as_default():
                 gpflow.Saver().save(filename, self.model)
 
-    def build(self, kind='full', disp=True):
-        if disp:
-            print("Building...")
-
+    def build(self, kind='full'):
         x, y = self._transform_data(self.data.X, self.data.Y)
 
         self.graph = tf.Graph()
@@ -147,12 +153,8 @@ class model:
                     getattr(self.model.kern, key).trainable = False
                 else:
                     raise Exception("parameter name '%s' does not exist" % (key))
-        
-        self.X_pred = {}
-        self.Y_mu_pred = {}
-        self.Y_var_pred = {}
 
-    def train(self, method='L-BFGS-B', kind='full', maxiter=2000, disp=False, learning_rate=0.001, export_graph=False):
+    def train(self, method='L-BFGS-B', kind='full', plot=False, opt_params={}, params={}, export_graph=False):
         """
         Builds and trains the model using the kernel and its parameters.
 
@@ -168,23 +170,11 @@ class model:
             method (str): Optimizer to use, if "Adam" is chosen,
                 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
                 optimizer is used. Default to scipy 'L-BFGS-B'.
-
-            maxiter (int): Maximum number of iterations, default to 1000.
-
-            disp (bool): If true it display information on the optimization, only valid
-                to scipy optimizers. Default to True.
-
-            disp_graph (bool): If true show computational graph.
-                Requires tensorboard and graphviz installed.
-
-            learning_rate(float): Learning rate of Adam optimizer.
-                Only valid with Adam, default to 0.001.
         """
-        
-        self.build(kind, disp)
 
-        if disp:
-            print("Optimizing...")
+        start_time = time.time()
+        
+        self.build(kind)
 
         with self.graph.as_default():
             with self.session.as_default():
@@ -207,23 +197,24 @@ class model:
                     step_i += 1
 
                 if method == "Adam":
-                    opt = gpflow.training.AdamOptimizer(learning_rate)
-                    opt.minimize(self.model, anchor=True, maxiter=maxiter)
+                    opt = gpflow.training.AdamOptimizer(**opt_params)
+                    opt.minimize(self.model, anchor=True, **params)
                 else:
-                    opt = gpflow.train.ScipyOptimizer(method=method)
-                    opt.minimize(self.model, anchor=True, disp=disp, maxiter=maxiter, step_callback=step)
+                    opt = gpflow.train.ScipyOptimizer(method=method, **opt_params)
+                    opt.minimize(self.model, anchor=True, step_callback=step, **params)
 
                 self._update_params(self.model.read_trainables())
 
-                if disp:
-                    print("Done")
+        print("Done in ", (time.time() - start_time)/60, " minutes")
 
+        if plot:
+            self.plot()
 
     ################################################################################
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self, X_pred, disp_graph=False):
+    def predict(self, X):
         """
         Predict with model.
 
@@ -232,8 +223,7 @@ class model:
         It returns the X, Y_mu, Y_var values per channel.
 
         Args:
-            x (dict): Dictionary where keys are channel index and elements numpy arrays with 
-                          channel inputs.
+            pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
         Returns:
             X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
@@ -242,25 +232,25 @@ class model:
         if self.model == None:
             raise Exception("build (and train) the model before doing predictions")
 
+        # TODO: extract X from dict or from Prediction
+
         with self.graph.as_default():
             with self.session.as_default():
-                x, _ = self._transform_data(X_pred)
+                x, _ = self._transform_data(X)
                 mu, var = self.model.predict_f(x)
 
-                if disp_graph:
-                    show_default_graph()
-
         n = 0
-        for channel in X_pred:
-            n += X_pred[channel].shape[0]
+        for channel in X:
+            n += X[channel].shape[0]
         
         i = 0
-        Y_mu_pred = {}
-        Y_var_pred = {}
-        for channel in X_pred:
-            n = X_pred[channel].shape[0]
+        Y_mu = {}
+        Y_var = {}
+        for channel in X:
+            n = X[channel].shape[0]
             if n != 0:
-                Y_mu_pred[channel] = mu[i:i+n].reshape(1, -1)[0]
-                Y_var_pred[channel] = var[i:i+n].reshape(1, -1)[0]
+                Y_mu[channel] = mu[i:i+n].reshape(1, -1)[0]
+                Y_var[channel] = var[i:i+n].reshape(1, -1)[0]
                 i += n
-        return Y_mu_pred, Y_var_pred
+        #TODO: set mu and var in Prediction, or create a new one? Prediction should be reusable, or easily copyable
+        return Y_mu, Y_var
