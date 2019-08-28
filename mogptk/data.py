@@ -628,7 +628,8 @@ class Data:
         for channel in range(self.get_output_dims()):
             for i in range(self.get_input_dims()):
                 x = np.sort(self.X[channel][:,i])
-                dist = np.min(np.abs(x[1:]-x[:-1])) # TODO: assumes X is sorted, use average distance instead of minimal distance?
+                dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
+                dist = np.min(dist[np.nonzero(dist)])
                 nyquist[channel,i] = 0.5/dist
         return nyquist
 
@@ -653,7 +654,7 @@ class Data:
                 x = self.X[channel][:,i]
                 y = self.Y[channel]
                 bnse = bse(x, y)
-                bnse.set_freqspace(nyquist[channel,i], dimension=1000)
+                bnse.set_freqspace(nyquist[channel,i], dimension=5000)
                 bnse.train()
                 bnse.compute_moments()
 
@@ -679,7 +680,7 @@ class Data:
                 amps[channel,i,:] = amplitudes
         return freqs / np.pi / 2, amps
 
-    def get_ls_estimation(self, Q=1, n_ls=10000):
+    def get_ls_estimation(self, Q=1, n_ls=30000):
         """
         Peak estimation using Lomb Scargle.
         ***Only for 1 channel for the moment***
