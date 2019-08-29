@@ -66,7 +66,7 @@ def transform_multioutput_data(x, y=None):
         y = np.concatenate(y).reshape(-1, 1)
     return x, y
 
-def estimate_from_sm(data, Q, init='BNSE', method='BFGS', disp=False, maxiter=2000, plot=False):
+def estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=False):
     """
     Estimate kernel param with single ouput GP-SM
 
@@ -96,14 +96,14 @@ def estimate_from_sm(data, Q, init='BNSE', method='BFGS', disp=False, maxiter=20
 
             sm = SM(sm_data, Q)
             sm.init_params(init)
-            sm.train(method=method, disp=disp, maxiter=maxiter)
+            sm.train(method=method, maxiter=maxiter)
 
             if plot:
-                nyquist = sm_data.get_nyquist_estimation()[0,:]
+                nyquist = sm_data.get_nyquist_estimation()
                 means = sm._get_param_across('mixture_means')
                 weights = sm._get_param_across('mixture_weights')
                 scales = sm._get_param_across('mixture_scales')
-                plot_spectrum(means, scales, weights=weights, nyquist=nyquist)
+                plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=data.channel_names[channel])
 
             for q in range(Q):
                 params[q]['weight'][i,channel] = sm.params[q]['mixture_weights']
@@ -257,7 +257,7 @@ class MOSM(model):
         for q in range(self.Q):
             self.params[q]["mean"] = peaks[:, :, q].T * np.pi * 2
 
-    def init_params(self, mode='full', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, disp=False, plot=False):
+    def init_params(self, mode='full', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
         Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
 
@@ -277,23 +277,22 @@ class MOSM(model):
             self.init_means()
 
         elif mode=='full':
-            params = estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
+            params = estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
                 self.params[q]["magnitude"] = np.average(params[q]['weight'], axis=0)
                 self.params[q]["mean"] = params[q]['mean']
                 self.params[q]["variance"] = params[q]['scale']
 
     def plot(self):
-        # TODO: output dims
-        nyquist = self.data.get_nyquist_estimation()[0,:]
+        nyquist = self.data.get_nyquist_estimation()
         means = self._get_param_across('mean')
         weights = self._get_param_across('magnitude')**2
         scales = self._get_param_across('variance')
         plot_spectrum(means, scales, weights=weights, nyquist=nyquist)
 
     def info(self):
-        for q in range(self.Q):
-            for channel in range(self.data.get_output_dims()):
+        for channel in range(self.data.get_output_dims()):
+            for q in range(self.Q):
                 mean = self.params[q]["mean"][:,channel]
                 var = self.params[q]["variance"][:,channel]
                 if np.linalg.norm(mean) < np.linalg.norm(var):

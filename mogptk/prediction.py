@@ -177,7 +177,7 @@ class Prediction:
             
                     axes[channel, i].set_xlabel(data.input_labels[channel][i])
                     axes[channel, i].set_ylabel(data.output_labels[channel])
-                    axes[channel, i].set_title(data.channel_names[channel])
+                    axes[channel, i].set_title(data.channel_names[channel], fontsize=30)
 
                     formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: data.formatters[channel][i].format(x))
                     axes[channel, i].xaxis.set_major_formatter(formatter)
@@ -199,17 +199,17 @@ class Prediction:
             X_removed, Y_removed = data.get_del_obs(channel)
             if len(X_removed) > 0:
                 for i in range(data.get_input_dims()):
-                    axes[channel, i].plot(X_removed[:,i], Y_removed, 'r.', mew=2, ms=10)
+                    axes[channel, i].plot(X_removed[:,i], Y_removed, 'r.', mew=2, ms=8)
                 plotting_all_obs = True
 
             for i in range(data.get_input_dims()):
-                axes[channel, i].plot(data.X[channel][:,i], data.Y[channel], 'k.', mew=2, ms=10)
+                axes[channel, i].plot(data.X[channel][:,i], data.Y[channel], 'k.', mew=2, ms=8)
             
         # build legend
         legend = []
-        legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=10, label='Training'))
+        legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))
         if plotting_all_obs:
-            legend.append(plt.Line2D([0], [0], ls='', marker='.', color='r', mew=2, ms=10, label='Removed'))
+            legend.append(plt.Line2D([0], [0], ls='', marker='.', color='r', mew=2, ms=8, label='Removed'))
         if plotting_F:
             legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent'))
         if plotting_pred:
