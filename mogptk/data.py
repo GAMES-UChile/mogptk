@@ -8,6 +8,7 @@ from scipy.signal import lombscargle, find_peaks
 import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
+import re
     
 duration_regex = re.compile(
     r'^((?P<years>[\.\d]+?)y)?'
