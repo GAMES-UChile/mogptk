@@ -154,7 +154,7 @@ class model:
                 else:
                     raise Exception("parameter name '%s' does not exist" % (key))
 
-    def train(self, method='L-BFGS-B', kind='full', plot=False, opt_params={}, params={}, export_graph=False):
+    def train(self, method='L-BFGS-B', kind='full', plot=False, tol=1e-6, maxiter=2000, opt_params={}, params={}, export_graph=False):
         """
         Builds and trains the model using the kernel and its parameters.
 
@@ -200,8 +200,8 @@ class model:
                     opt = gpflow.training.AdamOptimizer(**opt_params)
                     opt.minimize(self.model, anchor=True, **params)
                 else:
-                    opt = gpflow.train.ScipyOptimizer(method=method, **opt_params)
-                    opt.minimize(self.model, anchor=True, step_callback=step, **params)
+                    opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
+                    opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, **params)
 
                 self._update_params(self.model.read_trainables())
 

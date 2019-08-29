@@ -8,6 +8,22 @@ from scipy.signal import lombscargle, find_peaks
 import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
+    
+duration_regex = re.compile(
+    r'^((?P<years>[\.\d]+?)y)?'
+    r'^((?P<months>[\.\d]+?)M)?'
+    r'^((?P<weeks>[\.\d]+?)w)?'
+    r'^((?P<days>[\.\d]+?)d)?'
+    r'((?P<hours>[\.\d]+?)h)?'
+    r'((?P<minutes>[\.\d]+?)m)?'
+    r'((?P<seconds>[\.\d]+?)s)?$')
+
+def parse_duration(s):
+    x = duration_regex.match(s)
+    if x == None:
+        raise Exception('duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd')
+
+    print(x)
 
 class FormatNumber:
     def format(val):
@@ -21,6 +37,9 @@ class FormatNumber:
                 raise Exception("could not convert input to number")
             else:
                 raise Exception("could not convert input to number at %s" % (loc))
+
+    def parse_duration(val, loc=None):
+        return FormatNumber.parse(val, loc)
 
     def scale(maxfreq=None):
         return 1, None
@@ -37,6 +56,13 @@ class FormatDate:
                 raise Exception("could not convert input to date")
             else:
                 raise Exception("could not convert input to date at %s" % (loc))
+
+    def parse_duration(val):
+        if isinstance(val, int):
+            return val
+        if isinstance(val, str):
+            return parse_duration(val)
+        raise Exception("could not convert input to duration")
 
     def scale(maxfreq=None):
         if maxfreq == 'year':
@@ -64,6 +90,13 @@ class FormatDateTime:
                 raise Exception("could not convert input to datetime")
             else:
                 raise Exception("could not convert input to datetime at %s" % (loc))
+
+    def parse_duration(val):
+        if isinstance(val, int):
+            return val
+        if isinstance(val, str):
+            return parse_duration(val)
+        raise Exception("could not convert input to duration")
 
     def scale(maxfreq=None):
         if maxfreq == 'year':
@@ -183,6 +216,8 @@ class Data:
             x = [x]
         elif isinstance(x, int):
             x = [float(x)]
+        elif isinstance(x, str):
+            x = [x]
         elif isinstance(x, np.ndarray):
             x = list(x)
         elif not isinstance(x, list):
@@ -208,7 +243,7 @@ class Data:
         self.input_labels[channel] = input
         self.output_labels[channel] = output
 
-    def load_csv(self, filename, x_cols, y_cols, formatters={}, filter=None, name=None, **kwargs):
+    def load_csv(self, filename, x_cols, y_cols, format={}, filter=None, name=None, **kwargs):
         input_dims = 1
         if isinstance(x_cols, list) and all(isinstance(item, str) for item in x_cols):
             input_dims = len(x_cols)
@@ -230,11 +265,11 @@ class Data:
 
             def _to_number(val, row, col):
                 try:
-                    if col in formatters:
-                        return formatters[col].parse(val, loc="row %d column %s" % (row, col)), True
+                    if col in format:
+                        return format[col].parse(val, loc="row %d column %s" % (row+1, col)), True
                     else:
-                        return FormatNumber.parse(val, loc="row %d column %s" % (row, col)), True
-                except ValueError:
+                        return FormatNumber.parse(val, loc="row %d column %s" % (row+1, col)), True
+                except:
                     return np.nan, False
             
             X = np.empty((len(rows), input_dims))
@@ -260,8 +295,8 @@ class Data:
 
             fmts = []
             for x_col in x_cols:
-                if x_col in formatters:
-                    fmts.append(formatters[x_col])
+                if x_col in format:
+                    fmts.append(format[x_col])
                 else:
                     fmts.append(FormatNumber)
 
@@ -383,19 +418,12 @@ class Data:
     def copy(self):
         return copy.deepcopy(self)
 
-    def transform(self, transformer, channel=None):
-        if channel == None:
-            for channel in range(self.get_output_dims()):
-                t = transformer
-                if '__init__' in vars(transformer):
-                    t = transformer(self, channel)
-
-                self.Y[channel] = t.forward(self.X[channel], self.Y[channel])
-                self.Y_all[channel] = t.forward(self.X_all[channel], self.Y_all[channel])
-                if channel in self.F:
-                    f = self.F[channel]
-                    self.F[channel] = lambda x: t.forward(x, f(x))
-        else:
+    def transform(self, channels, transformer):
+        if channels == '*':
+            channels = range(self.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
             t = transformer
             if '__init__' in vars(transformer):
                 t = transformer(self, channel)
@@ -405,6 +433,34 @@ class Data:
             if channel in self.F:
                 f = self.F[channel]
                 self.F[channel] = lambda x: t.forward(x, f(x))
+    
+    def filter(self, channels, start, end):
+        if self.get_input_dims() != 1:
+            raise Exception("can only filter on one dimensional input data")
+
+        start = self.formatters[channel][0].parse(start)
+        end = self.formatters[channel][0].parse(end)
+        
+        if channels == '*':
+            channels = range(self.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            pass # TODO
+
+
+    def aggregate(self, channels, duration):
+        if self.get_input_dims() != 1:
+            raise Exception("can only aggregate on one dimensional input data")
+
+        duration = self.formatters[channel][0].parse_duration(duration)
+        
+        if channels == '*':
+            channels = range(self.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            pass # TODO
 
     ################################################################
 
@@ -624,13 +680,13 @@ class Data:
         input_dims = self.get_input_dims()
         output_dims = self.get_output_dims()
 
-        nyquist = np.empty((output_dims, input_dims))
+        nyquist = np.empty((input_dims, output_dims))
         for channel in range(self.get_output_dims()):
             for i in range(self.get_input_dims()):
                 x = np.sort(self.X[channel][:,i])
                 dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
                 dist = np.min(dist[np.nonzero(dist)])
-                nyquist[channel,i] = 0.5/dist
+                nyquist[i,channel] = 0.5/dist
         return nyquist
 
     def get_bnse_estimation(self, Q=1):
@@ -654,7 +710,7 @@ class Data:
                 x = self.X[channel][:,i]
                 y = self.Y[channel]
                 bnse = bse(x, y)
-                bnse.set_freqspace(nyquist[channel,i], dimension=5000)
+                bnse.set_freqspace(nyquist[i,channel], dimension=5000)
                 bnse.train()
                 bnse.compute_moments()
 
@@ -680,7 +736,7 @@ class Data:
                 amps[channel,i,:] = amplitudes
         return freqs / np.pi / 2, amps
 
-    def get_ls_estimation(self, Q=1, n_ls=30000):
+    def get_ls_estimation(self, Q=1, n_ls=50000):
         """
         Peak estimation using Lomb Scargle.
         ***Only for 1 channel for the moment***
@@ -702,7 +758,7 @@ class Data:
         nyquist = self.get_nyquist_estimation() * 2 * np.pi
         for channel in range(output_dims):
             for i in range(input_dims):
-                freq_space = np.linspace(0, nyquist[channel,i], n_ls+1)[1:]
+                freq_space = np.linspace(0, nyquist[i,channel], n_ls+1)[1:]
                 pgram = lombscargle(self.X[channel][:,i], self.Y[channel], freq_space)
                 peaks_index, _ = find_peaks(pgram)
 
@@ -751,10 +807,10 @@ class Data:
                     axes[channel, i].plot(x[:,i], y, 'r--', lw=1)
                     plotting_F = True
 
-                axes[channel, i].plot(self.X[channel][:,i], self.Y[channel], 'k-', mew=2, ms=10)
+                axes[channel, i].plot(self.X[channel][:,i], self.Y[channel], 'k-')
                 axes[channel, i].set_xlabel(self.input_labels[channel][i])
                 axes[channel, i].set_ylabel(self.output_labels[channel])
-                axes[channel, i].set_title(self.channel_names[channel])
+                axes[channel, i].set_title(self.channel_names[channel], fontsize=30)
             
                 formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[channel][i].format(x))
                 axes[channel, i].xaxis.set_major_formatter(formatter)
@@ -762,7 +818,7 @@ class Data:
         # build legend
         if plotting_F:
             legend = []
-            legend.append(plt.Line2D([0], [0], ls='-', color='k', mew=2, ms=10, label='Data'))
+            legend.append(plt.Line2D([0], [0], ls='-', color='k', label='Data'))
             legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent function'))
             plt.legend(handles=legend, loc='best')
 
@@ -800,14 +856,14 @@ class Data:
                     dist = np.abs(X_space[1:]-X_space[:-1])
                     freq = 1/np.average(dist)
 
-                X = np.linspace(0.0, freq, 1001)[1:]
+                X = np.linspace(0.0, freq, 10001)[1:]
                 if method == 'lombscargle':
                     Y = lombscargle(X_space, self.Y[channel], X)
                 else:
                     raise Exception('Periodogram method "%s" does not exist' % (method))
 
-                axes[channel,i].plot(X, Y, 'k-', mew=2, ms=10)
-                axes[channel,i].set_title(self.channel_names[channel])
+                axes[channel,i].plot(X, Y, 'k-')
+                axes[channel,i].set_title(self.channel_names[channel], fontsize=30)
                 axes[channel,i].set_yticks([])
                 axes[channel,i].set_ylim(0, None)
 
