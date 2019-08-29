@@ -170,6 +170,21 @@ class model:
             method (str): Optimizer to use, if "Adam" is chosen,
                 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
                 optimizer is used. Default to scipy 'L-BFGS-B'.
+
+            plot (bool): Default to False.
+
+            opt_params (dict): Aditional dictionary with parameters on optimizer.
+                If method is 'Adam' see,
+                https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py
+                If method is in scipy-optimizer see:
+                https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
+                https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+
+            params (dict): Aditional dictionary with parameters to minimice. 
+                See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
+                for more details.
+
+            export_graph (bool): Default to False.
         """
 
         start_time = time.time()
@@ -226,7 +241,7 @@ class model:
             pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
         Returns:
-            X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+            Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
 
         """
         if self.model == None:

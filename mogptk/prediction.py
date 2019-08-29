@@ -144,7 +144,12 @@ class Prediction:
 
     # TODO: keep in or out?
     def plot(self, filename=None, title=None):
-        """plot will plot the model in graphs per input and output dimensions. Output dimensions will stack the graphs vertically while input dimensions stacks them horizontally. Optionally, you can output the figure to a file and set a title."""
+        """
+        Plot the model in graphs per input and output dimensions.
+
+        Output dimensions will stack the graphs vertically while input dimensions stacks them horizontally.
+        Optionally, you can output the figure to a file and set a title.
+        """
         data = self.data
         channels = range(data.get_output_dims())
 
