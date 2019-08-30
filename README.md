@@ -12,26 +12,11 @@ All other included kernels can be derived from the Multi Output Spectral Mixture
 One of the main advantages of the present toolbox is the GPU support, which enables the user to train models through TensorFlow, speeding computations significantly. It also includes sparse-variational GP regression functionality, to decrease computation time even further.
 
 # Installation guide
+Make sure you have Python 3.6 and `pip` installed, and run the following command:
 
-## Using Conda
 ```
-conda create --name example python=3.6
-conda activate example
 pip install git+https://github.com/GAMES-UChile/MultiOutputGP-Toolbox
-
 ```
-
-# Main Requirements
-
-- Python 3.6
-- GPFlow 1.4
-- Tensorflow 1.13
-- scikit-learn
-- matplotlib
-- seaborn
-- numpy 1.16
-- scipy
-- skopt
 
 # Notes on requirements
 

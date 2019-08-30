@@ -9,7 +9,7 @@ setup(name='mogptk',
       license='MIT',
       packages=['mogptk'],
       keywords=['MOGP', 'MOSM', 'GP', 'Gaussian Process', 'Multi-Output', 'Tobar', 'Parra'],
-      python_requires='==3.6',
+      python_requires='~=3.6.0',
       install_requires=[
           'numpy~=1.16.0',
           'gpflow~=1.4.0',
