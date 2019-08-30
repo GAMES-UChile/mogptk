@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import norm
 
-def plot_spectrum(means, scales, weights=None, nyquist=None, show=True, filename=None, title=None):
+def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None):
     sns.set(font_scale=2)
     sns.axes_style("darkgrid")
     sns.set_style("whitegrid")
@@ -54,9 +54,12 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, show=True, filename
                 psd += single_psd
            
             axes[channel,i].plot(x, psd, 'k-', zorder=1)
-            axes[channel,i].set_xlabel('Frequency')
             axes[channel,i].set_yticks([])
             axes[channel,i].set_ylim(0, None)
+            if titles != None:
+                axes[channel,i].set_title(titles[channel])
+
+    axes[output_dims-1,i].set_xlabel('Frequency')
 
     if filename != None:
         plt.savefig(filename+'.pdf', dpi=300)

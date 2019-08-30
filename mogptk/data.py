@@ -715,7 +715,7 @@ class Data:
                 bnse.train()
                 bnse.compute_moments()
 
-                peaks, amplitudes = bnse.get_freq_peaks()
+                peaks, amplitudes = bnse.get_freq_peaks() # TODO: get peak widths
                 if len(peaks) == 0:
                     continue
 
@@ -782,6 +782,10 @@ class Data:
                 amps[channel,i,:] = peaks[:,0]
 
         return freqs / np.pi / 2, amps
+    
+    def get_gm_estimation(self):
+        # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
+        pass
 
     def plot(self, show=True, filename=None, title=None):
         sns.set(font_scale=2)

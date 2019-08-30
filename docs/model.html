@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.6.3" />
+<title>mogptk.model API documentation</title>
+<meta name="description" content="" />
+<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
+<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase;cursor:pointer}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>mogptk.model</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">import os
+import time
+import numpy as np
+from pprint import pprint
+import gpflow
+import tensorflow as tf
+
+import logging
+logging.getLogger(&#39;tensorflow&#39;).propagate = False
+
+class model:
+    &#34;&#34;&#34;
+    Multioutput Gaussian proccess model. Can be either MOSM, CSM, SM-LMC or CONV.
+
+    This class is used to use a multioutput GP model, train and test data can be added,
+    the model can be used to train a predict.
+
+    Example:
+
+        ---TO-DO---
+
+    Atributes:
+        name ():
+        data (obj, instance of mogptk.data):
+        model ():
+        Q (int): Number of components of the model.
+        parameters ():
+    &#34;&#34;&#34;
+
+    def __init__(self, name, data, Q):
+        self.name = name
+        self.data = data
+        self.model = None
+        self.Q = Q
+        self.params = []
+        self.fixed_params = []
+
+    def _kernel(self):
+        # overridden by specific models
+        raise Exception(&#34;kernel not specified&#34;)
+    
+    def _transform_data(self, x, y):
+        # overridden by specific models
+        raise Exception(&#34;kernel not specified&#34;)
+
+    def info(self):
+        pass
+
+    def plot(self):
+        pass
+
+    def _update_params(self, trainables):
+        for key, val in trainables.items():
+            names = key.split(&#34;/&#34;)
+            if len(names) == 5 and names[1] == &#39;kern&#39; and names[2] == &#39;kernels&#39;:
+                q = int(names[3])
+                name = names[4]
+                self.params[q][name] = val
+
+    def get_params(self):
+        &#34;&#34;&#34;
+        Returns all parameters set for the kernel per component.
+        &#34;&#34;&#34;
+        return self.params
+        
+    def _get_param_across(self, name=&#39;mixture_means&#39;):
+        &#34;&#34;&#34;
+        Get all the name parameters across all components
+        &#34;&#34;&#34;
+        return np.array([self.params[q][name] for q in range(self.Q)])
+
+    def set_param(self, q, key, val):
+        &#34;&#34;&#34;
+        Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.
+
+        Args:
+            q (int): Component of kernel.
+
+            key (str): Name of component.
+
+            val (float, ndarray): Value of parameter.
+        &#34;&#34;&#34;
+        if q &lt; 0 or len(self.params) &lt;= q:
+            raise Exception(&#34;qth component %d does not exist&#34; % (q))
+        if key not in self.params[q]:
+            raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+
+        self.params[q][key] = val
+
+    def fix_params(self, key):
+        self.fixed_params.append(key)
+
+    def unfix_params(self, key):
+        self.fixed_params.remove(key)
+
+    def print_params(self):
+        import pandas as pd
+        pd.set_option(&#39;display.max_colwidth&#39;, -1)
+        df = pd.DataFrame(self.get_params())
+        df.index.name = &#39;Q&#39;
+        display(df)
+
+    def save(self, filename):
+        if self.model == None:
+            raise Exception(&#34;build (and train) the model before doing predictions&#34;)
+
+        if not filename.endswith(&#34;.mogptk&#34;):
+            filename += &#34;.mogptk&#34;
+
+        try:
+            os.remove(filename)
+        except OSError:
+            pass
+
+        self.model.mogptk_type = self.__class__.__name__
+        self.model.mogptk_name = self.name
+        self.model.mogptk_data = self.data._encode()
+        self.model.mogptk_Q = self.Q
+        self.model.mogptk_params = self.params
+        self.model.mogptk_fixed_params = self.fixed_params
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                gpflow.Saver().save(filename, self.model)
+
+    def build(self, kind=&#39;full&#39;):
+        x, y = self._transform_data(self.data.X, self.data.Y)
+
+        self.graph = tf.Graph()
+        self.session = tf.Session(graph=self.graph)
+        with self.graph.as_default():
+            with self.session.as_default():
+                if kind == &#39;full&#39;:
+                    self.model = gpflow.models.GPR(x, y, self._kernel())
+                elif kind == &#39;sparse&#39;:
+                    # TODO: test if induction points are set
+                    self.name += &#39; (sparse)&#39;
+                    self.model = gpflow.models.SGPR(x, y, self._kernel())
+                elif kind == &#39;sparse-variational&#39;:
+                    self.name += &#39; (sparse-variational)&#39;
+                    self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
+                else:
+                    raise Exception(&#34;model type &#39;%s&#39; does not exist&#34; % (kind))
+        
+        for key in self.fixed_params:
+            if hasattr(self.model.kern, &#39;kernels&#39;):
+                for kern in self.model.kern.kernels:
+                    if hasattr(kern, key):
+                        getattr(kern, key).trainable = False
+                    else:
+                        raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+            else:
+                if hasattr(self.model.kern, key):
+                    getattr(self.model.kern, key).trainable = False
+                else:
+                    raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+
+    def train(self, method=&#39;L-BFGS-B&#39;, kind=&#39;full&#39;, plot=False, tol=1e-6, maxiter=2000, opt_params={}, params={}, export_graph=False):
+        &#34;&#34;&#34;
+        Builds and trains the model using the kernel and its parameters.
+
+        For different optimizers, see scipy.optimize.minimize.
+        It can be bounded by a maximum number of iterations, disp will output final
+        optimization information.
+        When using the &#39;Adam&#39; optimizer, a learning_rate can be set.
+
+        Args:
+            kind (str): Type of model to use, posible mode are &#39;full&#39;, &#39;sparse&#39; and
+                &#39;sparse-variational&#39;.
+
+            method (str): Optimizer to use, if &#34;Adam&#34; is chosen,
+                gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
+                optimizer is used. Default to scipy &#39;L-BFGS-B&#39;.
+        &#34;&#34;&#34;
+
+        start_time = time.time()
+        
+        self.build(kind)
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                if export_graph:
+                    def get_tensor(name):
+                        return self.graph.get_tensor_by_name(&#39;GPR-&#39; + self.model._index + &#39;/likelihood_1/&#39; + name + &#39;:0&#39;)
+
+                    #print([n.name for n in tf.get_default_graph().as_graph_def().node])
+
+                    writer = tf.summary.FileWriter(&#34;log&#34;, self.graph)
+                    K_summary = tf.summary.histogram(&#39;K&#39;, get_tensor(&#39;K&#39;))
+
+                step_i = 0
+                def step(theta):
+                    nonlocal step_i
+                    if export_graph:
+                        #writer.add_summary(self.session.run(likelihood_summary), step_i)
+                        #writer.add_summary(self.session.run(prior_summary), step_i)
+                        writer.add_summary(self.session.run(K_summary), step_i)
+                    step_i += 1
+
+                if method == &#34;Adam&#34;:
+                    opt = gpflow.training.AdamOptimizer(**opt_params)
+                    opt.minimize(self.model, anchor=True, **params)
+                else:
+                    opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
+                    opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, **params)
+
+                self._update_params(self.model.read_trainables())
+
+        print(&#34;Done in &#34;, (time.time() - start_time)/60, &#34; minutes&#34;)
+
+        if plot:
+            self.plot()
+
+    ################################################################################
+    # Predictions ##################################################################
+    ################################################################################
+
+    def predict(self, X):
+        &#34;&#34;&#34;
+        Predict with model.
+
+        Will make a prediction using x as input. If no input value is passed, the prediction will 
+        be made with atribute self.X_pred that can be setted with other functions.
+        It returns the X, Y_mu, Y_var values per channel.
+
+        Args:
+            pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+
+        Returns:
+            X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+
+        &#34;&#34;&#34;
+        if self.model == None:
+            raise Exception(&#34;build (and train) the model before doing predictions&#34;)
+
+        # TODO: extract X from dict or from Prediction
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                x, _ = self._transform_data(X)
+                mu, var = self.model.predict_f(x)
+
+        n = 0
+        for channel in X:
+            n += X[channel].shape[0]
+        
+        i = 0
+        Y_mu = {}
+        Y_var = {}
+        for channel in X:
+            n = X[channel].shape[0]
+            if n != 0:
+                Y_mu[channel] = mu[i:i+n].reshape(1, -1)[0]
+                Y_var[channel] = var[i:i+n].reshape(1, -1)[0]
+                i += n
+        #TODO: set mu and var in Prediction, or create a new one? Prediction should be reusable, or easily copyable
+        return Y_mu, Y_var</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="mogptk.model.model"><code class="flex name class">
+<span>class <span class="ident">model</span></span>
+<span>(</span><span>name, data, Q)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Multioutput Gaussian proccess model. Can be either MOSM, CSM, SM-LMC or CONV.</p>
+<p>This class is used to use a multioutput GP model, train and test data can be added,
+the model can be used to train a predict.</p>
+<h2 id="example">Example</h2>
+<p>&mdash;TO-DO&mdash;</p>
+<h2 id="atributes">Atributes</h2>
+<dl>
+<dt>name ():</dt>
+<dt>data (obj, instance of mogptk.data):</dt>
+<dt>model ():</dt>
+<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of components of the model.</dd>
+</dl>
+<p>parameters ():</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class model:
+    &#34;&#34;&#34;
+    Multioutput Gaussian proccess model. Can be either MOSM, CSM, SM-LMC or CONV.
+
+    This class is used to use a multioutput GP model, train and test data can be added,
+    the model can be used to train a predict.
+
+    Example:
+
+        ---TO-DO---
+
+    Atributes:
+        name ():
+        data (obj, instance of mogptk.data):
+        model ():
+        Q (int): Number of components of the model.
+        parameters ():
+    &#34;&#34;&#34;
+
+    def __init__(self, name, data, Q):
+        self.name = name
+        self.data = data
+        self.model = None
+        self.Q = Q
+        self.params = []
+        self.fixed_params = []
+
+    def _kernel(self):
+        # overridden by specific models
+        raise Exception(&#34;kernel not specified&#34;)
+    
+    def _transform_data(self, x, y):
+        # overridden by specific models
+        raise Exception(&#34;kernel not specified&#34;)
+
+    def info(self):
+        pass
+
+    def plot(self):
+        pass
+
+    def _update_params(self, trainables):
+        for key, val in trainables.items():
+            names = key.split(&#34;/&#34;)
+            if len(names) == 5 and names[1] == &#39;kern&#39; and names[2] == &#39;kernels&#39;:
+                q = int(names[3])
+                name = names[4]
+                self.params[q][name] = val
+
+    def get_params(self):
+        &#34;&#34;&#34;
+        Returns all parameters set for the kernel per component.
+        &#34;&#34;&#34;
+        return self.params
+        
+    def _get_param_across(self, name=&#39;mixture_means&#39;):
+        &#34;&#34;&#34;
+        Get all the name parameters across all components
+        &#34;&#34;&#34;
+        return np.array([self.params[q][name] for q in range(self.Q)])
+
+    def set_param(self, q, key, val):
+        &#34;&#34;&#34;
+        Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.
+
+        Args:
+            q (int): Component of kernel.
+
+            key (str): Name of component.
+
+            val (float, ndarray): Value of parameter.
+        &#34;&#34;&#34;
+        if q &lt; 0 or len(self.params) &lt;= q:
+            raise Exception(&#34;qth component %d does not exist&#34; % (q))
+        if key not in self.params[q]:
+            raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+
+        self.params[q][key] = val
+
+    def fix_params(self, key):
+        self.fixed_params.append(key)
+
+    def unfix_params(self, key):
+        self.fixed_params.remove(key)
+
+    def print_params(self):
+        import pandas as pd
+        pd.set_option(&#39;display.max_colwidth&#39;, -1)
+        df = pd.DataFrame(self.get_params())
+        df.index.name = &#39;Q&#39;
+        display(df)
+
+    def save(self, filename):
+        if self.model == None:
+            raise Exception(&#34;build (and train) the model before doing predictions&#34;)
+
+        if not filename.endswith(&#34;.mogptk&#34;):
+            filename += &#34;.mogptk&#34;
+
+        try:
+            os.remove(filename)
+        except OSError:
+            pass
+
+        self.model.mogptk_type = self.__class__.__name__
+        self.model.mogptk_name = self.name
+        self.model.mogptk_data = self.data._encode()
+        self.model.mogptk_Q = self.Q
+        self.model.mogptk_params = self.params
+        self.model.mogptk_fixed_params = self.fixed_params
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                gpflow.Saver().save(filename, self.model)
+
+    def build(self, kind=&#39;full&#39;):
+        x, y = self._transform_data(self.data.X, self.data.Y)
+
+        self.graph = tf.Graph()
+        self.session = tf.Session(graph=self.graph)
+        with self.graph.as_default():
+            with self.session.as_default():
+                if kind == &#39;full&#39;:
+                    self.model = gpflow.models.GPR(x, y, self._kernel())
+                elif kind == &#39;sparse&#39;:
+                    # TODO: test if induction points are set
+                    self.name += &#39; (sparse)&#39;
+                    self.model = gpflow.models.SGPR(x, y, self._kernel())
+                elif kind == &#39;sparse-variational&#39;:
+                    self.name += &#39; (sparse-variational)&#39;
+                    self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
+                else:
+                    raise Exception(&#34;model type &#39;%s&#39; does not exist&#34; % (kind))
+        
+        for key in self.fixed_params:
+            if hasattr(self.model.kern, &#39;kernels&#39;):
+                for kern in self.model.kern.kernels:
+                    if hasattr(kern, key):
+                        getattr(kern, key).trainable = False
+                    else:
+                        raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+            else:
+                if hasattr(self.model.kern, key):
+                    getattr(self.model.kern, key).trainable = False
+                else:
+                    raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+
+    def train(self, method=&#39;L-BFGS-B&#39;, kind=&#39;full&#39;, plot=False, tol=1e-6, maxiter=2000, opt_params={}, params={}, export_graph=False):
+        &#34;&#34;&#34;
+        Builds and trains the model using the kernel and its parameters.
+
+        For different optimizers, see scipy.optimize.minimize.
+        It can be bounded by a maximum number of iterations, disp will output final
+        optimization information.
+        When using the &#39;Adam&#39; optimizer, a learning_rate can be set.
+
+        Args:
+            kind (str): Type of model to use, posible mode are &#39;full&#39;, &#39;sparse&#39; and
+                &#39;sparse-variational&#39;.
+
+            method (str): Optimizer to use, if &#34;Adam&#34; is chosen,
+                gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
+                optimizer is used. Default to scipy &#39;L-BFGS-B&#39;.
+        &#34;&#34;&#34;
+
+        start_time = time.time()
+        
+        self.build(kind)
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                if export_graph:
+                    def get_tensor(name):
+                        return self.graph.get_tensor_by_name(&#39;GPR-&#39; + self.model._index + &#39;/likelihood_1/&#39; + name + &#39;:0&#39;)
+
+                    #print([n.name for n in tf.get_default_graph().as_graph_def().node])
+
+                    writer = tf.summary.FileWriter(&#34;log&#34;, self.graph)
+                    K_summary = tf.summary.histogram(&#39;K&#39;, get_tensor(&#39;K&#39;))
+
+                step_i = 0
+                def step(theta):
+                    nonlocal step_i
+                    if export_graph:
+                        #writer.add_summary(self.session.run(likelihood_summary), step_i)
+                        #writer.add_summary(self.session.run(prior_summary), step_i)
+                        writer.add_summary(self.session.run(K_summary), step_i)
+                    step_i += 1
+
+                if method == &#34;Adam&#34;:
+                    opt = gpflow.training.AdamOptimizer(**opt_params)
+                    opt.minimize(self.model, anchor=True, **params)
+                else:
+                    opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
+                    opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, **params)
+
+                self._update_params(self.model.read_trainables())
+
+        print(&#34;Done in &#34;, (time.time() - start_time)/60, &#34; minutes&#34;)
+
+        if plot:
+            self.plot()
+
+    ################################################################################
+    # Predictions ##################################################################
+    ################################################################################
+
+    def predict(self, X):
+        &#34;&#34;&#34;
+        Predict with model.
+
+        Will make a prediction using x as input. If no input value is passed, the prediction will 
+        be made with atribute self.X_pred that can be setted with other functions.
+        It returns the X, Y_mu, Y_var values per channel.
+
+        Args:
+            pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+
+        Returns:
+            X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+
+        &#34;&#34;&#34;
+        if self.model == None:
+            raise Exception(&#34;build (and train) the model before doing predictions&#34;)
+
+        # TODO: extract X from dict or from Prediction
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                x, _ = self._transform_data(X)
+                mu, var = self.model.predict_f(x)
+
+        n = 0
+        for channel in X:
+            n += X[channel].shape[0]
+        
+        i = 0
+        Y_mu = {}
+        Y_var = {}
+        for channel in X:
+            n = X[channel].shape[0]
+            if n != 0:
+                Y_mu[channel] = mu[i:i+n].reshape(1, -1)[0]
+                Y_var[channel] = var[i:i+n].reshape(1, -1)[0]
+                i += n
+        #TODO: set mu and var in Prediction, or create a new one? Prediction should be reusable, or easily copyable
+        return Y_mu, Y_var</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="mogptk.models.SM" href="models.html#mogptk.models.SM">SM</a></li>
+<li><a title="mogptk.models.MOSM" href="models.html#mogptk.models.MOSM">MOSM</a></li>
+<li><a title="mogptk.models.CSM" href="models.html#mogptk.models.CSM">CSM</a></li>
+<li><a title="mogptk.models.SM_LMC" href="models.html#mogptk.models.SM_LMC">SM_LMC</a></li>
+<li><a title="mogptk.models.CG" href="models.html#mogptk.models.CG">CG</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.model.model.build"><code class="name flex">
+<span>def <span class="ident">build</span></span>(<span>self, kind='full')</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def build(self, kind=&#39;full&#39;):
+    x, y = self._transform_data(self.data.X, self.data.Y)
+
+    self.graph = tf.Graph()
+    self.session = tf.Session(graph=self.graph)
+    with self.graph.as_default():
+        with self.session.as_default():
+            if kind == &#39;full&#39;:
+                self.model = gpflow.models.GPR(x, y, self._kernel())
+            elif kind == &#39;sparse&#39;:
+                # TODO: test if induction points are set
+                self.name += &#39; (sparse)&#39;
+                self.model = gpflow.models.SGPR(x, y, self._kernel())
+            elif kind == &#39;sparse-variational&#39;:
+                self.name += &#39; (sparse-variational)&#39;
+                self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
+            else:
+                raise Exception(&#34;model type &#39;%s&#39; does not exist&#34; % (kind))
+    
+    for key in self.fixed_params:
+        if hasattr(self.model.kern, &#39;kernels&#39;):
+            for kern in self.model.kern.kernels:
+                if hasattr(kern, key):
+                    getattr(kern, key).trainable = False
+                else:
+                    raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+        else:
+            if hasattr(self.model.kern, key):
+                getattr(self.model.kern, key).trainable = False
+            else:
+                raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.fix_params"><code class="name flex">
+<span>def <span class="ident">fix_params</span></span>(<span>self, key)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def fix_params(self, key):
+    self.fixed_params.append(key)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.get_params"><code class="name flex">
+<span>def <span class="ident">get_params</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns all parameters set for the kernel per component.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_params(self):
+    &#34;&#34;&#34;
+    Returns all parameters set for the kernel per component.
+    &#34;&#34;&#34;
+    return self.params</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.info"><code class="name flex">
+<span>def <span class="ident">info</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def info(self):
+    pass</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def plot(self):
+    pass</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.predict"><code class="name flex">
+<span>def <span class="ident">predict</span></span>(<span>self, X)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Predict with model.</p>
+<p>Will make a prediction using x as input. If no input value is passed, the prediction will
+be made with atribute self.X_pred that can be setted with other functions.
+It returns the X, Y_mu, Y_var values per channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>pred</code></strong> :&ensp;<code>dict</code>,<code>Prediction</code></dt>
+<dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def predict(self, X):
+    &#34;&#34;&#34;
+    Predict with model.
+
+    Will make a prediction using x as input. If no input value is passed, the prediction will 
+    be made with atribute self.X_pred that can be setted with other functions.
+    It returns the X, Y_mu, Y_var values per channel.
+
+    Args:
+        pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+
+    Returns:
+        X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+
+    &#34;&#34;&#34;
+    if self.model == None:
+        raise Exception(&#34;build (and train) the model before doing predictions&#34;)
+
+    # TODO: extract X from dict or from Prediction
+
+    with self.graph.as_default():
+        with self.session.as_default():
+            x, _ = self._transform_data(X)
+            mu, var = self.model.predict_f(x)
+
+    n = 0
+    for channel in X:
+        n += X[channel].shape[0]
+    
+    i = 0
+    Y_mu = {}
+    Y_var = {}
+    for channel in X:
+        n = X[channel].shape[0]
+        if n != 0:
+            Y_mu[channel] = mu[i:i+n].reshape(1, -1)[0]
+            Y_var[channel] = var[i:i+n].reshape(1, -1)[0]
+            i += n
+    #TODO: set mu and var in Prediction, or create a new one? Prediction should be reusable, or easily copyable
+    return Y_mu, Y_var</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.print_params"><code class="name flex">
+<span>def <span class="ident">print_params</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def print_params(self):
+    import pandas as pd
+    pd.set_option(&#39;display.max_colwidth&#39;, -1)
+    df = pd.DataFrame(self.get_params())
+    df.index.name = &#39;Q&#39;
+    display(df)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.save"><code class="name flex">
+<span>def <span class="ident">save</span></span>(<span>self, filename)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def save(self, filename):
+    if self.model == None:
+        raise Exception(&#34;build (and train) the model before doing predictions&#34;)
+
+    if not filename.endswith(&#34;.mogptk&#34;):
+        filename += &#34;.mogptk&#34;
+
+    try:
+        os.remove(filename)
+    except OSError:
+        pass
+
+    self.model.mogptk_type = self.__class__.__name__
+    self.model.mogptk_name = self.name
+    self.model.mogptk_data = self.data._encode()
+    self.model.mogptk_Q = self.Q
+    self.model.mogptk_params = self.params
+    self.model.mogptk_fixed_params = self.fixed_params
+
+    with self.graph.as_default():
+        with self.session.as_default():
+            gpflow.Saver().save(filename, self.model)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.set_param"><code class="name flex">
+<span>def <span class="ident">set_param</span></span>(<span>self, q, key, val)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>q</code></strong> :&ensp;<code>int</code></dt>
+<dd>Component of kernel.</dd>
+<dt><strong><code>key</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of component.</dd>
+<dt><strong><code>val</code></strong> :&ensp;<code>float</code>, <code>ndarray</code></dt>
+<dd>Value of parameter.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_param(self, q, key, val):
+    &#34;&#34;&#34;
+    Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.
+
+    Args:
+        q (int): Component of kernel.
+
+        key (str): Name of component.
+
+        val (float, ndarray): Value of parameter.
+    &#34;&#34;&#34;
+    if q &lt; 0 or len(self.params) &lt;= q:
+        raise Exception(&#34;qth component %d does not exist&#34; % (q))
+    if key not in self.params[q]:
+        raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+
+    self.params[q][key] = val</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.train"><code class="name flex">
+<span>def <span class="ident">train</span></span>(<span>self, method='L-BFGS-B', kind='full', plot=False, tol=1e-06, maxiter=2000, opt_params={}, params={}, export_graph=False)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Builds and trains the model using the kernel and its parameters.</p>
+<p>For different optimizers, see scipy.optimize.minimize.
+It can be bounded by a maximum number of iterations, disp will output final
+optimization information.
+When using the 'Adam' optimizer, a learning_rate can be set.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kind</code></strong> :&ensp;<code>str</code></dt>
+<dd>Type of model to use, posible mode are 'full', 'sparse' and
+'sparse-variational'.</dd>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
+<dd>Optimizer to use, if "Adam" is chosen,
+gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
+optimizer is used. Default to scipy 'L-BFGS-B'.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def train(self, method=&#39;L-BFGS-B&#39;, kind=&#39;full&#39;, plot=False, tol=1e-6, maxiter=2000, opt_params={}, params={}, export_graph=False):
+    &#34;&#34;&#34;
+    Builds and trains the model using the kernel and its parameters.
+
+    For different optimizers, see scipy.optimize.minimize.
+    It can be bounded by a maximum number of iterations, disp will output final
+    optimization information.
+    When using the &#39;Adam&#39; optimizer, a learning_rate can be set.
+
+    Args:
+        kind (str): Type of model to use, posible mode are &#39;full&#39;, &#39;sparse&#39; and
+            &#39;sparse-variational&#39;.
+
+        method (str): Optimizer to use, if &#34;Adam&#34; is chosen,
+            gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
+            optimizer is used. Default to scipy &#39;L-BFGS-B&#39;.
+    &#34;&#34;&#34;
+
+    start_time = time.time()
+    
+    self.build(kind)
+
+    with self.graph.as_default():
+        with self.session.as_default():
+            if export_graph:
+                def get_tensor(name):
+                    return self.graph.get_tensor_by_name(&#39;GPR-&#39; + self.model._index + &#39;/likelihood_1/&#39; + name + &#39;:0&#39;)
+
+                #print([n.name for n in tf.get_default_graph().as_graph_def().node])
+
+                writer = tf.summary.FileWriter(&#34;log&#34;, self.graph)
+                K_summary = tf.summary.histogram(&#39;K&#39;, get_tensor(&#39;K&#39;))
+
+            step_i = 0
+            def step(theta):
+                nonlocal step_i
+                if export_graph:
+                    #writer.add_summary(self.session.run(likelihood_summary), step_i)
+                    #writer.add_summary(self.session.run(prior_summary), step_i)
+                    writer.add_summary(self.session.run(K_summary), step_i)
+                step_i += 1
+
+            if method == &#34;Adam&#34;:
+                opt = gpflow.training.AdamOptimizer(**opt_params)
+                opt.minimize(self.model, anchor=True, **params)
+            else:
+                opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
+                opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, **params)
+
+            self._update_params(self.model.read_trainables())
+
+    print(&#34;Done in &#34;, (time.time() - start_time)/60, &#34; minutes&#34;)
+
+    if plot:
+        self.plot()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.unfix_params"><code class="name flex">
+<span>def <span class="ident">unfix_params</span></span>(<span>self, key)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def unfix_params(self, key):
+    self.fixed_params.remove(key)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="mogptk" href="index.html">mogptk</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="mogptk.model.model" href="#mogptk.model.model">model</a></code></h4>
+<ul class="two-column">
+<li><code><a title="mogptk.model.model.build" href="#mogptk.model.model.build">build</a></code></li>
+<li><code><a title="mogptk.model.model.fix_params" href="#mogptk.model.model.fix_params">fix_params</a></code></li>
+<li><code><a title="mogptk.model.model.get_params" href="#mogptk.model.model.get_params">get_params</a></code></li>
+<li><code><a title="mogptk.model.model.info" href="#mogptk.model.model.info">info</a></code></li>
+<li><code><a title="mogptk.model.model.plot" href="#mogptk.model.model.plot">plot</a></code></li>
+<li><code><a title="mogptk.model.model.predict" href="#mogptk.model.model.predict">predict</a></code></li>
+<li><code><a title="mogptk.model.model.print_params" href="#mogptk.model.model.print_params">print_params</a></code></li>
+<li><code><a title="mogptk.model.model.save" href="#mogptk.model.model.save">save</a></code></li>
+<li><code><a title="mogptk.model.model.set_param" href="#mogptk.model.model.set_param">set_param</a></code></li>
+<li><code><a title="mogptk.model.model.train" href="#mogptk.model.model.train">train</a></code></li>
+<li><code><a title="mogptk.model.model.unfix_params" href="#mogptk.model.model.unfix_params">unfix_params</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.6.3</a>.</p>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad()</script>
+</body>
+</html>

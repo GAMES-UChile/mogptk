@@ -95,6 +95,7 @@ class model:
 
     def print_params(self):
         import pandas as pd
+        pd.set_option('display.max_colwidth', -1)
         df = pd.DataFrame(self.get_params())
         df.index.name = 'Q'
         display(df)

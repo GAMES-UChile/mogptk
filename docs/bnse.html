@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.6.3" />
+<title>mogptk.bnse API documentation</title>
+<meta name="description" content="" />
+<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
+<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase;cursor:pointer}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>mogptk.bnse</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.optimize import minimize
+from scipy.signal import find_peaks
+#import scipy.signal as sp
+#sns.set_style(&#34;whitegrid&#34;)
+#import scipy.signal as sp
+#import spectrum as spectrum
+
+plot_params = {&#39;legend.fontsize&#39;: 18,
+          &#39;figure.figsize&#39;: (15, 5),
+         &#39;xtick.labelsize&#39;:&#39;18&#39;,
+         &#39;ytick.labelsize&#39;:&#39;18&#39;,
+         &#39;axes.titlesize&#39;:&#39;24&#39;,
+         &#39;axes.labelsize&#39;:&#39;22&#39;}
+plt.rcParams.update(plot_params)
+
+class bse:
+
+    # Class Attribute none yet
+
+    # Initializer / Instance Attributes
+    def __init__(self, space_input, space_output):
+        self.offset = np.median(space_input)
+        self.x = space_input - self.offset
+        self.y = space_output
+        self.Nx = len(self.x)
+        self.alpha = 1/2/((np.max(self.x)-np.min(self.x))/2)**2
+        self.sigma = np.std(self.y)
+        self.gamma = 1/2/((np.max(self.x)-np.min(self.x))/self.Nx)**2
+        self.theta = 0.01
+        self.sigma_n = np.std(self.y)/10
+        self.time = np.linspace(np.min(self.x), np.max(self.x), 500)
+        self.w = np.linspace(0, self.Nx/(np.max(self.x)-np.min(self.x))/16, 500)
+        self.post_mean = None
+        self.post_cov = None
+        self.post_mean_r = None
+        self.post_cov_r = None
+        self.post_mean_i = None
+        self.post_cov_i = None
+        self.time_label = None
+        self.signal_label = None
+
+    def neg_log_likelihood(self):
+        Y = self.y
+        Gram = Spec_Mix(self.x,self.x,self.gamma,self.theta,self.sigma) + 1e-8*np.eye(self.Nx)
+        K = Gram + self.sigma_n**2*np.eye(self.Nx)
+        (sign, logdet) = np.linalg.slogdet(K)
+        return 0.5*( Y.T@np.linalg.solve(K,Y) + logdet + self.Nx*np.log(2*np.pi))
+
+
+    def nlogp(self, hypers):
+        sigma = np.exp(hypers[0])
+        gamma = np.exp(hypers[1])
+        theta = np.exp(hypers[2])
+        sigma_n = np.exp(hypers[3])
+
+        Y = self.y
+        Gram = Spec_Mix(self.x,self.x,gamma,theta,sigma)
+        K = Gram + sigma_n**2*np.eye(self.Nx) + 1e-5*np.eye(self.Nx)
+        (sign, logdet) = np.linalg.slogdet(K)
+        return 0.5*( Y.T@np.linalg.solve(K,Y) + logdet + self.Nx*np.log(2*np.pi))
+
+    def dnlogp(self, hypers):
+        sigma = np.exp(hypers[0])
+        gamma = np.exp(hypers[1])
+        theta = np.exp(hypers[2])
+        sigma_n = np.exp(hypers[3])
+
+        Y = self.y
+        Gram = Spec_Mix(self.x,self.x,gamma,theta,sigma)
+        K = Gram + sigma_n**2*np.eye(self.Nx) + 1e-5*np.eye(self.Nx)
+        h = np.linalg.solve(K,Y).T
+
+        dKdsigma = 2*Gram/sigma
+        dKdgamma = -Gram*(outersum(self.x,-self.x)**2)
+        dKdtheta = -2*np.pi*Spec_Mix_sine(self.x,self.x, gamma, theta, sigma)*outersum(self.x,-self.x)
+        dKdsigma_n = 2*sigma_n*np.eye(self.Nx)
+
+        H = (np.outer(h,h) - np.linalg.inv(K))
+        dlogp_dsigma = sigma * 0.5*np.trace(H@dKdsigma)
+        dlogp_dgamma = gamma * 0.5*np.trace(H@dKdgamma)
+        dlogp_dtheta = theta * 0.5*np.trace(H@dKdtheta)
+        dlogp_dsigma_n = sigma_n * 0.5*np.trace(H@dKdsigma_n)
+        return np.array([-dlogp_dsigma, -dlogp_dgamma, -dlogp_dtheta, -dlogp_dsigma_n])
+
+    def train(self):
+        hypers0 = np.array([np.log(self.sigma), np.log(self.gamma), np.log(self.theta), np.log(self.sigma_n)])
+        res = minimize(self.nlogp, hypers0, args=(), method=&#39;L-BFGS-B&#39;, jac = self.dnlogp, options={&#39;maxiter&#39;: 500, &#39;disp&#39;: True})
+        self.sigma = np.exp(res.x[0])
+        self.gamma = np.exp(res.x[1])
+        self.theta = np.exp(res.x[2])
+        self.sigma_n = np.exp(res.x[3])
+
+    def compute_moments(self):
+        #posterior moments for time
+        cov_space = Spec_Mix(self.x,self.x,self.gamma,self.theta,self.sigma) + 1e-5*np.eye(self.Nx) + self.sigma_n**2*np.eye(self.Nx)
+        cov_time = Spec_Mix(self.time,self.time, self.gamma, self.theta, self.sigma)
+        cov_star = Spec_Mix(self.time,self.x, self.gamma, self.theta, self.sigma)
+        self.post_mean = np.squeeze(cov_star@np.linalg.solve(cov_space,self.y))
+        self.post_cov = cov_time - (cov_star@np.linalg.solve(cov_space,cov_star.T))
+
+        #posterior moment for frequency
+        cov_real, cov_imag = freq_covariances(self.w,self.w,self.alpha,self.gamma,self.theta,self.sigma, kernel = &#39;sm&#39;)
+        xcov_real, xcov_imag = time_freq_covariances(self.w, self.x, self.alpha,self.gamma,self.theta,self.sigma, kernel = &#39;sm&#39;)
+        self.post_mean_r = np.squeeze(xcov_real@np.linalg.solve(cov_space,self.y))
+        self.post_cov_r = cov_real - (xcov_real@np.linalg.solve(cov_space,xcov_real.T))
+        self.post_mean_i = np.squeeze(xcov_imag@np.linalg.solve(cov_space,self.y))
+        self.post_cov_i = cov_imag - (xcov_imag@np.linalg.solve(cov_space,xcov_imag.T))
+        self.posterior_mean_psd = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
+        return cov_real, xcov_real, cov_space, self.w, self.posterior_mean_psd
+
+    def get_freq_peaks(self):
+        posterior_mean_psd = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
+        peaks, _  = find_peaks(posterior_mean_psd)
+        return self.w[peaks], posterior_mean_psd[peaks]
+
+    def plot_time_posterior(self, flag=None):
+        #posterior moments for time
+        plt.figure(figsize=(18,6))
+        plt.plot(self.x,self.y,&#39;.r&#39;, label=&#39;observations&#39;)
+        plt.plot(self.time,self.post_mean, color=&#39;blue&#39;, label=&#39;posterior mean&#39;)
+        error_bars = 2 * np.sqrt(np.diag(self.post_cov))
+        plt.fill_between(self.time, self.post_mean - error_bars, self.post_mean + error_bars, color=&#39;blue&#39;,alpha=0.1, label=&#39;95% error bars&#39;)
+        if flag == &#39;with_window&#39;:
+            plt.plot(self.time, 2*self.sigma*np.exp(-self.alpha*self.time**2))
+        plt.title(&#39;Observations and posterior interpolation&#39;)
+        plt.xlabel(self.time_label)
+        plt.ylabel(self.signal_label)
+        plt.legend()
+        plt.xlim([min(self.x),max(self.x)])
+        plt.tight_layout()
+        plt.show()
+
+    def plot_freq_posterior(self):
+        #posterior moments for frequency
+        plt.figure(figsize=(18,6))
+        plt.plot(self.w,self.post_mean_r, color=&#39;blue&#39;, label=&#39;posterior mean&#39;)
+        error_bars = 2 * np.sqrt((np.diag(self.post_cov_r)))
+        plt.fill_between(self.w, self.post_mean_r - error_bars, self.post_mean_r + error_bars, color=&#39;blue&#39;,alpha=0.1, label=&#39;95% error bars&#39;)
+        plt.title(&#39;Posterior spectrum (real part)&#39;)
+        plt.xlabel(&#39;frequency&#39;)
+        plt.legend()
+        plt.xlim([min(self.w),max(self.w)])
+        plt.tight_layout()
+        plt.show()
+
+
+        plt.figure(figsize=(18,6))
+        plt.plot(self.w,self.post_mean_i, color=&#39;blue&#39;, label=&#39;posterior mean&#39;)
+        error_bars = 2 * np.sqrt((np.diag(self.post_cov_i)))
+        plt.fill_between(self.w, self.post_mean_i - error_bars, self.post_mean_i + error_bars, color=&#39;blue&#39;,alpha=0.1, label=&#39;95% error bars&#39;)
+        plt.title(&#39;Posterior spectrum (imaginary part)&#39;)
+        plt.xlabel(&#39;frequency&#39;)
+        plt.legend()
+        plt.xlim([min(self.w),max(self.w)])
+        plt.tight_layout()
+
+    def plot_power_spectral_density(self, how_many, flag=None):
+        #posterior moments for frequency
+        plt.figure(figsize=(18,6))
+        freqs = len(self.w)
+        samples = np.zeros((freqs,how_many))
+        for i in range(how_many):
+            sample_r = np.random.multivariate_normal(self.post_mean_r,(self.post_cov_r+self.post_cov_r.T)/2 + 1e-5*np.eye(freqs))
+            sample_i = np.random.multivariate_normal(self.post_mean_i,(self.post_cov_i+self.post_cov_i.T)/2 + 1e-5*np.eye(freqs))
+            samples[:,i] = sample_r**2 + sample_i**2
+        plt.plot(self.w,samples, color=&#39;red&#39;, alpha=0.35)
+        plt.plot(self.w,samples[:,0], color=&#39;red&#39;, alpha=0.35, label=&#39;posterior samples&#39;)
+        plt.plot(self.w,self.posterior_mean_psd, color=&#39;black&#39;, label = &#39;(analytical) posterior mean&#39;)
+        if flag == &#39;show peaks&#39;:
+            peaks, _  = find_peaks(self.posterior_mean_psd)
+            plt.stem(self.w[peaks],self.posterior_mean_psd[peaks], markerfmt=&#39;ko&#39;, label=&#39;peaks&#39;)
+        plt.title(&#39;Sample posterior power spectral density&#39;)
+        plt.xlabel(&#39;frequency&#39;)
+        plt.legend()
+        plt.xlim([min(self.w),max(self.w)])
+        plt.tight_layout()
+        plt.show()
+
+    def set_labels(self, time_label, signal_label):
+        self.time_label = time_label
+        self.signal_label = signal_label
+
+    def set_freqspace(self, max_freq, dimension=500):
+        self.w = np.linspace(0, max_freq, dimension)
+
+
+def outersum(a,b):
+    return np.outer(a,np.ones_like(b))+np.outer(np.ones_like(a),b)
+
+def Spec_Mix(x,y, gamma, theta, sigma=1):
+    return sigma**2 * np.exp(-gamma*outersum(x,-y)**2)*np.cos(2*np.pi*theta*outersum(x,-y))
+
+def Spec_Mix_sine(x,y, gamma, theta, sigma=1):
+    return sigma**2 * np.exp(-gamma*outersum(x,-y)**2)*np.sin(2*np.pi*theta*outersum(x,-y))
+
+def Spec_Mix_spectral(x, y, alpha, gamma, theta, sigma=1):
+    magnitude = np.pi * sigma**2 / (np.sqrt(alpha*(alpha + 2*gamma)))
+    return magnitude * np.exp(-np.pi**2/(2*alpha)*outersum(x,-y)**2 - 2*np.pi*2/(alpha + 2*gamma)*(outersum(x,y)/2-theta)**2)
+
+def freq_covariances(x, y, alpha, gamma, theta, sigma=1, kernel = &#39;sm&#39;):
+    if kernel == &#39;sm&#39;:
+        N = len(x)
+        #compute kernels
+        K = 1/2*(Spec_Mix_spectral(x, y, alpha, gamma, theta, sigma) + Spec_Mix_spectral(x, y, alpha, gamma, -theta, sigma))
+        P = 1/2*(Spec_Mix_spectral(x, -y, alpha, gamma, theta, sigma) + Spec_Mix_spectral(x, -y, alpha, gamma, -theta, sigma))
+        real_cov = 1/2*(K + P) + 1e-8*np.eye(N)
+        imag_cov = 1/2*(K - P) + 1e-8*np.eye(N)
+    return real_cov, imag_cov
+
+def time_freq_SM_re(x, y, alpha, gamma, theta, sigma=1):
+    at = alpha/(np.pi**2)
+    gt = gamma/(np.pi**2)
+    L = 1/at + 1/gt
+    return (sigma**2)/(np.sqrt(np.pi*(at+gt))) * np.exp(outersum(-(x-theta)**2/(at+gt), -y**2*np.pi**2/L) ) *np.cos(-np.outer(2*np.pi*(x/at+theta/gt)/(1/at + 1/gt),y))
+
+def time_freq_SM_im(x, y, alpha, gamma, theta, sigma=1):
+    at = alpha/(np.pi**2)
+    gt = gamma/(np.pi**2)
+    L = 1/at + 1/gt
+    return (sigma**2)/(np.sqrt(np.pi*(at+gt))) * np.exp(outersum(-(x-theta)**2/(at+gt), -y**2*np.pi**2/L) ) *np.sin(-np.outer(2*np.pi*(x/at+theta/gt)/(1/at + 1/gt),y))
+
+def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39;):
+    if kernel == &#39;sm&#39;:
+        tf_real_cov = 1/2*(time_freq_SM_re(x, t, alpha, gamma, theta, sigma) + time_freq_SM_re(x, t, alpha, gamma, -theta, sigma))
+        tf_imag_cov = 1/2*(time_freq_SM_im(x, t, alpha, gamma, theta, sigma) + time_freq_SM_im(x, t, alpha, gamma, -theta, sigma))
+    return tf_real_cov, tf_imag_cov</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="mogptk.bnse.Spec_Mix"><code class="name flex">
+<span>def <span class="ident">Spec_Mix</span></span>(<span>x, y, gamma, theta, sigma=1)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def Spec_Mix(x,y, gamma, theta, sigma=1):
+    return sigma**2 * np.exp(-gamma*outersum(x,-y)**2)*np.cos(2*np.pi*theta*outersum(x,-y))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.Spec_Mix_sine"><code class="name flex">
+<span>def <span class="ident">Spec_Mix_sine</span></span>(<span>x, y, gamma, theta, sigma=1)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def Spec_Mix_sine(x,y, gamma, theta, sigma=1):
+    return sigma**2 * np.exp(-gamma*outersum(x,-y)**2)*np.sin(2*np.pi*theta*outersum(x,-y))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.Spec_Mix_spectral"><code class="name flex">
+<span>def <span class="ident">Spec_Mix_spectral</span></span>(<span>x, y, alpha, gamma, theta, sigma=1)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def Spec_Mix_spectral(x, y, alpha, gamma, theta, sigma=1):
+    magnitude = np.pi * sigma**2 / (np.sqrt(alpha*(alpha + 2*gamma)))
+    return magnitude * np.exp(-np.pi**2/(2*alpha)*outersum(x,-y)**2 - 2*np.pi*2/(alpha + 2*gamma)*(outersum(x,y)/2-theta)**2)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.freq_covariances"><code class="name flex">
+<span>def <span class="ident">freq_covariances</span></span>(<span>x, y, alpha, gamma, theta, sigma=1, kernel='sm')</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def freq_covariances(x, y, alpha, gamma, theta, sigma=1, kernel = &#39;sm&#39;):
+    if kernel == &#39;sm&#39;:
+        N = len(x)
+        #compute kernels
+        K = 1/2*(Spec_Mix_spectral(x, y, alpha, gamma, theta, sigma) + Spec_Mix_spectral(x, y, alpha, gamma, -theta, sigma))
+        P = 1/2*(Spec_Mix_spectral(x, -y, alpha, gamma, theta, sigma) + Spec_Mix_spectral(x, -y, alpha, gamma, -theta, sigma))
+        real_cov = 1/2*(K + P) + 1e-8*np.eye(N)
+        imag_cov = 1/2*(K - P) + 1e-8*np.eye(N)
+    return real_cov, imag_cov</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.outersum"><code class="name flex">
+<span>def <span class="ident">outersum</span></span>(<span>a, b)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def outersum(a,b):
+    return np.outer(a,np.ones_like(b))+np.outer(np.ones_like(a),b)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.time_freq_SM_im"><code class="name flex">
+<span>def <span class="ident">time_freq_SM_im</span></span>(<span>x, y, alpha, gamma, theta, sigma=1)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def time_freq_SM_im(x, y, alpha, gamma, theta, sigma=1):
+    at = alpha/(np.pi**2)
+    gt = gamma/(np.pi**2)
+    L = 1/at + 1/gt
+    return (sigma**2)/(np.sqrt(np.pi*(at+gt))) * np.exp(outersum(-(x-theta)**2/(at+gt), -y**2*np.pi**2/L) ) *np.sin(-np.outer(2*np.pi*(x/at+theta/gt)/(1/at + 1/gt),y))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.time_freq_SM_re"><code class="name flex">
+<span>def <span class="ident">time_freq_SM_re</span></span>(<span>x, y, alpha, gamma, theta, sigma=1)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def time_freq_SM_re(x, y, alpha, gamma, theta, sigma=1):
+    at = alpha/(np.pi**2)
+    gt = gamma/(np.pi**2)
+    L = 1/at + 1/gt
+    return (sigma**2)/(np.sqrt(np.pi*(at+gt))) * np.exp(outersum(-(x-theta)**2/(at+gt), -y**2*np.pi**2/L) ) *np.cos(-np.outer(2*np.pi*(x/at+theta/gt)/(1/at + 1/gt),y))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.time_freq_covariances"><code class="name flex">
+<span>def <span class="ident">time_freq_covariances</span></span>(<span>x, t, alpha, gamma, theta, sigma, kernel='sm')</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39;):
+    if kernel == &#39;sm&#39;:
+        tf_real_cov = 1/2*(time_freq_SM_re(x, t, alpha, gamma, theta, sigma) + time_freq_SM_re(x, t, alpha, gamma, -theta, sigma))
+        tf_imag_cov = 1/2*(time_freq_SM_im(x, t, alpha, gamma, theta, sigma) + time_freq_SM_im(x, t, alpha, gamma, -theta, sigma))
+    return tf_real_cov, tf_imag_cov</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="mogptk.bnse.bse"><code class="flex name class">
+<span>class <span class="ident">bse</span></span>
+<span>(</span><span>space_input, space_output)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class bse:
+
+    # Class Attribute none yet
+
+    # Initializer / Instance Attributes
+    def __init__(self, space_input, space_output):
+        self.offset = np.median(space_input)
+        self.x = space_input - self.offset
+        self.y = space_output
+        self.Nx = len(self.x)
+        self.alpha = 1/2/((np.max(self.x)-np.min(self.x))/2)**2
+        self.sigma = np.std(self.y)
+        self.gamma = 1/2/((np.max(self.x)-np.min(self.x))/self.Nx)**2
+        self.theta = 0.01
+        self.sigma_n = np.std(self.y)/10
+        self.time = np.linspace(np.min(self.x), np.max(self.x), 500)
+        self.w = np.linspace(0, self.Nx/(np.max(self.x)-np.min(self.x))/16, 500)
+        self.post_mean = None
+        self.post_cov = None
+        self.post_mean_r = None
+        self.post_cov_r = None
+        self.post_mean_i = None
+        self.post_cov_i = None
+        self.time_label = None
+        self.signal_label = None
+
+    def neg_log_likelihood(self):
+        Y = self.y
+        Gram = Spec_Mix(self.x,self.x,self.gamma,self.theta,self.sigma) + 1e-8*np.eye(self.Nx)
+        K = Gram + self.sigma_n**2*np.eye(self.Nx)
+        (sign, logdet) = np.linalg.slogdet(K)
+        return 0.5*( Y.T@np.linalg.solve(K,Y) + logdet + self.Nx*np.log(2*np.pi))
+
+
+    def nlogp(self, hypers):
+        sigma = np.exp(hypers[0])
+        gamma = np.exp(hypers[1])
+        theta = np.exp(hypers[2])
+        sigma_n = np.exp(hypers[3])
+
+        Y = self.y
+        Gram = Spec_Mix(self.x,self.x,gamma,theta,sigma)
+        K = Gram + sigma_n**2*np.eye(self.Nx) + 1e-5*np.eye(self.Nx)
+        (sign, logdet) = np.linalg.slogdet(K)
+        return 0.5*( Y.T@np.linalg.solve(K,Y) + logdet + self.Nx*np.log(2*np.pi))
+
+    def dnlogp(self, hypers):
+        sigma = np.exp(hypers[0])
+        gamma = np.exp(hypers[1])
+        theta = np.exp(hypers[2])
+        sigma_n = np.exp(hypers[3])
+
+        Y = self.y
+        Gram = Spec_Mix(self.x,self.x,gamma,theta,sigma)
+        K = Gram + sigma_n**2*np.eye(self.Nx) + 1e-5*np.eye(self.Nx)
+        h = np.linalg.solve(K,Y).T
+
+        dKdsigma = 2*Gram/sigma
+        dKdgamma = -Gram*(outersum(self.x,-self.x)**2)
+        dKdtheta = -2*np.pi*Spec_Mix_sine(self.x,self.x, gamma, theta, sigma)*outersum(self.x,-self.x)
+        dKdsigma_n = 2*sigma_n*np.eye(self.Nx)
+
+        H = (np.outer(h,h) - np.linalg.inv(K))
+        dlogp_dsigma = sigma * 0.5*np.trace(H@dKdsigma)
+        dlogp_dgamma = gamma * 0.5*np.trace(H@dKdgamma)
+        dlogp_dtheta = theta * 0.5*np.trace(H@dKdtheta)
+        dlogp_dsigma_n = sigma_n * 0.5*np.trace(H@dKdsigma_n)
+        return np.array([-dlogp_dsigma, -dlogp_dgamma, -dlogp_dtheta, -dlogp_dsigma_n])
+
+    def train(self):
+        hypers0 = np.array([np.log(self.sigma), np.log(self.gamma), np.log(self.theta), np.log(self.sigma_n)])
+        res = minimize(self.nlogp, hypers0, args=(), method=&#39;L-BFGS-B&#39;, jac = self.dnlogp, options={&#39;maxiter&#39;: 500, &#39;disp&#39;: True})
+        self.sigma = np.exp(res.x[0])
+        self.gamma = np.exp(res.x[1])
+        self.theta = np.exp(res.x[2])
+        self.sigma_n = np.exp(res.x[3])
+
+    def compute_moments(self):
+        #posterior moments for time
+        cov_space = Spec_Mix(self.x,self.x,self.gamma,self.theta,self.sigma) + 1e-5*np.eye(self.Nx) + self.sigma_n**2*np.eye(self.Nx)
+        cov_time = Spec_Mix(self.time,self.time, self.gamma, self.theta, self.sigma)
+        cov_star = Spec_Mix(self.time,self.x, self.gamma, self.theta, self.sigma)
+        self.post_mean = np.squeeze(cov_star@np.linalg.solve(cov_space,self.y))
+        self.post_cov = cov_time - (cov_star@np.linalg.solve(cov_space,cov_star.T))
+
+        #posterior moment for frequency
+        cov_real, cov_imag = freq_covariances(self.w,self.w,self.alpha,self.gamma,self.theta,self.sigma, kernel = &#39;sm&#39;)
+        xcov_real, xcov_imag = time_freq_covariances(self.w, self.x, self.alpha,self.gamma,self.theta,self.sigma, kernel = &#39;sm&#39;)
+        self.post_mean_r = np.squeeze(xcov_real@np.linalg.solve(cov_space,self.y))
+        self.post_cov_r = cov_real - (xcov_real@np.linalg.solve(cov_space,xcov_real.T))
+        self.post_mean_i = np.squeeze(xcov_imag@np.linalg.solve(cov_space,self.y))
+        self.post_cov_i = cov_imag - (xcov_imag@np.linalg.solve(cov_space,xcov_imag.T))
+        self.posterior_mean_psd = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
+        return cov_real, xcov_real, cov_space, self.w, self.posterior_mean_psd
+
+    def get_freq_peaks(self):
+        posterior_mean_psd = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
+        peaks, _  = find_peaks(posterior_mean_psd)
+        return self.w[peaks], posterior_mean_psd[peaks]
+
+    def plot_time_posterior(self, flag=None):
+        #posterior moments for time
+        plt.figure(figsize=(18,6))
+        plt.plot(self.x,self.y,&#39;.r&#39;, label=&#39;observations&#39;)
+        plt.plot(self.time,self.post_mean, color=&#39;blue&#39;, label=&#39;posterior mean&#39;)
+        error_bars = 2 * np.sqrt(np.diag(self.post_cov))
+        plt.fill_between(self.time, self.post_mean - error_bars, self.post_mean + error_bars, color=&#39;blue&#39;,alpha=0.1, label=&#39;95% error bars&#39;)
+        if flag == &#39;with_window&#39;:
+            plt.plot(self.time, 2*self.sigma*np.exp(-self.alpha*self.time**2))
+        plt.title(&#39;Observations and posterior interpolation&#39;)
+        plt.xlabel(self.time_label)
+        plt.ylabel(self.signal_label)
+        plt.legend()
+        plt.xlim([min(self.x),max(self.x)])
+        plt.tight_layout()
+        plt.show()
+
+    def plot_freq_posterior(self):
+        #posterior moments for frequency
+        plt.figure(figsize=(18,6))
+        plt.plot(self.w,self.post_mean_r, color=&#39;blue&#39;, label=&#39;posterior mean&#39;)
+        error_bars = 2 * np.sqrt((np.diag(self.post_cov_r)))
+        plt.fill_between(self.w, self.post_mean_r - error_bars, self.post_mean_r + error_bars, color=&#39;blue&#39;,alpha=0.1, label=&#39;95% error bars&#39;)
+        plt.title(&#39;Posterior spectrum (real part)&#39;)
+        plt.xlabel(&#39;frequency&#39;)
+        plt.legend()
+        plt.xlim([min(self.w),max(self.w)])
+        plt.tight_layout()
+        plt.show()
+
+
+        plt.figure(figsize=(18,6))
+        plt.plot(self.w,self.post_mean_i, color=&#39;blue&#39;, label=&#39;posterior mean&#39;)
+        error_bars = 2 * np.sqrt((np.diag(self.post_cov_i)))
+        plt.fill_between(self.w, self.post_mean_i - error_bars, self.post_mean_i + error_bars, color=&#39;blue&#39;,alpha=0.1, label=&#39;95% error bars&#39;)
+        plt.title(&#39;Posterior spectrum (imaginary part)&#39;)
+        plt.xlabel(&#39;frequency&#39;)
+        plt.legend()
+        plt.xlim([min(self.w),max(self.w)])
+        plt.tight_layout()
+
+    def plot_power_spectral_density(self, how_many, flag=None):
+        #posterior moments for frequency
+        plt.figure(figsize=(18,6))
+        freqs = len(self.w)
+        samples = np.zeros((freqs,how_many))
+        for i in range(how_many):
+            sample_r = np.random.multivariate_normal(self.post_mean_r,(self.post_cov_r+self.post_cov_r.T)/2 + 1e-5*np.eye(freqs))
+            sample_i = np.random.multivariate_normal(self.post_mean_i,(self.post_cov_i+self.post_cov_i.T)/2 + 1e-5*np.eye(freqs))
+            samples[:,i] = sample_r**2 + sample_i**2
+        plt.plot(self.w,samples, color=&#39;red&#39;, alpha=0.35)
+        plt.plot(self.w,samples[:,0], color=&#39;red&#39;, alpha=0.35, label=&#39;posterior samples&#39;)
+        plt.plot(self.w,self.posterior_mean_psd, color=&#39;black&#39;, label = &#39;(analytical) posterior mean&#39;)
+        if flag == &#39;show peaks&#39;:
+            peaks, _  = find_peaks(self.posterior_mean_psd)
+            plt.stem(self.w[peaks],self.posterior_mean_psd[peaks], markerfmt=&#39;ko&#39;, label=&#39;peaks&#39;)
+        plt.title(&#39;Sample posterior power spectral density&#39;)
+        plt.xlabel(&#39;frequency&#39;)
+        plt.legend()
+        plt.xlim([min(self.w),max(self.w)])
+        plt.tight_layout()
+        plt.show()
+
+    def set_labels(self, time_label, signal_label):
+        self.time_label = time_label
+        self.signal_label = signal_label
+
+    def set_freqspace(self, max_freq, dimension=500):
+        self.w = np.linspace(0, max_freq, dimension)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.bnse.bse.compute_moments"><code class="name flex">
+<span>def <span class="ident">compute_moments</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def compute_moments(self):
+    #posterior moments for time
+    cov_space = Spec_Mix(self.x,self.x,self.gamma,self.theta,self.sigma) + 1e-5*np.eye(self.Nx) + self.sigma_n**2*np.eye(self.Nx)
+    cov_time = Spec_Mix(self.time,self.time, self.gamma, self.theta, self.sigma)
+    cov_star = Spec_Mix(self.time,self.x, self.gamma, self.theta, self.sigma)
+    self.post_mean = np.squeeze(cov_star@np.linalg.solve(cov_space,self.y))
+    self.post_cov = cov_time - (cov_star@np.linalg.solve(cov_space,cov_star.T))
+
+    #posterior moment for frequency
+    cov_real, cov_imag = freq_covariances(self.w,self.w,self.alpha,self.gamma,self.theta,self.sigma, kernel = &#39;sm&#39;)
+    xcov_real, xcov_imag = time_freq_covariances(self.w, self.x, self.alpha,self.gamma,self.theta,self.sigma, kernel = &#39;sm&#39;)
+    self.post_mean_r = np.squeeze(xcov_real@np.linalg.solve(cov_space,self.y))
+    self.post_cov_r = cov_real - (xcov_real@np.linalg.solve(cov_space,xcov_real.T))
+    self.post_mean_i = np.squeeze(xcov_imag@np.linalg.solve(cov_space,self.y))
+    self.post_cov_i = cov_imag - (xcov_imag@np.linalg.solve(cov_space,xcov_imag.T))
+    self.posterior_mean_psd = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
+    return cov_real, xcov_real, cov_space, self.w, self.posterior_mean_psd</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.bse.dnlogp"><code class="name flex">
+<span>def <span class="ident">dnlogp</span></span>(<span>self, hypers)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def dnlogp(self, hypers):
+    sigma = np.exp(hypers[0])
+    gamma = np.exp(hypers[1])
+    theta = np.exp(hypers[2])
+    sigma_n = np.exp(hypers[3])
+
+    Y = self.y
+    Gram = Spec_Mix(self.x,self.x,gamma,theta,sigma)
+    K = Gram + sigma_n**2*np.eye(self.Nx) + 1e-5*np.eye(self.Nx)
+    h = np.linalg.solve(K,Y).T
+
+    dKdsigma = 2*Gram/sigma
+    dKdgamma = -Gram*(outersum(self.x,-self.x)**2)
+    dKdtheta = -2*np.pi*Spec_Mix_sine(self.x,self.x, gamma, theta, sigma)*outersum(self.x,-self.x)
+    dKdsigma_n = 2*sigma_n*np.eye(self.Nx)
+
+    H = (np.outer(h,h) - np.linalg.inv(K))
+    dlogp_dsigma = sigma * 0.5*np.trace(H@dKdsigma)
+    dlogp_dgamma = gamma * 0.5*np.trace(H@dKdgamma)
+    dlogp_dtheta = theta * 0.5*np.trace(H@dKdtheta)
+    dlogp_dsigma_n = sigma_n * 0.5*np.trace(H@dKdsigma_n)
+    return np.array([-dlogp_dsigma, -dlogp_dgamma, -dlogp_dtheta, -dlogp_dsigma_n])</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.bse.get_freq_peaks"><code class="name flex">
+<span>def <span class="ident">get_freq_peaks</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_freq_peaks(self):
+    posterior_mean_psd = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
+    peaks, _  = find_peaks(posterior_mean_psd)
+    return self.w[peaks], posterior_mean_psd[peaks]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.bse.neg_log_likelihood"><code class="name flex">
+<span>def <span class="ident">neg_log_likelihood</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def neg_log_likelihood(self):
+    Y = self.y
+    Gram = Spec_Mix(self.x,self.x,self.gamma,self.theta,self.sigma) + 1e-8*np.eye(self.Nx)
+    K = Gram + self.sigma_n**2*np.eye(self.Nx)
+    (sign, logdet) = np.linalg.slogdet(K)
+    return 0.5*( Y.T@np.linalg.solve(K,Y) + logdet + self.Nx*np.log(2*np.pi))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.bse.nlogp"><code class="name flex">
+<span>def <span class="ident">nlogp</span></span>(<span>self, hypers)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def nlogp(self, hypers):
+    sigma = np.exp(hypers[0])
+    gamma = np.exp(hypers[1])
+    theta = np.exp(hypers[2])
+    sigma_n = np.exp(hypers[3])
+
+    Y = self.y
+    Gram = Spec_Mix(self.x,self.x,gamma,theta,sigma)
+    K = Gram + sigma_n**2*np.eye(self.Nx) + 1e-5*np.eye(self.Nx)
+    (sign, logdet) = np.linalg.slogdet(K)
+    return 0.5*( Y.T@np.linalg.solve(K,Y) + logdet + self.Nx*np.log(2*np.pi))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.bse.plot_freq_posterior"><code class="name flex">
+<span>def <span class="ident">plot_freq_posterior</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def plot_freq_posterior(self):
+    #posterior moments for frequency
+    plt.figure(figsize=(18,6))
+    plt.plot(self.w,self.post_mean_r, color=&#39;blue&#39;, label=&#39;posterior mean&#39;)
+    error_bars = 2 * np.sqrt((np.diag(self.post_cov_r)))
+    plt.fill_between(self.w, self.post_mean_r - error_bars, self.post_mean_r + error_bars, color=&#39;blue&#39;,alpha=0.1, label=&#39;95% error bars&#39;)
+    plt.title(&#39;Posterior spectrum (real part)&#39;)
+    plt.xlabel(&#39;frequency&#39;)
+    plt.legend()
+    plt.xlim([min(self.w),max(self.w)])
+    plt.tight_layout()
+    plt.show()
+
+
+    plt.figure(figsize=(18,6))
+    plt.plot(self.w,self.post_mean_i, color=&#39;blue&#39;, label=&#39;posterior mean&#39;)
+    error_bars = 2 * np.sqrt((np.diag(self.post_cov_i)))
+    plt.fill_between(self.w, self.post_mean_i - error_bars, self.post_mean_i + error_bars, color=&#39;blue&#39;,alpha=0.1, label=&#39;95% error bars&#39;)
+    plt.title(&#39;Posterior spectrum (imaginary part)&#39;)
+    plt.xlabel(&#39;frequency&#39;)
+    plt.legend()
+    plt.xlim([min(self.w),max(self.w)])
+    plt.tight_layout()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.bse.plot_power_spectral_density"><code class="name flex">
+<span>def <span class="ident">plot_power_spectral_density</span></span>(<span>self, how_many, flag=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def plot_power_spectral_density(self, how_many, flag=None):
+    #posterior moments for frequency
+    plt.figure(figsize=(18,6))
+    freqs = len(self.w)
+    samples = np.zeros((freqs,how_many))
+    for i in range(how_many):
+        sample_r = np.random.multivariate_normal(self.post_mean_r,(self.post_cov_r+self.post_cov_r.T)/2 + 1e-5*np.eye(freqs))
+        sample_i = np.random.multivariate_normal(self.post_mean_i,(self.post_cov_i+self.post_cov_i.T)/2 + 1e-5*np.eye(freqs))
+        samples[:,i] = sample_r**2 + sample_i**2
+    plt.plot(self.w,samples, color=&#39;red&#39;, alpha=0.35)
+    plt.plot(self.w,samples[:,0], color=&#39;red&#39;, alpha=0.35, label=&#39;posterior samples&#39;)
+    plt.plot(self.w,self.posterior_mean_psd, color=&#39;black&#39;, label = &#39;(analytical) posterior mean&#39;)
+    if flag == &#39;show peaks&#39;:
+        peaks, _  = find_peaks(self.posterior_mean_psd)
+        plt.stem(self.w[peaks],self.posterior_mean_psd[peaks], markerfmt=&#39;ko&#39;, label=&#39;peaks&#39;)
+    plt.title(&#39;Sample posterior power spectral density&#39;)
+    plt.xlabel(&#39;frequency&#39;)
+    plt.legend()
+    plt.xlim([min(self.w),max(self.w)])
+    plt.tight_layout()
+    plt.show()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.bse.plot_time_posterior"><code class="name flex">
+<span>def <span class="ident">plot_time_posterior</span></span>(<span>self, flag=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def plot_time_posterior(self, flag=None):
+    #posterior moments for time
+    plt.figure(figsize=(18,6))
+    plt.plot(self.x,self.y,&#39;.r&#39;, label=&#39;observations&#39;)
+    plt.plot(self.time,self.post_mean, color=&#39;blue&#39;, label=&#39;posterior mean&#39;)
+    error_bars = 2 * np.sqrt(np.diag(self.post_cov))
+    plt.fill_between(self.time, self.post_mean - error_bars, self.post_mean + error_bars, color=&#39;blue&#39;,alpha=0.1, label=&#39;95% error bars&#39;)
+    if flag == &#39;with_window&#39;:
+        plt.plot(self.time, 2*self.sigma*np.exp(-self.alpha*self.time**2))
+    plt.title(&#39;Observations and posterior interpolation&#39;)
+    plt.xlabel(self.time_label)
+    plt.ylabel(self.signal_label)
+    plt.legend()
+    plt.xlim([min(self.x),max(self.x)])
+    plt.tight_layout()
+    plt.show()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.bse.set_freqspace"><code class="name flex">
+<span>def <span class="ident">set_freqspace</span></span>(<span>self, max_freq, dimension=500)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_freqspace(self, max_freq, dimension=500):
+    self.w = np.linspace(0, max_freq, dimension)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.bse.set_labels"><code class="name flex">
+<span>def <span class="ident">set_labels</span></span>(<span>self, time_label, signal_label)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_labels(self, time_label, signal_label):
+    self.time_label = time_label
+    self.signal_label = signal_label</code></pre>
+</details>
+</dd>
+<dt id="mogptk.bnse.bse.train"><code class="name flex">
+<span>def <span class="ident">train</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def train(self):
+    hypers0 = np.array([np.log(self.sigma), np.log(self.gamma), np.log(self.theta), np.log(self.sigma_n)])
+    res = minimize(self.nlogp, hypers0, args=(), method=&#39;L-BFGS-B&#39;, jac = self.dnlogp, options={&#39;maxiter&#39;: 500, &#39;disp&#39;: True})
+    self.sigma = np.exp(res.x[0])
+    self.gamma = np.exp(res.x[1])
+    self.theta = np.exp(res.x[2])
+    self.sigma_n = np.exp(res.x[3])</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="mogptk" href="index.html">mogptk</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="mogptk.bnse.Spec_Mix" href="#mogptk.bnse.Spec_Mix">Spec_Mix</a></code></li>
+<li><code><a title="mogptk.bnse.Spec_Mix_sine" href="#mogptk.bnse.Spec_Mix_sine">Spec_Mix_sine</a></code></li>
+<li><code><a title="mogptk.bnse.Spec_Mix_spectral" href="#mogptk.bnse.Spec_Mix_spectral">Spec_Mix_spectral</a></code></li>
+<li><code><a title="mogptk.bnse.freq_covariances" href="#mogptk.bnse.freq_covariances">freq_covariances</a></code></li>
+<li><code><a title="mogptk.bnse.outersum" href="#mogptk.bnse.outersum">outersum</a></code></li>
+<li><code><a title="mogptk.bnse.time_freq_SM_im" href="#mogptk.bnse.time_freq_SM_im">time_freq_SM_im</a></code></li>
+<li><code><a title="mogptk.bnse.time_freq_SM_re" href="#mogptk.bnse.time_freq_SM_re">time_freq_SM_re</a></code></li>
+<li><code><a title="mogptk.bnse.time_freq_covariances" href="#mogptk.bnse.time_freq_covariances">time_freq_covariances</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="mogptk.bnse.bse" href="#mogptk.bnse.bse">bse</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.bnse.bse.compute_moments" href="#mogptk.bnse.bse.compute_moments">compute_moments</a></code></li>
+<li><code><a title="mogptk.bnse.bse.dnlogp" href="#mogptk.bnse.bse.dnlogp">dnlogp</a></code></li>
+<li><code><a title="mogptk.bnse.bse.get_freq_peaks" href="#mogptk.bnse.bse.get_freq_peaks">get_freq_peaks</a></code></li>
+<li><code><a title="mogptk.bnse.bse.neg_log_likelihood" href="#mogptk.bnse.bse.neg_log_likelihood">neg_log_likelihood</a></code></li>
+<li><code><a title="mogptk.bnse.bse.nlogp" href="#mogptk.bnse.bse.nlogp">nlogp</a></code></li>
+<li><code><a title="mogptk.bnse.bse.plot_freq_posterior" href="#mogptk.bnse.bse.plot_freq_posterior">plot_freq_posterior</a></code></li>
+<li><code><a title="mogptk.bnse.bse.plot_power_spectral_density" href="#mogptk.bnse.bse.plot_power_spectral_density">plot_power_spectral_density</a></code></li>
+<li><code><a title="mogptk.bnse.bse.plot_time_posterior" href="#mogptk.bnse.bse.plot_time_posterior">plot_time_posterior</a></code></li>
+<li><code><a title="mogptk.bnse.bse.set_freqspace" href="#mogptk.bnse.bse.set_freqspace">set_freqspace</a></code></li>
+<li><code><a title="mogptk.bnse.bse.set_labels" href="#mogptk.bnse.bse.set_labels">set_labels</a></code></li>
+<li><code><a title="mogptk.bnse.bse.train" href="#mogptk.bnse.bse.train">train</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.6.3</a>.</p>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad()</script>
+</body>
+</html>

@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.6.3" />
+<title>mogptk.kernels.mosm API documentation</title>
+<meta name="description" content="" />
+<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
+<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase;cursor:pointer}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>mogptk.kernels.mosm</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">from gpflow.params import Parameter
+from gpflow import transforms
+import numpy as np
+import tensorflow as tf
+from tensorflow import reduce_sum as rsum
+from tensorflow import reduce_prod as rprod
+
+from .fixphase import FixPhase
+from .fixdelay import FixDelay
+from .multikernel import MultiKernel
+
+# TODO: dont use angular frequency
+class MultiOutputSpectralMixture(MultiKernel):
+    def __init__(self, input_dim, output_dim, magnitude=None, mean=None, variance=None, delay=None, phase=None, noise=None, active_dim=None):
+        &#34;&#34;&#34;
+        - input_dim (int) is the input dimension
+        - output_dim (int) is the output dimension
+        - magnitude (np.ndarray) has shape (output_dim)
+        - mean (np.ndarray) has shape (input_dim, output_dim)
+        - variance (np.ndarray) has shape (input_dim, output_dim)
+        - delay (np.ndarray) has shape (input_dim, output_dim)
+        - phase (np.ndarray) has shape (output_dim)
+        - noise (np.ndarray) has shape (output_dim)
+        &#34;&#34;&#34;
+
+        if magnitude is None:
+            magnitude = np.random.standard_normal((output_dim))
+        if mean is None:
+            mean = np.random.standard_normal((input_dim, output_dim))
+        if variance is None:
+            variance = np.random.random((input_dim, output_dim))
+        if delay is None:
+            delay = np.zeros((input_dim, output_dim))
+        if phase is None:
+            phase = np.zeros((output_dim))
+        if noise is None:
+            noise = np.random.random((output_dim))
+
+        if magnitude.shape != (output_dim,):
+            raise Exception(&#34;bad magnitude shape %s&#34; % (magnitude.shape,))
+        if mean.shape != (input_dim, output_dim):
+            raise Exception(&#34;bad mean shape %s&#34; % (mean.shape,))
+        if variance.shape != (input_dim, output_dim):
+            raise Exception(&#34;bad variance shape %s&#34; % (variance.shape,))
+        if delay.shape != (input_dim, output_dim):
+            raise Exception(&#34;bad delay shape %s&#34; % (delay.shape,))
+        if phase.shape != (output_dim,):
+            raise Exception(&#34;bad phase shape %s&#34; % (phase.shape,))
+        if noise.shape != (output_dim,):
+            raise Exception(&#34;bad noise shape %s&#34; % (noise.shape,))
+
+        MultiKernel.__init__(self, input_dim, output_dim, active_dim)
+        self.magnitude = Parameter(magnitude)
+        self.mean = Parameter(mean, transform=transforms.positive)
+        self.variance = Parameter(variance, transform=transforms.positive)
+        self.delay = Parameter(delay, FixDelay(input_dim, output_dim))
+        self.phase = Parameter(phase, FixPhase())
+        self.noise = Parameter(noise, transform=transforms.positive)
+        self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
+
+    def subK(self, index, X, X2=None):
+        i, j = index
+        return self.kerns[i][j](X, X2)
+
+    def subKdiag(self, index, X):
+        K = self.subK((index, index), X, X)
+        return tf.diag_part(K)
+
+    def _kernel_factory(self, i, j):
+        &#34;&#34;&#34;Return a function that calculates proper sub-kernel.&#34;&#34;&#34;
+        if i == j:
+            def cov_function(X, X2):
+                mean = tf.expand_dims(tf.slice(self.mean, [0, i], [self.input_dim, 1]), axis=2)
+                temp = np.power(2 * np.pi, self.input_dim / 2) \
+                        * tf.sqrt(rprod(self.variance[:, i])) \
+                        * tf.square(self.magnitude[i])
+                return temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
+                        * tf.cos(rsum(mean * self.dist(X, X2), 0)) + self.noise[i]
+        else:
+            def cov_function(X, X2):
+                sv = self.variance[:, i] + self.variance[:, j]
+                cross_delay = tf.reshape(
+                    self.delay[:, i] - self.delay[:, j],
+                    [self.input_dim, 1, 1]
+                )
+                cross_phase = self.phase[i] - self.phase[j]
+                cross_var = (2 * self.variance[:, i] * self.variance[:, j]) / sv
+                cross_mean = tf.reshape(
+                    (self.variance[:, i] * self.mean[:, j] + self.variance[:, j] * self.mean[:, i]) / sv,
+                    [self.input_dim, 1, 1]
+                )
+                cross_magnitude = self.magnitude[i] * self.magnitude[j] \
+                        * tf.exp(-0.25 * rsum(tf.square(self.mean[:, i] - self.mean[:, j]) / sv))
+
+                alpha = np.power(2 * np.pi, self.input_dim / 2) * tf.sqrt(rprod(cross_var)) * cross_magnitude
+                return alpha * tf.exp(-0.5 * self.sqdist(X + self.delay[:, i], X2 + self.delay[:, j], cross_var)) \
+                        * tf.cos(rsum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
+        return cov_function
+
+
+    #* performs element-wise multiplication
+    #-1 means infer shape for that dimension
+    def sqdist(self, X, X2, lscales):
+        &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
+        Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
+        if X2 is None:
+            return -2 * tf.matmul(X * lscales, tf.transpose(X)) \
+                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
+        else:
+            X2s = tf.reduce_sum(tf.square(X2) * lscales, 1)
+            return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
+                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))
+
+    # def sqdist(self, X, X2, lscales):
+    #     &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
+    #     Xs = tf.reduce_sum(tf.square(X) * lscales, axis = -1, keepdims=True)
+    #     if X2 is None:
+    #         return -2 * tf.matmul(X * lscales, X2, transpose_b=True) + Xs + tf.matrix_transpose(Xs)
+    #     else:
+    #         X2s = tf.reduce_sum(tf.square(X2) * lscales, axis = -1, keepdims=True)
+    #         return -2 * tf.matmul(X * lscales, X2, transpose_b=True) + Xs + tf.matrix_transpose(X2s)
+
+    def dist(self, X, X2):
+        if X2 is None:
+            X2 = X
+        X = tf.expand_dims(tf.transpose(X), axis=2)
+        X2 = tf.expand_dims(tf.transpose(X2), axis=1)
+        return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="mogptk.kernels.mosm.MultiOutputSpectralMixture"><code class="flex name class">
+<span>class <span class="ident">MultiOutputSpectralMixture</span></span>
+<span>(</span><span>input_dim, output_dim, magnitude=None, mean=None, variance=None, delay=None, phase=None, noise=None, active_dim=None)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Abstract class for MultiOutput Kernels.</p>
+<p>This abstract kernel assumes input X where the first column is a
+series of integer indices and the remaining dimensions are
+unconstrained. Multikernels are designed to handle outputs from
+different Gaussian processes, specifically in the case where they
+are not independent and where they can be observed independently.
+This abstract class implements the functionality necessary to split
+the observations into different cases and reorder the final kernel
+matrix appropriately.</p>
+<ul>
+<li>input_dim (int) is the input dimension</li>
+<li>output_dim (int) is the output dimension</li>
+<li>magnitude (np.ndarray) has shape (output_dim)</li>
+<li>mean (np.ndarray) has shape (input_dim, output_dim)</li>
+<li>variance (np.ndarray) has shape (input_dim, output_dim)</li>
+<li>delay (np.ndarray) has shape (input_dim, output_dim)</li>
+<li>phase (np.ndarray) has shape (output_dim)</li>
+<li>noise (np.ndarray) has shape (output_dim)</li>
+</ul></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class MultiOutputSpectralMixture(MultiKernel):
+    def __init__(self, input_dim, output_dim, magnitude=None, mean=None, variance=None, delay=None, phase=None, noise=None, active_dim=None):
+        &#34;&#34;&#34;
+        - input_dim (int) is the input dimension
+        - output_dim (int) is the output dimension
+        - magnitude (np.ndarray) has shape (output_dim)
+        - mean (np.ndarray) has shape (input_dim, output_dim)
+        - variance (np.ndarray) has shape (input_dim, output_dim)
+        - delay (np.ndarray) has shape (input_dim, output_dim)
+        - phase (np.ndarray) has shape (output_dim)
+        - noise (np.ndarray) has shape (output_dim)
+        &#34;&#34;&#34;
+
+        if magnitude is None:
+            magnitude = np.random.standard_normal((output_dim))
+        if mean is None:
+            mean = np.random.standard_normal((input_dim, output_dim))
+        if variance is None:
+            variance = np.random.random((input_dim, output_dim))
+        if delay is None:
+            delay = np.zeros((input_dim, output_dim))
+        if phase is None:
+            phase = np.zeros((output_dim))
+        if noise is None:
+            noise = np.random.random((output_dim))
+
+        if magnitude.shape != (output_dim,):
+            raise Exception(&#34;bad magnitude shape %s&#34; % (magnitude.shape,))
+        if mean.shape != (input_dim, output_dim):
+            raise Exception(&#34;bad mean shape %s&#34; % (mean.shape,))
+        if variance.shape != (input_dim, output_dim):
+            raise Exception(&#34;bad variance shape %s&#34; % (variance.shape,))
+        if delay.shape != (input_dim, output_dim):
+            raise Exception(&#34;bad delay shape %s&#34; % (delay.shape,))
+        if phase.shape != (output_dim,):
+            raise Exception(&#34;bad phase shape %s&#34; % (phase.shape,))
+        if noise.shape != (output_dim,):
+            raise Exception(&#34;bad noise shape %s&#34; % (noise.shape,))
+
+        MultiKernel.__init__(self, input_dim, output_dim, active_dim)
+        self.magnitude = Parameter(magnitude)
+        self.mean = Parameter(mean, transform=transforms.positive)
+        self.variance = Parameter(variance, transform=transforms.positive)
+        self.delay = Parameter(delay, FixDelay(input_dim, output_dim))
+        self.phase = Parameter(phase, FixPhase())
+        self.noise = Parameter(noise, transform=transforms.positive)
+        self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
+
+    def subK(self, index, X, X2=None):
+        i, j = index
+        return self.kerns[i][j](X, X2)
+
+    def subKdiag(self, index, X):
+        K = self.subK((index, index), X, X)
+        return tf.diag_part(K)
+
+    def _kernel_factory(self, i, j):
+        &#34;&#34;&#34;Return a function that calculates proper sub-kernel.&#34;&#34;&#34;
+        if i == j:
+            def cov_function(X, X2):
+                mean = tf.expand_dims(tf.slice(self.mean, [0, i], [self.input_dim, 1]), axis=2)
+                temp = np.power(2 * np.pi, self.input_dim / 2) \
+                        * tf.sqrt(rprod(self.variance[:, i])) \
+                        * tf.square(self.magnitude[i])
+                return temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
+                        * tf.cos(rsum(mean * self.dist(X, X2), 0)) + self.noise[i]
+        else:
+            def cov_function(X, X2):
+                sv = self.variance[:, i] + self.variance[:, j]
+                cross_delay = tf.reshape(
+                    self.delay[:, i] - self.delay[:, j],
+                    [self.input_dim, 1, 1]
+                )
+                cross_phase = self.phase[i] - self.phase[j]
+                cross_var = (2 * self.variance[:, i] * self.variance[:, j]) / sv
+                cross_mean = tf.reshape(
+                    (self.variance[:, i] * self.mean[:, j] + self.variance[:, j] * self.mean[:, i]) / sv,
+                    [self.input_dim, 1, 1]
+                )
+                cross_magnitude = self.magnitude[i] * self.magnitude[j] \
+                        * tf.exp(-0.25 * rsum(tf.square(self.mean[:, i] - self.mean[:, j]) / sv))
+
+                alpha = np.power(2 * np.pi, self.input_dim / 2) * tf.sqrt(rprod(cross_var)) * cross_magnitude
+                return alpha * tf.exp(-0.5 * self.sqdist(X + self.delay[:, i], X2 + self.delay[:, j], cross_var)) \
+                        * tf.cos(rsum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
+        return cov_function
+
+
+    #* performs element-wise multiplication
+    #-1 means infer shape for that dimension
+    def sqdist(self, X, X2, lscales):
+        &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
+        Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
+        if X2 is None:
+            return -2 * tf.matmul(X * lscales, tf.transpose(X)) \
+                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
+        else:
+            X2s = tf.reduce_sum(tf.square(X2) * lscales, 1)
+            return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
+                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))
+
+    # def sqdist(self, X, X2, lscales):
+    #     &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
+    #     Xs = tf.reduce_sum(tf.square(X) * lscales, axis = -1, keepdims=True)
+    #     if X2 is None:
+    #         return -2 * tf.matmul(X * lscales, X2, transpose_b=True) + Xs + tf.matrix_transpose(Xs)
+    #     else:
+    #         X2s = tf.reduce_sum(tf.square(X2) * lscales, axis = -1, keepdims=True)
+    #         return -2 * tf.matmul(X * lscales, X2, transpose_b=True) + Xs + tf.matrix_transpose(X2s)
+
+    def dist(self, X, X2):
+        if X2 is None:
+            X2 = X
+        X = tf.expand_dims(tf.transpose(X), axis=2)
+        X2 = tf.expand_dims(tf.transpose(X2), axis=1)
+        return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.kernels.multikernel.MultiKernel" href="multikernel.html#mogptk.kernels.multikernel.MultiKernel">MultiKernel</a></li>
+<li>gpflow.kernels.Kernel</li>
+<li>gpflow.params.parameterized.Parameterized</li>
+<li>gpflow.core.node.Node</li>
+<li>gpflow.core.parentable.Parentable</li>
+<li>gpflow.core.compilable.ICompilable</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.kernels.mosm.MultiOutputSpectralMixture.dist"><code class="name flex">
+<span>def <span class="ident">dist</span></span>(<span>self, X, X2)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def dist(self, X, X2):
+    if X2 is None:
+        X2 = X
+    X = tf.expand_dims(tf.transpose(X), axis=2)
+    X2 = tf.expand_dims(tf.transpose(X2), axis=1)
+    return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.kernels.mosm.MultiOutputSpectralMixture.sqdist"><code class="name flex">
+<span>def <span class="ident">sqdist</span></span>(<span>self, X, X2, lscales)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Return the square distance between two tensors.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def sqdist(self, X, X2, lscales):
+    &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
+    Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
+    if X2 is None:
+        return -2 * tf.matmul(X * lscales, tf.transpose(X)) \
+                + tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
+    else:
+        X2s = tf.reduce_sum(tf.square(X2) * lscales, 1)
+        return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
+                + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.kernels.mosm.MultiOutputSpectralMixture.subK"><code class="name flex">
+<span>def <span class="ident">subK</span></span>(<span>self, index, X, X2=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def subK(self, index, X, X2=None):
+    i, j = index
+    return self.kerns[i][j](X, X2)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.kernels.mosm.MultiOutputSpectralMixture.subKdiag"><code class="name flex">
+<span>def <span class="ident">subKdiag</span></span>(<span>self, index, X)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def subKdiag(self, index, X):
+    K = self.subK((index, index), X, X)
+    return tf.diag_part(K)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="mogptk.kernels" href="index.html">mogptk.kernels</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="mogptk.kernels.mosm.MultiOutputSpectralMixture" href="#mogptk.kernels.mosm.MultiOutputSpectralMixture">MultiOutputSpectralMixture</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.kernels.mosm.MultiOutputSpectralMixture.dist" href="#mogptk.kernels.mosm.MultiOutputSpectralMixture.dist">dist</a></code></li>
+<li><code><a title="mogptk.kernels.mosm.MultiOutputSpectralMixture.sqdist" href="#mogptk.kernels.mosm.MultiOutputSpectralMixture.sqdist">sqdist</a></code></li>
+<li><code><a title="mogptk.kernels.mosm.MultiOutputSpectralMixture.subK" href="#mogptk.kernels.mosm.MultiOutputSpectralMixture.subK">subK</a></code></li>
+<li><code><a title="mogptk.kernels.mosm.MultiOutputSpectralMixture.subKdiag" href="#mogptk.kernels.mosm.MultiOutputSpectralMixture.subKdiag">subKdiag</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.6.3</a>.</p>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad()</script>
+</body>
+</html>
