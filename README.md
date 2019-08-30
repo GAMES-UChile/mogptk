@@ -63,4 +63,4 @@ Some simple examples are provided in the examples notebook.
 To see the model performing over real-world data refer to the smartphone_dataset_example notebook.
 
 ## License
-Released under the [MIT license](LICENSE.txt).
+Released under the [MIT license](LICENSE).
