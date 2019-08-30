@@ -1,3 +1,5 @@
+[Documentation](https://games-uchile.github.io/MultiOutputGP-Toolbox/)
+
 # MultiOutputGP-Toolbox
 This repository provides a toolbox to perform multi-output GP regression with kernels that are designed to utilize correlation information among channels in order to better model signals. The toolbox is mainly targeted to time-series, and includes plotting functions for the case of single input with multiple outputs (time series with several channels). The main kernel corresponds to Multi Output Spectral Mixture Kernel, which correlates every pair of data points (irrespective of their channel of origin) to model the signals. This kernel is specified in detail in the following publication: G. Parra, F. Tobar, Spectral Mixture Kernels for Multi-Output Gaussian Processes, Advances in Neural Information Processing Systems, 2017
 
@@ -10,15 +12,16 @@ All other included kernels can be derived from the Multi Output Spectral Mixture
 One of the main advantages of the present toolbox is the GPU support, which enables the user to train models through TensorFlow, speeding computations significantly. It also includes sparse-variational GP regression functionality, to decrease computation time even further.
 
 # Main Requirements
--Python 3.6
--GPFlow 1.4
--Tensorflow 1.13
--scikit-learn
--matplotlib
--seaborn
--numpy 1.16
--scipy
--skopt
+
+- Python 3.6
+- GPFlow 1.4
+- Tensorflow 1.13
+- scikit-learn
+- matplotlib
+- seaborn
+- numpy 1.16
+- scipy
+- skopt
 
 # Notes on requirements
 
