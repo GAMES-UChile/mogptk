@@ -20,6 +20,6 @@ setup(name='mogptk',
           'scipy',
           'scikit-learn',
           'pandas',
-          'dateutil',
+          'python-dateutil',
       ],
 )
