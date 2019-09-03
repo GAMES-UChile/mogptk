@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.6.3" />
+<title>mogptk.prediction API documentation</title>
+<meta name="description" content="" />
+<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
+<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase;cursor:pointer}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>mogptk.prediction</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+class Prediction:
+    def __init__(self, model):
+        self.model = model
+        self.data = model.data
+        self.X = {}
+        self.Y_mu = {}
+        self.Y_var = {}
+
+    def get(self):
+        &#34;&#34;&#34;
+        Returns the input, posterior mean and posterior variance values all channels.
+
+        Returns:
+            x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
+                posterior variance of the las prediction done. 
+        &#34;&#34;&#34;
+        if len(self.X) == 0:
+            raise Exception(&#34;use predict before retrieving the predictions on the model&#34;)
+        return self.X, self.Y_mu, self.Y_var
+
+    def get_channel(self, channel):
+        &#34;&#34;&#34;
+        Returns the input, posterior mean and posterior variance values for a given channel.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+        Returns:
+            x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
+                posterior variance of the las prediction done. 
+        &#34;&#34;&#34;
+        if len(self.X) == 0:
+            raise Exception(&#34;use predict before retrieving the predictions on the model&#34;)
+        channel = self.data.get_channel_index(channel)
+
+        return self.X[channel], self.Y_mu[channel], self.Y_var[channel]
+
+    def set_range(self, channels, start=None, end=None, step=None, n=None):
+        &#34;&#34;&#34;
+        Sets the prediction range for a certain channel in the interval [start,end].
+        with either a stepsize step or a number of points n.
+
+        Args:
+            channels (str, int, list, &#39;*&#39;): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            start (float, optional): Initial value of range, if not passed the first point of training
+                data is taken. Default to None.
+
+            end (float, optional): Final value of range, if not passed the last point of training
+                data is taken. Default to None.
+
+            step (float, optional): Spacing between values.
+
+            n (int, optional): Number of samples to generate.
+
+            If neither &#34;step&#34; or &#34;n&#34; is passed, default number of points is 100.
+        &#34;&#34;&#34;
+        if channels == &#39;*&#39;:
+            channels = range(self.data.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            channel = self.data.get_channel_index(channel)
+
+            cstart = start
+            if cstart == None:
+                cstart = self.data.X[channel][0]
+            elif isinstance(cstart, list):
+                for i in range(self.data.get_input_dims()):
+                    cstart[i] = self.data.formatters[channel][i].parse(cstart[i])
+            else:
+                cstart = self.data.formatters[channel][0].parse(cstart)
+
+            cend = end
+            if cend == None:
+                cend = self.data.X[channel][-1]
+            elif isinstance(cend, list):
+                for i in range(self.data.get_input_dims()):
+                    cend[i] = self.data.formatters[channel][i].parse(cend[i])
+            else:
+                cend = self.data.formatters[channel][0].parse(cend)
+            
+            cstart = self.data._normalize_input_dims(cstart)
+            cend = self.data._normalize_input_dims(cend)
+
+            # TODO: works for multi input dims?
+            if cend &lt;= cstart:
+                raise Exception(&#34;start must be lower than end&#34;)
+
+            # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
+            if step == None and n != None:
+                self.X[channel] = np.empty((n, self.data.get_input_dims()))
+                for i in range(self.data.get_input_dims()):
+                    self.X[channel][:,i] = np.linspace(cstart[i], cend[i], n)
+            else:
+                if self.data.get_input_dims() != 1:
+                    raise Exception(&#34;cannot use step for multi dimensional input, use n&#34;)
+                cstep = step
+                if cstep == None:
+                    cstep = (cend[0]-cstart[0])/100
+                else:
+                    cstep = self.data.formatters[channel][0].parse(cstep)
+                self.X[channel] = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)
+    
+    def set(self, xs):
+        &#34;&#34;&#34;
+        Sets the prediction ranges for all channels.
+
+                Args:
+
+                xs (list, dict): Prediction ranges, where the index/key is the channel
+                        ID/name and the values are either lists or Numpy arrays.
+        &#34;&#34;&#34;
+        if isinstance(xs, list):
+            for channel in range(self.data.get_output_dims()):
+                self.set(channel, xs[channel,:])
+        elif isinstance(xs, dict):
+            for channel, x in xs.items():
+                self.set(channel, x)
+        else:
+            raise Exception(&#34;xs expected to be a list, dict or Numpy array&#34;)
+
+    def set_channel(self, channel, x):
+        &#34;&#34;&#34;
+        Sets the prediction range using a list of Numpy array for a certain channel.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+            x (ndarray): Numpy array with input values for channel.
+        &#34;&#34;&#34;
+        if x.ndim != 2 or x.shape[1] != self.data.get_input_dims():
+            raise Exception(&#34;x shape must be (n,input_dims)&#34;)
+
+        channel = self.data.get_channel_index(channel)
+        if isinstance(x, list):
+            x = np.array(x)
+        elif not isinstance(x, np.ndarray):
+            raise Exception(&#34;x expected to be a list or Numpy array&#34;)
+
+        self.X[channel] = x
+
+    def predict(self):
+        self.Y_mu, self.Y_var = self.model.predict(self.X)
+
+    # TODO: keep in or out?
+    def plot(self, filename=None, title=None):
+        &#34;&#34;&#34;plot will plot the model in graphs per input and output dimensions. Output dimensions will stack the graphs vertically while input dimensions stacks them horizontally. Optionally, you can output the figure to a file and set a title.&#34;&#34;&#34;
+        data = self.data
+        channels = range(data.get_output_dims())
+
+        sns.set(font_scale=2)
+        sns.axes_style(&#34;darkgrid&#34;)
+        sns.set_style(&#34;whitegrid&#34;)
+
+        fig, axes = plt.subplots(len(channels), data.get_input_dims(), figsize=(20, len(channels)*5), sharey=False, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title, fontsize=36)
+
+        plotting_pred = False
+        plotting_F = False
+        plotting_all_obs = False
+        for channel in channels:
+            if channel in self.Y_mu:
+                lower = self.Y_mu[channel] - self.Y_var[channel]
+                upper = self.Y_mu[channel] + self.Y_var[channel]
+
+                for i in range(data.get_input_dims()):
+                    axes[channel, i].plot(self.X[channel][:,i], self.Y_mu[channel], &#39;b-&#39;, lw=3)
+                    axes[channel, i].fill_between(self.X[channel][:,i], lower, upper, color=&#39;b&#39;, alpha=0.1)
+                    axes[channel, i].plot(self.X[channel][:,i], lower, &#39;b-&#39;, lw=1, alpha=0.5)
+                    axes[channel, i].plot(self.X[channel][:,i], upper, &#39;b-&#39;, lw=1, alpha=0.5)
+            
+                    axes[channel, i].set_xlabel(data.input_labels[channel][i])
+                    axes[channel, i].set_ylabel(data.output_labels[channel])
+                    axes[channel, i].set_title(data.channel_names[channel], fontsize=30)
+
+                    formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: data.formatters[channel][i].format(x))
+                    axes[channel, i].xaxis.set_major_formatter(formatter)
+                plotting_pred = True
+
+                if channel in data.F:
+                    for i in range(data.get_input_dims()):
+                        n = (len(data.X[channel][:,i]) + len(self.X[channel][:,i]))*10
+                        x_min = np.min(np.concatenate((data.X[channel][:,i], self.X[channel][:,i])))
+                        x_max = np.max(np.concatenate((data.X[channel][:,i], self.X[channel][:,i])))
+
+                        x = np.zeros((n, data.get_input_dims())) # assuming other input dimensions are zeros
+                        x[:,i] = np.linspace(x_min, x_max, n)
+                        y = data.F[channel](x)
+
+                        axes[channel, i].plot(x[:,i], y, &#39;r--&#39;, lw=1)
+                        plotting_F = True
+
+            X_removed, Y_removed = data.get_del_obs(channel)
+            if len(X_removed) &gt; 0:
+                for i in range(data.get_input_dims()):
+                    axes[channel, i].plot(X_removed[:,i], Y_removed, &#39;r.&#39;, mew=2, ms=8)
+                plotting_all_obs = True
+
+            for i in range(data.get_input_dims()):
+                axes[channel, i].plot(data.X[channel][:,i], data.Y[channel], &#39;k.&#39;, mew=2, ms=8)
+            
+        # build legend
+        legend = []
+        legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
+        if plotting_all_obs:
+            legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;r&#39;, mew=2, ms=8, label=&#39;Removed&#39;))
+        if plotting_F:
+            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent&#39;))
+        if plotting_pred:
+            legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;b&#39;, lw=3, label=&#39;Prediction&#39;))
+        plt.legend(handles=legend, loc=&#39;best&#39;)
+
+        if filename != None:
+            plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+        plt.show()</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="mogptk.prediction.Prediction"><code class="flex name class">
+<span>class <span class="ident">Prediction</span></span>
+<span>(</span><span>model)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class Prediction:
+    def __init__(self, model):
+        self.model = model
+        self.data = model.data
+        self.X = {}
+        self.Y_mu = {}
+        self.Y_var = {}
+
+    def get(self):
+        &#34;&#34;&#34;
+        Returns the input, posterior mean and posterior variance values all channels.
+
+        Returns:
+            x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
+                posterior variance of the las prediction done. 
+        &#34;&#34;&#34;
+        if len(self.X) == 0:
+            raise Exception(&#34;use predict before retrieving the predictions on the model&#34;)
+        return self.X, self.Y_mu, self.Y_var
+
+    def get_channel(self, channel):
+        &#34;&#34;&#34;
+        Returns the input, posterior mean and posterior variance values for a given channel.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+        Returns:
+            x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
+                posterior variance of the las prediction done. 
+        &#34;&#34;&#34;
+        if len(self.X) == 0:
+            raise Exception(&#34;use predict before retrieving the predictions on the model&#34;)
+        channel = self.data.get_channel_index(channel)
+
+        return self.X[channel], self.Y_mu[channel], self.Y_var[channel]
+
+    def set_range(self, channels, start=None, end=None, step=None, n=None):
+        &#34;&#34;&#34;
+        Sets the prediction range for a certain channel in the interval [start,end].
+        with either a stepsize step or a number of points n.
+
+        Args:
+            channels (str, int, list, &#39;*&#39;): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            start (float, optional): Initial value of range, if not passed the first point of training
+                data is taken. Default to None.
+
+            end (float, optional): Final value of range, if not passed the last point of training
+                data is taken. Default to None.
+
+            step (float, optional): Spacing between values.
+
+            n (int, optional): Number of samples to generate.
+
+            If neither &#34;step&#34; or &#34;n&#34; is passed, default number of points is 100.
+        &#34;&#34;&#34;
+        if channels == &#39;*&#39;:
+            channels = range(self.data.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            channel = self.data.get_channel_index(channel)
+
+            cstart = start
+            if cstart == None:
+                cstart = self.data.X[channel][0]
+            elif isinstance(cstart, list):
+                for i in range(self.data.get_input_dims()):
+                    cstart[i] = self.data.formatters[channel][i].parse(cstart[i])
+            else:
+                cstart = self.data.formatters[channel][0].parse(cstart)
+
+            cend = end
+            if cend == None:
+                cend = self.data.X[channel][-1]
+            elif isinstance(cend, list):
+                for i in range(self.data.get_input_dims()):
+                    cend[i] = self.data.formatters[channel][i].parse(cend[i])
+            else:
+                cend = self.data.formatters[channel][0].parse(cend)
+            
+            cstart = self.data._normalize_input_dims(cstart)
+            cend = self.data._normalize_input_dims(cend)
+
+            # TODO: works for multi input dims?
+            if cend &lt;= cstart:
+                raise Exception(&#34;start must be lower than end&#34;)
+
+            # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
+            if step == None and n != None:
+                self.X[channel] = np.empty((n, self.data.get_input_dims()))
+                for i in range(self.data.get_input_dims()):
+                    self.X[channel][:,i] = np.linspace(cstart[i], cend[i], n)
+            else:
+                if self.data.get_input_dims() != 1:
+                    raise Exception(&#34;cannot use step for multi dimensional input, use n&#34;)
+                cstep = step
+                if cstep == None:
+                    cstep = (cend[0]-cstart[0])/100
+                else:
+                    cstep = self.data.formatters[channel][0].parse(cstep)
+                self.X[channel] = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)
+    
+    def set(self, xs):
+        &#34;&#34;&#34;
+        Sets the prediction ranges for all channels.
+
+                Args:
+
+                xs (list, dict): Prediction ranges, where the index/key is the channel
+                        ID/name and the values are either lists or Numpy arrays.
+        &#34;&#34;&#34;
+        if isinstance(xs, list):
+            for channel in range(self.data.get_output_dims()):
+                self.set(channel, xs[channel,:])
+        elif isinstance(xs, dict):
+            for channel, x in xs.items():
+                self.set(channel, x)
+        else:
+            raise Exception(&#34;xs expected to be a list, dict or Numpy array&#34;)
+
+    def set_channel(self, channel, x):
+        &#34;&#34;&#34;
+        Sets the prediction range using a list of Numpy array for a certain channel.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+            x (ndarray): Numpy array with input values for channel.
+        &#34;&#34;&#34;
+        if x.ndim != 2 or x.shape[1] != self.data.get_input_dims():
+            raise Exception(&#34;x shape must be (n,input_dims)&#34;)
+
+        channel = self.data.get_channel_index(channel)
+        if isinstance(x, list):
+            x = np.array(x)
+        elif not isinstance(x, np.ndarray):
+            raise Exception(&#34;x expected to be a list or Numpy array&#34;)
+
+        self.X[channel] = x
+
+    def predict(self):
+        self.Y_mu, self.Y_var = self.model.predict(self.X)
+
+    # TODO: keep in or out?
+    def plot(self, filename=None, title=None):
+        &#34;&#34;&#34;plot will plot the model in graphs per input and output dimensions. Output dimensions will stack the graphs vertically while input dimensions stacks them horizontally. Optionally, you can output the figure to a file and set a title.&#34;&#34;&#34;
+        data = self.data
+        channels = range(data.get_output_dims())
+
+        sns.set(font_scale=2)
+        sns.axes_style(&#34;darkgrid&#34;)
+        sns.set_style(&#34;whitegrid&#34;)
+
+        fig, axes = plt.subplots(len(channels), data.get_input_dims(), figsize=(20, len(channels)*5), sharey=False, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title, fontsize=36)
+
+        plotting_pred = False
+        plotting_F = False
+        plotting_all_obs = False
+        for channel in channels:
+            if channel in self.Y_mu:
+                lower = self.Y_mu[channel] - self.Y_var[channel]
+                upper = self.Y_mu[channel] + self.Y_var[channel]
+
+                for i in range(data.get_input_dims()):
+                    axes[channel, i].plot(self.X[channel][:,i], self.Y_mu[channel], &#39;b-&#39;, lw=3)
+                    axes[channel, i].fill_between(self.X[channel][:,i], lower, upper, color=&#39;b&#39;, alpha=0.1)
+                    axes[channel, i].plot(self.X[channel][:,i], lower, &#39;b-&#39;, lw=1, alpha=0.5)
+                    axes[channel, i].plot(self.X[channel][:,i], upper, &#39;b-&#39;, lw=1, alpha=0.5)
+            
+                    axes[channel, i].set_xlabel(data.input_labels[channel][i])
+                    axes[channel, i].set_ylabel(data.output_labels[channel])
+                    axes[channel, i].set_title(data.channel_names[channel], fontsize=30)
+
+                    formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: data.formatters[channel][i].format(x))
+                    axes[channel, i].xaxis.set_major_formatter(formatter)
+                plotting_pred = True
+
+                if channel in data.F:
+                    for i in range(data.get_input_dims()):
+                        n = (len(data.X[channel][:,i]) + len(self.X[channel][:,i]))*10
+                        x_min = np.min(np.concatenate((data.X[channel][:,i], self.X[channel][:,i])))
+                        x_max = np.max(np.concatenate((data.X[channel][:,i], self.X[channel][:,i])))
+
+                        x = np.zeros((n, data.get_input_dims())) # assuming other input dimensions are zeros
+                        x[:,i] = np.linspace(x_min, x_max, n)
+                        y = data.F[channel](x)
+
+                        axes[channel, i].plot(x[:,i], y, &#39;r--&#39;, lw=1)
+                        plotting_F = True
+
+            X_removed, Y_removed = data.get_del_obs(channel)
+            if len(X_removed) &gt; 0:
+                for i in range(data.get_input_dims()):
+                    axes[channel, i].plot(X_removed[:,i], Y_removed, &#39;r.&#39;, mew=2, ms=8)
+                plotting_all_obs = True
+
+            for i in range(data.get_input_dims()):
+                axes[channel, i].plot(data.X[channel][:,i], data.Y[channel], &#39;k.&#39;, mew=2, ms=8)
+            
+        # build legend
+        legend = []
+        legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
+        if plotting_all_obs:
+            legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;r&#39;, mew=2, ms=8, label=&#39;Removed&#39;))
+        if plotting_F:
+            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent&#39;))
+        if plotting_pred:
+            legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;b&#39;, lw=3, label=&#39;Prediction&#39;))
+        plt.legend(handles=legend, loc=&#39;best&#39;)
+
+        if filename != None:
+            plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+        plt.show()</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.prediction.Prediction.get"><code class="name flex">
+<span>def <span class="ident">get</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the input, posterior mean and posterior variance values all channels.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>x_pred</code></strong>, <strong><code>y_mu_pred</code></strong>, <strong><code>y_var_pred</code></strong> :&ensp;<code>ndarrays</code> <code>with</code> <code>the</code> <code>input</code>, <code>posterior</code> <code>mean</code> <code>and</code></dt>
+<dd>posterior variance of the las prediction done.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get(self):
+    &#34;&#34;&#34;
+    Returns the input, posterior mean and posterior variance values all channels.
+
+    Returns:
+        x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
+            posterior variance of the las prediction done. 
+    &#34;&#34;&#34;
+    if len(self.X) == 0:
+        raise Exception(&#34;use predict before retrieving the predictions on the model&#34;)
+    return self.X, self.Y_mu, self.Y_var</code></pre>
+</details>
+</dd>
+<dt id="mogptk.prediction.Prediction.get_channel"><code class="name flex">
+<span>def <span class="ident">get_channel</span></span>(<span>self, channel)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the input, posterior mean and posterior variance values for a given channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>channel</code></strong> :&ensp;<code>str</code>, <code>int</code></dt>
+<dd>Channel to set prediction, can be either a string with the name
+of the channel or a integer with the index.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>x_pred</code></strong>, <strong><code>y_mu_pred</code></strong>, <strong><code>y_var_pred</code></strong> :&ensp;<code>ndarrays</code> <code>with</code> <code>the</code> <code>input</code>, <code>posterior</code> <code>mean</code> <code>and</code></dt>
+<dd>posterior variance of the las prediction done.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_channel(self, channel):
+    &#34;&#34;&#34;
+    Returns the input, posterior mean and posterior variance values for a given channel.
+
+    Args:
+        channel (str, int): Channel to set prediction, can be either a string with the name
+            of the channel or a integer with the index.
+
+    Returns:
+        x_pred, y_mu_pred, y_var_pred: ndarrays with the input, posterior mean and 
+            posterior variance of the las prediction done. 
+    &#34;&#34;&#34;
+    if len(self.X) == 0:
+        raise Exception(&#34;use predict before retrieving the predictions on the model&#34;)
+    channel = self.data.get_channel_index(channel)
+
+    return self.X[channel], self.Y_mu[channel], self.Y_var[channel]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.prediction.Prediction.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>self, filename=None, title=None)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>plot will plot the model in graphs per input and output dimensions. Output dimensions will stack the graphs vertically while input dimensions stacks them horizontally. Optionally, you can output the figure to a file and set a title.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def plot(self, filename=None, title=None):
+    &#34;&#34;&#34;plot will plot the model in graphs per input and output dimensions. Output dimensions will stack the graphs vertically while input dimensions stacks them horizontally. Optionally, you can output the figure to a file and set a title.&#34;&#34;&#34;
+    data = self.data
+    channels = range(data.get_output_dims())
+
+    sns.set(font_scale=2)
+    sns.axes_style(&#34;darkgrid&#34;)
+    sns.set_style(&#34;whitegrid&#34;)
+
+    fig, axes = plt.subplots(len(channels), data.get_input_dims(), figsize=(20, len(channels)*5), sharey=False, constrained_layout=True, squeeze=False)
+    if title != None:
+        fig.suptitle(title, fontsize=36)
+
+    plotting_pred = False
+    plotting_F = False
+    plotting_all_obs = False
+    for channel in channels:
+        if channel in self.Y_mu:
+            lower = self.Y_mu[channel] - self.Y_var[channel]
+            upper = self.Y_mu[channel] + self.Y_var[channel]
+
+            for i in range(data.get_input_dims()):
+                axes[channel, i].plot(self.X[channel][:,i], self.Y_mu[channel], &#39;b-&#39;, lw=3)
+                axes[channel, i].fill_between(self.X[channel][:,i], lower, upper, color=&#39;b&#39;, alpha=0.1)
+                axes[channel, i].plot(self.X[channel][:,i], lower, &#39;b-&#39;, lw=1, alpha=0.5)
+                axes[channel, i].plot(self.X[channel][:,i], upper, &#39;b-&#39;, lw=1, alpha=0.5)
+        
+                axes[channel, i].set_xlabel(data.input_labels[channel][i])
+                axes[channel, i].set_ylabel(data.output_labels[channel])
+                axes[channel, i].set_title(data.channel_names[channel], fontsize=30)
+
+                formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: data.formatters[channel][i].format(x))
+                axes[channel, i].xaxis.set_major_formatter(formatter)
+            plotting_pred = True
+
+            if channel in data.F:
+                for i in range(data.get_input_dims()):
+                    n = (len(data.X[channel][:,i]) + len(self.X[channel][:,i]))*10
+                    x_min = np.min(np.concatenate((data.X[channel][:,i], self.X[channel][:,i])))
+                    x_max = np.max(np.concatenate((data.X[channel][:,i], self.X[channel][:,i])))
+
+                    x = np.zeros((n, data.get_input_dims())) # assuming other input dimensions are zeros
+                    x[:,i] = np.linspace(x_min, x_max, n)
+                    y = data.F[channel](x)
+
+                    axes[channel, i].plot(x[:,i], y, &#39;r--&#39;, lw=1)
+                    plotting_F = True
+
+        X_removed, Y_removed = data.get_del_obs(channel)
+        if len(X_removed) &gt; 0:
+            for i in range(data.get_input_dims()):
+                axes[channel, i].plot(X_removed[:,i], Y_removed, &#39;r.&#39;, mew=2, ms=8)
+            plotting_all_obs = True
+
+        for i in range(data.get_input_dims()):
+            axes[channel, i].plot(data.X[channel][:,i], data.Y[channel], &#39;k.&#39;, mew=2, ms=8)
+        
+    # build legend
+    legend = []
+    legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
+    if plotting_all_obs:
+        legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;r&#39;, mew=2, ms=8, label=&#39;Removed&#39;))
+    if plotting_F:
+        legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent&#39;))
+    if plotting_pred:
+        legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;b&#39;, lw=3, label=&#39;Prediction&#39;))
+    plt.legend(handles=legend, loc=&#39;best&#39;)
+
+    if filename != None:
+        plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+    plt.show()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.prediction.Prediction.predict"><code class="name flex">
+<span>def <span class="ident">predict</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def predict(self):
+    self.Y_mu, self.Y_var = self.model.predict(self.X)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.prediction.Prediction.set"><code class="name flex">
+<span>def <span class="ident">set</span></span>(<span>self, xs)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Sets the prediction ranges for all channels.</p>
+<pre><code>    Args:
+
+    xs (list, dict): Prediction ranges, where the index/key is the channel
+            ID/name and the values are either lists or Numpy arrays.
+</code></pre></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set(self, xs):
+    &#34;&#34;&#34;
+    Sets the prediction ranges for all channels.
+
+            Args:
+
+            xs (list, dict): Prediction ranges, where the index/key is the channel
+                    ID/name and the values are either lists or Numpy arrays.
+    &#34;&#34;&#34;
+    if isinstance(xs, list):
+        for channel in range(self.data.get_output_dims()):
+            self.set(channel, xs[channel,:])
+    elif isinstance(xs, dict):
+        for channel, x in xs.items():
+            self.set(channel, x)
+    else:
+        raise Exception(&#34;xs expected to be a list, dict or Numpy array&#34;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.prediction.Prediction.set_channel"><code class="name flex">
+<span>def <span class="ident">set_channel</span></span>(<span>self, channel, x)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Sets the prediction range using a list of Numpy array for a certain channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>channel</code></strong> :&ensp;<code>str</code>, <code>int</code></dt>
+<dd>Channel to set prediction, can be either a string with the name
+of the channel or a integer with the index.</dd>
+<dt><strong><code>x</code></strong> :&ensp;<code>ndarray</code></dt>
+<dd>Numpy array with input values for channel.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_channel(self, channel, x):
+    &#34;&#34;&#34;
+    Sets the prediction range using a list of Numpy array for a certain channel.
+
+    Args:
+        channel (str, int): Channel to set prediction, can be either a string with the name
+            of the channel or a integer with the index.
+        x (ndarray): Numpy array with input values for channel.
+    &#34;&#34;&#34;
+    if x.ndim != 2 or x.shape[1] != self.data.get_input_dims():
+        raise Exception(&#34;x shape must be (n,input_dims)&#34;)
+
+    channel = self.data.get_channel_index(channel)
+    if isinstance(x, list):
+        x = np.array(x)
+    elif not isinstance(x, np.ndarray):
+        raise Exception(&#34;x expected to be a list or Numpy array&#34;)
+
+    self.X[channel] = x</code></pre>
+</details>
+</dd>
+<dt id="mogptk.prediction.Prediction.set_range"><code class="name flex">
+<span>def <span class="ident">set_range</span></span>(<span>self, channels, start=None, end=None, step=None, n=None)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Sets the prediction range for a certain channel in the interval [start,end].
+with either a stepsize step or a number of points n.</p>
+<h2 id="args">Args</h2>
+<p>channels (str, int, list, '*'): Channel to set prediction, can be either a string with the name
+of the channel or a integer with the index.</p>
+<dl>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>Initial value of range, if not passed the first point of training
+data is taken. Default to None.</dd>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>Final value of range, if not passed the last point of training
+data is taken. Default to None.</dd>
+<dt><strong><code>step</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>Spacing between values.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Number of samples to generate.</dd>
+</dl>
+<p>If neither "step" or "n" is passed, default number of points is 100.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_range(self, channels, start=None, end=None, step=None, n=None):
+    &#34;&#34;&#34;
+    Sets the prediction range for a certain channel in the interval [start,end].
+    with either a stepsize step or a number of points n.
+
+    Args:
+        channels (str, int, list, &#39;*&#39;): Channel to set prediction, can be either a string with the name
+            of the channel or a integer with the index.
+
+        start (float, optional): Initial value of range, if not passed the first point of training
+            data is taken. Default to None.
+
+        end (float, optional): Final value of range, if not passed the last point of training
+            data is taken. Default to None.
+
+        step (float, optional): Spacing between values.
+
+        n (int, optional): Number of samples to generate.
+
+        If neither &#34;step&#34; or &#34;n&#34; is passed, default number of points is 100.
+    &#34;&#34;&#34;
+    if channels == &#39;*&#39;:
+        channels = range(self.data.get_output_dims())
+    elif not isinstance(channels, list):
+        channels = [channels]
+    for channel in channels:
+        channel = self.data.get_channel_index(channel)
+
+        cstart = start
+        if cstart == None:
+            cstart = self.data.X[channel][0]
+        elif isinstance(cstart, list):
+            for i in range(self.data.get_input_dims()):
+                cstart[i] = self.data.formatters[channel][i].parse(cstart[i])
+        else:
+            cstart = self.data.formatters[channel][0].parse(cstart)
+
+        cend = end
+        if cend == None:
+            cend = self.data.X[channel][-1]
+        elif isinstance(cend, list):
+            for i in range(self.data.get_input_dims()):
+                cend[i] = self.data.formatters[channel][i].parse(cend[i])
+        else:
+            cend = self.data.formatters[channel][0].parse(cend)
+        
+        cstart = self.data._normalize_input_dims(cstart)
+        cend = self.data._normalize_input_dims(cend)
+
+        # TODO: works for multi input dims?
+        if cend &lt;= cstart:
+            raise Exception(&#34;start must be lower than end&#34;)
+
+        # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
+        if step == None and n != None:
+            self.X[channel] = np.empty((n, self.data.get_input_dims()))
+            for i in range(self.data.get_input_dims()):
+                self.X[channel][:,i] = np.linspace(cstart[i], cend[i], n)
+        else:
+            if self.data.get_input_dims() != 1:
+                raise Exception(&#34;cannot use step for multi dimensional input, use n&#34;)
+            cstep = step
+            if cstep == None:
+                cstep = (cend[0]-cstart[0])/100
+            else:
+                cstep = self.data.formatters[channel][0].parse(cstep)
+            self.X[channel] = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="mogptk" href="index.html">mogptk</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="mogptk.prediction.Prediction" href="#mogptk.prediction.Prediction">Prediction</a></code></h4>
+<ul class="two-column">
+<li><code><a title="mogptk.prediction.Prediction.get" href="#mogptk.prediction.Prediction.get">get</a></code></li>
+<li><code><a title="mogptk.prediction.Prediction.get_channel" href="#mogptk.prediction.Prediction.get_channel">get_channel</a></code></li>
+<li><code><a title="mogptk.prediction.Prediction.plot" href="#mogptk.prediction.Prediction.plot">plot</a></code></li>
+<li><code><a title="mogptk.prediction.Prediction.predict" href="#mogptk.prediction.Prediction.predict">predict</a></code></li>
+<li><code><a title="mogptk.prediction.Prediction.set" href="#mogptk.prediction.Prediction.set">set</a></code></li>
+<li><code><a title="mogptk.prediction.Prediction.set_channel" href="#mogptk.prediction.Prediction.set_channel">set_channel</a></code></li>
+<li><code><a title="mogptk.prediction.Prediction.set_range" href="#mogptk.prediction.Prediction.set_range">set_range</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.6.3</a>.</p>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad()</script>
+</body>
+</html>

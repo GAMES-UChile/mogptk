@@ -41,13 +41,13 @@ class Prediction:
 
         return self.X[channel], self.Y_mu[channel], self.Y_var[channel]
 
-    def set_range(self, channel, start=None, end=None, step=None, n=None):
+    def set_range(self, channels, start=None, end=None, step=None, n=None):
         """
         Sets the prediction range for a certain channel in the interval [start,end].
         with either a stepsize step or a number of points n.
 
         Args:
-            channel (str, int): Channel to set prediction, can be either a string with the name
+            channels (str, int, list, '*'): Channel to set prediction, can be either a string with the name
                 of the channel or a integer with the index.
 
             start (float, optional): Initial value of range, if not passed the first point of training
@@ -62,44 +62,52 @@ class Prediction:
 
             If neither "step" or "n" is passed, default number of points is 100.
         """
-        channel = self.data.get_channel_index(channel)
+        if channels == '*':
+            channels = range(self.data.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            channel = self.data.get_channel_index(channel)
 
-        if start == None:
-            start = self.data.X[channel][0]
-        elif isinstance(start, list):
-            for i in range(self.data.get_input_dims()):
-                start[i] = self.data.formatters[channel][i].parse(start[i])
-        else:
-            start = self.data.formatters[channel][0].parse(start)
-
-        if end == None:
-            end = self.data.X[channel][-1]
-        elif isinstance(end, list):
-            for i in range(self.data.get_input_dims()):
-                end[i] = self.data.formatters[channel][i].parse(end[i])
-        else:
-            end = self.data.formatters[channel][0].parse(end)
-        
-        start = self.data._normalize_input_dims(start)
-        end = self.data._normalize_input_dims(end)
-
-        # TODO: works for multi input dims?
-        if end <= start:
-            raise Exception("start must be lower than end")
-
-        # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
-        if step == None and n != None:
-            self.X[channel] = np.empty((n, self.data.get_input_dims()))
-            for i in range(self.data.get_input_dims()):
-                self.X[channel][:,i] = np.linspace(start[i], end[i], n)
-        else:
-            if self.data.get_input_dims() != 1:
-                raise Exception("cannot use step for multi dimensional input, use n")
-            if step == None:
-                step = (end[0]-start[0])/100
+            cstart = start
+            if cstart == None:
+                cstart = self.data.X[channel][0]
+            elif isinstance(cstart, list):
+                for i in range(self.data.get_input_dims()):
+                    cstart[i] = self.data.formatters[channel][i].parse(cstart[i])
             else:
-                step = self.data.formatters[channel][0].parse(step)
-            self.X[channel] = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
+                cstart = self.data.formatters[channel][0].parse(cstart)
+
+            cend = end
+            if cend == None:
+                cend = self.data.X[channel][-1]
+            elif isinstance(cend, list):
+                for i in range(self.data.get_input_dims()):
+                    cend[i] = self.data.formatters[channel][i].parse(cend[i])
+            else:
+                cend = self.data.formatters[channel][0].parse(cend)
+            
+            cstart = self.data._normalize_input_dims(cstart)
+            cend = self.data._normalize_input_dims(cend)
+
+            # TODO: works for multi input dims?
+            if cend <= cstart:
+                raise Exception("start must be lower than end")
+
+            # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
+            if step == None and n != None:
+                self.X[channel] = np.empty((n, self.data.get_input_dims()))
+                for i in range(self.data.get_input_dims()):
+                    self.X[channel][:,i] = np.linspace(cstart[i], cend[i], n)
+            else:
+                if self.data.get_input_dims() != 1:
+                    raise Exception("cannot use step for multi dimensional input, use n")
+                cstep = step
+                if cstep == None:
+                    cstep = (cend[0]-cstart[0])/100
+                else:
+                    cstep = self.data.formatters[channel][0].parse(cstep)
+                self.X[channel] = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)
     
     def set(self, xs):
         """

@@ -1,0 +1,3167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.6.3" />
+<title>mogptk.data API documentation</title>
+<meta name="description" content="" />
+<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
+<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase;cursor:pointer}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>mogptk.data</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">import csv
+import copy
+import inspect
+import dill
+import numpy as np
+from mogptk.bnse import *
+from scipy.signal import lombscargle, find_peaks
+import dateutil, datetime
+import matplotlib
+import matplotlib.pyplot as plt
+import re
+    
+duration_regex = re.compile(
+    r&#39;^((?P&lt;years&gt;[\.\d]+?)y)?&#39;
+    r&#39;^((?P&lt;months&gt;[\.\d]+?)M)?&#39;
+    r&#39;^((?P&lt;weeks&gt;[\.\d]+?)w)?&#39;
+    r&#39;^((?P&lt;days&gt;[\.\d]+?)d)?&#39;
+    r&#39;((?P&lt;hours&gt;[\.\d]+?)h)?&#39;
+    r&#39;((?P&lt;minutes&gt;[\.\d]+?)m)?&#39;
+    r&#39;((?P&lt;seconds&gt;[\.\d]+?)s)?$&#39;)
+
+def parse_duration(s):
+    x = duration_regex.match(s)
+    if x == None:
+        raise Exception(&#39;duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd&#39;)
+
+    print(x)
+
+class FormatNumber:
+    def format(val):
+        return val
+
+    def parse(val, loc=None):
+        try:
+            return float(val)
+        except ValueError:
+            if loc == None:
+                raise Exception(&#34;could not convert input to number&#34;)
+            else:
+                raise Exception(&#34;could not convert input to number at %s&#34; % (loc))
+
+    def parse_duration(val, loc=None):
+        return FormatNumber.parse(val, loc)
+
+    def scale(maxfreq=None):
+        return 1, None
+
+class FormatDate:
+    def format(val):
+        return datetime.datetime.utcfromtimestamp(val*3600*24).strftime(&#39;%Y-%m-%d&#39;)
+
+    def parse(val, loc=None):
+        try:
+            return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()/3600/24
+        except ValueError:
+            if loc == None:
+                raise Exception(&#34;could not convert input to date&#34;)
+            else:
+                raise Exception(&#34;could not convert input to date at %s&#34; % (loc))
+
+    def parse_duration(val):
+        if isinstance(val, int):
+            return val
+        if isinstance(val, str):
+            return parse_duration(val)
+        raise Exception(&#34;could not convert input to duration&#34;)
+
+    def scale(maxfreq=None):
+        if maxfreq == &#39;year&#39;:
+            return 356.2425, &#39;year&#39;
+        if maxfreq == &#39;month&#39;:
+            return 30.4369, &#39;month&#39;
+        if maxfreq == None or maxfreq == &#39;day&#39;:
+            return 1, &#39;day&#39;
+        if maxfreq == &#39;hour&#39;:
+            return 1/24, &#39;hour&#39;
+        if maxfreq == &#39;minute&#39;:
+            return 1/24/60, &#39;minute&#39;
+        if maxfreq == &#39;second&#39;:
+            return 1/24/3600, &#39;second&#39;
+
+class FormatDateTime:
+    def format(val):
+        return datetime.datetime.utcfromtimestamp(val).strftime(&#39;%Y-%m-%d %H:%M&#39;)
+
+    def parse(val, loc=None):
+        try:
+            return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()
+        except ValueError:
+            if loc == None:
+                raise Exception(&#34;could not convert input to datetime&#34;)
+            else:
+                raise Exception(&#34;could not convert input to datetime at %s&#34; % (loc))
+
+    def parse_duration(val):
+        if isinstance(val, int):
+            return val
+        if isinstance(val, str):
+            return parse_duration(val)
+        raise Exception(&#34;could not convert input to duration&#34;)
+
+    def scale(maxfreq=None):
+        if maxfreq == &#39;year&#39;:
+            return 3600*24*356.2425, &#39;year&#39;
+        if maxfreq == &#39;month&#39;:
+            return 3600*24*30.4369, &#39;month&#39;
+        if maxfreq == &#39;day&#39;:
+            return 3600*24, &#39;day&#39;
+        if maxfreq == &#39;hour&#39;:
+            return 3600, &#39;hour&#39;
+        if maxfreq == &#39;minute&#39;:
+            return 60, &#39;minute&#39;
+        if maxfreq == None or maxfreq == &#39;second&#39;:
+            return 1, &#39;second&#39;
+
+class TransformDetrend:
+    def __init__(self, data, channel):
+        if data.get_input_dims() != 1:
+            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+        # TODO: do not assume order in X
+        self.coef = np.polyfit(data.X[channel][:,0], data.Y[channel], 1)
+
+    def forward(self, x, y):
+        return y-self.coef[1]-self.coef[0]*x[:,0]
+    
+    def backward(self, x, y):
+        return y+self.coef[1]+self.coef[0]*x[:,0]
+
+class TransformNormalize:
+    def __init__(self, data, channel):
+        self.ymin = np.inf
+        self.ymax = -np.inf
+        for channel in range(self.get_output_dims()):
+            self.ymin = np.amin([self.ymin, np.amin(self.Y[channel])])
+            self.ymax = np.amax([self.ymax, np.amax(self.Y[channel])])
+
+    def forward(self, x, y):
+        return (y-self.ymin)/(self.ymax-self.ymin)
+    
+    def backward(self, x, y):
+        return y*(self.ymax-self.ymin)+self.ymin
+
+class TransformLog:
+    def forward(x, y):
+        return np.log(y)
+    
+    def backward(x, y):
+        return np.exp(y)
+
+class Data:
+    &#34;&#34;&#34;
+    Class that holds all the observations and latent functions.
+
+    It has functionality to add or remove observations in several ways,
+    for example removing data ranges from the observations to simulate sensor failure.
+    &#34;&#34;&#34;
+    def __init__(self):
+        self.X = [] # for each channel the shape is (n, input_dims) with n the number of data points
+        self.Y = [] # for each channel the shape is (n) with n the number of data points
+        self.X_all = []
+        self.Y_all = []
+        self.F = {}
+        self.dims = None
+        self.channel_names = []
+        self.formatters = []
+        self.input_labels = []
+        self.output_labels = []
+        self.transformations = []
+
+    def __str__(self):
+        return &#34;Input dims: %d\nOutput dims: %d\nX: %s\nY: %s&#34; % (self.get_input_dims(), self.get_output_dims(), self.X, self.Y)
+
+    # TODO: update encode/decode with new data members
+    def _encode(self):
+        F = []
+        keys = list(self.F.keys())
+        for i in range(len(keys)):
+            s = self.F[keys[i]]
+            s = dill.dumps(s)
+            s = str(s)
+            F.append([keys[i], s])
+
+        return {
+            &#39;X&#39;: np.array(self.X),
+            &#39;Y&#39;: np.array(self.Y),
+            &#39;X_all&#39;: np.array(self.X_all),
+            &#39;Y_all&#39;: np.array(self.Y_all),
+            &#39;F&#39;: F,
+            &#39;dims&#39;: self.dims,
+            &#39;channel_names&#39;: self.channel_names,
+        }
+
+    def _decode(d):
+        self = Data()
+        self.X = list(d[&#39;X&#39;])
+        self.Y = list(d[&#39;Y&#39;])
+        self.X_all = list(d[&#39;X_all&#39;])
+        self.Y_all = list(d[&#39;Y_all&#39;])
+
+        F = d[&#39;F&#39;]
+        for f in F:
+            key = f[0]
+            s = f[1]
+            s = eval(s)
+            s = dill.loads(s)
+            self.F[key] = s
+
+        self.dims = d[&#39;dims&#39;]
+        self.channel_names = d[&#39;channel_names&#39;]
+        return self
+
+    def _normalize_input_dims(self, x):
+        if x == None:
+            return x
+        if isinstance(x, float):
+            x = [x]
+        elif isinstance(x, int):
+            x = [float(x)]
+        elif isinstance(x, str):
+            x = [x]
+        elif isinstance(x, np.ndarray):
+            x = list(x)
+        elif not isinstance(x, list):
+            raise Exception(&#34;input should be a floating point, list or ndarray&#34;)
+        if self.get_input_dims() != None and len(x) != self.get_input_dims():
+            raise Exception(&#34;input must be a scalar for single-dimension input or a list of values for each input dimension&#34;)
+        return x
+
+    def set_labels(self, channel, input, output):
+        if isinstance(input, str):
+            input = [input]
+        elif not isinstance(input, list) or not all(isinstance(item, str) for item in input):
+            raise Exception(&#34;input labels must be list of strings&#34;)
+        if not isinstance(output, str):
+            raise Exception(&#34;output label must be string&#34;)
+
+        if self.dims == None:
+            raise Exception(&#34;set data first before setting labels&#34;)
+        elif len(input) != self.dims:
+            raise Exception(&#34;input labels must have the same input dimensions as the data&#34;)
+
+        channel = self.get_channel_index(channel)
+        self.input_labels[channel] = input
+        self.output_labels[channel] = output
+
+    def load_csv(self, filename, x_cols, y_cols, format={}, filter=None, name=None, **kwargs):
+        input_dims = 1
+        if isinstance(x_cols, list) and all(isinstance(item, str) for item in x_cols):
+            input_dims = len(x_cols)
+        elif isinstance(x_cols, str):
+            x_cols = [x_cols]
+        else:
+            raise Exception(&#34;x_cols must be string or list of strings&#34;)
+        
+        output_dims = 1
+        if isinstance(y_cols, list) and all(isinstance(item, str) for item in y_cols):
+            output_dims = len(y_cols)
+        elif isinstance(y_cols, str):
+            y_cols = [y_cols]
+        else:
+            raise Exception(&#34;y_cols must be string or list of strings&#34;)
+
+        with open(filename, mode=&#39;r&#39;) as csv_file:
+            rows = list(csv.DictReader(csv_file, **kwargs))
+
+            def _to_number(val, row, col):
+                try:
+                    if col in format:
+                        return format[col].parse(val, loc=&#34;row %d column %s&#34; % (row+1, col)), True
+                    else:
+                        return FormatNumber.parse(val, loc=&#34;row %d column %s&#34; % (row+1, col)), True
+                except:
+                    return np.nan, False
+            
+            X = np.empty((len(rows), input_dims))
+            Y = np.empty((len(rows), output_dims))
+            remove = []
+            for j, row in enumerate(rows):
+                if filter != None and not filter(row):
+                    remove.append(j)
+                    continue
+
+                for i, x_col in enumerate(x_cols):
+                    X[j,i], ok = _to_number(row[x_col], j+1, x_col)
+                    if not ok:
+                        remove.append(j)
+
+                for i, y_col in enumerate(y_cols):
+                    Y[j,i], ok = _to_number(row[y_col], j+1, y_col)
+                    if not ok:
+                        remove.append(j)
+
+            X = np.delete(X, remove, 0)
+            Y = np.delete(Y, remove, 0)
+
+            fmts = []
+            for x_col in x_cols:
+                if x_col in format:
+                    fmts.append(format[x_col])
+                else:
+                    fmts.append(FormatNumber)
+
+            for i, y_col in enumerate(y_cols):
+                channel_name = y_col
+                if name is not None:
+                    channel_name = name
+                self.add(X, Y[:,i], name=channel_name, formatters=fmts)
+                self.set_labels(channel_name, x_cols, y_col)
+    
+    def add(self, X, Y, name=None, formatters=None):
+        &#34;&#34;&#34;
+        Adds a new channel with data set by X (input) and Y (output).
+
+
+        Optionally, you can set a name to identify the channel and use that in
+        any other function that requires a channel identifier.
+        X and Y need to be of equal length. If X and Y are two dimensional,
+        the second dimension will determine the input dimensionality of the channel.
+
+        Args:
+            X (list, ndarray):
+            Y (list. ndarray):
+            name (str, optional):
+        &#34;&#34;&#34;
+        if isinstance(X, list):
+            X = np.array(X)
+        if isinstance(Y, list):
+            Y = np.array(Y)
+        if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
+            raise Exception(&#34;X and Y must be numpy arrays&#34;)
+
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+        if X.ndim == 2:
+            if self.dims == None:
+                self.dims = X.shape[1]
+            elif self.dims != X.shape[1]:
+                raise Exception(&#34;X must have the same input dimensions for all channels&#34;)
+        else:
+            raise Exception(&#34;X must be either a one or two dimensional array of data&#34;)
+
+        if Y.ndim != 1:
+            raise Exception(&#34;Y must be a one dimensional array of data&#34;)
+        if X.shape[0] != Y.shape[0]:
+            raise Exception(&#34;X and Y must be of the same length&#34;)
+        
+        if name == None:
+            name = str(len(self.channel_names))
+        
+        for channel_name in self.channel_names:
+            if name == channel_name:
+                raise Exception(&#34;channel name &#39;%s&#39; already exists&#34; % (name))
+
+        if formatters == None:
+            formatters = [FormatNumber] * X.shape[1]
+        if len(formatters) != X.shape[1]:
+            raise Exception(&#34;formatters must be defined for all input dimensions&#34;)
+
+        self.X.append(X)
+        self.Y.append(Y)
+        self.X_all.append(X.copy())
+        self.Y_all.append(Y.copy())
+        self.channel_names.append(name)
+        self.formatters.append(formatters)
+        self.input_labels.append([&#39;&#39;] * X.shape[1])
+        self.output_labels.append(&#39;&#39;)
+        self.transformations.append([])
+
+    def _check_function(self, f):
+        if not inspect.isfunction(f):
+            raise Exception(&#34;F must be a function taking X as a parameter&#34;)
+
+        sig = inspect.signature(f)
+        if not len(sig.parameters) == 1:
+            raise Exception(&#34;F must be a function taking X as a parameter&#34;)
+
+    def set_function(self, channel, f):
+        &#34;&#34;&#34;
+        Sets a (latent) function corresponding to the channel. The function must take one parameter X (shape (n,input_dims) and output Y (shape (n)).
+
+        This is used for plotting functionality and is optional.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+        self._check_function(f)
+        self.F[channel] = f
+
+    def load_function(self, f, n, start, end, var=0.0, name=None):
+        &#34;&#34;&#34;
+        Adds a new channel.
+
+        It is done by picking n observations on a (latent) function f, in the
+        interval [start,end]. Optionally, it adds Gaussian noise of variance var
+        to Y (the dependant variable) and allows for naming the channel (see add()).
+        &#34;&#34;&#34;
+        self._check_function(f)
+        
+        start = self._normalize_input_dims(start)
+        end = self._normalize_input_dims(end)
+
+        if self.dims != None:
+            input_dims = self.get_input_dims()
+        else:
+            input_dims = len(start)
+
+        x = np.empty((n, input_dims))
+        for i in range(input_dims):
+            x[:,i] = np.random.uniform(start[i], end[i], n)
+        x = np.sort(x, axis=0)
+
+        y = f(x)
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = y[:,0]
+        y += np.random.normal(0.0, var, n)
+
+        self.add(x, y, name)
+        self.F[len(self.X)-1] = f
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+    def transform(self, channels, transformer):
+        if channels == &#39;*&#39;:
+            channels = range(self.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            t = transformer
+            if &#39;__init__&#39; in vars(transformer):
+                t = transformer(self, channel)
+
+            self.Y[channel] = t.forward(self.X[channel], self.Y[channel])
+            self.Y_all[channel] = t.forward(self.X_all[channel], self.Y_all[channel])
+            if channel in self.F:
+                f = self.F[channel]
+                self.F[channel] = lambda x: t.forward(x, f(x))
+    
+    def filter(self, channels, start, end):
+        if self.get_input_dims() != 1:
+            raise Exception(&#34;can only filter on one dimensional input data&#34;)
+
+        start = self.formatters[channel][0].parse(start)
+        end = self.formatters[channel][0].parse(end)
+        
+        if channels == &#39;*&#39;:
+            channels = range(self.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            pass # TODO
+
+
+    def aggregate(self, channels, duration):
+        if self.get_input_dims() != 1:
+            raise Exception(&#34;can only aggregate on one dimensional input data&#34;)
+
+        duration = self.formatters[channel][0].parse_duration(duration)
+        
+        if channels == &#39;*&#39;:
+            channels = range(self.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            pass # TODO
+
+    ################################################################
+
+    def get_input_dims(self):
+        &#34;&#34;&#34;
+        Returns the input dimensions, where 
+        length of the second dimension for X and Y when using add().
+        &#34;&#34;&#34;
+        return self.dims
+
+    def get_output_dims(self):
+        &#34;&#34;&#34;
+        Returns the output dimensions (number of channels) of the data.
+        &#34;&#34;&#34;
+        return len(self.X)
+
+    def get_channel_index(self, channel):
+        &#34;&#34;&#34;
+        Returns the channel index for a given channel name and checks if it exists.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+        
+        Returns:
+            Integer with number of channels
+        &#34;&#34;&#34;
+        if isinstance(channel, str):
+            if channel not in self.channel_names:
+                raise Exception(&#34;channel &#39;%s&#39; does not exist&#34; % (channel))
+            channel = self.channel_names.index(channel)
+        if channel == -1:
+            channel = len(self.X)-1
+        if len(self.X) &lt;= channel or channel &lt; 0:
+            raise Exception(&#34;channel %d does not exist&#34; % (channel))
+        return channel
+    
+    def get_channel_size(self, channel):
+        &#34;&#34;&#34;
+        Returns the number of observations for a channel.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+        return self.X[channel].shape[0]
+
+    def get_channel_sizes(self):
+        &#34;&#34;&#34;
+        Returns the number of observations for all channels as a list.
+        &#34;&#34;&#34;
+        sizes = []
+        for x in self.X:
+            sizes.append(x.shape[0])
+        return sizes
+    
+    def get_obs(self, channel):
+        &#34;&#34;&#34;
+        Returns the observations for a given channel.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+        return self.X[channel], self.Y[channel]
+    
+    def get_all_obs(self, channel):
+        &#34;&#34;&#34;
+        Returns all observations (including removed observations) for a given channel.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+        return self.X_all[channel], self.Y_all[channel]
+
+    def get_del_obs(self, channel):
+        &#34;&#34;&#34;
+        Returns the removed observations for a given channel.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+
+        js = []
+        for i in range(len(self.X[channel])):
+            x = self.X[channel][i]
+            y = self.Y[channel][i]
+            j = np.where(self.X_all[channel] == x)[0]
+            if len(j) == 1 and self.Y_all[channel][j[0]] == y:
+                js.append(j[0])
+
+        X_removed = np.delete(self.X_all[channel], js, axis=0)
+        Y_removed = np.delete(self.Y_all[channel], js, axis=0)
+        return X_removed, Y_removed
+
+    ################################################################
+    
+    def remove_randomly(self, channel, n=None, pct=None):
+        &#34;&#34;&#34;
+        Removes observations randomly on the whole range for a certain channel.
+
+        Either a number observations are removed, or a percentage of the observations.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string
+                with the name of the channel or a integer with the index.
+
+            n (int, optional): Number of observations to randomly keep.
+
+            pct (float[0, 1], optional): Percentage of observations to remove.
+
+            If neither &#39;n&#39; or &#39;pct&#39; are passed, &#39;n&#39; is set to 0.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+
+        if n == None:
+            if pct == None:
+                n = 0
+            else:
+                n = int((1-pct) * self.X[channel].shape[0])
+
+        idx = np.random.choice(self.X[channel].shape[0], n, replace=False)
+        self.X[channel] = np.delete(self.X[channel], idx, 0)
+        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
+    
+    def remove_range(self, channel, start=None, end=None):
+        &#34;&#34;&#34;
+        Removes observations on a channel in the interval [start,end].
+        
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            start (float, optional): Value in input space to erase from. Default to first
+                value in training points.
+
+            end (float, optional): Value in input space to erase to. Default to last 
+                value in training points.
+
+        &#34;&#34;&#34;
+        if self.get_input_dims() != 1:
+            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+        channel = self.get_channel_index(channel)
+
+        if start == None:
+            start = np.min(self.X[channel][:,0])
+        else:
+            start = self.formatters[channel][0].parse(start)
+        if end == None:
+            end = np.max(self.X[channel][:,0])
+        else:
+            end = self.formatters[channel][0].parse(end)
+
+        idx = np.where(np.logical_and(self.X[channel][:,0] &gt;= start, self.X[channel][:,0] &lt;= end))
+        self.X[channel] = np.delete(self.X[channel], idx, 0)
+        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
+    
+    def remove_relative_range(self, channel, start, end):
+        &#34;&#34;&#34;
+        Removes observations on a channel between start and end as a percentage of the
+        number of observations.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            start (float in [0, 1]): Start of prediction to remove.
+
+            end (float in [0, 1]): End of prediction to remove.
+
+        Start and end are in the range [0,1], where 0 is the first observation,
+        1 the last, and 0.5 the middle observation.
+        &#34;&#34;&#34;
+        if self.get_input_dims() != 1:
+            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+        channel = self.get_channel_index(channel)
+        start = self.formatters[channel][0].parse(start)
+        end = self.formatters[channel][0].parse(end)
+
+        x_min = np.min(self.X[channel][:,0])
+        x_max = np.max(self.X[channel][:,0])
+        start = x_min + np.round(max(0.0, min(1.0, start)) * (x_max-x_min))
+        end = x_min + np.round(max(0.0, min(1.0, end)) * (x_max-x_min))
+
+        idx = np.where(np.logical_and(self.X[channel][:,0] &gt;= start, self.X[channel][:,0] &lt;= end))
+        self.X[channel] = np.delete(self.X[channel], idx, 0)
+        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
+
+    def remove_random_ranges(self, channel, n, size):
+        &#34;&#34;&#34;
+        Removes a number of ranges on a channel. Makes only sense if your input X is sorted.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            n (int): Number of ranges to remove.
+
+            size (int): Width of ranges to remove.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+        if n &lt; 1 or size &lt; 1:
+            return
+
+        m = self.X[channel].shape[0] - n*size
+        if m &lt;= 0:
+            raise Exception(&#34;no data left after removing ranges&#34;)
+
+        locs = np.round(np.sort(np.random.rand(n)) * m)
+        for i in range(len(locs)):
+            loc = int(locs[i] + i * size)
+            self.X[channel] = np.delete(self.X[channel], np.arange(loc, loc+size), 0)
+            self.Y[channel] = np.delete(self.Y[channel], np.arange(loc, loc+size), 0)
+
+    ################################################################
+
+    def get_nyquist_estimation(self):
+        &#34;&#34;&#34;
+        Estimate nyquist frequency for each channel by taking
+        0.5/min dist of points.
+
+        Returns:
+            Numpy array of length equal to number of channels.
+        &#34;&#34;&#34;
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
+
+        nyquist = np.empty((input_dims, output_dims))
+        for channel in range(self.get_output_dims()):
+            for i in range(self.get_input_dims()):
+                x = np.sort(self.X[channel][:,i])
+                dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
+                dist = np.min(dist[np.nonzero(dist)])
+                nyquist[i,channel] = 0.5/dist
+        return nyquist
+
+    def get_bnse_estimation(self, Q=1):
+        &#34;&#34;&#34;
+        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation)
+
+        Returns:
+            freqs, amps: Each one is a input_dim x n_channels x Q array with 
+                the frequency values and amplitudes of the peaks.
+
+        &#34;&#34;&#34;
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
+
+        freqs = np.zeros((output_dims, input_dims, Q))
+        amps = np.zeros((output_dims, input_dims, Q))
+
+        nyquist = self.get_nyquist_estimation()
+        for channel in range(output_dims):
+            for i in range(input_dims):
+                x = self.X[channel][:,i]
+                y = self.Y[channel]
+                bnse = bse(x, y)
+                bnse.set_freqspace(nyquist[i,channel], dimension=5000)
+                bnse.train()
+                bnse.compute_moments()
+
+                peaks, amplitudes = bnse.get_freq_peaks() # TODO: get peak widths
+                if len(peaks) == 0:
+                    continue
+
+                peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
+                amplitudes.sort()
+
+                if Q &lt; len(peaks):
+                    peaks = peaks[:Q]
+                    amplitudes = amplitudes[:Q]
+                elif len(peaks) != 0:
+                    j = 0
+                    n = len(peaks)
+                    while Q &gt; len(peaks):
+                        peaks = np.append(peaks, peaks[j] + (np.random.standard_t(3, 1) * 0.01)[0])
+                        amplitudes = np.append(amplitudes, amplitudes[j])
+                        j = (j+1) % n
+                
+                freqs[channel,i,:] = 2*np.pi*peaks
+                amps[channel,i,:] = amplitudes
+        return freqs / np.pi / 2, amps
+
+    def get_ls_estimation(self, Q=1, n_ls=50000):
+        &#34;&#34;&#34;
+        Peak estimation using Lomb Scargle.
+        ***Only for 1 channel for the moment***
+        To-Do: support for multiple channels.
+
+        Args:
+            Q (int): Number of components.
+            n_ls (int): Number of points for Lomb Scargle,
+                default to 10000.
+
+        ** Only valid to single input dimension **
+        &#34;&#34;&#34;
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
+
+        freqs = np.zeros((output_dims, input_dims, Q))
+        amps = np.zeros((output_dims, input_dims, Q))
+
+        nyquist = self.get_nyquist_estimation() * 2 * np.pi
+        for channel in range(output_dims):
+            for i in range(input_dims):
+                freq_space = np.linspace(0, nyquist[i,channel], n_ls+1)[1:]
+                pgram = lombscargle(self.X[channel][:,i], self.Y[channel], freq_space)
+                peaks_index, _ = find_peaks(pgram)
+
+                freqs_peaks = freq_space[peaks_index]
+                amplitudes = pgram[peaks_index]
+
+                peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
+
+                if Q &lt; len(peaks):
+                    peaks = peaks[:Q]
+                # if there is less peaks than components
+                elif len(peaks) != 0:
+                    j = 0
+                    n = len(peaks)
+                    while Q &gt; len(peaks):
+                        peaks = np.r_[peaks, peaks[j] + np.random.standard_normal(2)]
+                        j = (j+1) % n
+
+                freqs[channel,i,:] = peaks[:,1]
+                amps[channel,i,:] = peaks[:,0]
+
+        return freqs / np.pi / 2, amps
+    
+    def get_gm_estimation(self):
+        # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
+        pass
+
+    def plot(self, show=True, filename=None, title=None):
+        sns.set(font_scale=2)
+        sns.axes_style(&#34;darkgrid&#34;)
+        sns.set_style(&#34;whitegrid&#34;)
+
+        fig, axes = plt.subplots(self.get_output_dims(), self.get_input_dims(), figsize=(20, self.get_output_dims()*5), sharey=False, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title, fontsize=36)
+
+        plotting_F = False
+        plotting_all_obs = False
+        for i in range(self.get_input_dims()):
+            for channel in range(self.get_output_dims()):
+                if channel in self.F:
+                    n = len(self.X[channel][:,i])*10
+                    x_min = np.min(self.X[channel][:,i])
+                    x_max = np.max(self.X[channel][:,i])
+
+                    x = np.zeros((n, self.get_input_dims())) # assuming other input dimensions are zeros
+                    x[:,i] = np.linspace(x_min, x_max, n)
+                    y = self.F[channel](x)
+
+                    axes[channel, i].plot(x[:,i], y, &#39;r--&#39;, lw=1)
+                    plotting_F = True
+
+                axes[channel, i].plot(self.X[channel][:,i], self.Y[channel], &#39;k-&#39;)
+                axes[channel, i].set_xlabel(self.input_labels[channel][i])
+                axes[channel, i].set_ylabel(self.output_labels[channel])
+                axes[channel, i].set_title(self.channel_names[channel], fontsize=30)
+            
+                formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[channel][i].format(x))
+                axes[channel, i].xaxis.set_major_formatter(formatter)
+
+        # build legend
+        if plotting_F:
+            legend = []
+            legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
+            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
+            plt.legend(handles=legend, loc=&#39;best&#39;)
+
+        if filename != None:
+            plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+        if show:
+            plt.show()
+
+    def plot_spectrum(self, method=&#39;lombscargle&#39;, angular=False, per=None, maxfreq=None, show=True, filename=None, title=None):
+        sns.set(font_scale=2)
+        sns.axes_style(&#34;darkgrid&#34;)
+        sns.set_style(&#34;whitegrid&#34;)
+
+        fig, axes = plt.subplots(self.get_output_dims(), self.get_input_dims(), figsize=(20, self.get_output_dims()*5), sharey=False, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title, fontsize=36)
+
+        for i in range(self.get_input_dims()):
+            for channel in range(self.get_output_dims()):
+                X_space = self.X[channel][:,i].copy()
+
+                formatter = self.formatters[channel][i]
+                factor, name = formatter.scale(per)
+                if name != None:
+                    axes[channel,i].set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
+                else:
+                    axes[channel,i].set_xlabel(&#39;Frequency&#39;)
+
+                if not angular:
+                    X_space *= 2 * np.pi
+                X_space /= factor
+
+                freq = maxfreq
+                if freq == None:
+                    dist = np.abs(X_space[1:]-X_space[:-1])
+                    freq = 1/np.average(dist)
+
+                X = np.linspace(0.0, freq, 10001)[1:]
+                if method == &#39;lombscargle&#39;:
+                    Y = lombscargle(X_space, self.Y[channel], X)
+                else:
+                    raise Exception(&#39;Periodogram method &#34;%s&#34; does not exist&#39; % (method))
+
+                axes[channel,i].plot(X, Y, &#39;k-&#39;)
+                axes[channel,i].set_title(self.channel_names[channel], fontsize=30)
+                axes[channel,i].set_yticks([])
+                axes[channel,i].set_ylim(0, None)
+
+        if filename != None:
+            plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+        if show:
+            plt.show()</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="mogptk.data.parse_duration"><code class="name flex">
+<span>def <span class="ident">parse_duration</span></span>(<span>s)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def parse_duration(s):
+    x = duration_regex.match(s)
+    if x == None:
+        raise Exception(&#39;duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd&#39;)
+
+    print(x)</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="mogptk.data.Data"><code class="flex name class">
+<span>class <span class="ident">Data</span></span>
+</code></dt>
+<dd>
+<section class="desc"><p>Class that holds all the observations and latent functions.</p>
+<p>It has functionality to add or remove observations in several ways,
+for example removing data ranges from the observations to simulate sensor failure.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class Data:
+    &#34;&#34;&#34;
+    Class that holds all the observations and latent functions.
+
+    It has functionality to add or remove observations in several ways,
+    for example removing data ranges from the observations to simulate sensor failure.
+    &#34;&#34;&#34;
+    def __init__(self):
+        self.X = [] # for each channel the shape is (n, input_dims) with n the number of data points
+        self.Y = [] # for each channel the shape is (n) with n the number of data points
+        self.X_all = []
+        self.Y_all = []
+        self.F = {}
+        self.dims = None
+        self.channel_names = []
+        self.formatters = []
+        self.input_labels = []
+        self.output_labels = []
+        self.transformations = []
+
+    def __str__(self):
+        return &#34;Input dims: %d\nOutput dims: %d\nX: %s\nY: %s&#34; % (self.get_input_dims(), self.get_output_dims(), self.X, self.Y)
+
+    # TODO: update encode/decode with new data members
+    def _encode(self):
+        F = []
+        keys = list(self.F.keys())
+        for i in range(len(keys)):
+            s = self.F[keys[i]]
+            s = dill.dumps(s)
+            s = str(s)
+            F.append([keys[i], s])
+
+        return {
+            &#39;X&#39;: np.array(self.X),
+            &#39;Y&#39;: np.array(self.Y),
+            &#39;X_all&#39;: np.array(self.X_all),
+            &#39;Y_all&#39;: np.array(self.Y_all),
+            &#39;F&#39;: F,
+            &#39;dims&#39;: self.dims,
+            &#39;channel_names&#39;: self.channel_names,
+        }
+
+    def _decode(d):
+        self = Data()
+        self.X = list(d[&#39;X&#39;])
+        self.Y = list(d[&#39;Y&#39;])
+        self.X_all = list(d[&#39;X_all&#39;])
+        self.Y_all = list(d[&#39;Y_all&#39;])
+
+        F = d[&#39;F&#39;]
+        for f in F:
+            key = f[0]
+            s = f[1]
+            s = eval(s)
+            s = dill.loads(s)
+            self.F[key] = s
+
+        self.dims = d[&#39;dims&#39;]
+        self.channel_names = d[&#39;channel_names&#39;]
+        return self
+
+    def _normalize_input_dims(self, x):
+        if x == None:
+            return x
+        if isinstance(x, float):
+            x = [x]
+        elif isinstance(x, int):
+            x = [float(x)]
+        elif isinstance(x, str):
+            x = [x]
+        elif isinstance(x, np.ndarray):
+            x = list(x)
+        elif not isinstance(x, list):
+            raise Exception(&#34;input should be a floating point, list or ndarray&#34;)
+        if self.get_input_dims() != None and len(x) != self.get_input_dims():
+            raise Exception(&#34;input must be a scalar for single-dimension input or a list of values for each input dimension&#34;)
+        return x
+
+    def set_labels(self, channel, input, output):
+        if isinstance(input, str):
+            input = [input]
+        elif not isinstance(input, list) or not all(isinstance(item, str) for item in input):
+            raise Exception(&#34;input labels must be list of strings&#34;)
+        if not isinstance(output, str):
+            raise Exception(&#34;output label must be string&#34;)
+
+        if self.dims == None:
+            raise Exception(&#34;set data first before setting labels&#34;)
+        elif len(input) != self.dims:
+            raise Exception(&#34;input labels must have the same input dimensions as the data&#34;)
+
+        channel = self.get_channel_index(channel)
+        self.input_labels[channel] = input
+        self.output_labels[channel] = output
+
+    def load_csv(self, filename, x_cols, y_cols, format={}, filter=None, name=None, **kwargs):
+        input_dims = 1
+        if isinstance(x_cols, list) and all(isinstance(item, str) for item in x_cols):
+            input_dims = len(x_cols)
+        elif isinstance(x_cols, str):
+            x_cols = [x_cols]
+        else:
+            raise Exception(&#34;x_cols must be string or list of strings&#34;)
+        
+        output_dims = 1
+        if isinstance(y_cols, list) and all(isinstance(item, str) for item in y_cols):
+            output_dims = len(y_cols)
+        elif isinstance(y_cols, str):
+            y_cols = [y_cols]
+        else:
+            raise Exception(&#34;y_cols must be string or list of strings&#34;)
+
+        with open(filename, mode=&#39;r&#39;) as csv_file:
+            rows = list(csv.DictReader(csv_file, **kwargs))
+
+            def _to_number(val, row, col):
+                try:
+                    if col in format:
+                        return format[col].parse(val, loc=&#34;row %d column %s&#34; % (row+1, col)), True
+                    else:
+                        return FormatNumber.parse(val, loc=&#34;row %d column %s&#34; % (row+1, col)), True
+                except:
+                    return np.nan, False
+            
+            X = np.empty((len(rows), input_dims))
+            Y = np.empty((len(rows), output_dims))
+            remove = []
+            for j, row in enumerate(rows):
+                if filter != None and not filter(row):
+                    remove.append(j)
+                    continue
+
+                for i, x_col in enumerate(x_cols):
+                    X[j,i], ok = _to_number(row[x_col], j+1, x_col)
+                    if not ok:
+                        remove.append(j)
+
+                for i, y_col in enumerate(y_cols):
+                    Y[j,i], ok = _to_number(row[y_col], j+1, y_col)
+                    if not ok:
+                        remove.append(j)
+
+            X = np.delete(X, remove, 0)
+            Y = np.delete(Y, remove, 0)
+
+            fmts = []
+            for x_col in x_cols:
+                if x_col in format:
+                    fmts.append(format[x_col])
+                else:
+                    fmts.append(FormatNumber)
+
+            for i, y_col in enumerate(y_cols):
+                channel_name = y_col
+                if name is not None:
+                    channel_name = name
+                self.add(X, Y[:,i], name=channel_name, formatters=fmts)
+                self.set_labels(channel_name, x_cols, y_col)
+    
+    def add(self, X, Y, name=None, formatters=None):
+        &#34;&#34;&#34;
+        Adds a new channel with data set by X (input) and Y (output).
+
+
+        Optionally, you can set a name to identify the channel and use that in
+        any other function that requires a channel identifier.
+        X and Y need to be of equal length. If X and Y are two dimensional,
+        the second dimension will determine the input dimensionality of the channel.
+
+        Args:
+            X (list, ndarray):
+            Y (list. ndarray):
+            name (str, optional):
+        &#34;&#34;&#34;
+        if isinstance(X, list):
+            X = np.array(X)
+        if isinstance(Y, list):
+            Y = np.array(Y)
+        if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
+            raise Exception(&#34;X and Y must be numpy arrays&#34;)
+
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+        if X.ndim == 2:
+            if self.dims == None:
+                self.dims = X.shape[1]
+            elif self.dims != X.shape[1]:
+                raise Exception(&#34;X must have the same input dimensions for all channels&#34;)
+        else:
+            raise Exception(&#34;X must be either a one or two dimensional array of data&#34;)
+
+        if Y.ndim != 1:
+            raise Exception(&#34;Y must be a one dimensional array of data&#34;)
+        if X.shape[0] != Y.shape[0]:
+            raise Exception(&#34;X and Y must be of the same length&#34;)
+        
+        if name == None:
+            name = str(len(self.channel_names))
+        
+        for channel_name in self.channel_names:
+            if name == channel_name:
+                raise Exception(&#34;channel name &#39;%s&#39; already exists&#34; % (name))
+
+        if formatters == None:
+            formatters = [FormatNumber] * X.shape[1]
+        if len(formatters) != X.shape[1]:
+            raise Exception(&#34;formatters must be defined for all input dimensions&#34;)
+
+        self.X.append(X)
+        self.Y.append(Y)
+        self.X_all.append(X.copy())
+        self.Y_all.append(Y.copy())
+        self.channel_names.append(name)
+        self.formatters.append(formatters)
+        self.input_labels.append([&#39;&#39;] * X.shape[1])
+        self.output_labels.append(&#39;&#39;)
+        self.transformations.append([])
+
+    def _check_function(self, f):
+        if not inspect.isfunction(f):
+            raise Exception(&#34;F must be a function taking X as a parameter&#34;)
+
+        sig = inspect.signature(f)
+        if not len(sig.parameters) == 1:
+            raise Exception(&#34;F must be a function taking X as a parameter&#34;)
+
+    def set_function(self, channel, f):
+        &#34;&#34;&#34;
+        Sets a (latent) function corresponding to the channel. The function must take one parameter X (shape (n,input_dims) and output Y (shape (n)).
+
+        This is used for plotting functionality and is optional.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+        self._check_function(f)
+        self.F[channel] = f
+
+    def load_function(self, f, n, start, end, var=0.0, name=None):
+        &#34;&#34;&#34;
+        Adds a new channel.
+
+        It is done by picking n observations on a (latent) function f, in the
+        interval [start,end]. Optionally, it adds Gaussian noise of variance var
+        to Y (the dependant variable) and allows for naming the channel (see add()).
+        &#34;&#34;&#34;
+        self._check_function(f)
+        
+        start = self._normalize_input_dims(start)
+        end = self._normalize_input_dims(end)
+
+        if self.dims != None:
+            input_dims = self.get_input_dims()
+        else:
+            input_dims = len(start)
+
+        x = np.empty((n, input_dims))
+        for i in range(input_dims):
+            x[:,i] = np.random.uniform(start[i], end[i], n)
+        x = np.sort(x, axis=0)
+
+        y = f(x)
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = y[:,0]
+        y += np.random.normal(0.0, var, n)
+
+        self.add(x, y, name)
+        self.F[len(self.X)-1] = f
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+    def transform(self, channels, transformer):
+        if channels == &#39;*&#39;:
+            channels = range(self.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            t = transformer
+            if &#39;__init__&#39; in vars(transformer):
+                t = transformer(self, channel)
+
+            self.Y[channel] = t.forward(self.X[channel], self.Y[channel])
+            self.Y_all[channel] = t.forward(self.X_all[channel], self.Y_all[channel])
+            if channel in self.F:
+                f = self.F[channel]
+                self.F[channel] = lambda x: t.forward(x, f(x))
+    
+    def filter(self, channels, start, end):
+        if self.get_input_dims() != 1:
+            raise Exception(&#34;can only filter on one dimensional input data&#34;)
+
+        start = self.formatters[channel][0].parse(start)
+        end = self.formatters[channel][0].parse(end)
+        
+        if channels == &#39;*&#39;:
+            channels = range(self.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            pass # TODO
+
+
+    def aggregate(self, channels, duration):
+        if self.get_input_dims() != 1:
+            raise Exception(&#34;can only aggregate on one dimensional input data&#34;)
+
+        duration = self.formatters[channel][0].parse_duration(duration)
+        
+        if channels == &#39;*&#39;:
+            channels = range(self.get_output_dims())
+        elif not isinstance(channels, list):
+            channels = [channels]
+        for channel in channels:
+            pass # TODO
+
+    ################################################################
+
+    def get_input_dims(self):
+        &#34;&#34;&#34;
+        Returns the input dimensions, where 
+        length of the second dimension for X and Y when using add().
+        &#34;&#34;&#34;
+        return self.dims
+
+    def get_output_dims(self):
+        &#34;&#34;&#34;
+        Returns the output dimensions (number of channels) of the data.
+        &#34;&#34;&#34;
+        return len(self.X)
+
+    def get_channel_index(self, channel):
+        &#34;&#34;&#34;
+        Returns the channel index for a given channel name and checks if it exists.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+        
+        Returns:
+            Integer with number of channels
+        &#34;&#34;&#34;
+        if isinstance(channel, str):
+            if channel not in self.channel_names:
+                raise Exception(&#34;channel &#39;%s&#39; does not exist&#34; % (channel))
+            channel = self.channel_names.index(channel)
+        if channel == -1:
+            channel = len(self.X)-1
+        if len(self.X) &lt;= channel or channel &lt; 0:
+            raise Exception(&#34;channel %d does not exist&#34; % (channel))
+        return channel
+    
+    def get_channel_size(self, channel):
+        &#34;&#34;&#34;
+        Returns the number of observations for a channel.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+        return self.X[channel].shape[0]
+
+    def get_channel_sizes(self):
+        &#34;&#34;&#34;
+        Returns the number of observations for all channels as a list.
+        &#34;&#34;&#34;
+        sizes = []
+        for x in self.X:
+            sizes.append(x.shape[0])
+        return sizes
+    
+    def get_obs(self, channel):
+        &#34;&#34;&#34;
+        Returns the observations for a given channel.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+        return self.X[channel], self.Y[channel]
+    
+    def get_all_obs(self, channel):
+        &#34;&#34;&#34;
+        Returns all observations (including removed observations) for a given channel.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+        return self.X_all[channel], self.Y_all[channel]
+
+    def get_del_obs(self, channel):
+        &#34;&#34;&#34;
+        Returns the removed observations for a given channel.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+
+        js = []
+        for i in range(len(self.X[channel])):
+            x = self.X[channel][i]
+            y = self.Y[channel][i]
+            j = np.where(self.X_all[channel] == x)[0]
+            if len(j) == 1 and self.Y_all[channel][j[0]] == y:
+                js.append(j[0])
+
+        X_removed = np.delete(self.X_all[channel], js, axis=0)
+        Y_removed = np.delete(self.Y_all[channel], js, axis=0)
+        return X_removed, Y_removed
+
+    ################################################################
+    
+    def remove_randomly(self, channel, n=None, pct=None):
+        &#34;&#34;&#34;
+        Removes observations randomly on the whole range for a certain channel.
+
+        Either a number observations are removed, or a percentage of the observations.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string
+                with the name of the channel or a integer with the index.
+
+            n (int, optional): Number of observations to randomly keep.
+
+            pct (float[0, 1], optional): Percentage of observations to remove.
+
+            If neither &#39;n&#39; or &#39;pct&#39; are passed, &#39;n&#39; is set to 0.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+
+        if n == None:
+            if pct == None:
+                n = 0
+            else:
+                n = int((1-pct) * self.X[channel].shape[0])
+
+        idx = np.random.choice(self.X[channel].shape[0], n, replace=False)
+        self.X[channel] = np.delete(self.X[channel], idx, 0)
+        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
+    
+    def remove_range(self, channel, start=None, end=None):
+        &#34;&#34;&#34;
+        Removes observations on a channel in the interval [start,end].
+        
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            start (float, optional): Value in input space to erase from. Default to first
+                value in training points.
+
+            end (float, optional): Value in input space to erase to. Default to last 
+                value in training points.
+
+        &#34;&#34;&#34;
+        if self.get_input_dims() != 1:
+            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+        channel = self.get_channel_index(channel)
+
+        if start == None:
+            start = np.min(self.X[channel][:,0])
+        else:
+            start = self.formatters[channel][0].parse(start)
+        if end == None:
+            end = np.max(self.X[channel][:,0])
+        else:
+            end = self.formatters[channel][0].parse(end)
+
+        idx = np.where(np.logical_and(self.X[channel][:,0] &gt;= start, self.X[channel][:,0] &lt;= end))
+        self.X[channel] = np.delete(self.X[channel], idx, 0)
+        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
+    
+    def remove_relative_range(self, channel, start, end):
+        &#34;&#34;&#34;
+        Removes observations on a channel between start and end as a percentage of the
+        number of observations.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            start (float in [0, 1]): Start of prediction to remove.
+
+            end (float in [0, 1]): End of prediction to remove.
+
+        Start and end are in the range [0,1], where 0 is the first observation,
+        1 the last, and 0.5 the middle observation.
+        &#34;&#34;&#34;
+        if self.get_input_dims() != 1:
+            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+        channel = self.get_channel_index(channel)
+        start = self.formatters[channel][0].parse(start)
+        end = self.formatters[channel][0].parse(end)
+
+        x_min = np.min(self.X[channel][:,0])
+        x_max = np.max(self.X[channel][:,0])
+        start = x_min + np.round(max(0.0, min(1.0, start)) * (x_max-x_min))
+        end = x_min + np.round(max(0.0, min(1.0, end)) * (x_max-x_min))
+
+        idx = np.where(np.logical_and(self.X[channel][:,0] &gt;= start, self.X[channel][:,0] &lt;= end))
+        self.X[channel] = np.delete(self.X[channel], idx, 0)
+        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
+
+    def remove_random_ranges(self, channel, n, size):
+        &#34;&#34;&#34;
+        Removes a number of ranges on a channel. Makes only sense if your input X is sorted.
+
+        Args:
+            channel (str, int): Channel to set prediction, can be either a string with the name
+                of the channel or a integer with the index.
+
+            n (int): Number of ranges to remove.
+
+            size (int): Width of ranges to remove.
+        &#34;&#34;&#34;
+        channel = self.get_channel_index(channel)
+        if n &lt; 1 or size &lt; 1:
+            return
+
+        m = self.X[channel].shape[0] - n*size
+        if m &lt;= 0:
+            raise Exception(&#34;no data left after removing ranges&#34;)
+
+        locs = np.round(np.sort(np.random.rand(n)) * m)
+        for i in range(len(locs)):
+            loc = int(locs[i] + i * size)
+            self.X[channel] = np.delete(self.X[channel], np.arange(loc, loc+size), 0)
+            self.Y[channel] = np.delete(self.Y[channel], np.arange(loc, loc+size), 0)
+
+    ################################################################
+
+    def get_nyquist_estimation(self):
+        &#34;&#34;&#34;
+        Estimate nyquist frequency for each channel by taking
+        0.5/min dist of points.
+
+        Returns:
+            Numpy array of length equal to number of channels.
+        &#34;&#34;&#34;
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
+
+        nyquist = np.empty((input_dims, output_dims))
+        for channel in range(self.get_output_dims()):
+            for i in range(self.get_input_dims()):
+                x = np.sort(self.X[channel][:,i])
+                dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
+                dist = np.min(dist[np.nonzero(dist)])
+                nyquist[i,channel] = 0.5/dist
+        return nyquist
+
+    def get_bnse_estimation(self, Q=1):
+        &#34;&#34;&#34;
+        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation)
+
+        Returns:
+            freqs, amps: Each one is a input_dim x n_channels x Q array with 
+                the frequency values and amplitudes of the peaks.
+
+        &#34;&#34;&#34;
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
+
+        freqs = np.zeros((output_dims, input_dims, Q))
+        amps = np.zeros((output_dims, input_dims, Q))
+
+        nyquist = self.get_nyquist_estimation()
+        for channel in range(output_dims):
+            for i in range(input_dims):
+                x = self.X[channel][:,i]
+                y = self.Y[channel]
+                bnse = bse(x, y)
+                bnse.set_freqspace(nyquist[i,channel], dimension=5000)
+                bnse.train()
+                bnse.compute_moments()
+
+                peaks, amplitudes = bnse.get_freq_peaks() # TODO: get peak widths
+                if len(peaks) == 0:
+                    continue
+
+                peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
+                amplitudes.sort()
+
+                if Q &lt; len(peaks):
+                    peaks = peaks[:Q]
+                    amplitudes = amplitudes[:Q]
+                elif len(peaks) != 0:
+                    j = 0
+                    n = len(peaks)
+                    while Q &gt; len(peaks):
+                        peaks = np.append(peaks, peaks[j] + (np.random.standard_t(3, 1) * 0.01)[0])
+                        amplitudes = np.append(amplitudes, amplitudes[j])
+                        j = (j+1) % n
+                
+                freqs[channel,i,:] = 2*np.pi*peaks
+                amps[channel,i,:] = amplitudes
+        return freqs / np.pi / 2, amps
+
+    def get_ls_estimation(self, Q=1, n_ls=50000):
+        &#34;&#34;&#34;
+        Peak estimation using Lomb Scargle.
+        ***Only for 1 channel for the moment***
+        To-Do: support for multiple channels.
+
+        Args:
+            Q (int): Number of components.
+            n_ls (int): Number of points for Lomb Scargle,
+                default to 10000.
+
+        ** Only valid to single input dimension **
+        &#34;&#34;&#34;
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
+
+        freqs = np.zeros((output_dims, input_dims, Q))
+        amps = np.zeros((output_dims, input_dims, Q))
+
+        nyquist = self.get_nyquist_estimation() * 2 * np.pi
+        for channel in range(output_dims):
+            for i in range(input_dims):
+                freq_space = np.linspace(0, nyquist[i,channel], n_ls+1)[1:]
+                pgram = lombscargle(self.X[channel][:,i], self.Y[channel], freq_space)
+                peaks_index, _ = find_peaks(pgram)
+
+                freqs_peaks = freq_space[peaks_index]
+                amplitudes = pgram[peaks_index]
+
+                peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
+
+                if Q &lt; len(peaks):
+                    peaks = peaks[:Q]
+                # if there is less peaks than components
+                elif len(peaks) != 0:
+                    j = 0
+                    n = len(peaks)
+                    while Q &gt; len(peaks):
+                        peaks = np.r_[peaks, peaks[j] + np.random.standard_normal(2)]
+                        j = (j+1) % n
+
+                freqs[channel,i,:] = peaks[:,1]
+                amps[channel,i,:] = peaks[:,0]
+
+        return freqs / np.pi / 2, amps
+    
+    def get_gm_estimation(self):
+        # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
+        pass
+
+    def plot(self, show=True, filename=None, title=None):
+        sns.set(font_scale=2)
+        sns.axes_style(&#34;darkgrid&#34;)
+        sns.set_style(&#34;whitegrid&#34;)
+
+        fig, axes = plt.subplots(self.get_output_dims(), self.get_input_dims(), figsize=(20, self.get_output_dims()*5), sharey=False, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title, fontsize=36)
+
+        plotting_F = False
+        plotting_all_obs = False
+        for i in range(self.get_input_dims()):
+            for channel in range(self.get_output_dims()):
+                if channel in self.F:
+                    n = len(self.X[channel][:,i])*10
+                    x_min = np.min(self.X[channel][:,i])
+                    x_max = np.max(self.X[channel][:,i])
+
+                    x = np.zeros((n, self.get_input_dims())) # assuming other input dimensions are zeros
+                    x[:,i] = np.linspace(x_min, x_max, n)
+                    y = self.F[channel](x)
+
+                    axes[channel, i].plot(x[:,i], y, &#39;r--&#39;, lw=1)
+                    plotting_F = True
+
+                axes[channel, i].plot(self.X[channel][:,i], self.Y[channel], &#39;k-&#39;)
+                axes[channel, i].set_xlabel(self.input_labels[channel][i])
+                axes[channel, i].set_ylabel(self.output_labels[channel])
+                axes[channel, i].set_title(self.channel_names[channel], fontsize=30)
+            
+                formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[channel][i].format(x))
+                axes[channel, i].xaxis.set_major_formatter(formatter)
+
+        # build legend
+        if plotting_F:
+            legend = []
+            legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
+            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
+            plt.legend(handles=legend, loc=&#39;best&#39;)
+
+        if filename != None:
+            plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+        if show:
+            plt.show()
+
+    def plot_spectrum(self, method=&#39;lombscargle&#39;, angular=False, per=None, maxfreq=None, show=True, filename=None, title=None):
+        sns.set(font_scale=2)
+        sns.axes_style(&#34;darkgrid&#34;)
+        sns.set_style(&#34;whitegrid&#34;)
+
+        fig, axes = plt.subplots(self.get_output_dims(), self.get_input_dims(), figsize=(20, self.get_output_dims()*5), sharey=False, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title, fontsize=36)
+
+        for i in range(self.get_input_dims()):
+            for channel in range(self.get_output_dims()):
+                X_space = self.X[channel][:,i].copy()
+
+                formatter = self.formatters[channel][i]
+                factor, name = formatter.scale(per)
+                if name != None:
+                    axes[channel,i].set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
+                else:
+                    axes[channel,i].set_xlabel(&#39;Frequency&#39;)
+
+                if not angular:
+                    X_space *= 2 * np.pi
+                X_space /= factor
+
+                freq = maxfreq
+                if freq == None:
+                    dist = np.abs(X_space[1:]-X_space[:-1])
+                    freq = 1/np.average(dist)
+
+                X = np.linspace(0.0, freq, 10001)[1:]
+                if method == &#39;lombscargle&#39;:
+                    Y = lombscargle(X_space, self.Y[channel], X)
+                else:
+                    raise Exception(&#39;Periodogram method &#34;%s&#34; does not exist&#39; % (method))
+
+                axes[channel,i].plot(X, Y, &#39;k-&#39;)
+                axes[channel,i].set_title(self.channel_names[channel], fontsize=30)
+                axes[channel,i].set_yticks([])
+                axes[channel,i].set_ylim(0, None)
+
+        if filename != None:
+            plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+        if show:
+            plt.show()</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.Data.add"><code class="name flex">
+<span>def <span class="ident">add</span></span>(<span>self, X, Y, name=None, formatters=None)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Adds a new channel with data set by X (input) and Y (output).</p>
+<p>Optionally, you can set a name to identify the channel and use that in
+any other function that requires a channel identifier.
+X and Y need to be of equal length. If X and Y are two dimensional,
+the second dimension will determine the input dimensionality of the channel.</p>
+<h2 id="args">Args</h2>
+<p>X (list, ndarray):
+Y (list. ndarray):
+name (str, optional):</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def add(self, X, Y, name=None, formatters=None):
+    &#34;&#34;&#34;
+    Adds a new channel with data set by X (input) and Y (output).
+
+
+    Optionally, you can set a name to identify the channel and use that in
+    any other function that requires a channel identifier.
+    X and Y need to be of equal length. If X and Y are two dimensional,
+    the second dimension will determine the input dimensionality of the channel.
+
+    Args:
+        X (list, ndarray):
+        Y (list. ndarray):
+        name (str, optional):
+    &#34;&#34;&#34;
+    if isinstance(X, list):
+        X = np.array(X)
+    if isinstance(Y, list):
+        Y = np.array(Y)
+    if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
+        raise Exception(&#34;X and Y must be numpy arrays&#34;)
+
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
+    if X.ndim == 2:
+        if self.dims == None:
+            self.dims = X.shape[1]
+        elif self.dims != X.shape[1]:
+            raise Exception(&#34;X must have the same input dimensions for all channels&#34;)
+    else:
+        raise Exception(&#34;X must be either a one or two dimensional array of data&#34;)
+
+    if Y.ndim != 1:
+        raise Exception(&#34;Y must be a one dimensional array of data&#34;)
+    if X.shape[0] != Y.shape[0]:
+        raise Exception(&#34;X and Y must be of the same length&#34;)
+    
+    if name == None:
+        name = str(len(self.channel_names))
+    
+    for channel_name in self.channel_names:
+        if name == channel_name:
+            raise Exception(&#34;channel name &#39;%s&#39; already exists&#34; % (name))
+
+    if formatters == None:
+        formatters = [FormatNumber] * X.shape[1]
+    if len(formatters) != X.shape[1]:
+        raise Exception(&#34;formatters must be defined for all input dimensions&#34;)
+
+    self.X.append(X)
+    self.Y.append(Y)
+    self.X_all.append(X.copy())
+    self.Y_all.append(Y.copy())
+    self.channel_names.append(name)
+    self.formatters.append(formatters)
+    self.input_labels.append([&#39;&#39;] * X.shape[1])
+    self.output_labels.append(&#39;&#39;)
+    self.transformations.append([])</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.aggregate"><code class="name flex">
+<span>def <span class="ident">aggregate</span></span>(<span>self, channels, duration)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def aggregate(self, channels, duration):
+    if self.get_input_dims() != 1:
+        raise Exception(&#34;can only aggregate on one dimensional input data&#34;)
+
+    duration = self.formatters[channel][0].parse_duration(duration)
+    
+    if channels == &#39;*&#39;:
+        channels = range(self.get_output_dims())
+    elif not isinstance(channels, list):
+        channels = [channels]
+    for channel in channels:
+        pass # TODO</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.copy"><code class="name flex">
+<span>def <span class="ident">copy</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def copy(self):
+    return copy.deepcopy(self)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.filter"><code class="name flex">
+<span>def <span class="ident">filter</span></span>(<span>self, channels, start, end)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def filter(self, channels, start, end):
+    if self.get_input_dims() != 1:
+        raise Exception(&#34;can only filter on one dimensional input data&#34;)
+
+    start = self.formatters[channel][0].parse(start)
+    end = self.formatters[channel][0].parse(end)
+    
+    if channels == &#39;*&#39;:
+        channels = range(self.get_output_dims())
+    elif not isinstance(channels, list):
+        channels = [channels]
+    for channel in channels:
+        pass # TODO</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_all_obs"><code class="name flex">
+<span>def <span class="ident">get_all_obs</span></span>(<span>self, channel)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns all observations (including removed observations) for a given channel.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_all_obs(self, channel):
+    &#34;&#34;&#34;
+    Returns all observations (including removed observations) for a given channel.
+    &#34;&#34;&#34;
+    channel = self.get_channel_index(channel)
+    return self.X_all[channel], self.Y_all[channel]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_bnse_estimation"><code class="name flex">
+<span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q=1)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation)</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>freqs</code></strong>, <strong><code>amps</code></strong> :&ensp;<code>Each</code> <code>one</code> <code>is</code> <code>a</code> <code>input_dim</code> <code>x</code> <code>n_channels</code> <code>x</code> <code>Q</code> <code>array</code> <code>with</code></dt>
+<dd>the frequency values and amplitudes of the peaks.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_bnse_estimation(self, Q=1):
+    &#34;&#34;&#34;
+    Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation)
+
+    Returns:
+        freqs, amps: Each one is a input_dim x n_channels x Q array with 
+            the frequency values and amplitudes of the peaks.
+
+    &#34;&#34;&#34;
+    input_dims = self.get_input_dims()
+    output_dims = self.get_output_dims()
+
+    freqs = np.zeros((output_dims, input_dims, Q))
+    amps = np.zeros((output_dims, input_dims, Q))
+
+    nyquist = self.get_nyquist_estimation()
+    for channel in range(output_dims):
+        for i in range(input_dims):
+            x = self.X[channel][:,i]
+            y = self.Y[channel]
+            bnse = bse(x, y)
+            bnse.set_freqspace(nyquist[i,channel], dimension=5000)
+            bnse.train()
+            bnse.compute_moments()
+
+            peaks, amplitudes = bnse.get_freq_peaks() # TODO: get peak widths
+            if len(peaks) == 0:
+                continue
+
+            peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
+            amplitudes.sort()
+
+            if Q &lt; len(peaks):
+                peaks = peaks[:Q]
+                amplitudes = amplitudes[:Q]
+            elif len(peaks) != 0:
+                j = 0
+                n = len(peaks)
+                while Q &gt; len(peaks):
+                    peaks = np.append(peaks, peaks[j] + (np.random.standard_t(3, 1) * 0.01)[0])
+                    amplitudes = np.append(amplitudes, amplitudes[j])
+                    j = (j+1) % n
+            
+            freqs[channel,i,:] = 2*np.pi*peaks
+            amps[channel,i,:] = amplitudes
+    return freqs / np.pi / 2, amps</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_channel_index"><code class="name flex">
+<span>def <span class="ident">get_channel_index</span></span>(<span>self, channel)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the channel index for a given channel name and checks if it exists.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>channel</code></strong> :&ensp;<code>str</code>, <code>int</code></dt>
+<dd>Channel to set prediction, can be either a string with the name
+of the channel or a integer with the index.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>Integer</code> <code>with</code> <code>number</code> of <code>channels</code></dt>
+<dd>&nbsp;</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_channel_index(self, channel):
+    &#34;&#34;&#34;
+    Returns the channel index for a given channel name and checks if it exists.
+
+    Args:
+        channel (str, int): Channel to set prediction, can be either a string with the name
+            of the channel or a integer with the index.
+    
+    Returns:
+        Integer with number of channels
+    &#34;&#34;&#34;
+    if isinstance(channel, str):
+        if channel not in self.channel_names:
+            raise Exception(&#34;channel &#39;%s&#39; does not exist&#34; % (channel))
+        channel = self.channel_names.index(channel)
+    if channel == -1:
+        channel = len(self.X)-1
+    if len(self.X) &lt;= channel or channel &lt; 0:
+        raise Exception(&#34;channel %d does not exist&#34; % (channel))
+    return channel</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_channel_size"><code class="name flex">
+<span>def <span class="ident">get_channel_size</span></span>(<span>self, channel)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the number of observations for a channel.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_channel_size(self, channel):
+    &#34;&#34;&#34;
+    Returns the number of observations for a channel.
+    &#34;&#34;&#34;
+    channel = self.get_channel_index(channel)
+    return self.X[channel].shape[0]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_channel_sizes"><code class="name flex">
+<span>def <span class="ident">get_channel_sizes</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the number of observations for all channels as a list.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_channel_sizes(self):
+    &#34;&#34;&#34;
+    Returns the number of observations for all channels as a list.
+    &#34;&#34;&#34;
+    sizes = []
+    for x in self.X:
+        sizes.append(x.shape[0])
+    return sizes</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_del_obs"><code class="name flex">
+<span>def <span class="ident">get_del_obs</span></span>(<span>self, channel)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the removed observations for a given channel.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_del_obs(self, channel):
+    &#34;&#34;&#34;
+    Returns the removed observations for a given channel.
+    &#34;&#34;&#34;
+    channel = self.get_channel_index(channel)
+
+    js = []
+    for i in range(len(self.X[channel])):
+        x = self.X[channel][i]
+        y = self.Y[channel][i]
+        j = np.where(self.X_all[channel] == x)[0]
+        if len(j) == 1 and self.Y_all[channel][j[0]] == y:
+            js.append(j[0])
+
+    X_removed = np.delete(self.X_all[channel], js, axis=0)
+    Y_removed = np.delete(self.Y_all[channel], js, axis=0)
+    return X_removed, Y_removed</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_gm_estimation"><code class="name flex">
+<span>def <span class="ident">get_gm_estimation</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_gm_estimation(self):
+    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
+    pass</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_input_dims"><code class="name flex">
+<span>def <span class="ident">get_input_dims</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the input dimensions, where
+length of the second dimension for X and Y when using add().</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_input_dims(self):
+    &#34;&#34;&#34;
+    Returns the input dimensions, where 
+    length of the second dimension for X and Y when using add().
+    &#34;&#34;&#34;
+    return self.dims</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_ls_estimation"><code class="name flex">
+<span>def <span class="ident">get_ls_estimation</span></span>(<span>self, Q=1, n_ls=50000)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Peak estimation using Lomb Scargle.
+<strong><em>Only for 1 channel for the moment</em></strong>
+To-Do: support for multiple channels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of components.</dd>
+<dt><strong><code>n_ls</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of points for Lomb Scargle,
+default to 10000.</dd>
+</dl>
+<p><strong> Only valid to single input dimension </strong></p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_ls_estimation(self, Q=1, n_ls=50000):
+    &#34;&#34;&#34;
+    Peak estimation using Lomb Scargle.
+    ***Only for 1 channel for the moment***
+    To-Do: support for multiple channels.
+
+    Args:
+        Q (int): Number of components.
+        n_ls (int): Number of points for Lomb Scargle,
+            default to 10000.
+
+    ** Only valid to single input dimension **
+    &#34;&#34;&#34;
+    input_dims = self.get_input_dims()
+    output_dims = self.get_output_dims()
+
+    freqs = np.zeros((output_dims, input_dims, Q))
+    amps = np.zeros((output_dims, input_dims, Q))
+
+    nyquist = self.get_nyquist_estimation() * 2 * np.pi
+    for channel in range(output_dims):
+        for i in range(input_dims):
+            freq_space = np.linspace(0, nyquist[i,channel], n_ls+1)[1:]
+            pgram = lombscargle(self.X[channel][:,i], self.Y[channel], freq_space)
+            peaks_index, _ = find_peaks(pgram)
+
+            freqs_peaks = freq_space[peaks_index]
+            amplitudes = pgram[peaks_index]
+
+            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
+
+            if Q &lt; len(peaks):
+                peaks = peaks[:Q]
+            # if there is less peaks than components
+            elif len(peaks) != 0:
+                j = 0
+                n = len(peaks)
+                while Q &gt; len(peaks):
+                    peaks = np.r_[peaks, peaks[j] + np.random.standard_normal(2)]
+                    j = (j+1) % n
+
+            freqs[channel,i,:] = peaks[:,1]
+            amps[channel,i,:] = peaks[:,0]
+
+    return freqs / np.pi / 2, amps</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_nyquist_estimation"><code class="name flex">
+<span>def <span class="ident">get_nyquist_estimation</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Estimate nyquist frequency for each channel by taking
+0.5/min dist of points.</p>
+<h2 id="returns">Returns</h2>
+<p>Numpy array of length equal to number of channels.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_nyquist_estimation(self):
+    &#34;&#34;&#34;
+    Estimate nyquist frequency for each channel by taking
+    0.5/min dist of points.
+
+    Returns:
+        Numpy array of length equal to number of channels.
+    &#34;&#34;&#34;
+    input_dims = self.get_input_dims()
+    output_dims = self.get_output_dims()
+
+    nyquist = np.empty((input_dims, output_dims))
+    for channel in range(self.get_output_dims()):
+        for i in range(self.get_input_dims()):
+            x = np.sort(self.X[channel][:,i])
+            dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
+            dist = np.min(dist[np.nonzero(dist)])
+            nyquist[i,channel] = 0.5/dist
+    return nyquist</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_obs"><code class="name flex">
+<span>def <span class="ident">get_obs</span></span>(<span>self, channel)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the observations for a given channel.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_obs(self, channel):
+    &#34;&#34;&#34;
+    Returns the observations for a given channel.
+    &#34;&#34;&#34;
+    channel = self.get_channel_index(channel)
+    return self.X[channel], self.Y[channel]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_output_dims"><code class="name flex">
+<span>def <span class="ident">get_output_dims</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the output dimensions (number of channels) of the data.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_output_dims(self):
+    &#34;&#34;&#34;
+    Returns the output dimensions (number of channels) of the data.
+    &#34;&#34;&#34;
+    return len(self.X)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.load_csv"><code class="name flex">
+<span>def <span class="ident">load_csv</span></span>(<span>self, filename, x_cols, y_cols, format={}, filter=None, name=None, **kwargs)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def load_csv(self, filename, x_cols, y_cols, format={}, filter=None, name=None, **kwargs):
+    input_dims = 1
+    if isinstance(x_cols, list) and all(isinstance(item, str) for item in x_cols):
+        input_dims = len(x_cols)
+    elif isinstance(x_cols, str):
+        x_cols = [x_cols]
+    else:
+        raise Exception(&#34;x_cols must be string or list of strings&#34;)
+    
+    output_dims = 1
+    if isinstance(y_cols, list) and all(isinstance(item, str) for item in y_cols):
+        output_dims = len(y_cols)
+    elif isinstance(y_cols, str):
+        y_cols = [y_cols]
+    else:
+        raise Exception(&#34;y_cols must be string or list of strings&#34;)
+
+    with open(filename, mode=&#39;r&#39;) as csv_file:
+        rows = list(csv.DictReader(csv_file, **kwargs))
+
+        def _to_number(val, row, col):
+            try:
+                if col in format:
+                    return format[col].parse(val, loc=&#34;row %d column %s&#34; % (row+1, col)), True
+                else:
+                    return FormatNumber.parse(val, loc=&#34;row %d column %s&#34; % (row+1, col)), True
+            except:
+                return np.nan, False
+        
+        X = np.empty((len(rows), input_dims))
+        Y = np.empty((len(rows), output_dims))
+        remove = []
+        for j, row in enumerate(rows):
+            if filter != None and not filter(row):
+                remove.append(j)
+                continue
+
+            for i, x_col in enumerate(x_cols):
+                X[j,i], ok = _to_number(row[x_col], j+1, x_col)
+                if not ok:
+                    remove.append(j)
+
+            for i, y_col in enumerate(y_cols):
+                Y[j,i], ok = _to_number(row[y_col], j+1, y_col)
+                if not ok:
+                    remove.append(j)
+
+        X = np.delete(X, remove, 0)
+        Y = np.delete(Y, remove, 0)
+
+        fmts = []
+        for x_col in x_cols:
+            if x_col in format:
+                fmts.append(format[x_col])
+            else:
+                fmts.append(FormatNumber)
+
+        for i, y_col in enumerate(y_cols):
+            channel_name = y_col
+            if name is not None:
+                channel_name = name
+            self.add(X, Y[:,i], name=channel_name, formatters=fmts)
+            self.set_labels(channel_name, x_cols, y_col)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.load_function"><code class="name flex">
+<span>def <span class="ident">load_function</span></span>(<span>self, f, n, start, end, var=0.0, name=None)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Adds a new channel.</p>
+<p>It is done by picking n observations on a (latent) function f, in the
+interval [start,end]. Optionally, it adds Gaussian noise of variance var
+to Y (the dependant variable) and allows for naming the channel (see add()).</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def load_function(self, f, n, start, end, var=0.0, name=None):
+    &#34;&#34;&#34;
+    Adds a new channel.
+
+    It is done by picking n observations on a (latent) function f, in the
+    interval [start,end]. Optionally, it adds Gaussian noise of variance var
+    to Y (the dependant variable) and allows for naming the channel (see add()).
+    &#34;&#34;&#34;
+    self._check_function(f)
+    
+    start = self._normalize_input_dims(start)
+    end = self._normalize_input_dims(end)
+
+    if self.dims != None:
+        input_dims = self.get_input_dims()
+    else:
+        input_dims = len(start)
+
+    x = np.empty((n, input_dims))
+    for i in range(input_dims):
+        x[:,i] = np.random.uniform(start[i], end[i], n)
+    x = np.sort(x, axis=0)
+
+    y = f(x)
+    if y.ndim == 2 and y.shape[1] == 1:
+        y = y[:,0]
+    y += np.random.normal(0.0, var, n)
+
+    self.add(x, y, name)
+    self.F[len(self.X)-1] = f</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>self, show=True, filename=None, title=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def plot(self, show=True, filename=None, title=None):
+    sns.set(font_scale=2)
+    sns.axes_style(&#34;darkgrid&#34;)
+    sns.set_style(&#34;whitegrid&#34;)
+
+    fig, axes = plt.subplots(self.get_output_dims(), self.get_input_dims(), figsize=(20, self.get_output_dims()*5), sharey=False, constrained_layout=True, squeeze=False)
+    if title != None:
+        fig.suptitle(title, fontsize=36)
+
+    plotting_F = False
+    plotting_all_obs = False
+    for i in range(self.get_input_dims()):
+        for channel in range(self.get_output_dims()):
+            if channel in self.F:
+                n = len(self.X[channel][:,i])*10
+                x_min = np.min(self.X[channel][:,i])
+                x_max = np.max(self.X[channel][:,i])
+
+                x = np.zeros((n, self.get_input_dims())) # assuming other input dimensions are zeros
+                x[:,i] = np.linspace(x_min, x_max, n)
+                y = self.F[channel](x)
+
+                axes[channel, i].plot(x[:,i], y, &#39;r--&#39;, lw=1)
+                plotting_F = True
+
+            axes[channel, i].plot(self.X[channel][:,i], self.Y[channel], &#39;k-&#39;)
+            axes[channel, i].set_xlabel(self.input_labels[channel][i])
+            axes[channel, i].set_ylabel(self.output_labels[channel])
+            axes[channel, i].set_title(self.channel_names[channel], fontsize=30)
+        
+            formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[channel][i].format(x))
+            axes[channel, i].xaxis.set_major_formatter(formatter)
+
+    # build legend
+    if plotting_F:
+        legend = []
+        legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
+        legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
+        plt.legend(handles=legend, loc=&#39;best&#39;)
+
+    if filename != None:
+        plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+    if show:
+        plt.show()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.plot_spectrum"><code class="name flex">
+<span>def <span class="ident">plot_spectrum</span></span>(<span>self, method='lombscargle', angular=False, per=None, maxfreq=None, show=True, filename=None, title=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def plot_spectrum(self, method=&#39;lombscargle&#39;, angular=False, per=None, maxfreq=None, show=True, filename=None, title=None):
+    sns.set(font_scale=2)
+    sns.axes_style(&#34;darkgrid&#34;)
+    sns.set_style(&#34;whitegrid&#34;)
+
+    fig, axes = plt.subplots(self.get_output_dims(), self.get_input_dims(), figsize=(20, self.get_output_dims()*5), sharey=False, constrained_layout=True, squeeze=False)
+    if title != None:
+        fig.suptitle(title, fontsize=36)
+
+    for i in range(self.get_input_dims()):
+        for channel in range(self.get_output_dims()):
+            X_space = self.X[channel][:,i].copy()
+
+            formatter = self.formatters[channel][i]
+            factor, name = formatter.scale(per)
+            if name != None:
+                axes[channel,i].set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
+            else:
+                axes[channel,i].set_xlabel(&#39;Frequency&#39;)
+
+            if not angular:
+                X_space *= 2 * np.pi
+            X_space /= factor
+
+            freq = maxfreq
+            if freq == None:
+                dist = np.abs(X_space[1:]-X_space[:-1])
+                freq = 1/np.average(dist)
+
+            X = np.linspace(0.0, freq, 10001)[1:]
+            if method == &#39;lombscargle&#39;:
+                Y = lombscargle(X_space, self.Y[channel], X)
+            else:
+                raise Exception(&#39;Periodogram method &#34;%s&#34; does not exist&#39; % (method))
+
+            axes[channel,i].plot(X, Y, &#39;k-&#39;)
+            axes[channel,i].set_title(self.channel_names[channel], fontsize=30)
+            axes[channel,i].set_yticks([])
+            axes[channel,i].set_ylim(0, None)
+
+    if filename != None:
+        plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+    if show:
+        plt.show()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.remove_random_ranges"><code class="name flex">
+<span>def <span class="ident">remove_random_ranges</span></span>(<span>self, channel, n, size)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Removes a number of ranges on a channel. Makes only sense if your input X is sorted.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>channel</code></strong> :&ensp;<code>str</code>, <code>int</code></dt>
+<dd>Channel to set prediction, can be either a string with the name
+of the channel or a integer with the index.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of ranges to remove.</dd>
+<dt><strong><code>size</code></strong> :&ensp;<code>int</code></dt>
+<dd>Width of ranges to remove.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def remove_random_ranges(self, channel, n, size):
+    &#34;&#34;&#34;
+    Removes a number of ranges on a channel. Makes only sense if your input X is sorted.
+
+    Args:
+        channel (str, int): Channel to set prediction, can be either a string with the name
+            of the channel or a integer with the index.
+
+        n (int): Number of ranges to remove.
+
+        size (int): Width of ranges to remove.
+    &#34;&#34;&#34;
+    channel = self.get_channel_index(channel)
+    if n &lt; 1 or size &lt; 1:
+        return
+
+    m = self.X[channel].shape[0] - n*size
+    if m &lt;= 0:
+        raise Exception(&#34;no data left after removing ranges&#34;)
+
+    locs = np.round(np.sort(np.random.rand(n)) * m)
+    for i in range(len(locs)):
+        loc = int(locs[i] + i * size)
+        self.X[channel] = np.delete(self.X[channel], np.arange(loc, loc+size), 0)
+        self.Y[channel] = np.delete(self.Y[channel], np.arange(loc, loc+size), 0)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.remove_randomly"><code class="name flex">
+<span>def <span class="ident">remove_randomly</span></span>(<span>self, channel, n=None, pct=None)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Removes observations randomly on the whole range for a certain channel.</p>
+<p>Either a number observations are removed, or a percentage of the observations.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>channel</code></strong> :&ensp;<code>str</code>, <code>int</code></dt>
+<dd>Channel to set prediction, can be either a string
+with the name of the channel or a integer with the index.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Number of observations to randomly keep.</dd>
+<dt><strong><code>pct</code></strong> :&ensp;<code>float</code>[<code>0</code>, <code>1</code>], optional</dt>
+<dd>Percentage of observations to remove.</dd>
+</dl>
+<p>If neither 'n' or 'pct' are passed, 'n' is set to 0.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def remove_randomly(self, channel, n=None, pct=None):
+    &#34;&#34;&#34;
+    Removes observations randomly on the whole range for a certain channel.
+
+    Either a number observations are removed, or a percentage of the observations.
+
+    Args:
+        channel (str, int): Channel to set prediction, can be either a string
+            with the name of the channel or a integer with the index.
+
+        n (int, optional): Number of observations to randomly keep.
+
+        pct (float[0, 1], optional): Percentage of observations to remove.
+
+        If neither &#39;n&#39; or &#39;pct&#39; are passed, &#39;n&#39; is set to 0.
+    &#34;&#34;&#34;
+    channel = self.get_channel_index(channel)
+
+    if n == None:
+        if pct == None:
+            n = 0
+        else:
+            n = int((1-pct) * self.X[channel].shape[0])
+
+    idx = np.random.choice(self.X[channel].shape[0], n, replace=False)
+    self.X[channel] = np.delete(self.X[channel], idx, 0)
+    self.Y[channel] = np.delete(self.Y[channel], idx, 0)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.remove_range"><code class="name flex">
+<span>def <span class="ident">remove_range</span></span>(<span>self, channel, start=None, end=None)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Removes observations on a channel in the interval [start,end].</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>channel</code></strong> :&ensp;<code>str</code>, <code>int</code></dt>
+<dd>Channel to set prediction, can be either a string with the name
+of the channel or a integer with the index.</dd>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>Value in input space to erase from. Default to first
+value in training points.</dd>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>Value in input space to erase to. Default to last
+value in training points.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def remove_range(self, channel, start=None, end=None):
+    &#34;&#34;&#34;
+    Removes observations on a channel in the interval [start,end].
+    
+    Args:
+        channel (str, int): Channel to set prediction, can be either a string with the name
+            of the channel or a integer with the index.
+
+        start (float, optional): Value in input space to erase from. Default to first
+            value in training points.
+
+        end (float, optional): Value in input space to erase to. Default to last 
+            value in training points.
+
+    &#34;&#34;&#34;
+    if self.get_input_dims() != 1:
+        raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+    channel = self.get_channel_index(channel)
+
+    if start == None:
+        start = np.min(self.X[channel][:,0])
+    else:
+        start = self.formatters[channel][0].parse(start)
+    if end == None:
+        end = np.max(self.X[channel][:,0])
+    else:
+        end = self.formatters[channel][0].parse(end)
+
+    idx = np.where(np.logical_and(self.X[channel][:,0] &gt;= start, self.X[channel][:,0] &lt;= end))
+    self.X[channel] = np.delete(self.X[channel], idx, 0)
+    self.Y[channel] = np.delete(self.Y[channel], idx, 0)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.remove_relative_range"><code class="name flex">
+<span>def <span class="ident">remove_relative_range</span></span>(<span>self, channel, start, end)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Removes observations on a channel between start and end as a percentage of the
+number of observations.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>channel</code></strong> :&ensp;<code>str</code>, <code>int</code></dt>
+<dd>Channel to set prediction, can be either a string with the name
+of the channel or a integer with the index.</dd>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code> <code>in</code> [<code>0</code>, <code>1</code>]</dt>
+<dd>Start of prediction to remove.</dd>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code> <code>in</code> [<code>0</code>, <code>1</code>]</dt>
+<dd>End of prediction to remove.</dd>
+</dl>
+<p>Start and end are in the range [0,1], where 0 is the first observation,
+1 the last, and 0.5 the middle observation.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def remove_relative_range(self, channel, start, end):
+    &#34;&#34;&#34;
+    Removes observations on a channel between start and end as a percentage of the
+    number of observations.
+
+    Args:
+        channel (str, int): Channel to set prediction, can be either a string with the name
+            of the channel or a integer with the index.
+
+        start (float in [0, 1]): Start of prediction to remove.
+
+        end (float in [0, 1]): End of prediction to remove.
+
+    Start and end are in the range [0,1], where 0 is the first observation,
+    1 the last, and 0.5 the middle observation.
+    &#34;&#34;&#34;
+    if self.get_input_dims() != 1:
+        raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+    channel = self.get_channel_index(channel)
+    start = self.formatters[channel][0].parse(start)
+    end = self.formatters[channel][0].parse(end)
+
+    x_min = np.min(self.X[channel][:,0])
+    x_max = np.max(self.X[channel][:,0])
+    start = x_min + np.round(max(0.0, min(1.0, start)) * (x_max-x_min))
+    end = x_min + np.round(max(0.0, min(1.0, end)) * (x_max-x_min))
+
+    idx = np.where(np.logical_and(self.X[channel][:,0] &gt;= start, self.X[channel][:,0] &lt;= end))
+    self.X[channel] = np.delete(self.X[channel], idx, 0)
+    self.Y[channel] = np.delete(self.Y[channel], idx, 0)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.set_function"><code class="name flex">
+<span>def <span class="ident">set_function</span></span>(<span>self, channel, f)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Sets a (latent) function corresponding to the channel. The function must take one parameter X (shape (n,input_dims) and output Y (shape (n)).</p>
+<p>This is used for plotting functionality and is optional.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_function(self, channel, f):
+    &#34;&#34;&#34;
+    Sets a (latent) function corresponding to the channel. The function must take one parameter X (shape (n,input_dims) and output Y (shape (n)).
+
+    This is used for plotting functionality and is optional.
+    &#34;&#34;&#34;
+    channel = self.get_channel_index(channel)
+    self._check_function(f)
+    self.F[channel] = f</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.set_labels"><code class="name flex">
+<span>def <span class="ident">set_labels</span></span>(<span>self, channel, input, output)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_labels(self, channel, input, output):
+    if isinstance(input, str):
+        input = [input]
+    elif not isinstance(input, list) or not all(isinstance(item, str) for item in input):
+        raise Exception(&#34;input labels must be list of strings&#34;)
+    if not isinstance(output, str):
+        raise Exception(&#34;output label must be string&#34;)
+
+    if self.dims == None:
+        raise Exception(&#34;set data first before setting labels&#34;)
+    elif len(input) != self.dims:
+        raise Exception(&#34;input labels must have the same input dimensions as the data&#34;)
+
+    channel = self.get_channel_index(channel)
+    self.input_labels[channel] = input
+    self.output_labels[channel] = output</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.transform"><code class="name flex">
+<span>def <span class="ident">transform</span></span>(<span>self, channels, transformer)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def transform(self, channels, transformer):
+    if channels == &#39;*&#39;:
+        channels = range(self.get_output_dims())
+    elif not isinstance(channels, list):
+        channels = [channels]
+    for channel in channels:
+        t = transformer
+        if &#39;__init__&#39; in vars(transformer):
+            t = transformer(self, channel)
+
+        self.Y[channel] = t.forward(self.X[channel], self.Y[channel])
+        self.Y_all[channel] = t.forward(self.X_all[channel], self.Y_all[channel])
+        if channel in self.F:
+            f = self.F[channel]
+            self.F[channel] = lambda x: t.forward(x, f(x))</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.data.FormatDate"><code class="flex name class">
+<span>class <span class="ident">FormatDate</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class FormatDate:
+    def format(val):
+        return datetime.datetime.utcfromtimestamp(val*3600*24).strftime(&#39;%Y-%m-%d&#39;)
+
+    def parse(val, loc=None):
+        try:
+            return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()/3600/24
+        except ValueError:
+            if loc == None:
+                raise Exception(&#34;could not convert input to date&#34;)
+            else:
+                raise Exception(&#34;could not convert input to date at %s&#34; % (loc))
+
+    def parse_duration(val):
+        if isinstance(val, int):
+            return val
+        if isinstance(val, str):
+            return parse_duration(val)
+        raise Exception(&#34;could not convert input to duration&#34;)
+
+    def scale(maxfreq=None):
+        if maxfreq == &#39;year&#39;:
+            return 356.2425, &#39;year&#39;
+        if maxfreq == &#39;month&#39;:
+            return 30.4369, &#39;month&#39;
+        if maxfreq == None or maxfreq == &#39;day&#39;:
+            return 1, &#39;day&#39;
+        if maxfreq == &#39;hour&#39;:
+            return 1/24, &#39;hour&#39;
+        if maxfreq == &#39;minute&#39;:
+            return 1/24/60, &#39;minute&#39;
+        if maxfreq == &#39;second&#39;:
+            return 1/24/3600, &#39;second&#39;</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.FormatDate.format"><code class="name flex">
+<span>def <span class="ident">format</span></span>(<span>val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def format(val):
+    return datetime.datetime.utcfromtimestamp(val*3600*24).strftime(&#39;%Y-%m-%d&#39;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDate.parse"><code class="name flex">
+<span>def <span class="ident">parse</span></span>(<span>val, loc=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def parse(val, loc=None):
+    try:
+        return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()/3600/24
+    except ValueError:
+        if loc == None:
+            raise Exception(&#34;could not convert input to date&#34;)
+        else:
+            raise Exception(&#34;could not convert input to date at %s&#34; % (loc))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDate.parse_duration"><code class="name flex">
+<span>def <span class="ident">parse_duration</span></span>(<span>val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def parse_duration(val):
+    if isinstance(val, int):
+        return val
+    if isinstance(val, str):
+        return parse_duration(val)
+    raise Exception(&#34;could not convert input to duration&#34;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDate.scale"><code class="name flex">
+<span>def <span class="ident">scale</span></span>(<span>maxfreq=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def scale(maxfreq=None):
+    if maxfreq == &#39;year&#39;:
+        return 356.2425, &#39;year&#39;
+    if maxfreq == &#39;month&#39;:
+        return 30.4369, &#39;month&#39;
+    if maxfreq == None or maxfreq == &#39;day&#39;:
+        return 1, &#39;day&#39;
+    if maxfreq == &#39;hour&#39;:
+        return 1/24, &#39;hour&#39;
+    if maxfreq == &#39;minute&#39;:
+        return 1/24/60, &#39;minute&#39;
+    if maxfreq == &#39;second&#39;:
+        return 1/24/3600, &#39;second&#39;</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.data.FormatDateTime"><code class="flex name class">
+<span>class <span class="ident">FormatDateTime</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class FormatDateTime:
+    def format(val):
+        return datetime.datetime.utcfromtimestamp(val).strftime(&#39;%Y-%m-%d %H:%M&#39;)
+
+    def parse(val, loc=None):
+        try:
+            return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()
+        except ValueError:
+            if loc == None:
+                raise Exception(&#34;could not convert input to datetime&#34;)
+            else:
+                raise Exception(&#34;could not convert input to datetime at %s&#34; % (loc))
+
+    def parse_duration(val):
+        if isinstance(val, int):
+            return val
+        if isinstance(val, str):
+            return parse_duration(val)
+        raise Exception(&#34;could not convert input to duration&#34;)
+
+    def scale(maxfreq=None):
+        if maxfreq == &#39;year&#39;:
+            return 3600*24*356.2425, &#39;year&#39;
+        if maxfreq == &#39;month&#39;:
+            return 3600*24*30.4369, &#39;month&#39;
+        if maxfreq == &#39;day&#39;:
+            return 3600*24, &#39;day&#39;
+        if maxfreq == &#39;hour&#39;:
+            return 3600, &#39;hour&#39;
+        if maxfreq == &#39;minute&#39;:
+            return 60, &#39;minute&#39;
+        if maxfreq == None or maxfreq == &#39;second&#39;:
+            return 1, &#39;second&#39;</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.FormatDateTime.format"><code class="name flex">
+<span>def <span class="ident">format</span></span>(<span>val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def format(val):
+    return datetime.datetime.utcfromtimestamp(val).strftime(&#39;%Y-%m-%d %H:%M&#39;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDateTime.parse"><code class="name flex">
+<span>def <span class="ident">parse</span></span>(<span>val, loc=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def parse(val, loc=None):
+    try:
+        return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()
+    except ValueError:
+        if loc == None:
+            raise Exception(&#34;could not convert input to datetime&#34;)
+        else:
+            raise Exception(&#34;could not convert input to datetime at %s&#34; % (loc))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDateTime.parse_duration"><code class="name flex">
+<span>def <span class="ident">parse_duration</span></span>(<span>val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def parse_duration(val):
+    if isinstance(val, int):
+        return val
+    if isinstance(val, str):
+        return parse_duration(val)
+    raise Exception(&#34;could not convert input to duration&#34;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDateTime.scale"><code class="name flex">
+<span>def <span class="ident">scale</span></span>(<span>maxfreq=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def scale(maxfreq=None):
+    if maxfreq == &#39;year&#39;:
+        return 3600*24*356.2425, &#39;year&#39;
+    if maxfreq == &#39;month&#39;:
+        return 3600*24*30.4369, &#39;month&#39;
+    if maxfreq == &#39;day&#39;:
+        return 3600*24, &#39;day&#39;
+    if maxfreq == &#39;hour&#39;:
+        return 3600, &#39;hour&#39;
+    if maxfreq == &#39;minute&#39;:
+        return 60, &#39;minute&#39;
+    if maxfreq == None or maxfreq == &#39;second&#39;:
+        return 1, &#39;second&#39;</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.data.FormatNumber"><code class="flex name class">
+<span>class <span class="ident">FormatNumber</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class FormatNumber:
+    def format(val):
+        return val
+
+    def parse(val, loc=None):
+        try:
+            return float(val)
+        except ValueError:
+            if loc == None:
+                raise Exception(&#34;could not convert input to number&#34;)
+            else:
+                raise Exception(&#34;could not convert input to number at %s&#34; % (loc))
+
+    def parse_duration(val, loc=None):
+        return FormatNumber.parse(val, loc)
+
+    def scale(maxfreq=None):
+        return 1, None</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.FormatNumber.format"><code class="name flex">
+<span>def <span class="ident">format</span></span>(<span>val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def format(val):
+    return val</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatNumber.parse"><code class="name flex">
+<span>def <span class="ident">parse</span></span>(<span>val, loc=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def parse(val, loc=None):
+    try:
+        return float(val)
+    except ValueError:
+        if loc == None:
+            raise Exception(&#34;could not convert input to number&#34;)
+        else:
+            raise Exception(&#34;could not convert input to number at %s&#34; % (loc))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatNumber.parse_duration"><code class="name flex">
+<span>def <span class="ident">parse_duration</span></span>(<span>val, loc=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def parse_duration(val, loc=None):
+    return FormatNumber.parse(val, loc)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatNumber.scale"><code class="name flex">
+<span>def <span class="ident">scale</span></span>(<span>maxfreq=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def scale(maxfreq=None):
+    return 1, None</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.data.TransformDetrend"><code class="flex name class">
+<span>class <span class="ident">TransformDetrend</span></span>
+<span>(</span><span>data, channel)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class TransformDetrend:
+    def __init__(self, data, channel):
+        if data.get_input_dims() != 1:
+            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+        # TODO: do not assume order in X
+        self.coef = np.polyfit(data.X[channel][:,0], data.Y[channel], 1)
+
+    def forward(self, x, y):
+        return y-self.coef[1]-self.coef[0]*x[:,0]
+    
+    def backward(self, x, y):
+        return y+self.coef[1]+self.coef[0]*x[:,0]</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.TransformDetrend.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, x, y)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def backward(self, x, y):
+    return y+self.coef[1]+self.coef[0]*x[:,0]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformDetrend.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, x, y)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def forward(self, x, y):
+    return y-self.coef[1]-self.coef[0]*x[:,0]</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.data.TransformLog"><code class="flex name class">
+<span>class <span class="ident">TransformLog</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class TransformLog:
+    def forward(x, y):
+        return np.log(y)
+    
+    def backward(x, y):
+        return np.exp(y)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.TransformLog.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>x, y)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def backward(x, y):
+    return np.exp(y)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformLog.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>x, y)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def forward(x, y):
+    return np.log(y)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.data.TransformNormalize"><code class="flex name class">
+<span>class <span class="ident">TransformNormalize</span></span>
+<span>(</span><span>data, channel)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class TransformNormalize:
+    def __init__(self, data, channel):
+        self.ymin = np.inf
+        self.ymax = -np.inf
+        for channel in range(self.get_output_dims()):
+            self.ymin = np.amin([self.ymin, np.amin(self.Y[channel])])
+            self.ymax = np.amax([self.ymax, np.amax(self.Y[channel])])
+
+    def forward(self, x, y):
+        return (y-self.ymin)/(self.ymax-self.ymin)
+    
+    def backward(self, x, y):
+        return y*(self.ymax-self.ymin)+self.ymin</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.TransformNormalize.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, x, y)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def backward(self, x, y):
+    return y*(self.ymax-self.ymin)+self.ymin</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformNormalize.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, x, y)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def forward(self, x, y):
+    return (y-self.ymin)/(self.ymax-self.ymin)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="mogptk" href="index.html">mogptk</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="mogptk.data.parse_duration" href="#mogptk.data.parse_duration">parse_duration</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="mogptk.data.Data" href="#mogptk.data.Data">Data</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.Data.add" href="#mogptk.data.Data.add">add</a></code></li>
+<li><code><a title="mogptk.data.Data.aggregate" href="#mogptk.data.Data.aggregate">aggregate</a></code></li>
+<li><code><a title="mogptk.data.Data.copy" href="#mogptk.data.Data.copy">copy</a></code></li>
+<li><code><a title="mogptk.data.Data.filter" href="#mogptk.data.Data.filter">filter</a></code></li>
+<li><code><a title="mogptk.data.Data.get_all_obs" href="#mogptk.data.Data.get_all_obs">get_all_obs</a></code></li>
+<li><code><a title="mogptk.data.Data.get_bnse_estimation" href="#mogptk.data.Data.get_bnse_estimation">get_bnse_estimation</a></code></li>
+<li><code><a title="mogptk.data.Data.get_channel_index" href="#mogptk.data.Data.get_channel_index">get_channel_index</a></code></li>
+<li><code><a title="mogptk.data.Data.get_channel_size" href="#mogptk.data.Data.get_channel_size">get_channel_size</a></code></li>
+<li><code><a title="mogptk.data.Data.get_channel_sizes" href="#mogptk.data.Data.get_channel_sizes">get_channel_sizes</a></code></li>
+<li><code><a title="mogptk.data.Data.get_del_obs" href="#mogptk.data.Data.get_del_obs">get_del_obs</a></code></li>
+<li><code><a title="mogptk.data.Data.get_gm_estimation" href="#mogptk.data.Data.get_gm_estimation">get_gm_estimation</a></code></li>
+<li><code><a title="mogptk.data.Data.get_input_dims" href="#mogptk.data.Data.get_input_dims">get_input_dims</a></code></li>
+<li><code><a title="mogptk.data.Data.get_ls_estimation" href="#mogptk.data.Data.get_ls_estimation">get_ls_estimation</a></code></li>
+<li><code><a title="mogptk.data.Data.get_nyquist_estimation" href="#mogptk.data.Data.get_nyquist_estimation">get_nyquist_estimation</a></code></li>
+<li><code><a title="mogptk.data.Data.get_obs" href="#mogptk.data.Data.get_obs">get_obs</a></code></li>
+<li><code><a title="mogptk.data.Data.get_output_dims" href="#mogptk.data.Data.get_output_dims">get_output_dims</a></code></li>
+<li><code><a title="mogptk.data.Data.load_csv" href="#mogptk.data.Data.load_csv">load_csv</a></code></li>
+<li><code><a title="mogptk.data.Data.load_function" href="#mogptk.data.Data.load_function">load_function</a></code></li>
+<li><code><a title="mogptk.data.Data.plot" href="#mogptk.data.Data.plot">plot</a></code></li>
+<li><code><a title="mogptk.data.Data.plot_spectrum" href="#mogptk.data.Data.plot_spectrum">plot_spectrum</a></code></li>
+<li><code><a title="mogptk.data.Data.remove_random_ranges" href="#mogptk.data.Data.remove_random_ranges">remove_random_ranges</a></code></li>
+<li><code><a title="mogptk.data.Data.remove_randomly" href="#mogptk.data.Data.remove_randomly">remove_randomly</a></code></li>
+<li><code><a title="mogptk.data.Data.remove_range" href="#mogptk.data.Data.remove_range">remove_range</a></code></li>
+<li><code><a title="mogptk.data.Data.remove_relative_range" href="#mogptk.data.Data.remove_relative_range">remove_relative_range</a></code></li>
+<li><code><a title="mogptk.data.Data.set_function" href="#mogptk.data.Data.set_function">set_function</a></code></li>
+<li><code><a title="mogptk.data.Data.set_labels" href="#mogptk.data.Data.set_labels">set_labels</a></code></li>
+<li><code><a title="mogptk.data.Data.transform" href="#mogptk.data.Data.transform">transform</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.data.FormatDate" href="#mogptk.data.FormatDate">FormatDate</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.FormatDate.format" href="#mogptk.data.FormatDate.format">format</a></code></li>
+<li><code><a title="mogptk.data.FormatDate.parse" href="#mogptk.data.FormatDate.parse">parse</a></code></li>
+<li><code><a title="mogptk.data.FormatDate.parse_duration" href="#mogptk.data.FormatDate.parse_duration">parse_duration</a></code></li>
+<li><code><a title="mogptk.data.FormatDate.scale" href="#mogptk.data.FormatDate.scale">scale</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.data.FormatDateTime" href="#mogptk.data.FormatDateTime">FormatDateTime</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.FormatDateTime.format" href="#mogptk.data.FormatDateTime.format">format</a></code></li>
+<li><code><a title="mogptk.data.FormatDateTime.parse" href="#mogptk.data.FormatDateTime.parse">parse</a></code></li>
+<li><code><a title="mogptk.data.FormatDateTime.parse_duration" href="#mogptk.data.FormatDateTime.parse_duration">parse_duration</a></code></li>
+<li><code><a title="mogptk.data.FormatDateTime.scale" href="#mogptk.data.FormatDateTime.scale">scale</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.data.FormatNumber" href="#mogptk.data.FormatNumber">FormatNumber</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.FormatNumber.format" href="#mogptk.data.FormatNumber.format">format</a></code></li>
+<li><code><a title="mogptk.data.FormatNumber.parse" href="#mogptk.data.FormatNumber.parse">parse</a></code></li>
+<li><code><a title="mogptk.data.FormatNumber.parse_duration" href="#mogptk.data.FormatNumber.parse_duration">parse_duration</a></code></li>
+<li><code><a title="mogptk.data.FormatNumber.scale" href="#mogptk.data.FormatNumber.scale">scale</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.data.TransformDetrend" href="#mogptk.data.TransformDetrend">TransformDetrend</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.TransformDetrend.backward" href="#mogptk.data.TransformDetrend.backward">backward</a></code></li>
+<li><code><a title="mogptk.data.TransformDetrend.forward" href="#mogptk.data.TransformDetrend.forward">forward</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.data.TransformLog" href="#mogptk.data.TransformLog">TransformLog</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.TransformLog.backward" href="#mogptk.data.TransformLog.backward">backward</a></code></li>
+<li><code><a title="mogptk.data.TransformLog.forward" href="#mogptk.data.TransformLog.forward">forward</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.data.TransformNormalize" href="#mogptk.data.TransformNormalize">TransformNormalize</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.TransformNormalize.backward" href="#mogptk.data.TransformNormalize.backward">backward</a></code></li>
+<li><code><a title="mogptk.data.TransformNormalize.forward" href="#mogptk.data.TransformNormalize.forward">forward</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.6.3</a>.</p>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad()</script>
+</body>
+</html>

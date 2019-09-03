@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.6.3" />
+<title>mogptk.kernels.sm API documentation</title>
+<meta name="description" content="" />
+<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
+<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase;cursor:pointer}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>mogptk.kernels.sm</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python"># Copyright 2018 Srikanth Gadicherla @imsrgadich
+#
+# Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an &#34;AS IS&#34; BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import tensorflow as tf
+import numpy as np
+from gpflow.decors import params_as_tensors
+from gpflow.params import Parameter
+from gpflow.kernels import Kernel,RBF,Cosine
+from gpflow import transforms, autoflow,settings
+
+# TODO: means are spatial freqs, optimize by using angular freq
+# TODO: split out the Q part and use kernel + kernel + ... Q times?
+class SpectralMixture(Kernel):
+    def __init__(self, num_mixtures=1, mixture_weights=None, mixture_means=None, mixture_scales=None, input_dim=1, active_dims=None, name=None):
+        &#34;&#34;&#34;
+        - num_mixtures (int) is Q
+        - weight (np.ndarray) has shape (Q)
+        - mean (np.ndarray) has shape (Q, input_dim)
+        - variance (np.ndarray) has shape (input_dim, Q)
+        - input_dim (int) is the input dimension
+
+        References:
+        http://hips.seas.harvard.edu/files/wilson-extrapolation-icml-2013_0.pdf
+        http://www.cs.cmu.edu/~andrewgw/typo.pdf
+        &#34;&#34;&#34;
+        Q = num_mixtures
+
+        if mixture_weights is None:
+            mixture_weights = np.random.standard_normal((Q))
+        if mixture_means is None:
+            mixture_means = np.random.standard_normal((Q, input_dim))
+        if mixture_scales is None:
+            mixture_scales = np.random.standard_normal((input_dim, Q))
+
+        if mixture_weights.shape != (Q,):
+            raise Exception(&#34;bad weight shape %s&#34; % (mixture_weights.shape,))
+        if mixture_means.shape != (Q, input_dim):
+            raise Exception(&#34;bad mean shape %s&#34; % (mixture_means.shape,))
+        if mixture_scales.shape != (input_dim, Q):
+            raise Exception(&#34;bad variance shape %s&#34; % (mixture_scales.shape,))
+
+        super().__init__(input_dim, active_dims, name=name)
+        self.num_mixtures = Parameter(num_mixtures, trainable=False)
+        self.mixture_weights = Parameter(mixture_weights, transform=transforms.positive)
+        self.mixture_scales = Parameter(mixture_scales, transform=transforms.positive)
+        self.mixture_means = Parameter(mixture_means, transform=transforms.positive)
+
+    @params_as_tensors
+    def K(self, X1, X2=None):
+        if self.mixture_weights == None or self.mixture_means == None \
+                                      or self.mixture_scales == None:
+                raise RuntimeError(&#39;Parameters of spectral mixture kernel not initialized.\
+                                    Run `sm_kern_object.initialize_(train_x,train_y)`.&#39;)
+                # initialization can only be done by user as it needs target data as well.
+        if X2 is None:
+            X2 = X1
+
+        # get absolute distances
+        X1 = tf.transpose(tf.expand_dims(X1, -1), perm=[1, 0, 2])  # D x N1 x 1
+        X2 = tf.expand_dims(tf.transpose(X2, perm=[1, 0]), -2)  # D x 1 x N2
+
+        r = tf.abs(tf.subtract(X1, X2)) # D x N1 x N2
+
+
+        cos_term = tf.multiply(tf.tensordot(self.mixture_means, r, axes=((1),(0))), 2. * np.pi)
+        # num_mixtures x N1 x N2
+
+        scales_expand = tf.expand_dims(tf.expand_dims(self.mixture_scales, -2), -2)
+                                                                # D x 1 x 1 x num_mixtures
+        r_tile = tf.tile(tf.expand_dims(r,-1),(1,1,1,self.num_mixtures))
+                                                               # D x N1 x N2 x num_mixtures
+        exp_term = tf.multiply(tf.transpose(tf.reduce_sum(tf.square(tf.multiply(r_tile, scales_expand)), 0)\
+                                            ,perm=[2, 0, 1]), -2. * np.pi ** 2)
+                                                            # num_mixtures x N1 x N2
+
+        weights = tf.expand_dims(tf.expand_dims(self.mixture_weights,-1),-1)
+        weights = tf.tile(weights,(1,tf.shape(X1)[1],tf.shape(X2)[2]))
+        return tf.reduce_sum(tf.multiply(weights,tf.multiply(tf.exp(exp_term),tf.cos(cos_term))),0)
+
+
+    @params_as_tensors
+    def Kdiag(self, X):
+
+        # just the sum of weights. Weights represent the signal
+        # variance.
+        return tf.fill(tf.stack([tf.shape(X)[0]]),tf.reduce_sum(self.mixture_weights,0))
+
+
+def sm_init(train_x, train_y, num_mixtures):
+    &#34;&#34;&#34;
+    For initialization of the parameters for the Spectral Mixture
+    Kernel.
+    :param train_x: input data
+    :param train_y: target data
+    :param num_mixtures: number of mixtures
+    :return: param_name       dimensions
+             ----------       ----------
+             mixture weights| num_mixtures x 1
+             mixture means  | num_mixtures x input_dim
+             mixture scales | input_dim x num_mixtures
+    &#34;&#34;&#34;
+    assert isinstance(num_mixtures, int)
+    assert train_x.shape[0] == train_y.shape[0]
+
+    input_dim = np.shape(train_x)[1]  # type: int
+
+    if np.size(train_x.shape) == 1:
+        train_x = np.expand_dims(train_x ,-1)
+
+    if np.size(train_x.shape) == 2:
+        train_x = np.expand_dims(train_x ,0)
+
+    train_x_sort = np.copy(train_x)
+    train_x_sort.sort(axis=1)
+
+    max_dist = np.squeeze(train_x_sort[: ,-1, :] - train_x_sort[: ,0, :])
+
+    min_dist_sort = np.squeeze(np.abs(train_x_sort[: ,1:, :] - train_x_sort[: ,:-1, :]))
+    min_dist = np.zeros([input_dim] ,dtype=float)
+
+    # min of each data column could be zero. Hence, picking minimum which is not zero
+    for ind in np.arange(input_dim):
+        try:
+            min_dist[ind] = min_dist_sort[np.amin(np.where(min_dist_sort[:,ind] &gt; 0), axis=1), ind]
+        except:
+            min_dist[ind] = min_dist_sort[np.amin(np.where(min_dist_sort &gt; 0), axis=1)]
+
+
+    # for random restarts during batch processing. We need to initialize at every
+    # batch. Lock the seed here.
+    seed= np.random.randint(low=1 ,high=2**31)
+    np.random.seed(seed)
+
+    # Inverse of lengthscales should be drawn from truncated Gaussian |N(0, max_dist^2)|
+    # dim: Q x D
+    # mixture_scales = tf.multiply(,tf.cast(max_dist,dtype=tf.float32)**(-1)
+
+    mixture_scales = (np.multiply(np.abs(np.random.randn(num_mixtures,input_dim)),
+                                         np.expand_dims(max_dist ,axis=0)))**(-1)
+
+    # Draw means from Unif(0, 0.5 / minimum distance between two points), dim: Q x D
+    # the nyquist is half of maximum frequency. TODO
+    nyquist = np.divide(0.5,min_dist)
+    mixture_means = np.multiply(np.random.rand(num_mixtures,input_dim),\
+                                                       np.expand_dims(nyquist,0))
+    mixture_means[0,:] = 0
+
+    # Mixture weights should be roughly the std  of the y values divided by
+    # the number of mixtures
+    # dim: 1 x Q
+    mixture_weights= np.divide(np.std(train_y,axis=0),num_mixtures)*np.ones(num_mixtures)
+
+    return mixture_weights, mixture_means, mixture_scales</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="mogptk.kernels.sm.sm_init"><code class="name flex">
+<span>def <span class="ident">sm_init</span></span>(<span>train_x, train_y, num_mixtures)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>For initialization of the parameters for the Spectral Mixture
+Kernel.
+:param train_x: input data
+:param train_y: target data
+:param num_mixtures: number of mixtures
+:return: param_name
+dimensions
+----------
+----------
+mixture weights| num_mixtures x 1
+mixture means
+| num_mixtures x input_dim
+mixture scales | input_dim x num_mixtures</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def sm_init(train_x, train_y, num_mixtures):
+    &#34;&#34;&#34;
+    For initialization of the parameters for the Spectral Mixture
+    Kernel.
+    :param train_x: input data
+    :param train_y: target data
+    :param num_mixtures: number of mixtures
+    :return: param_name       dimensions
+             ----------       ----------
+             mixture weights| num_mixtures x 1
+             mixture means  | num_mixtures x input_dim
+             mixture scales | input_dim x num_mixtures
+    &#34;&#34;&#34;
+    assert isinstance(num_mixtures, int)
+    assert train_x.shape[0] == train_y.shape[0]
+
+    input_dim = np.shape(train_x)[1]  # type: int
+
+    if np.size(train_x.shape) == 1:
+        train_x = np.expand_dims(train_x ,-1)
+
+    if np.size(train_x.shape) == 2:
+        train_x = np.expand_dims(train_x ,0)
+
+    train_x_sort = np.copy(train_x)
+    train_x_sort.sort(axis=1)
+
+    max_dist = np.squeeze(train_x_sort[: ,-1, :] - train_x_sort[: ,0, :])
+
+    min_dist_sort = np.squeeze(np.abs(train_x_sort[: ,1:, :] - train_x_sort[: ,:-1, :]))
+    min_dist = np.zeros([input_dim] ,dtype=float)
+
+    # min of each data column could be zero. Hence, picking minimum which is not zero
+    for ind in np.arange(input_dim):
+        try:
+            min_dist[ind] = min_dist_sort[np.amin(np.where(min_dist_sort[:,ind] &gt; 0), axis=1), ind]
+        except:
+            min_dist[ind] = min_dist_sort[np.amin(np.where(min_dist_sort &gt; 0), axis=1)]
+
+
+    # for random restarts during batch processing. We need to initialize at every
+    # batch. Lock the seed here.
+    seed= np.random.randint(low=1 ,high=2**31)
+    np.random.seed(seed)
+
+    # Inverse of lengthscales should be drawn from truncated Gaussian |N(0, max_dist^2)|
+    # dim: Q x D
+    # mixture_scales = tf.multiply(,tf.cast(max_dist,dtype=tf.float32)**(-1)
+
+    mixture_scales = (np.multiply(np.abs(np.random.randn(num_mixtures,input_dim)),
+                                         np.expand_dims(max_dist ,axis=0)))**(-1)
+
+    # Draw means from Unif(0, 0.5 / minimum distance between two points), dim: Q x D
+    # the nyquist is half of maximum frequency. TODO
+    nyquist = np.divide(0.5,min_dist)
+    mixture_means = np.multiply(np.random.rand(num_mixtures,input_dim),\
+                                                       np.expand_dims(nyquist,0))
+    mixture_means[0,:] = 0
+
+    # Mixture weights should be roughly the std  of the y values divided by
+    # the number of mixtures
+    # dim: 1 x Q
+    mixture_weights= np.divide(np.std(train_y,axis=0),num_mixtures)*np.ones(num_mixtures)
+
+    return mixture_weights, mixture_means, mixture_scales</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="mogptk.kernels.sm.SpectralMixture"><code class="flex name class">
+<span>class <span class="ident">SpectralMixture</span></span>
+<span>(</span><span>num_mixtures=1, mixture_weights=None, mixture_means=None, mixture_scales=None, input_dim=1, active_dims=None, name=None)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>The basic kernel class. Handles input_dim and active dims, and provides a
+generic '_slice' function to implement them.</p>
+<ul>
+<li>num_mixtures (int) is Q</li>
+<li>weight (np.ndarray) has shape (Q)</li>
+<li>mean (np.ndarray) has shape (Q, input_dim)</li>
+<li>variance (np.ndarray) has shape (input_dim, Q)</li>
+<li>input_dim (int) is the input dimension</li>
+</ul>
+<p>References:
+<a href="http://hips.seas.harvard.edu/files/wilson-extrapolation-icml-2013_0.pdf">http://hips.seas.harvard.edu/files/wilson-extrapolation-icml-2013_0.pdf</a>
+<a href="http://www.cs.cmu.edu/~andrewgw/typo.pdf">http://www.cs.cmu.edu/~andrewgw/typo.pdf</a></p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class SpectralMixture(Kernel):
+    def __init__(self, num_mixtures=1, mixture_weights=None, mixture_means=None, mixture_scales=None, input_dim=1, active_dims=None, name=None):
+        &#34;&#34;&#34;
+        - num_mixtures (int) is Q
+        - weight (np.ndarray) has shape (Q)
+        - mean (np.ndarray) has shape (Q, input_dim)
+        - variance (np.ndarray) has shape (input_dim, Q)
+        - input_dim (int) is the input dimension
+
+        References:
+        http://hips.seas.harvard.edu/files/wilson-extrapolation-icml-2013_0.pdf
+        http://www.cs.cmu.edu/~andrewgw/typo.pdf
+        &#34;&#34;&#34;
+        Q = num_mixtures
+
+        if mixture_weights is None:
+            mixture_weights = np.random.standard_normal((Q))
+        if mixture_means is None:
+            mixture_means = np.random.standard_normal((Q, input_dim))
+        if mixture_scales is None:
+            mixture_scales = np.random.standard_normal((input_dim, Q))
+
+        if mixture_weights.shape != (Q,):
+            raise Exception(&#34;bad weight shape %s&#34; % (mixture_weights.shape,))
+        if mixture_means.shape != (Q, input_dim):
+            raise Exception(&#34;bad mean shape %s&#34; % (mixture_means.shape,))
+        if mixture_scales.shape != (input_dim, Q):
+            raise Exception(&#34;bad variance shape %s&#34; % (mixture_scales.shape,))
+
+        super().__init__(input_dim, active_dims, name=name)
+        self.num_mixtures = Parameter(num_mixtures, trainable=False)
+        self.mixture_weights = Parameter(mixture_weights, transform=transforms.positive)
+        self.mixture_scales = Parameter(mixture_scales, transform=transforms.positive)
+        self.mixture_means = Parameter(mixture_means, transform=transforms.positive)
+
+    @params_as_tensors
+    def K(self, X1, X2=None):
+        if self.mixture_weights == None or self.mixture_means == None \
+                                      or self.mixture_scales == None:
+                raise RuntimeError(&#39;Parameters of spectral mixture kernel not initialized.\
+                                    Run `sm_kern_object.initialize_(train_x,train_y)`.&#39;)
+                # initialization can only be done by user as it needs target data as well.
+        if X2 is None:
+            X2 = X1
+
+        # get absolute distances
+        X1 = tf.transpose(tf.expand_dims(X1, -1), perm=[1, 0, 2])  # D x N1 x 1
+        X2 = tf.expand_dims(tf.transpose(X2, perm=[1, 0]), -2)  # D x 1 x N2
+
+        r = tf.abs(tf.subtract(X1, X2)) # D x N1 x N2
+
+
+        cos_term = tf.multiply(tf.tensordot(self.mixture_means, r, axes=((1),(0))), 2. * np.pi)
+        # num_mixtures x N1 x N2
+
+        scales_expand = tf.expand_dims(tf.expand_dims(self.mixture_scales, -2), -2)
+                                                                # D x 1 x 1 x num_mixtures
+        r_tile = tf.tile(tf.expand_dims(r,-1),(1,1,1,self.num_mixtures))
+                                                               # D x N1 x N2 x num_mixtures
+        exp_term = tf.multiply(tf.transpose(tf.reduce_sum(tf.square(tf.multiply(r_tile, scales_expand)), 0)\
+                                            ,perm=[2, 0, 1]), -2. * np.pi ** 2)
+                                                            # num_mixtures x N1 x N2
+
+        weights = tf.expand_dims(tf.expand_dims(self.mixture_weights,-1),-1)
+        weights = tf.tile(weights,(1,tf.shape(X1)[1],tf.shape(X2)[2]))
+        return tf.reduce_sum(tf.multiply(weights,tf.multiply(tf.exp(exp_term),tf.cos(cos_term))),0)
+
+
+    @params_as_tensors
+    def Kdiag(self, X):
+
+        # just the sum of weights. Weights represent the signal
+        # variance.
+        return tf.fill(tf.stack([tf.shape(X)[0]]),tf.reduce_sum(self.mixture_weights,0))</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>gpflow.kernels.Kernel</li>
+<li>gpflow.params.parameterized.Parameterized</li>
+<li>gpflow.core.node.Node</li>
+<li>gpflow.core.parentable.Parentable</li>
+<li>gpflow.core.compilable.ICompilable</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.kernels.sm.SpectralMixture.K"><code class="name flex">
+<span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">@params_as_tensors
+def K(self, X1, X2=None):
+    if self.mixture_weights == None or self.mixture_means == None \
+                                  or self.mixture_scales == None:
+            raise RuntimeError(&#39;Parameters of spectral mixture kernel not initialized.\
+                                Run `sm_kern_object.initialize_(train_x,train_y)`.&#39;)
+            # initialization can only be done by user as it needs target data as well.
+    if X2 is None:
+        X2 = X1
+
+    # get absolute distances
+    X1 = tf.transpose(tf.expand_dims(X1, -1), perm=[1, 0, 2])  # D x N1 x 1
+    X2 = tf.expand_dims(tf.transpose(X2, perm=[1, 0]), -2)  # D x 1 x N2
+
+    r = tf.abs(tf.subtract(X1, X2)) # D x N1 x N2
+
+
+    cos_term = tf.multiply(tf.tensordot(self.mixture_means, r, axes=((1),(0))), 2. * np.pi)
+    # num_mixtures x N1 x N2
+
+    scales_expand = tf.expand_dims(tf.expand_dims(self.mixture_scales, -2), -2)
+                                                            # D x 1 x 1 x num_mixtures
+    r_tile = tf.tile(tf.expand_dims(r,-1),(1,1,1,self.num_mixtures))
+                                                           # D x N1 x N2 x num_mixtures
+    exp_term = tf.multiply(tf.transpose(tf.reduce_sum(tf.square(tf.multiply(r_tile, scales_expand)), 0)\
+                                        ,perm=[2, 0, 1]), -2. * np.pi ** 2)
+                                                        # num_mixtures x N1 x N2
+
+    weights = tf.expand_dims(tf.expand_dims(self.mixture_weights,-1),-1)
+    weights = tf.tile(weights,(1,tf.shape(X1)[1],tf.shape(X2)[2]))
+    return tf.reduce_sum(tf.multiply(weights,tf.multiply(tf.exp(exp_term),tf.cos(cos_term))),0)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.kernels.sm.SpectralMixture.Kdiag"><code class="name flex">
+<span>def <span class="ident">Kdiag</span></span>(<span>self, X)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">@params_as_tensors
+def Kdiag(self, X):
+
+    # just the sum of weights. Weights represent the signal
+    # variance.
+    return tf.fill(tf.stack([tf.shape(X)[0]]),tf.reduce_sum(self.mixture_weights,0))</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="mogptk.kernels" href="index.html">mogptk.kernels</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="mogptk.kernels.sm.sm_init" href="#mogptk.kernels.sm.sm_init">sm_init</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="mogptk.kernels.sm.SpectralMixture" href="#mogptk.kernels.sm.SpectralMixture">SpectralMixture</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.kernels.sm.SpectralMixture.K" href="#mogptk.kernels.sm.SpectralMixture.K">K</a></code></li>
+<li><code><a title="mogptk.kernels.sm.SpectralMixture.Kdiag" href="#mogptk.kernels.sm.SpectralMixture.Kdiag">Kdiag</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.6.3</a>.</p>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad()</script>
+</body>
+</html>

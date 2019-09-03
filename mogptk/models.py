@@ -288,7 +288,7 @@ class MOSM(model):
         means = self._get_param_across('mean')
         weights = self._get_param_across('magnitude')**2
         scales = self._get_param_across('variance')
-        plot_spectrum(means, scales, weights=weights, nyquist=nyquist)
+        plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=self.data.channel_names)
 
     def info(self):
         for channel in range(self.data.get_output_dims()):
