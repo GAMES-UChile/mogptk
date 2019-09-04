@@ -9,6 +9,9 @@ import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
 import re
+
+# TODO: Data class contains one channel only, an array of data classes can be passed to MOGPs
+# TODO: don't keep X_all and Y_all, but keep the indices of points that are picked
     
 duration_regex = re.compile(
     r'^((?P<years>[\.\d]+?)y)?'
@@ -158,8 +161,7 @@ class Data:
     def __init__(self):
         self.X = [] # for each channel the shape is (n, input_dims) with n the number of data points
         self.Y = [] # for each channel the shape is (n) with n the number of data points
-        self.X_all = []
-        self.Y_all = []
+        self.mask = [] # boolean mask of data points that are used for training
         self.F = {}
         self.dims = None
         self.channel_names = []
@@ -184,8 +186,6 @@ class Data:
         return {
             'X': np.array(self.X),
             'Y': np.array(self.Y),
-            'X_all': np.array(self.X_all),
-            'Y_all': np.array(self.Y_all),
             'F': F,
             'dims': self.dims,
             'channel_names': self.channel_names,
@@ -195,8 +195,6 @@ class Data:
         self = Data()
         self.X = list(d['X'])
         self.Y = list(d['Y'])
-        self.X_all = list(d['X_all'])
-        self.Y_all = list(d['Y_all'])
 
         F = d['F']
         for f in F:
@@ -357,10 +355,15 @@ class Data:
         if len(formatters) != X.shape[1]:
             raise Exception("formatters must be defined for all input dimensions")
 
+        # sort on X for single input dimensions
+        if X.shape[1] == 1:
+            ind = np.argsort(X, axis=0)
+            X = np.take_along_axis(X, ind, axis=0)
+            Y = np.take_along_axis(Y, ind[:,0], axis=0)
+
         self.X.append(X)
         self.Y.append(Y)
-        self.X_all.append(X.copy())
-        self.Y_all.append(Y.copy())
+        self.mask.append([True] * X.shape[0])
         self.channel_names.append(name)
         self.formatters.append(formatters)
         self.input_labels.append([''] * X.shape[1])
@@ -430,7 +433,6 @@ class Data:
                 t = transformer(self, channel)
 
             self.Y[channel] = t.forward(self.X[channel], self.Y[channel])
-            self.Y_all[channel] = t.forward(self.X_all[channel], self.Y_all[channel])
             if channel in self.F:
                 f = self.F[channel]
                 self.F[channel] = lambda x: t.forward(x, f(x))
@@ -438,30 +440,42 @@ class Data:
     def filter(self, channels, start, end):
         if self.get_input_dims() != 1:
             raise Exception("can only filter on one dimensional input data")
-
-        start = self.formatters[channel][0].parse(start)
-        end = self.formatters[channel][0].parse(end)
         
         if channels == '*':
             channels = range(self.get_output_dims())
         elif not isinstance(channels, list):
             channels = [channels]
         for channel in channels:
-            pass # TODO
+            cstart = self.formatters[channel][0].parse(start)
+            cend = self.formatters[channel][0].parse(end)
+            ind = np.where((self.X[channel][:,0] >= cstart) & (self.X[channel][:,0] < cend))
 
+            self.X[channel] = self.X[channel][ind,0]
+            self.Y[channel] = self.Y[channel][ind]
+            # TODO: update mask
 
-    def aggregate(self, channels, duration):
+    def aggregate(self, channels, duration, f=np.sum):
         if self.get_input_dims() != 1:
             raise Exception("can only aggregate on one dimensional input data")
-
-        duration = self.formatters[channel][0].parse_duration(duration)
         
         if channels == '*':
             channels = range(self.get_output_dims())
         elif not isinstance(channels, list):
             channels = [channels]
         for channel in channels:
-            pass # TODO
+            start = self.X[channel][0,0]
+            end = self.X[channel][-1,0]
+            step = self.formatters[channel][0].parse_duration(duration)
+
+            X = np.arange(start, end+step, step)
+            Y = np.empty((len(X)))
+            for i in range(len(X)):
+                ind = np.where((self.X[channel][:,0] >= X[i]) & (self.X[channel][:,0] < X[i]+step))
+                Y[i] = f(self.Y[channel][ind])
+
+            self.X[channel] = np.expand_dims(X, 1)
+            self.Y[channel] = Y
+            # TODO: update mask
 
     ################################################################
 
@@ -520,32 +534,21 @@ class Data:
         Returns the observations for a given channel.
         """
         channel = self.get_channel_index(channel)
-        return self.X[channel], self.Y[channel]
+        return self.X[channel][self.mask,:], self.Y[channel][self.mask]
     
     def get_all_obs(self, channel):
         """
         Returns all observations (including removed observations) for a given channel.
         """
         channel = self.get_channel_index(channel)
-        return self.X_all[channel], self.Y_all[channel]
+        return self.X[channel], self.Y[channel]
 
     def get_del_obs(self, channel):
         """
         Returns the removed observations for a given channel.
         """
         channel = self.get_channel_index(channel)
-
-        js = []
-        for i in range(len(self.X[channel])):
-            x = self.X[channel][i]
-            y = self.Y[channel][i]
-            j = np.where(self.X_all[channel] == x)[0]
-            if len(j) == 1 and self.Y_all[channel][j[0]] == y:
-                js.append(j[0])
-
-        X_removed = np.delete(self.X_all[channel], js, axis=0)
-        Y_removed = np.delete(self.Y_all[channel], js, axis=0)
-        return X_removed, Y_removed
+        return self.X[channel][~self.mask,:], self.Y[channel][~self.mask]
 
     ################################################################
     
@@ -574,8 +577,7 @@ class Data:
                 n = int((1-pct) * self.X[channel].shape[0])
 
         idx = np.random.choice(self.X[channel].shape[0], n, replace=False)
-        self.X[channel] = np.delete(self.X[channel], idx, 0)
-        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
+        self.mask[channel][idx] = False
     
     def remove_range(self, channel, start=None, end=None):
         """
@@ -607,8 +609,7 @@ class Data:
             end = self.formatters[channel][0].parse(end)
 
         idx = np.where(np.logical_and(self.X[channel][:,0] >= start, self.X[channel][:,0] <= end))
-        self.X[channel] = np.delete(self.X[channel], idx, 0)
-        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
+        self.mask[channel][idx] = False
     
     def remove_relative_range(self, channel, start, end):
         """
@@ -639,8 +640,7 @@ class Data:
         end = x_min + np.round(max(0.0, min(1.0, end)) * (x_max-x_min))
 
         idx = np.where(np.logical_and(self.X[channel][:,0] >= start, self.X[channel][:,0] <= end))
-        self.X[channel] = np.delete(self.X[channel], idx, 0)
-        self.Y[channel] = np.delete(self.Y[channel], idx, 0)
+        self.mask[channel][idx] = False
 
     def remove_random_ranges(self, channel, n, size):
         """
@@ -665,8 +665,8 @@ class Data:
         locs = np.round(np.sort(np.random.rand(n)) * m)
         for i in range(len(locs)):
             loc = int(locs[i] + i * size)
-            self.X[channel] = np.delete(self.X[channel], np.arange(loc, loc+size), 0)
-            self.Y[channel] = np.delete(self.Y[channel], np.arange(loc, loc+size), 0)
+            idx = np.arange(loc, loc+size)
+            self.mask[channel][idx] = False
 
     ################################################################
 
