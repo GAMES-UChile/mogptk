@@ -141,16 +141,16 @@ class SM(model):
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
-        -'random' is taking the inverse of lengthscales drawn from truncated Gaussian
+        'random' is taking the inverse of lengthscales drawn from truncated Gaussian
             N(0, max_dist^2), the means drawn from
             Unif(0, 0.5 / minimum distance between two points),
             and the mixture weights by taking the stdv of the y values divided by the
             number of mixtures.
 
-        -'LS' is using Lomb Scargle periodogram for estimating the PSD,
+        'LS' is using Lomb Scargle periodogram for estimating the PSD,
             and using the first Q peaks as the means and mixture weights.
 
-        -'BNSE' third is using the BNSE (Tobar 2018) to estimate the PSD 
+        'BNSE' third is using the BNSE (Tobar 2018) to estimate the PSD 
             and use the first Q peaks as the means and mixture weights.
 
         *** Only for single input dimension for each channel.
