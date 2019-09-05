@@ -350,8 +350,8 @@ class CSM(model):
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
         """
         data = self.data.copy()
-        data.normalize()
-        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
+        # data.normalize()
+        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
         
         input_dims = self.data.get_input_dims()
         output_dims = self.data.get_output_dims()
@@ -428,8 +428,8 @@ class SM_LMC(model):
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
         """
         data = self.data.copy()
-        data.normalize()
-        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
+        # data.normalize()
+        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
 
         input_dims = self.data.get_input_dims()
         output_dims = self.data.get_output_dims()

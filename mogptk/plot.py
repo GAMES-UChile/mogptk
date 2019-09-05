@@ -66,3 +66,64 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
     if show:
         plt.show()
 
+
+def plot_prediction(model, grid, figsize=(12, 8), ylims=None, names=None, title=''):
+
+    """
+    Plot training points, all data and prediction for all channels.
+
+    Args:
+
+
+    Returns:
+
+    """
+    # get data
+    x_train = model.data.X
+    y_train = model.data.Y
+    x_all = model.data.X_all
+    y_all = model.data.Y_all
+    x_pred = {i:array for i, array in enumerate(model.data.X_all)}
+
+    n_dim = model.data.get_output_dims()
+
+    if (grid[0] * grid[1]) < n_dim:
+        raise Exception('Grid not big enough for all channels')
+
+    # predict with model
+    mean_pred, var_pred = model.predict(x_pred)
+
+    # create plot
+    f, axarr = plt.subplots(grid[0], grid[1], sharex=True, figsize=figsize)
+
+    axarr = axarr.reshape(-1)
+
+    # plot
+    for i in range(n_dim):
+        axarr[i].plot(x_train[i][:, 0], y_train[i], '.k', label='Train', )
+        axarr[i].plot(x_all[i][:, 0], y_all[i], '--', label='Test', c='gray')
+        
+        axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label='Pred', c=sns.color_palette()[i%10])
+        axarr[i].fill_between(x_pred[i][:, 0].reshape(-1),
+                              mean_pred[i] + 2 * np.sqrt(var_pred[i]),
+                              mean_pred[i] - 2 * np.sqrt(var_pred[i]),
+                              label='95% c.i',
+                              color=sns.color_palette()[i%10],
+                              alpha=0.4)
+        
+        axarr[i].legend(ncol=4, loc='upper center')
+        axarr[i].set_xlim(-1, x_all[i][-1])
+
+        # set channels name
+        if names is not None:
+            axarr[i].set_title(names[i])
+        else:
+            axarr[i].set_title('Channel' + str(i))
+
+        # set y lims
+        if ylims is not None:
+            axarr[i].set_xlim(ylims[i]) 
+        
+    plt.suptitle(title, y=1.02)
+    plt.tight_layout()
+
