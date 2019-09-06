@@ -28,6 +28,14 @@ class model:
     """
 
     def __init__(self, name, data, Q):
+        if not isinstance(data, list):
+            data = [data]
+
+        input_dims = data[0].get_input_dims()
+        for channel in data:
+            if channel.get_input_dims() != input_dims:
+                raise Exception("all data channels must have the same amount of input dimensions (for now)")
+
         self.name = name
         self.data = data
         self.model = None
@@ -35,17 +43,19 @@ class model:
         self.params = []
         self.fixed_params = []
 
+    # overridden by specific models
     def _kernel(self):
-        # overridden by specific models
         raise Exception("kernel not specified")
     
-    def _transform_data(self, x, y):
-        # overridden by specific models
+    # overridden by specific models
+    def _transform_data(self):
         raise Exception("kernel not specified")
 
+    # overridden by specific models
     def info(self):
         pass
 
+    # overridden by specific models
     def plot(self):
         pass
 
@@ -56,6 +66,12 @@ class model:
                 q = int(names[3])
                 name = names[4]
                 self.params[q][name] = val
+
+    def get_input_dims(self):
+        return self.data[0].get_input_dims()
+
+    def get_output_dims(self):
+        return len(self.data)
 
     def get_params(self):
         """
@@ -114,7 +130,9 @@ class model:
 
         self.model.mogptk_type = self.__class__.__name__
         self.model.mogptk_name = self.name
-        self.model.mogptk_data = self.data._encode()
+        self.model.mogptk_data = []
+        for channel in self.data:
+            self.model.mogptk_data.append(channel._encode())
         self.model.mogptk_Q = self.Q
         self.model.mogptk_params = self.params
         self.model.mogptk_fixed_params = self.fixed_params
@@ -124,7 +142,7 @@ class model:
                 gpflow.Saver().save(filename, self.model)
 
     def build(self, kind='full'):
-        x, y = self._transform_data(self.data.X, self.data.Y)
+        x, y = self._transform_data([channel.X for channel in self.data], [channel.Y for channel in self.data])
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
@@ -215,7 +233,7 @@ class model:
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self, X):
+    def predict(self):
         """
         Predict with model.
 
@@ -233,25 +251,17 @@ class model:
         if self.model == None:
             raise Exception("build (and train) the model before doing predictions")
 
-        # TODO: extract X from dict or from Prediction
-
+        x = self._transform_data([channel.X_pred for channel in self.data])
         with self.graph.as_default():
             with self.session.as_default():
-                x, _ = self._transform_data(X)
                 mu, var = self.model.predict_f(x)
 
-        n = 0
-        for channel in X:
-            n += X[channel].shape[0]
-        
         i = 0
         Y_mu = {}
         Y_var = {}
-        for channel in X:
-            n = X[channel].shape[0]
+        for channel in self.data:
+            n = channel.X_pred.shape[0]
             if n != 0:
-                Y_mu[channel] = mu[i:i+n].reshape(1, -1)[0]
-                Y_var[channel] = var[i:i+n].reshape(1, -1)[0]
+                channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
+                channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
                 i += n
-        #TODO: set mu and var in Prediction, or create a new one? Prediction should be reusable, or easily copyable
-        return Y_mu, Y_var
