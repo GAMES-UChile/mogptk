@@ -195,7 +195,7 @@ def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
         random (boolean): Select points randomly between start and end (defaults to False).
 
     Returns:
-        Data: Date.
+        Data: The dataset.
 
     Examples:
         >>> LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -247,7 +247,7 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
-        Data: Data.
+        Data: The dataset.
 
     Examples:
         >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
@@ -569,8 +569,8 @@ class Data:
         Returns the observations.
 
         Returns:
-            np.array: X data of shape (n,input_dims).
-            np.array: Y data of shape (n).
+            ndarray: X data of shape (n,input_dims).
+            ndarray: Y data of shape (n).
         """
         return self.X[self.mask,:], self.Y[self.mask]
     
@@ -579,8 +579,8 @@ class Data:
         Returns all observations (including removed observations).
 
         Returns:
-            np.array: X data of shape (n,input_dims).
-            np.array: Y data of shape (n).
+            ndarray: X data of shape (n,input_dims).
+            ndarray: Y data of shape (n).
         """
         return self.X, self.Y
 
@@ -589,8 +589,8 @@ class Data:
         Returns the removed observations.
 
         Returns:
-            np.ndarray: X data of shape (n,input_dims).
-            np.ndarray: Y data of shape (n).
+            ndarray: X data of shape (n,input_dims).
+            ndarray: Y data of shape (n).
         """
         return self.X[~self.mask,:], self.Y[~self.mask]
 
@@ -787,7 +787,7 @@ class Data:
         Estimate nyquist frequency by taking 0.5/(minimum distance of points).
 
         Returns:
-            np.ndarray: Nyquist frequency array of shape (input_dims).
+            ndarray: Nyquist frequency array of shape (input_dims).
         """
         input_dims = self.get_input_dims()
 
@@ -807,8 +807,8 @@ class Data:
             Q (int): Number of peaks to find, defaults to 1.
 
         Returns:
-            np.ndarray: Frequency array of shape (input_dims,Q).
-            np.ndarray: Amplitude array of shape (input_dims,Q).
+            ndarray: Frequency array of shape (input_dims,Q).
+            ndarray: Amplitude array of shape (input_dims,Q).
         """
         input_dims = self.get_input_dims()
 
@@ -855,8 +855,8 @@ class Data:
             n (int): Number of points to use for Lomb Scargle, defaults to 50000.
 
         Returns:
-            np.ndarray: Frequency array of shape (input_dims,Q).
-            np.ndarray: Amplitude array of shape (input_dims,Q).
+            ndarray: Frequency array of shape (input_dims,Q).
+            ndarray: Amplitude array of shape (input_dims,Q).
         """
         input_dims = self.get_input_dims()
 

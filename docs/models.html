@@ -162,16 +162,16 @@ class SM(model):
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
-        -&#39;random&#39; is taking the inverse of lengthscales drawn from truncated Gaussian
+        &#39;random&#39; is taking the inverse of lengthscales drawn from truncated Gaussian
             N(0, max_dist^2), the means drawn from
             Unif(0, 0.5 / minimum distance between two points),
             and the mixture weights by taking the stdv of the y values divided by the
             number of mixtures.
 
-        -&#39;LS&#39; is using Lomb Scargle periodogram for estimating the PSD,
+        &#39;LS&#39; is using Lomb Scargle periodogram for estimating the PSD,
             and using the first Q peaks as the means and mixture weights.
 
-        -&#39;BNSE&#39; third is using the BNSE (Tobar 2018) to estimate the PSD 
+        &#39;BNSE&#39; third is using the BNSE (Tobar 2018) to estimate the PSD 
             and use the first Q peaks as the means and mixture weights.
 
         *** Only for single input dimension for each channel.
@@ -367,8 +367,8 @@ class CSM(model):
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
         &#34;&#34;&#34;
         data = self.data.copy()
-        data.normalize()
-        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
+        # data.normalize()
+        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
         
         input_dims = self.data.get_input_dims()
         output_dims = self.data.get_output_dims()
@@ -445,8 +445,8 @@ class SM_LMC(model):
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
         &#34;&#34;&#34;
         data = self.data.copy()
-        data.normalize()
-        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
+        # data.normalize()
+        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
 
         input_dims = self.data.get_input_dims()
         output_dims = self.data.get_output_dims()
@@ -736,8 +736,8 @@ its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)</p></secti
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
         &#34;&#34;&#34;
         data = self.data.copy()
-        data.normalize()
-        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
+        # data.normalize()
+        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
         
         input_dims = self.data.get_input_dims()
         output_dims = self.data.get_output_dims()
@@ -810,8 +810,8 @@ its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)</p></secti
     its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
     &#34;&#34;&#34;
     data = self.data.copy()
-    data.normalize()
-    all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
+    # data.normalize()
+    all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
     
     input_dims = self.data.get_input_dims()
     output_dims = self.data.get_output_dims()
@@ -1111,16 +1111,16 @@ directly. 'full' estimates the spectral mean, variance and weights with GP-SM.</
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
-        -&#39;random&#39; is taking the inverse of lengthscales drawn from truncated Gaussian
+        &#39;random&#39; is taking the inverse of lengthscales drawn from truncated Gaussian
             N(0, max_dist^2), the means drawn from
             Unif(0, 0.5 / minimum distance between two points),
             and the mixture weights by taking the stdv of the y values divided by the
             number of mixtures.
 
-        -&#39;LS&#39; is using Lomb Scargle periodogram for estimating the PSD,
+        &#39;LS&#39; is using Lomb Scargle periodogram for estimating the PSD,
             and using the first Q peaks as the means and mixture weights.
 
-        -&#39;BNSE&#39; third is using the BNSE (Tobar 2018) to estimate the PSD 
+        &#39;BNSE&#39; third is using the BNSE (Tobar 2018) to estimate the PSD 
             and use the first Q peaks as the means and mixture weights.
 
         *** Only for single input dimension for each channel.
@@ -1200,14 +1200,14 @@ directly. 'full' estimates the spectral mean, variance and weights with GP-SM.</
 <dd>
 <section class="desc"><p>Initialize parameters of kernel from data using different methods.</p>
 <p>Kernel parameters can be initialized using 3 heuristics using the train data:</p>
-<p>-'random' is taking the inverse of lengthscales drawn from truncated Gaussian
+<p>'random' is taking the inverse of lengthscales drawn from truncated Gaussian
 N(0, max_dist^2), the means drawn from
 Unif(0, 0.5 / minimum distance between two points),
 and the mixture weights by taking the stdv of the y values divided by the
 number of mixtures.</p>
-<p>-'LS' is using Lomb Scargle periodogram for estimating the PSD,
+<p>'LS' is using Lomb Scargle periodogram for estimating the PSD,
 and using the first Q peaks as the means and mixture weights.</p>
-<p>-'BNSE' third is using the BNSE (Tobar 2018) to estimate the PSD
+<p>'BNSE' third is using the BNSE (Tobar 2018) to estimate the PSD
 and use the first Q peaks as the means and mixture weights.</p>
 <p>*** Only for single input dimension for each channel.</p></section>
 <details class="source">
@@ -1218,16 +1218,16 @@ and use the first Q peaks as the means and mixture weights.</p>
 
     Kernel parameters can be initialized using 3 heuristics using the train data:
 
-    -&#39;random&#39; is taking the inverse of lengthscales drawn from truncated Gaussian
+    &#39;random&#39; is taking the inverse of lengthscales drawn from truncated Gaussian
         N(0, max_dist^2), the means drawn from
         Unif(0, 0.5 / minimum distance between two points),
         and the mixture weights by taking the stdv of the y values divided by the
         number of mixtures.
 
-    -&#39;LS&#39; is using Lomb Scargle periodogram for estimating the PSD,
+    &#39;LS&#39; is using Lomb Scargle periodogram for estimating the PSD,
         and using the first Q peaks as the means and mixture weights.
 
-    -&#39;BNSE&#39; third is using the BNSE (Tobar 2018) to estimate the PSD 
+    &#39;BNSE&#39; third is using the BNSE (Tobar 2018) to estimate the PSD 
         and use the first Q peaks as the means and mixture weights.
 
     *** Only for single input dimension for each channel.
@@ -1319,8 +1319,8 @@ and use the first Q peaks as the means and mixture weights.</p>
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
         &#34;&#34;&#34;
         data = self.data.copy()
-        data.normalize()
-        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
+        # data.normalize()
+        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
 
         input_dims = self.data.get_input_dims()
         output_dims = self.data.get_output_dims()
@@ -1392,8 +1392,8 @@ its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)</p></secti
     its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
     &#34;&#34;&#34;
     data = self.data.copy()
-    data.normalize()
-    all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot)
+    # data.normalize()
+    all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
 
     input_dims = self.data.get_input_dims()
     output_dims = self.data.get_output_dims()

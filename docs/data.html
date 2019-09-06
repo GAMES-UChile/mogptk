@@ -219,7 +219,7 @@ def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
         random (boolean): Select points randomly between start and end (defaults to False).
 
     Returns:
-        Data: Date.
+        Data: The dataset.
 
     Examples:
         &gt;&gt;&gt; LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
@@ -271,7 +271,7 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
-        Data: Data.
+        Data: The dataset.
 
     Examples:
         &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, name=&#39;Gold&#39;, format={&#39;Date&#39;: FormatDate}, filter=lambda row: row[&#39;Region&#39;] == &#39;Europe&#39;)
@@ -593,8 +593,8 @@ class Data:
         Returns the observations.
 
         Returns:
-            np.array: X data of shape (n,input_dims).
-            np.array: Y data of shape (n).
+            ndarray: X data of shape (n,input_dims).
+            ndarray: Y data of shape (n).
         &#34;&#34;&#34;
         return self.X[self.mask,:], self.Y[self.mask]
     
@@ -603,8 +603,8 @@ class Data:
         Returns all observations (including removed observations).
 
         Returns:
-            np.array: X data of shape (n,input_dims).
-            np.array: Y data of shape (n).
+            ndarray: X data of shape (n,input_dims).
+            ndarray: Y data of shape (n).
         &#34;&#34;&#34;
         return self.X, self.Y
 
@@ -613,8 +613,8 @@ class Data:
         Returns the removed observations.
 
         Returns:
-            np.ndarray: X data of shape (n,input_dims).
-            np.ndarray: Y data of shape (n).
+            ndarray: X data of shape (n,input_dims).
+            ndarray: Y data of shape (n).
         &#34;&#34;&#34;
         return self.X[~self.mask,:], self.Y[~self.mask]
 
@@ -811,7 +811,7 @@ class Data:
         Estimate nyquist frequency by taking 0.5/(minimum distance of points).
 
         Returns:
-            np.ndarray: Nyquist frequency array of shape (input_dims).
+            ndarray: Nyquist frequency array of shape (input_dims).
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -831,8 +831,8 @@ class Data:
             Q (int): Number of peaks to find, defaults to 1.
 
         Returns:
-            np.ndarray: Frequency array of shape (input_dims,Q).
-            np.ndarray: Amplitude array of shape (input_dims,Q).
+            ndarray: Frequency array of shape (input_dims,Q).
+            ndarray: Amplitude array of shape (input_dims,Q).
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -879,8 +879,8 @@ class Data:
             n (int): Number of points to use for Lomb Scargle, defaults to 50000.
 
         Returns:
-            np.ndarray: Frequency array of shape (input_dims,Q).
-            np.ndarray: Amplitude array of shape (input_dims,Q).
+            ndarray: Frequency array of shape (input_dims,Q).
+            ndarray: Amplitude array of shape (input_dims,Q).
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -1119,7 +1119,7 @@ def _normalize_input_dims(x, input_dims):
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></strong></dt>
-<dd>Data.</dd>
+<dd>The dataset.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; LoadCSV('gold.csv', 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
@@ -1144,7 +1144,7 @@ def _normalize_input_dims(x, input_dims):
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
-        Data: Data.
+        Data: The dataset.
 
     Examples:
         &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, name=&#39;Gold&#39;, format={&#39;Date&#39;: FormatDate}, filter=lambda row: row[&#39;Region&#39;] == &#39;Europe&#39;)
@@ -1234,7 +1234,7 @@ def _normalize_input_dims(x, input_dims):
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></strong></dt>
-<dd>Date.</dd>
+<dd>The dataset.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -1258,7 +1258,7 @@ def _normalize_input_dims(x, input_dims):
         random (boolean): Select points randomly between start and end (defaults to False).
 
     Returns:
-        Data: Date.
+        Data: The dataset.
 
     Examples:
         &gt;&gt;&gt; LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
@@ -1584,8 +1584,8 @@ def _normalize_input_dims(x, input_dims):
         Returns the observations.
 
         Returns:
-            np.array: X data of shape (n,input_dims).
-            np.array: Y data of shape (n).
+            ndarray: X data of shape (n,input_dims).
+            ndarray: Y data of shape (n).
         &#34;&#34;&#34;
         return self.X[self.mask,:], self.Y[self.mask]
     
@@ -1594,8 +1594,8 @@ def _normalize_input_dims(x, input_dims):
         Returns all observations (including removed observations).
 
         Returns:
-            np.array: X data of shape (n,input_dims).
-            np.array: Y data of shape (n).
+            ndarray: X data of shape (n,input_dims).
+            ndarray: Y data of shape (n).
         &#34;&#34;&#34;
         return self.X, self.Y
 
@@ -1604,8 +1604,8 @@ def _normalize_input_dims(x, input_dims):
         Returns the removed observations.
 
         Returns:
-            np.ndarray: X data of shape (n,input_dims).
-            np.ndarray: Y data of shape (n).
+            ndarray: X data of shape (n,input_dims).
+            ndarray: Y data of shape (n).
         &#34;&#34;&#34;
         return self.X[~self.mask,:], self.Y[~self.mask]
 
@@ -1802,7 +1802,7 @@ def _normalize_input_dims(x, input_dims):
         Estimate nyquist frequency by taking 0.5/(minimum distance of points).
 
         Returns:
-            np.ndarray: Nyquist frequency array of shape (input_dims).
+            ndarray: Nyquist frequency array of shape (input_dims).
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -1822,8 +1822,8 @@ def _normalize_input_dims(x, input_dims):
             Q (int): Number of peaks to find, defaults to 1.
 
         Returns:
-            np.ndarray: Frequency array of shape (input_dims,Q).
-            np.ndarray: Amplitude array of shape (input_dims,Q).
+            ndarray: Frequency array of shape (input_dims,Q).
+            ndarray: Amplitude array of shape (input_dims,Q).
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -1870,8 +1870,8 @@ def _normalize_input_dims(x, input_dims):
             n (int): Number of points to use for Lomb Scargle, defaults to 50000.
 
         Returns:
-            np.ndarray: Frequency array of shape (input_dims,Q).
-            np.ndarray: Amplitude array of shape (input_dims,Q).
+            ndarray: Frequency array of shape (input_dims,Q).
+            ndarray: Amplitude array of shape (input_dims,Q).
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -2050,7 +2050,7 @@ def _normalize_input_dims(x, input_dims):
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.data.Data.aggregate"><code class="name flex">
-<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=<function mean at 0x7f0c41a5bf28>)</span>
+<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=<function mean at 0x7f1f156a0f28>)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset. For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format with y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second. For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months. If using a number, be aware that when using FormatDate your X data is denoted per day, while with FormatDateTime it is per second.</p>
@@ -2175,8 +2175,12 @@ def _normalize_input_dims(x, input_dims):
 <dd>
 <section class="desc"><p>Returns all observations (including removed observations).</p>
 <h2 id="returns">Returns</h2>
-<p>np.array: X data of shape (n,input_dims).
-np.array: Y data of shape (n).</p></section>
+<dl>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>X data of shape (n,input_dims).</dd>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Y data of shape (n).</dd>
+</dl></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_all_obs(self):
@@ -2184,8 +2188,8 @@ np.array: Y data of shape (n).</p></section>
     Returns all observations (including removed observations).
 
     Returns:
-        np.array: X data of shape (n,input_dims).
-        np.array: Y data of shape (n).
+        ndarray: X data of shape (n,input_dims).
+        ndarray: Y data of shape (n).
     &#34;&#34;&#34;
     return self.X, self.Y</code></pre>
 </details>
@@ -2201,8 +2205,12 @@ np.array: Y data of shape (n).</p></section>
 <dd>Number of peaks to find, defaults to 1.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>np.ndarray: Frequency array of shape (input_dims,Q).
-np.ndarray: Amplitude array of shape (input_dims,Q).</p></section>
+<dl>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Frequency array of shape (input_dims,Q).</dd>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Amplitude array of shape (input_dims,Q).</dd>
+</dl></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1):
@@ -2213,8 +2221,8 @@ np.ndarray: Amplitude array of shape (input_dims,Q).</p></section>
         Q (int): Number of peaks to find, defaults to 1.
 
     Returns:
-        np.ndarray: Frequency array of shape (input_dims,Q).
-        np.ndarray: Amplitude array of shape (input_dims,Q).
+        ndarray: Frequency array of shape (input_dims,Q).
+        ndarray: Amplitude array of shape (input_dims,Q).
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
 
@@ -2259,8 +2267,12 @@ np.ndarray: Amplitude array of shape (input_dims,Q).</p></section>
 <dd>
 <section class="desc"><p>Returns the removed observations.</p>
 <h2 id="returns">Returns</h2>
-<p>np.ndarray: X data of shape (n,input_dims).
-np.ndarray: Y data of shape (n).</p></section>
+<dl>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>X data of shape (n,input_dims).</dd>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Y data of shape (n).</dd>
+</dl></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_del_obs(self):
@@ -2268,8 +2280,8 @@ np.ndarray: Y data of shape (n).</p></section>
     Returns the removed observations.
 
     Returns:
-        np.ndarray: X data of shape (n,input_dims).
-        np.ndarray: Y data of shape (n).
+        ndarray: X data of shape (n,input_dims).
+        ndarray: Y data of shape (n).
     &#34;&#34;&#34;
     return self.X[~self.mask,:], self.Y[~self.mask]</code></pre>
 </details>
@@ -2309,8 +2321,12 @@ np.ndarray: Y data of shape (n).</p></section>
 <dd>Number of points to use for Lomb Scargle, defaults to 50000.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>np.ndarray: Frequency array of shape (input_dims,Q).
-np.ndarray: Amplitude array of shape (input_dims,Q).</p></section>
+<dl>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Frequency array of shape (input_dims,Q).</dd>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Amplitude array of shape (input_dims,Q).</dd>
+</dl></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_ls_estimation(self, Q=1, n=50000):
@@ -2322,8 +2338,8 @@ np.ndarray: Amplitude array of shape (input_dims,Q).</p></section>
         n (int): Number of points to use for Lomb Scargle, defaults to 50000.
 
     Returns:
-        np.ndarray: Frequency array of shape (input_dims,Q).
-        np.ndarray: Amplitude array of shape (input_dims,Q).
+        ndarray: Frequency array of shape (input_dims,Q).
+        ndarray: Amplitude array of shape (input_dims,Q).
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
 
@@ -2363,7 +2379,10 @@ np.ndarray: Amplitude array of shape (input_dims,Q).</p></section>
 <dd>
 <section class="desc"><p>Estimate nyquist frequency by taking 0.5/(minimum distance of points).</p>
 <h2 id="returns">Returns</h2>
-<p>np.ndarray: Nyquist frequency array of shape (input_dims).</p></section>
+<dl>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Nyquist frequency array of shape (input_dims).</dd>
+</dl></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_nyquist_estimation(self):
@@ -2371,7 +2390,7 @@ np.ndarray: Amplitude array of shape (input_dims,Q).</p></section>
     Estimate nyquist frequency by taking 0.5/(minimum distance of points).
 
     Returns:
-        np.ndarray: Nyquist frequency array of shape (input_dims).
+        ndarray: Nyquist frequency array of shape (input_dims).
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
 
@@ -2390,8 +2409,12 @@ np.ndarray: Amplitude array of shape (input_dims,Q).</p></section>
 <dd>
 <section class="desc"><p>Returns the observations.</p>
 <h2 id="returns">Returns</h2>
-<p>np.array: X data of shape (n,input_dims).
-np.array: Y data of shape (n).</p></section>
+<dl>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>X data of shape (n,input_dims).</dd>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Y data of shape (n).</dd>
+</dl></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_obs(self):
@@ -2399,8 +2422,8 @@ np.array: Y data of shape (n).</p></section>
     Returns the observations.
 
     Returns:
-        np.array: X data of shape (n,input_dims).
-        np.array: Y data of shape (n).
+        ndarray: X data of shape (n,input_dims).
+        ndarray: Y data of shape (n).
     &#34;&#34;&#34;
     return self.X[self.mask,:], self.Y[self.mask]</code></pre>
 </details>
