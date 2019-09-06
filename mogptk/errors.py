@@ -75,3 +75,67 @@ def errors(*models, **kwargs):
     else:
         return errors
 
+
+def test_errors(*models, x_test, y_test, raw_errors=False):
+    """
+    Return test errors given a model and test set.
+
+    The function assumes all models have been trained and all models
+    share equal number of inputs and outputs (channels).
+
+    Args:
+        models (mogptk.Model): Trained model to evaluate, can be more than one
+
+        x_test (list): List of numpy arrays with the inputs of the test set.
+            Length is the output dimension.
+
+        y_test (list): List of numpy array with the true ouputs of test set.
+            Length is the output dimension.
+
+        raw_errors (bool): If true returns for each model a list is returned
+            with the errors of each channel (y_true - y_pred).
+            If false returns for each model a list of 3 arrays with the
+            mean absolute error (MAE), mean absolute porcentual error (MAPE)
+            and root mean squared error (RMSE) for each channel.
+
+    Returns:
+        List with length equal to the number of models, each element
+        contains a list of length of the output dim and each
+        element is an array with the errors.
+
+    Example:
+        Given model1, model2, x_test, y_test of correct format.
+
+        >>> errors = mogptk.test_errors(model1, model2, x_test, y_test)
+        >>> errors[i][j]
+        numpy array with errors from model 'i' at channel 'j'
+    """
+
+    error_per_model = []
+
+    for model in models:
+
+        n_channels = model.data.get_output_dims()
+
+        error_per_channel = []
+
+        # predict with model
+        y_pred, var_pred = model.predict(x_test)
+
+        for i in range(n_channels):
+            errors = y_test[i] - y_pred[i]
+            # if only error values
+            if raw_errors:
+                error_per_channel.append(errors)
+
+            # composite errors
+            else:
+                mae = np.abs(errors).mean()
+                mape = (np.abs(errors) / y_test[i] * 100).mean()
+                rmse = (np.sqrt(errors**2)).mean()
+                error_per_channel.append(np.array([mae, mape, rmse]))
+
+        error_per_model.append(error_per_channel)
+
+    return error_per_model
+
