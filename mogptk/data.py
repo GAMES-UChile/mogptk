@@ -23,7 +23,7 @@ duration_regex = re.compile(
 def _parse_duration_to_sec(s):
     x = duration_regex.match(s)
     if x == None:
-        raise Exception('duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd')
+        raise ValueError('duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd')
 
     sec = 0
     matches = x.groups()[1::2]
@@ -47,48 +47,48 @@ class FormatNumber:
     """
     FormatNumber is the default formatter and takes regular floating point values as input.
     """
-    def format(val):
+    def _format(val):
         return val
 
-    def parse(val, loc=None):
+    def _parse(val, loc=None):
         try:
             return float(val)
         except ValueError:
             if loc == None:
-                raise Exception("could not convert input to number")
+                raise ValueError("could not convert input to number")
             else:
-                raise Exception("could not convert input to number at %s" % (loc))
+                raise ValueError("could not convert input to number at %s" % (loc))
 
-    def parse_duration(val, loc=None):
-        return FormatNumber.parse(val, loc)
+    def _parse_duration(val, loc=None):
+        return FormatNumber._parse(val, loc)
 
-    def scale(maxfreq=None):
+    def _scale(maxfreq=None):
         return 1, None
 
 class FormatDate:
     """
     FormatDate is a formatter that takes date values as input, such as '2019-03-01', and stores values internally as days since 1970-01-01.
     """
-    def format(val):
+    def _format(val):
         return datetime.datetime.utcfromtimestamp(val*3600*24).strftime('%Y-%m-%d')
 
-    def parse(val, loc=None):
+    def _parse(val, loc=None):
         try:
             return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()/3600/24
         except ValueError:
             if loc == None:
-                raise Exception("could not convert input to date")
+                raise ValueError("could not convert input to date")
             else:
-                raise Exception("could not convert input to date at %s" % (loc))
+                raise ValueError("could not convert input to date at %s" % (loc))
 
-    def parse_duration(val):
+    def _parse_duration(val):
         if isinstance(val, int):
             return val
         if isinstance(val, str):
             return _parse_duration_to_sec(val)/24/3600
-        raise Exception("could not convert input to duration")
+        raise ValueError("could not convert input to duration")
 
-    def scale(maxfreq=None):
+    def _scale(maxfreq=None):
         if maxfreq == 'year':
             return 356.2425, 'year'
         if maxfreq == 'month':
@@ -106,26 +106,26 @@ class FormatDateTime:
     """
     FormatDateTime is a formatter that takes date and time values as input, such as '2019-03-01 12:30', and stores values internally as seconds since 1970-01-01.
     """
-    def format(val):
+    def _format(val):
         return datetime.datetime.utcfromtimestamp(val).strftime('%Y-%m-%d %H:%M')
 
-    def parse(val, loc=None):
+    def _parse(val, loc=None):
         try:
             return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()
         except ValueError:
             if loc == None:
-                raise Exception("could not convert input to datetime")
+                raise ValueError("could not convert input to datetime")
             else:
-                raise Exception("could not convert input to datetime at %s" % (loc))
+                raise ValueError("could not convert input to datetime at %s" % (loc))
 
-    def parse_duration(val):
+    def _parse_duration(val):
         if isinstance(val, int):
             return val
         if isinstance(val, str):
             return _parse_duration_to_sec(val)
-        raise Exception("could not convert input to duration")
+        raise ValueError("could not convert input to duration")
 
-    def scale(maxfreq=None):
+    def _scale(maxfreq=None):
         if maxfreq == 'year':
             return 3600*24*356.2425, 'year'
         if maxfreq == 'month':
@@ -149,10 +149,10 @@ class TransformDetrend:
 
         self.coef = np.polyfit(data.X[:,0], data.Y, 1)
 
-    def forward(self, x, y):
+    def _forward(self, x, y):
         return y-self.coef[1]-self.coef[0]*x[:,0]
     
-    def backward(self, x, y):
+    def _backward(self, x, y):
         return y+self.coef[1]+self.coef[0]*x[:,0]
 
 class TransformNormalize:
@@ -163,20 +163,20 @@ class TransformNormalize:
         self.ymin = np.amin([self.ymin, np.amin(self.Y)])
         self.ymax = np.amax([self.ymax, np.amax(self.Y)])
 
-    def forward(self, x, y):
+    def _forward(self, x, y):
         return (y-self.ymin)/(self.ymax-self.ymin)
     
-    def backward(self, x, y):
+    def _backward(self, x, y):
         return y*(self.ymax-self.ymin)+self.ymin
 
 class TransformLog:
     """
     TransformLog is a transformer that takes the log of the data. Make sure there is no negative data.
     """
-    def forward(x, y):
+    def _forward(x, y):
         return np.log(y)
     
-    def backward(x, y):
+    def _backward(x, y):
         return np.exp(y)
 
 def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
@@ -186,20 +186,27 @@ def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
     The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.
 
     Args:
-        f (function): function taking x with shape (n,input_dims) and returning shape (n) as y
-        n (int): number of data points to pick between start and end
-        start (float, list): define start of interval
-        end (float, list): define end of interval
-        var (float, optional): variance added to the output
-        name (str, optional): name of dataset
-        random (boolean): select points randomly between start and end (defaults to False)
+        f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
+        n (int): Number of data points to pick between start and end.
+        start (float,list): Define start of interval.
+        end (float,list): Define end of interval.
+        var (float,optional): Variance added to the output.
+        name (str,optional): Name of dataset.
+        random (boolean): Select points randomly between start and end (defaults to False).
+
+    Returns:
+        Data: Date.
+
+    Examples:
+        >>> LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
+        <mogptk.data.Data at ...>
     """
     # TODO: make work for multiple input dimensions, take n as a list
 
     start = _normalize_input_dims(start, None)
     input_dims = len(start)
     if input_dims != 1:
-        raise Exception("can only load function with one dimensional input data")
+        raise ValueError("can only load function with one dimensional input data")
     
     end = _normalize_input_dims(end, input_dims)
     _check_function(f, input_dims)
@@ -208,9 +215,9 @@ def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
     for i in range(input_dims):
         if start[i] >= end[i]:
             if input_dims == 1:
-                raise Exception("start must be lower than end")
+                raise ValueError("start must be lower than end")
             else:
-                raise Exception("start must be lower than end for input dimension %d" % (i))
+                raise ValueError("start must be lower than end for input dimension %d" % (i))
 
         if random:
             x[:,i] = np.random.uniform(start[i], end[i], n)
@@ -231,12 +238,23 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
     LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_col the name of the output column. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
 
     Args:
-        filename (str): CSV filename
-        x_cols (str, list): name or names of X column(s) in CSV
-        y_col (str): name of Y column in CSV
-        name (str, optional): name of dataset
-        format (dict, optional): dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
-        filter (function, optional): function that takes row as argument, and returns True to keep the record.
+        filename (str): CSV filename.
+        x_cols (str, list): Name or names of X column(s) in CSV.
+        y_col (str): Name of Y column in CSV.
+        name (str,optional): Name of dataset.
+        format (dict,optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function,optional): Function that takes row as argument, and returns True to keep the record.
+        **kwargs: Additional keyword arguments for csv.DictReader.
+
+    Returns:
+        Data: Data.
+
+    Examples:
+        >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
+        <mogptk.data.Data at ...>
+
+        >>> LoadCSV('gold.csv', 'Date', 'Price', delimiter=' ', quotechar='|')
+        <mogptk.data.Data at ...>
     """
 
     input_dims = 1
@@ -245,10 +263,9 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
     elif isinstance(x_cols, str):
         x_cols = [x_cols]
     else:
-        raise Exception("x_cols must be string or list of strings")
-    
+        raise ValueError("x_cols must be string or list of strings")
     if not isinstance(y_col, str):
-        raise Exception("y_col must be string")
+        raise ValueError("y_col must be string")
 
     with open(filename, mode='r') as csv_file:
         rows = list(csv.DictReader(csv_file, **kwargs))
@@ -256,9 +273,9 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         def _to_number(val, row, col):
             try:
                 if col in format:
-                    return format[col].parse(val, loc="row %d column %s" % (row+1, col)), True
+                    return format[col]._parse(val, loc="row %d column %s" % (row+1, col)), True
                 else:
-                    return FormatNumber.parse(val, loc="row %d column %s" % (row+1, col)), True
+                    return FormatNumber._parse(val, loc="row %d column %s" % (row+1, col)), True
             except:
                 return np.nan, False
         
@@ -294,26 +311,19 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         return data
 
 class Data:
-    """
-    Class that holds all the observations and latent functions.
-
-    It has functionality to add or remove observations in several ways,
-    for example removing data ranges from the observations to simulate sensor failure.
-    """
     def __init__(self, X, Y, name=None, format=None):
         """
-        Create a new data channel with data set by X (input) and Y (output).
-
-
-        Optionally, you can set a name to identify the channel and use that in
-        any other function that requires a channel identifier.
-        X and Y need to be of equal length. If X and Y are two dimensional,
-        the second dimension will determine the input dimensionality of the channel.
+        Data class holds all the observations, latent functions and prediction data. This class takes the data raw, but you can load data also conveniently using LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model. Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
 
         Args:
-            X (list, ndarray):
-            Y (list. ndarray):
-            name (str, optional):
+            X (list,ndarray): Independent variable data of shape (n) or (n,input_dims).
+            Y (list,ndarray): Dependent variable data of shape (n).
+            name (str,optional): Name of dataset.
+            format (list,optional): List of formatters (such as FormatNumber (default), FormatDate, FormetDateTime, ...) for each input dimension.
+
+        Examples:
+            >>> Data([0, 1, 2, 3], [4, 3, 5, 6])
+            <mogptk.data.Data at ...>
         """
 
         if isinstance(X, list):
@@ -321,16 +331,16 @@ class Data:
         if isinstance(Y, list):
             Y = np.array(Y)
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
-            raise Exception("X and Y must be lists or numpy arrays")
+            raise ValueError("X and Y must be lists or numpy arrays")
 
         if X.ndim == 1:
             X = X.reshape(-1, 1)
         if X.ndim != 2:
-            raise Exception("X must be either a one or two dimensional array of data")
+            raise ValueError("X must be either a one or two dimensional array of data")
         if Y.ndim != 1:
-            raise Exception("Y must be a one dimensional array of data")
+            raise ValueError("Y must be a one dimensional array of data")
         if X.shape[0] != Y.shape[0]:
-            raise Exception("X and Y must be of the same length")
+            raise ValueError("X and Y must be of the same length")
         
         n = X.shape[0]
         input_dims = X.shape[1]
@@ -340,7 +350,7 @@ class Data:
         if not isinstance(format, list):
             format = [format]
         if len(format) != input_dims:
-            raise Exception("format must be defined for all input dimensions")
+            raise ValueError("format must be defined for all input dimensions")
 
         # sort on X for single input dimensions
         if input_dims == 1:
@@ -363,7 +373,7 @@ class Data:
         self.transformations = []
 
     def __str__(self):
-        return "x=%s; y=%s" % (self.X.tolist(), self.Y.tolist())
+        return "x=%s\ny=%s" % (self.X.tolist(), self.Y.tolist())
 
     def _encode(self):
         F = self.F
@@ -407,49 +417,100 @@ class Data:
         return self
 
     def set_name(self, name):
+        """
+        Set name for dataset.
+
+        Args:
+            name (str): Name of dataset.
+        """
         self.name = name
 
     def set_labels(self, input, output):
+        """
+        Set axes labels for plots.
+
+        Args:
+            input (list,str): Independent variable name for each input dimension.
+            output (str): Dependent variable name for output dimension.
+
+        Examples:
+            >>> data.set_labels(['X', 'Y'], 'Cd')
+        """
         if isinstance(input, str):
             input = [input]
         elif not isinstance(input, list) or not all(isinstance(item, str) for item in input):
-            raise Exception("input labels must be list of strings")
+            raise ValueError("input labels must be list of strings")
         if not isinstance(output, str):
-            raise Exception("output label must be string")
+            raise ValueError("output label must be string")
         if len(input) != self.get_input_dims():
-            raise Exception("input labels must have the same input dimensions as the data")
+            raise ValueError("input labels must have the same input dimensions as the data")
 
         self.input_label = input
         self.output_label = output
 
     def set_function(self, f):
         """
-        Sets a (latent) function corresponding to the channel. The function must take one parameter X (shape (n,input_dims) and output Y (shape (n)).
+        Set a (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
+    
+        The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.
 
-        This is used for plotting functionality and is optional.
+        Args:
+            f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
+
+        Examples:
+            >>> data.set_function(lambda x: np.sin(3*x[:,0])
         """
         _check_function(f, self.get_input_dims())
         self.F = f
 
     def copy(self):
+        """
+        Make a deep copy of the dataset.
+
+        Returns:
+            Data: Data.
+        """
         return copy.deepcopy(self)
 
     def transform(self, transformer):
+        """
+        Transform the data by using one of the provided transformers, such as TransformDetrend, TransformNormalize, TransformLog, ...
+
+        Args:
+            transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
+
+        Examples:
+            >>> data.transform(TransformDetrend)
+        """
         t = transformer
         if '__init__' in vars(transformer):
             t = transformer(self)
 
-        self.Y = t.forward(self.X, self.Y)
+        self.Y = t._forward(self.X, self.Y)
         if self.F != None:
             f = self.F
-            self.F = lambda x: t.forward(x, f(x))
+            self.F = lambda x: t._forward(x, f(x))
     
     def filter(self, start, end):
-        if self.get_input_dims() != 1:
-            raise Exception("can only filter on one dimensional input data")
+        """
+        Filter the data range to be between start and end. Start and end can be strings if a proper formatter is set for the independent variable.
+
+        Args:
+            start (float,str): Start of interval.
+            end (float,str): End of interval.
+
+        Examples:
+            >>> data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
+            >>> data.filter(3, 8)
         
-        cstart = self.formatters[0].parse(start)
-        cend = self.formatters[0].parse(end)
+            >>> data = LoadCSV('gold.csv', 'Date', 'Price', format={'Date': FormatDate})
+            >>> data.filter('2016-01-15', '2016-06-15')
+        """
+        if self.get_input_dims() != 1:
+            raise ValueError("can only filter on one dimensional input data")
+        
+        cstart = self.formatters[0]._parse(start)
+        cend = self.formatters[0]._parse(end)
         ind = (self.X[:,0] >= cstart) & (self.X[:,0] < cend)
 
         self.X = np.expand_dims(self.X[ind,0], 1)
@@ -457,12 +518,24 @@ class Data:
         self.mask = self.mask[ind]
 
     def aggregate(self, duration, f=np.mean):
+        """
+        Aggregate the data by duration and apply a function to obtain a reduced dataset. For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format with y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second. For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months. If using a number, be aware that when using FormatDate your X data is denoted per day, while with FormatDateTime it is per second.
+
+        Args:
+            duration (float,str): Duration along the X axis or as a string in the duration format.
+            f (function,optional): Function to use to reduce data, by default uses np.mean.
+
+        Examples:
+            >>> data.aggregate(5)
+
+            >>> data.aggregate('2w', f=np.sum)
+        """
         if self.get_input_dims() != 1:
-            raise Exception("can only aggregate on one dimensional input data")
+            raise ValueError("can only aggregate on one dimensional input data")
         
         start = self.X[0,0]
         end = self.X[-1,0]
-        step = self.formatters[0].parse_duration(duration)
+        step = self.formatters[0]._parse_duration(duration)
 
         X = np.arange(start+step/2, end+step/2, step)
         Y = np.empty((len(X)))
@@ -477,30 +550,47 @@ class Data:
     ################################################################
 
     def has_removed_obs(self):
+        """
+        Returns True if observations have been removed using the remove_* methods.
+        """
         return False in self.mask
 
     def get_input_dims(self):
         """
-        Returns the input dimensions, where 
-        length of the second dimension for X and Y when using add().
+        Returns the number of input dimensions.
+
+        Returns:
+            int: Input dimensions.
         """
         return self.X.shape[1]
 
     def get_obs(self):
         """
-        Returns the observations for a given channel.
+        Returns the observations.
+
+        Returns:
+            np.array: X data of shape (n,input_dims).
+            np.array: Y data of shape (n).
         """
         return self.X[self.mask,:], self.Y[self.mask]
     
     def get_all_obs(self):
         """
-        Returns all observations (including removed observations) for a given channel.
+        Returns all observations (including removed observations).
+
+        Returns:
+            np.array: X data of shape (n,input_dims).
+            np.array: Y data of shape (n).
         """
         return self.X, self.Y
 
     def get_del_obs(self):
         """
-        Returns the removed observations for a given channel.
+        Returns the removed observations.
+
+        Returns:
+            np.ndarray: X data of shape (n,input_dims).
+            np.ndarray: Y data of shape (n).
         """
         return self.X[~self.mask,:], self.Y[~self.mask]
 
@@ -508,43 +598,40 @@ class Data:
     
     def remove_randomly(self, n=None, pct=None):
         """
-        Removes observations randomly on the whole range for a certain channel.
-
-        Either a number observations are removed, or a percentage of the observations.
+        Removes observations randomly on the whole range. Either 'n' observations are removed, or a percentage of the observations.
 
         Args:
-            channel (str, int): Channel to set prediction, can be either a string
-                with the name of the channel or a integer with the index.
+            n (int,optional): Number of observations to remove randomly.
+            pct (float[0,1],optional): Percentage of observations to remove randomly.
 
-            n (int, optional): Number of observations to randomly keep.
+        Examples:
+            >>> data.remove_randomly(50) # remove 50 observations
 
-            pct (float[0, 1], optional): Percentage of observations to remove.
-
-            If neither 'n' or 'pct' are passed, 'n' is set to 0.
+            >>> data.remove_randomly(pct=0.9) # remove 90% of the observations
         """
         if n == None:
             if pct == None:
                 n = 0
             else:
-                n = int((1-pct) * self.X.shape[0])
+                n = int(pct * self.X.shape[0])
 
         idx = np.random.choice(self.X.shape[0], n, replace=False)
         self.mask[idx] = False
     
     def remove_range(self, start=None, end=None):
         """
-        Removes observations on a channel in the interval [start,end].
+        Removes observations in the interval [start,end]. Start and end can be strings if a proper formatter is set for the independent variable.
         
         Args:
-            channel (str, int): Channel to set prediction, can be either a string with the name
-                of the channel or a integer with the index.
+            start (float,str,optional): Start of interval. Defaults to first value in observations.
+            end (float,str,optional): End of interval. Defaults to last value in observations.
 
-            start (float, optional): Value in input space to erase from. Default to first
-                value in training points.
-
-            end (float, optional): Value in input space to erase to. Default to last 
-                value in training points.
-
+        Examples:
+            >>> data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
+            >>> data.remove_range(3, 8)
+        
+            >>> data = LoadCSV('gold.csv', 'Date', 'Price', format={'Date': FormatDate})
+            >>> data.remove_range('2016-01-15', '2016-06-15')
         """
         if self.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
@@ -552,36 +639,25 @@ class Data:
         if start == None:
             start = np.min(self.X[:,0])
         else:
-            start = self.formatters[0].parse(start)
+            start = self.formatters[0]._parse(start)
         if end == None:
             end = np.max(self.X[:,0])
         else:
-            end = self.formatters[0].parse(end)
+            end = self.formatters[0]._parse(end)
 
         idx = np.where(np.logical_and(self.X[:,0] >= start, self.X[:,0] <= end))
         self.mask[idx] = False
     
     def remove_rel_range(self, start, end):
         """
-        Removes observations on a channel between start and end as a percentage of the
-        number of observations.
+        Removes observations between start and end as a percentage of the number of observations. So '0' is the first observation, '0.5' is the middle observation, and '1' is the last observation.
 
         Args:
-            channel (str, int): Channel to set prediction, can be either a string with the name
-                of the channel or a integer with the index.
-
-            start (float in [0, 1]): Start of prediction to remove.
-
-            end (float in [0, 1]): End of prediction to remove.
-
-        Start and end are in the range [0,1], where 0 is the first observation,
-        1 the last, and 0.5 the middle observation.
+            start (float[0,1]): Start percentage of interval.
+            end (float[0,1]): End percentage of interval.
         """
         if self.get_input_dims() != 1:
-            raise exception("can only remove ranges on one dimensional input data")
-
-        start = self.formatters[0].parse(start)
-        end = self.formatters[0].parse(end)
+            raise Exception("can only remove ranges on one dimensional input data")
 
         x_min = np.min(self.X[:,0])
         x_max = np.max(self.X[:,0])
@@ -591,81 +667,84 @@ class Data:
         idx = np.where(np.logical_and(self.X[:,0] >= start, self.X[:,0] <= end))
         self.mask[idx] = False
 
-    def remove_random_ranges(self, n, size):
+    def remove_random_ranges(self, n, duration):
         """
-        Removes a number of ranges on a channel. Makes only sense if your input X is sorted.
+        Removes a number of ranges to simulate sensor failure.
 
         Args:
-            channel (str, int): Channel to set prediction, can be either a string with the name
-                of the channel or a integer with the index.
-
             n (int): Number of ranges to remove.
+            duration (float,str): Width of ranges to remove, can use a number or the duration format syntax (see aggregate()).
 
-            size (int): Width of ranges to remove.
+        Examples:
+            >>> data.remove_random_ranges(2, 5) # remove two ranges that are 5 wide in input space
+
+            >>> data.remove_random_ranges(3, '1d') # remove three ranges that are 1 day wide
         """
-        if n < 1 or size < 1:
+        if self.get_input_dims() != 1:
+            raise Exception("can only remove ranges on one dimensional input data")
+
+        duration = self.formatters[0]._parse_duration(duration)
+        if n < 1 or duration < 1:
             return
 
-        m = self.X.shape[0] - n*size
+        m = self.X.shape[0] - n*duration
         if m <= 0:
             raise Exception("no data left after removing ranges")
 
         locs = np.round(np.sort(np.random.rand(n)) * m)
         for i in range(len(locs)):
-            loc = int(locs[i] + i * size)
-            idx = np.arange(loc, loc+size)
+            loc = int(locs[i] + i * duration)
+            idx = np.arange(loc, loc+duration)
             self.mask[idx] = False
     
     ################################################################
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
         """
-        Sets the prediction range for a certain channel in the interval [start,end].
-        with either a stepsize step or a number of points n.
+        Sets the prediction range to the interval [start,end] with either 'n' points or a given 'step' between the points. Start and end can be set as strings and step in the duration string format if the proper formatter is set.
 
         Args:
-            channels (str, int, list, '*'): Channel to set prediction, can be either a string with the name
-                of the channel or a integer with the index.
+            start (float,str,optional): Start of interval, defaults to the first observation.
+            end (float,str,optional): End of interval, defaults to the last observation.
+            n (int,optional): Number of points to generate in the interval.
+            step (float,str,optional): Spacing between points in the interval.
 
-            start (float, optional): Initial value of range, if not passed the first point of training
-                data is taken. Default to None.
+            If neither 'step' or 'n' is passed, default number of points is 100.
 
-            end (float, optional): Final value of range, if not passed the last point of training
-                data is taken. Default to None.
-
-            step (float, optional): Spacing between values.
-
-            n (int, optional): Number of samples to generate.
-
-            If neither "step" or "n" is passed, default number of points is 100.
+        Examples:
+            >>> data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
+            >>> data.set_pred_range(3, 8, 200)
+        
+            >>> data = LoadCSV('gold.csv', 'Date', 'Price', format={'Date': FormatDate})
+            >>> data.set_pred_range('2016-01-15', '2016-06-15', step='1d')
         """
         if self.get_input_dims() != 1:
-            raise exception("can only set prediction range on one dimensional input data")
+            raise Exception("can only set prediction range on one dimensional input data")
 
         cstart = start
         if cstart == None:
             cstart = self.X[0,:]
         elif isinstance(cstart, list):
             for i in range(self.get_input_dims()):
-                cstart[i] = self.formatters[i].parse(cstart[i])
+                cstart[i] = self.formatters[i]._parse(cstart[i])
         else:
-            cstart = self.formatters[0].parse(cstart)
+            cstart = self.formatters[0]._parse(cstart)
 
         cend = end
         if cend == None:
             cend = self.X[-1,:]
         elif isinstance(cend, list):
             for i in range(self.get_input_dims()):
-                cend[i] = self.formatters[i].parse(cend[i])
+                cend[i] = self.formatters[i]._parse(cend[i])
         else:
-            cend = self.formatters[0].parse(cend)
+            cend = self.formatters[0]._parse(cend)
         
         cstart = _normalize_input_dims(cstart, self.get_input_dims())
         cend = _normalize_input_dims(cend, self.get_input_dims())
 
         # TODO: works for multi input dims?
         if cend <= cstart:
-            raise Exception("start must be lower than end")
+            raise ValueError("start must be lower than end")
 
         # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
         if step == None and n != None:
@@ -674,29 +753,30 @@ class Data:
                 self.X_pred[:,i] = np.linspace(cstart[i], cend[i], n)
         else:
             if self.get_input_dims() != 1:
-                raise Exception("cannot use step for multi dimensional input, use n")
+                raise ValueError("cannot use step for multi dimensional input, use n")
             cstep = step
             if cstep == None:
                 cstep = (cend[0]-cstart[0])/100
             else:
-                cstep = self.formatters[0].parse(cstep)
+                cstep = self.formatters[0]._parse(cstep)
             self.X_pred = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)
     
     def set_pred(self, x):
         """
-        Sets the prediction range using a list of Numpy array for a certain channel.
+        Set the prediction range directly.
 
         Args:
-            channel (str, int): Channel to set prediction, can be either a string with the name
-                of the channel or a integer with the index.
-            x (ndarray): Numpy array with input values for channel.
+            x (list,np.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+
+        Examples:
+            >>> data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
         """
         if x.ndim != 2 or x.shape[1] != self.get_input_dims():
-            raise Exception("x shape must be (n,input_dims)")
+            raise ValueError("x shape must be (n,input_dims)")
         if isinstance(x, list):
             x = np.array(x)
         elif not isinstance(x, np.ndarray):
-            raise Exception("x expected to be a list or Numpy array")
+            raise ValueError("x expected to be a list or Numpy array")
 
         self.X_pred = x
 
@@ -704,11 +784,10 @@ class Data:
 
     def get_nyquist_estimation(self):
         """
-        Estimate nyquist frequency for each channel by taking
-        0.5/min dist of points.
+        Estimate nyquist frequency by taking 0.5/(minimum distance of points).
 
         Returns:
-            Numpy array of length equal to number of channels.
+            np.ndarray: Nyquist frequency array of shape (input_dims).
         """
         input_dims = self.get_input_dims()
 
@@ -722,12 +801,14 @@ class Data:
 
     def get_bnse_estimation(self, Q=1):
         """
-        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation)
+        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+
+        Args:
+            Q (int): Number of peaks to find, defaults to 1.
 
         Returns:
-            freqs, amps: Each one is a input_dim x n_channels x Q array with 
-                the frequency values and amplitudes of the peaks.
-
+            np.ndarray: Frequency array of shape (input_dims,Q).
+            np.ndarray: Amplitude array of shape (input_dims,Q).
         """
         input_dims = self.get_input_dims()
 
@@ -765,18 +846,17 @@ class Data:
             amps[i,:] = amplitudes
         return freqs / np.pi / 2, amps
 
-    def get_ls_estimation(self, Q=1, n_ls=50000):
+    def get_ls_estimation(self, Q=1, n=50000):
         """
         Peak estimation using Lomb Scargle.
-        ***Only for 1 channel for the moment***
-        To-Do: support for multiple channels.
 
         Args:
-            Q (int): Number of components.
-            n_ls (int): Number of points for Lomb Scargle,
-                default to 10000.
+            Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points to use for Lomb Scargle, defaults to 50000.
 
-        ** Only valid to single input dimension **
+        Returns:
+            np.ndarray: Frequency array of shape (input_dims,Q).
+            np.ndarray: Amplitude array of shape (input_dims,Q).
         """
         input_dims = self.get_input_dims()
 
@@ -809,11 +889,19 @@ class Data:
 
         return freqs / np.pi / 2, amps
     
-    def get_gm_estimation(self):
-        # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
-        pass
+    #def get_gm_estimation(self):
+    #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
+    #    pass
 
     def plot(self, title=None, filename=None, show=True):
+        """
+        Plot the data including removed observations, latent function, and predictions.
+
+        Args:
+            title (str,optional): Set the title for the plot.
+            filename (str,optional): If set, export figure to file.
+            show (bool,optional): If True, show the plot immediately.
+        """
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() > 2:
             raise Exception("cannot plot more than two input dimensions")
@@ -863,7 +951,7 @@ class Data:
         axes[0,0].set_xlabel(self.input_label[0])
         axes[0,0].set_ylabel(self.output_label)
         axes[0,0].set_title(self.name, fontsize=30)
-        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0].format(x))
+        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
         axes[0,0].xaxis.set_major_formatter(formatter)
 
         # build legend
@@ -883,7 +971,19 @@ class Data:
         if show:
             plt.show()
 
-    def plot_spectrum(self, method='lombscargle', title=None, angular=False, per=None, maxfreq=None, filename=None, show=True):
+    def plot_spectrum(self, method='lombscargle', angularfreq=False, per=None, maxfreq=None, title=None, filename=None, show=True):
+        """
+        Plot the spectrum of the data.
+
+        Args:
+            method (str,optional): Set the method to get the spectrum such as 'lombscargle'.
+            angularfreq (bool,optional): Use angular frequencies.
+            per (float,str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per='3d' for three days.
+            maxfreq (float,optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            title (str,optional): Set the title for the plot.
+            filename (str,optional): If set, export figure to file.
+            show (bool,optional): If True, show the plot immediately.
+        """
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() > 2:
             raise Exception("cannot plot more than two input dimensions")
@@ -901,13 +1001,13 @@ class Data:
         X_space = self.X[:,0].copy()
 
         formatter = self.formatters[0]
-        factor, name = formatter.scale(per)
+        factor, name = formatter._scale(per)
         if name != None:
             axes[0,0].set_xlabel('Frequency (1/'+name+')')
         else:
             axes[0,0].set_xlabel('Frequency')
 
-        if not angular:
+        if not angularfreq:
             X_space *= 2 * np.pi
         X_space /= factor
 
@@ -920,7 +1020,7 @@ class Data:
         if method == 'lombscargle':
             Y = lombscargle(X_space, self.Y, X)
         else:
-            raise Exception('Periodogram method "%s" does not exist' % (method))
+            raise ValueError('periodogram method "%s" does not exist' % (method))
 
         axes[0,0].plot(X, Y, 'k-')
         axes[0,0].set_title(self.name + ' spectrum', fontsize=30)
@@ -934,16 +1034,16 @@ class Data:
 
 def _check_function(f, input_dims):
     if not inspect.isfunction(f):
-        raise Exception("F must be a function taking X as a parameter")
+        raise ValueError("function must take X as a parameter")
 
     sig = inspect.signature(f)
     if not len(sig.parameters) == 1:
-        raise Exception("F must be a function taking X as a parameter")
+        raise ValueError("function must take X as a parameter")
 
     x = np.ones((1, input_dims))
     y = f(x)
     if len(y.shape) != 1 or y.shape[0] != 1:
-        raise Exception("F must return Y with shape (n), note that X has shape (n,input_dims)")
+        raise ValueError("function must return Y with shape (n), note that X has shape (n,input_dims)")
 
 def _normalize_input_dims(x, input_dims):
     if x == None:
@@ -957,7 +1057,8 @@ def _normalize_input_dims(x, input_dims):
     elif isinstance(x, np.ndarray):
         x = list(x)
     elif not isinstance(x, list):
-        raise Exception("input should be a floating point, list or ndarray")
+        raise ValueError("input should be a floating point, list or ndarray")
     if input_dims != None and len(x) != input_dims:
-        raise Exception("input must be a scalar for single-dimension input or a list of values for each input dimension")
+        raise ValueError("input must be a scalar for single-dimension input or a list of values for each input dimension")
     return x
+

@@ -53,10 +53,12 @@ class model:
 
     # overridden by specific models
     def info(self):
+        print("info() not implemented for kernel")
         pass
 
     # overridden by specific models
     def plot(self):
+        print("plot() not implemented for kernel")
         pass
 
     def _update_params(self, trainables):

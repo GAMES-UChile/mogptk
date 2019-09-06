@@ -32,7 +32,7 @@ import numpy as np
 import gpflow
 import tensorflow as tf
 
-def load(filename):
+def LoadModel(filename):
     if not filename.endswith(&#34;.mogptk&#34;):
         filename += &#34;.mogptk&#34;
 
@@ -69,28 +69,25 @@ def load(filename):
     m.session = session
     return m
 
-def transform_multioutput_data(x, y=None):
+def _transform_data_mogp(x, y):
     chan = []
-    if isinstance(x, list):
-        for channel in range(len(x)):
-            chan.append(channel * np.ones(len(x[channel])))
-        chan = np.concatenate(chan)
-    elif isinstance(x, dict):
-        for channel, data in x.items():
-            chan.append(channel * np.ones(len(data)))
-        chan = np.concatenate(chan)
-        x = np.array(list(x.values()))
-    else:
-        raise Exception(&#34;unknown data type for x&#34;)
-    
+    for channel in range(len(data)):
+        chan.append(channel * np.ones(len(data[channel].X)))
+    chan = np.array(chan)
     chan = chan.reshape(-1, 1)
-    x = np.concatenate(x)
+    
+    x = np.array(x)
     x = np.concatenate((chan, x), axis=1)
-    if y != None:
-        y = np.concatenate(y).reshape(-1, 1)
+    if y == None:
+        print(x)
+        return x
+
+    y = np.array(y)
+    y = np.concatenate(y).reshape(-1, 1)
+    print(x, y)
     return x, y
 
-def estimate_from_sm(data, Q, init=&#39;BNSE&#39;, method=&#39;BFGS&#39;, maxiter=2000, plot=False):
+def _estimate_from_sm(data, Q, init=&#39;BNSE&#39;, method=&#39;BFGS&#39;, maxiter=2000, plot=False):
     &#34;&#34;&#34;
     Estimate kernel param with single ouput GP-SM
 
@@ -143,8 +140,8 @@ class SM(model):
     def __init__(self, data, Q=1, name=&#34;SM&#34;):
         model.__init__(self, name, data, Q)
 
-        input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
         if output_dims != 1:
             raise Exception(&#34;Single output Spectral Mixture kernel can only take one output dimension in the data&#34;)
 
@@ -184,7 +181,7 @@ class SM(model):
             raise Exception(&#34;Posible methods are &#39;random&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
 
         if method==&#39;random&#39;:
-            x, y = self._transform_data(self.data.X, self.data.Y)
+            x, y = self._data()
             weights, means, scales = sm_init(x, y, self.Q)
             for q in range(self.Q):
                 self.params[q][&#39;mixture_weights&#39;] = weights[q]
@@ -192,37 +189,33 @@ class SM(model):
                 self.params[q][&#39;mixture_scales&#39;] = np.array(scales[q])
 
         elif method==&#39;LS&#39;:
-            means, amplitudes = self.data.get_ls_estimation(self.Q)
+            means, amplitudes = self.data[0].get_ls_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logging.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-            weights = amplitudes[0] * self.data.Y[0].std()
+            weights = amplitudes[0] # TODO: take into account input dimensions!
             weights = np.sqrt(weights/np.sum(weights))
             for q in range(self.Q):
-                self.params[q][&#39;mixture_weights&#39;] = weights[0][q]
-                self.params[q][&#39;mixture_means&#39;] = means[0].T[q]
+                self.params[q][&#39;mixture_weights&#39;] = weights[q]
+                self.params[q][&#39;mixture_means&#39;] = means.T[q]
 
         elif method==&#39;BNSE&#39;:
-            means, amplitudes = self.data.get_bnse_estimation(self.Q)
+            means, amplitudes = self.data[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logging.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-            weights = amplitudes[0] * self.data.Y[0].std()
+            weights = amplitudes[0] # TODO: take into account input dimensions!
             weights = np.sqrt(weights/np.sum(weights))
             for q in range(self.Q):
-                self.params[q][&#39;mixture_weights&#39;] = weights[0][q]
-                self.params[q][&#39;mixture_means&#39;] = means[0].T[q]
+                self.params[q][&#39;mixture_weights&#39;] = weights[q]
+                self.params[q][&#39;mixture_means&#39;] = means.T[q]
 
     def _transform_data(self, x, y=None):
-        if isinstance(x, dict):
-            x = np.array(list(x.values()))
-        elif isinstance(x, list):
-            x = np.array(x)
-        x = np.squeeze(x, axis=0) # not using multi output dims
-        y = np.array(y)
-        return x, y.T
+        if y == None:
+            return x[0]
+        return x[0], np.expand_dims(y[0], 1)
 
     def _kernel(self):
         weights = np.array([self.params[q][&#39;mixture_weights&#39;] for q in range(self.Q)])
@@ -233,7 +226,7 @@ class SM(model):
             weights,
             means,
             scales,
-            self.data.get_input_dims(),
+            self.get_input_dims(),
         )
 
     def _update_params(self, trainables):
@@ -257,7 +250,7 @@ class MOSM(model):
         model.__init__(self, name, data, Q)
 
         input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        output_dims = self.get_output_dims()
         for _ in range(Q):
             self.params.append({
                 &#34;magnitude&#34;: np.random.standard_normal((output_dims)),
@@ -323,7 +316,7 @@ class MOSM(model):
                     print(&#34;‣ MOSM approaches RBF kernel for Q=%d in channel=&#39;%s&#39;&#34; % (q, self.data.channel_names[channel]))
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -403,7 +396,7 @@ class CSM(model):
                 self.params[q][&#39;variance&#39;] = params[&#39;scale&#39;][i]
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -481,7 +474,7 @@ class SM_LMC(model):
                 self.params[q][&#39;variance&#39;] = params[&#39;scale&#39;][i]
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -530,7 +523,7 @@ class CG(model):
             self.params[q][&#34;variance&#34;] = params[q][&#39;scale&#39;]
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -556,76 +549,14 @@ class CG(model):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="mogptk.models.estimate_from_sm"><code class="name flex">
-<span>def <span class="ident">estimate_from_sm</span></span>(<span>data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=False)</span>
-</code></dt>
-<dd>
-<section class="desc"><p>Estimate kernel param with single ouput GP-SM</p>
-<h2 id="args">Args</h2>
-<p>data (obj; mogptk.Data): Data class instance.</p>
-<dl>
-<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of components.</dd>
-<dt><strong><code>returns</code></strong></dt>
-<dd>params[q][name][output dim][input dim]</dd>
-</dl></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def estimate_from_sm(data, Q, init=&#39;BNSE&#39;, method=&#39;BFGS&#39;, maxiter=2000, plot=False):
-    &#34;&#34;&#34;
-    Estimate kernel param with single ouput GP-SM
-
-    Args:
-        data (obj; mogptk.Data): Data class instance.
-
-        Q (int): Number of components.
-
-    returns: 
-        params[q][name][output dim][input dim]
-    &#34;&#34;&#34;
-    input_dims = data.get_input_dims()
-    output_dims = data.get_output_dims()
-
-    params = []
-    for q in range(Q):
-        params.append({
-            &#39;weight&#39;: np.empty((input_dims, output_dims)),
-            &#39;mean&#39;: np.empty((input_dims, output_dims)),
-            &#39;scale&#39;: np.empty((input_dims, output_dims)),
-        })
-
-    for channel in range(data.get_output_dims()):
-        for i in range(data.get_input_dims()):
-            sm_data = Data()
-            sm_data.add(data.X[channel][:,i], data.Y[channel])
-
-            sm = SM(sm_data, Q)
-            sm.init_params(init)
-            sm.train(method=method, maxiter=maxiter)
-
-            if plot:
-                nyquist = sm_data.get_nyquist_estimation()
-                means = sm._get_param_across(&#39;mixture_means&#39;)
-                weights = sm._get_param_across(&#39;mixture_weights&#39;)
-                scales = sm._get_param_across(&#39;mixture_scales&#39;)
-                plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=data.channel_names[channel])
-
-            for q in range(Q):
-                params[q][&#39;weight&#39;][i,channel] = sm.params[q][&#39;mixture_weights&#39;]
-                params[q][&#39;mean&#39;][i,channel] = sm.params[q][&#39;mixture_means&#39;] * np.pi * 2
-                params[q][&#39;scale&#39;][i,channel] = sm.params[q][&#39;mixture_scales&#39;]
-
-    return params</code></pre>
-</details>
-</dd>
-<dt id="mogptk.models.load"><code class="name flex">
-<span>def <span class="ident">load</span></span>(<span>filename)</span>
+<dt id="mogptk.models.LoadModel"><code class="name flex">
+<span>def <span class="ident">LoadModel</span></span>(<span>filename)</span>
 </code></dt>
 <dd>
 <section class="desc"></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def load(filename):
+<pre><code class="python">def LoadModel(filename):
     if not filename.endswith(&#34;.mogptk&#34;):
         filename += &#34;.mogptk&#34;
 
@@ -661,35 +592,6 @@ class CG(model):
     m.graph = graph
     m.session = session
     return m</code></pre>
-</details>
-</dd>
-<dt id="mogptk.models.transform_multioutput_data"><code class="name flex">
-<span>def <span class="ident">transform_multioutput_data</span></span>(<span>x, y=None)</span>
-</code></dt>
-<dd>
-<section class="desc"></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def transform_multioutput_data(x, y=None):
-    chan = []
-    if isinstance(x, list):
-        for channel in range(len(x)):
-            chan.append(channel * np.ones(len(x[channel])))
-        chan = np.concatenate(chan)
-    elif isinstance(x, dict):
-        for channel, data in x.items():
-            chan.append(channel * np.ones(len(data)))
-        chan = np.concatenate(chan)
-        x = np.array(list(x.values()))
-    else:
-        raise Exception(&#34;unknown data type for x&#34;)
-    
-    chan = chan.reshape(-1, 1)
-    x = np.concatenate(x)
-    x = np.concatenate((chan, x), axis=1)
-    if y != None:
-        y = np.concatenate(y).reshape(-1, 1)
-    return x, y</code></pre>
 </details>
 </dd>
 </dl>
@@ -735,7 +637,7 @@ class CG(model):
             self.params[q][&#34;variance&#34;] = params[q][&#39;scale&#39;]
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -863,7 +765,7 @@ its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)</p></secti
                 self.params[q][&#39;variance&#39;] = params[&#39;scale&#39;][i]
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -971,7 +873,7 @@ parameter estimation to improve optimization outputs.</p></section>
         model.__init__(self, name, data, Q)
 
         input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        output_dims = self.get_output_dims()
         for _ in range(Q):
             self.params.append({
                 &#34;magnitude&#34;: np.random.standard_normal((output_dims)),
@@ -1037,7 +939,7 @@ parameter estimation to improve optimization outputs.</p></section>
                     print(&#34;‣ MOSM approaches RBF kernel for Q=%d in channel=&#39;%s&#39;&#34; % (q, self.data.channel_names[channel]))
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -1187,8 +1089,8 @@ directly. 'full' estimates the spectral mean, variance and weights with GP-SM.</
     def __init__(self, data, Q=1, name=&#34;SM&#34;):
         model.__init__(self, name, data, Q)
 
-        input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
         if output_dims != 1:
             raise Exception(&#34;Single output Spectral Mixture kernel can only take one output dimension in the data&#34;)
 
@@ -1228,7 +1130,7 @@ directly. 'full' estimates the spectral mean, variance and weights with GP-SM.</
             raise Exception(&#34;Posible methods are &#39;random&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
 
         if method==&#39;random&#39;:
-            x, y = self._transform_data(self.data.X, self.data.Y)
+            x, y = self._data()
             weights, means, scales = sm_init(x, y, self.Q)
             for q in range(self.Q):
                 self.params[q][&#39;mixture_weights&#39;] = weights[q]
@@ -1236,37 +1138,33 @@ directly. 'full' estimates the spectral mean, variance and weights with GP-SM.</
                 self.params[q][&#39;mixture_scales&#39;] = np.array(scales[q])
 
         elif method==&#39;LS&#39;:
-            means, amplitudes = self.data.get_ls_estimation(self.Q)
+            means, amplitudes = self.data[0].get_ls_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logging.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-            weights = amplitudes[0] * self.data.Y[0].std()
+            weights = amplitudes[0] # TODO: take into account input dimensions!
             weights = np.sqrt(weights/np.sum(weights))
             for q in range(self.Q):
-                self.params[q][&#39;mixture_weights&#39;] = weights[0][q]
-                self.params[q][&#39;mixture_means&#39;] = means[0].T[q]
+                self.params[q][&#39;mixture_weights&#39;] = weights[q]
+                self.params[q][&#39;mixture_means&#39;] = means.T[q]
 
         elif method==&#39;BNSE&#39;:
-            means, amplitudes = self.data.get_bnse_estimation(self.Q)
+            means, amplitudes = self.data[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logging.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-            weights = amplitudes[0] * self.data.Y[0].std()
+            weights = amplitudes[0] # TODO: take into account input dimensions!
             weights = np.sqrt(weights/np.sum(weights))
             for q in range(self.Q):
-                self.params[q][&#39;mixture_weights&#39;] = weights[0][q]
-                self.params[q][&#39;mixture_means&#39;] = means[0].T[q]
+                self.params[q][&#39;mixture_weights&#39;] = weights[q]
+                self.params[q][&#39;mixture_means&#39;] = means.T[q]
 
     def _transform_data(self, x, y=None):
-        if isinstance(x, dict):
-            x = np.array(list(x.values()))
-        elif isinstance(x, list):
-            x = np.array(x)
-        x = np.squeeze(x, axis=0) # not using multi output dims
-        y = np.array(y)
-        return x, y.T
+        if y == None:
+            return x[0]
+        return x[0], np.expand_dims(y[0], 1)
 
     def _kernel(self):
         weights = np.array([self.params[q][&#39;mixture_weights&#39;] for q in range(self.Q)])
@@ -1277,7 +1175,7 @@ directly. 'full' estimates the spectral mean, variance and weights with GP-SM.</
             weights,
             means,
             scales,
-            self.data.get_input_dims(),
+            self.get_input_dims(),
         )
 
     def _update_params(self, trainables):
@@ -1339,7 +1237,7 @@ and use the first Q peaks as the means and mixture weights.</p>
         raise Exception(&#34;Posible methods are &#39;random&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
 
     if method==&#39;random&#39;:
-        x, y = self._transform_data(self.data.X, self.data.Y)
+        x, y = self._data()
         weights, means, scales = sm_init(x, y, self.Q)
         for q in range(self.Q):
             self.params[q][&#39;mixture_weights&#39;] = weights[q]
@@ -1347,28 +1245,28 @@ and use the first Q peaks as the means and mixture weights.</p>
             self.params[q][&#39;mixture_scales&#39;] = np.array(scales[q])
 
     elif method==&#39;LS&#39;:
-        means, amplitudes = self.data.get_ls_estimation(self.Q)
+        means, amplitudes = self.data[0].get_ls_estimation(self.Q)
         if np.sum(amplitudes) == 0.0:
             logging.warning(&#39;BNSE could not find peaks for SM&#39;)
             return
 
-        weights = amplitudes[0] * self.data.Y[0].std()
+        weights = amplitudes[0] # TODO: take into account input dimensions!
         weights = np.sqrt(weights/np.sum(weights))
         for q in range(self.Q):
-            self.params[q][&#39;mixture_weights&#39;] = weights[0][q]
-            self.params[q][&#39;mixture_means&#39;] = means[0].T[q]
+            self.params[q][&#39;mixture_weights&#39;] = weights[q]
+            self.params[q][&#39;mixture_means&#39;] = means.T[q]
 
     elif method==&#39;BNSE&#39;:
-        means, amplitudes = self.data.get_bnse_estimation(self.Q)
+        means, amplitudes = self.data[0].get_bnse_estimation(self.Q)
         if np.sum(amplitudes) == 0.0:
             logging.warning(&#39;BNSE could not find peaks for SM&#39;)
             return
 
-        weights = amplitudes[0] * self.data.Y[0].std()
+        weights = amplitudes[0] # TODO: take into account input dimensions!
         weights = np.sqrt(weights/np.sum(weights))
         for q in range(self.Q):
-            self.params[q][&#39;mixture_weights&#39;] = weights[0][q]
-            self.params[q][&#39;mixture_means&#39;] = means[0].T[q]</code></pre>
+            self.params[q][&#39;mixture_weights&#39;] = weights[q]
+            self.params[q][&#39;mixture_means&#39;] = means.T[q]</code></pre>
 </details>
 </dd>
 </dl>
@@ -1450,7 +1348,7 @@ and use the first Q peaks as the means and mixture weights.</p>
                 self.params[q][&#39;variance&#39;] = params[&#39;scale&#39;][i]
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -1552,9 +1450,7 @@ its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)</p></secti
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="mogptk.models.estimate_from_sm" href="#mogptk.models.estimate_from_sm">estimate_from_sm</a></code></li>
-<li><code><a title="mogptk.models.load" href="#mogptk.models.load">load</a></code></li>
-<li><code><a title="mogptk.models.transform_multioutput_data" href="#mogptk.models.transform_multioutput_data">transform_multioutput_data</a></code></li>
+<li><code><a title="mogptk.models.LoadModel" href="#mogptk.models.LoadModel">LoadModel</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
