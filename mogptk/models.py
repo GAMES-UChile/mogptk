@@ -8,7 +8,7 @@ import numpy as np
 import gpflow
 import tensorflow as tf
 
-def load(filename):
+def LoadModel(filename):
     if not filename.endswith(".mogptk"):
         filename += ".mogptk"
 
@@ -45,28 +45,25 @@ def load(filename):
     m.session = session
     return m
 
-def transform_multioutput_data(x, y=None):
+def _transform_data_mogp(x, y):
     chan = []
-    if isinstance(x, list):
-        for channel in range(len(x)):
-            chan.append(channel * np.ones(len(x[channel])))
-        chan = np.concatenate(chan)
-    elif isinstance(x, dict):
-        for channel, data in x.items():
-            chan.append(channel * np.ones(len(data)))
-        chan = np.concatenate(chan)
-        x = np.array(list(x.values()))
-    else:
-        raise Exception("unknown data type for x")
-    
+    for channel in range(len(data)):
+        chan.append(channel * np.ones(len(data[channel].X)))
+    chan = np.array(chan)
     chan = chan.reshape(-1, 1)
-    x = np.concatenate(x)
+    
+    x = np.array(x)
     x = np.concatenate((chan, x), axis=1)
-    if y != None:
-        y = np.concatenate(y).reshape(-1, 1)
+    if y == None:
+        print(x)
+        return x
+
+    y = np.array(y)
+    y = np.concatenate(y).reshape(-1, 1)
+    print(x, y)
     return x, y
 
-def estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=False):
+def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=False):
     """
     Estimate kernel param with single ouput GP-SM
 
@@ -119,8 +116,8 @@ class SM(model):
     def __init__(self, data, Q=1, name="SM"):
         model.__init__(self, name, data, Q)
 
-        input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
         if output_dims != 1:
             raise Exception("Single output Spectral Mixture kernel can only take one output dimension in the data")
 
@@ -160,7 +157,7 @@ class SM(model):
             raise Exception("Posible methods are 'random', 'LS' and 'BNSE' (see documentation).")
 
         if method=='random':
-            x, y = self._transform_data(self.data.X, self.data.Y)
+            x, y = self._data()
             weights, means, scales = sm_init(x, y, self.Q)
             for q in range(self.Q):
                 self.params[q]['mixture_weights'] = weights[q]
@@ -168,37 +165,33 @@ class SM(model):
                 self.params[q]['mixture_scales'] = np.array(scales[q])
 
         elif method=='LS':
-            means, amplitudes = self.data.get_ls_estimation(self.Q)
+            means, amplitudes = self.data[0].get_ls_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logging.warning('BNSE could not find peaks for SM')
                 return
 
-            weights = amplitudes[0] * self.data.Y[0].std()
+            weights = amplitudes[0] # TODO: take into account input dimensions!
             weights = np.sqrt(weights/np.sum(weights))
             for q in range(self.Q):
-                self.params[q]['mixture_weights'] = weights[0][q]
-                self.params[q]['mixture_means'] = means[0].T[q]
+                self.params[q]['mixture_weights'] = weights[q]
+                self.params[q]['mixture_means'] = means.T[q]
 
         elif method=='BNSE':
-            means, amplitudes = self.data.get_bnse_estimation(self.Q)
+            means, amplitudes = self.data[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logging.warning('BNSE could not find peaks for SM')
                 return
 
-            weights = amplitudes[0] * self.data.Y[0].std()
+            weights = amplitudes[0] # TODO: take into account input dimensions!
             weights = np.sqrt(weights/np.sum(weights))
             for q in range(self.Q):
-                self.params[q]['mixture_weights'] = weights[0][q]
-                self.params[q]['mixture_means'] = means[0].T[q]
+                self.params[q]['mixture_weights'] = weights[q]
+                self.params[q]['mixture_means'] = means.T[q]
 
     def _transform_data(self, x, y=None):
-        if isinstance(x, dict):
-            x = np.array(list(x.values()))
-        elif isinstance(x, list):
-            x = np.array(x)
-        x = np.squeeze(x, axis=0) # not using multi output dims
-        y = np.array(y)
-        return x, y.T
+        if y == None:
+            return x[0]
+        return x[0], np.expand_dims(y[0], 1)
 
     def _kernel(self):
         weights = np.array([self.params[q]['mixture_weights'] for q in range(self.Q)])
@@ -209,7 +202,7 @@ class SM(model):
             weights,
             means,
             scales,
-            self.data.get_input_dims(),
+            self.get_input_dims(),
         )
 
     def _update_params(self, trainables):
@@ -233,7 +226,7 @@ class MOSM(model):
         model.__init__(self, name, data, Q)
 
         input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        output_dims = self.get_output_dims()
         for _ in range(Q):
             self.params.append({
                 "magnitude": np.random.standard_normal((output_dims)),
@@ -299,7 +292,7 @@ class MOSM(model):
                     print("‣ MOSM approaches RBF kernel for Q=%d in channel='%s'" % (q, self.data.channel_names[channel]))
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -379,7 +372,7 @@ class CSM(model):
                 self.params[q]['variance'] = params['scale'][i]
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -457,7 +450,7 @@ class SM_LMC(model):
                 self.params[q]['variance'] = params['scale'][i]
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):
@@ -506,7 +499,7 @@ class CG(model):
             self.params[q]["variance"] = params[q]['scale']
 
     def _transform_data(self, x, y=None):
-        return transform_multioutput_data(x, y)
+        return _transform_data_mogp(x, y)
 
     def _kernel(self):
         for q in range(self.Q):

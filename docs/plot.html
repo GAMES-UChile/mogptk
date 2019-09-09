@@ -88,7 +88,68 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
     if filename != None:
         plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
     if show:
-        plt.show()</code></pre>
+        plt.show()
+
+
+def plot_prediction(model, grid, figsize=(12, 8), ylims=None, names=None, title=&#39;&#39;):
+
+    &#34;&#34;&#34;
+    Plot training points, all data and prediction for all channels.
+
+    Args:
+
+
+    Returns:
+
+    &#34;&#34;&#34;
+    # get data
+    x_train = model.data.X
+    y_train = model.data.Y
+    x_all = model.data.X_all
+    y_all = model.data.Y_all
+    x_pred = {i:array for i, array in enumerate(model.data.X_all)}
+
+    n_dim = model.data.get_output_dims()
+
+    if (grid[0] * grid[1]) &lt; n_dim:
+        raise Exception(&#39;Grid not big enough for all channels&#39;)
+
+    # predict with model
+    mean_pred, var_pred = model.predict(x_pred)
+
+    # create plot
+    f, axarr = plt.subplots(grid[0], grid[1], sharex=True, figsize=figsize)
+
+    axarr = axarr.reshape(-1)
+
+    # plot
+    for i in range(n_dim):
+        axarr[i].plot(x_train[i][:, 0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, )
+        axarr[i].plot(x_all[i][:, 0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;)
+        
+        axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label=&#39;Pred&#39;, c=sns.color_palette()[i%10])
+        axarr[i].fill_between(x_pred[i][:, 0].reshape(-1),
+                              mean_pred[i] + 2 * np.sqrt(var_pred[i]),
+                              mean_pred[i] - 2 * np.sqrt(var_pred[i]),
+                              label=&#39;95% c.i&#39;,
+                              color=sns.color_palette()[i%10],
+                              alpha=0.4)
+        
+        axarr[i].legend(ncol=4, loc=&#39;upper center&#39;)
+        axarr[i].set_xlim(-1, x_all[i][-1])
+
+        # set channels name
+        if names is not None:
+            axarr[i].set_title(names[i])
+        else:
+            axarr[i].set_title(&#39;Channel&#39; + str(i))
+
+        # set y lims
+        if ylims is not None:
+            axarr[i].set_xlim(ylims[i]) 
+        
+    plt.suptitle(title, y=1.02)
+    plt.tight_layout()</code></pre>
 </details>
 </section>
 <section>
@@ -98,6 +159,76 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="mogptk.plot.plot_prediction"><code class="name flex">
+<span>def <span class="ident">plot_prediction</span></span>(<span>model, grid, figsize=(12, 8), ylims=None, names=None, title='')</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Plot training points, all data and prediction for all channels.</p>
+<h2 id="args">Args</h2>
+<p>Returns:</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def plot_prediction(model, grid, figsize=(12, 8), ylims=None, names=None, title=&#39;&#39;):
+
+    &#34;&#34;&#34;
+    Plot training points, all data and prediction for all channels.
+
+    Args:
+
+
+    Returns:
+
+    &#34;&#34;&#34;
+    # get data
+    x_train = model.data.X
+    y_train = model.data.Y
+    x_all = model.data.X_all
+    y_all = model.data.Y_all
+    x_pred = {i:array for i, array in enumerate(model.data.X_all)}
+
+    n_dim = model.data.get_output_dims()
+
+    if (grid[0] * grid[1]) &lt; n_dim:
+        raise Exception(&#39;Grid not big enough for all channels&#39;)
+
+    # predict with model
+    mean_pred, var_pred = model.predict(x_pred)
+
+    # create plot
+    f, axarr = plt.subplots(grid[0], grid[1], sharex=True, figsize=figsize)
+
+    axarr = axarr.reshape(-1)
+
+    # plot
+    for i in range(n_dim):
+        axarr[i].plot(x_train[i][:, 0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, )
+        axarr[i].plot(x_all[i][:, 0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;)
+        
+        axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label=&#39;Pred&#39;, c=sns.color_palette()[i%10])
+        axarr[i].fill_between(x_pred[i][:, 0].reshape(-1),
+                              mean_pred[i] + 2 * np.sqrt(var_pred[i]),
+                              mean_pred[i] - 2 * np.sqrt(var_pred[i]),
+                              label=&#39;95% c.i&#39;,
+                              color=sns.color_palette()[i%10],
+                              alpha=0.4)
+        
+        axarr[i].legend(ncol=4, loc=&#39;upper center&#39;)
+        axarr[i].set_xlim(-1, x_all[i][-1])
+
+        # set channels name
+        if names is not None:
+            axarr[i].set_title(names[i])
+        else:
+            axarr[i].set_title(&#39;Channel&#39; + str(i))
+
+        # set y lims
+        if ylims is not None:
+            axarr[i].set_xlim(ylims[i]) 
+        
+    plt.suptitle(title, y=1.02)
+    plt.tight_layout()</code></pre>
+</details>
+</dd>
 <dt id="mogptk.plot.plot_spectrum"><code class="name flex">
 <span>def <span class="ident">plot_spectrum</span></span>(<span>means, scales, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None)</span>
 </code></dt>
@@ -187,6 +318,7 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="mogptk.plot.plot_prediction" href="#mogptk.plot.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.plot.plot_spectrum" href="#mogptk.plot.plot_spectrum">plot_spectrum</a></code></li>
 </ul>
 </li>

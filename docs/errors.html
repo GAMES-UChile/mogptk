@@ -97,7 +97,71 @@ def errors(*models, **kwargs):
         df.set_index(&#39;model&#39;, inplace=True)
         display(df)
     else:
-        return errors</code></pre>
+        return errors
+
+
+def test_errors(*models, x_test, y_test, raw_errors=False):
+    &#34;&#34;&#34;
+    Return test errors given a model and test set.
+
+    The function assumes all models have been trained and all models
+    share equal number of inputs and outputs (channels).
+
+    Args:
+        models (mogptk.Model): Trained model to evaluate, can be more than one
+
+        x_test (list): List of numpy arrays with the inputs of the test set.
+            Length is the output dimension.
+
+        y_test (list): List of numpy array with the true ouputs of test set.
+            Length is the output dimension.
+
+        raw_errors (bool): If true returns for each model a list is returned
+            with the errors of each channel (y_true - y_pred).
+            If false returns for each model a list of 3 arrays with the
+            mean absolute error (MAE), mean absolute porcentual error (MAPE)
+            and root mean squared error (RMSE) for each channel.
+
+    Returns:
+        List with length equal to the number of models, each element
+        contains a list of length of the output dim and each
+        element is an array with the errors.
+
+    Example:
+        Given model1, model2, x_test, y_test of correct format.
+
+        &gt;&gt;&gt; errors = mogptk.test_errors(model1, model2, x_test, y_test)
+        &gt;&gt;&gt; errors[i][j]
+        numpy array with errors from model &#39;i&#39; at channel &#39;j&#39;
+    &#34;&#34;&#34;
+
+    error_per_model = []
+
+    for model in models:
+
+        n_channels = model.data.get_output_dims()
+
+        error_per_channel = []
+
+        # predict with model
+        y_pred, var_pred = model.predict(x_test)
+
+        for i in range(n_channels):
+            errors = y_test[i] - y_pred[i]
+            # if only error values
+            if raw_errors:
+                error_per_channel.append(errors)
+
+            # composite errors
+            else:
+                mae = np.abs(errors).mean()
+                mape = (np.abs(errors) / y_test[i] * 100).mean()
+                rmse = (np.sqrt(errors**2)).mean()
+                error_per_channel.append(np.array([mae, mape, rmse]))
+
+        error_per_model.append(error_per_channel)
+
+    return error_per_model</code></pre>
 </details>
 </section>
 <section>
@@ -209,6 +273,110 @@ However if a latent function is defined in the data this will be used as the tru
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100</code></pre>
 </details>
 </dd>
+<dt id="mogptk.errors.test_errors"><code class="name flex">
+<span>def <span class="ident">test_errors</span></span>(<span>*models, x_test, y_test, raw_errors=False)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Return test errors given a model and test set.</p>
+<p>The function assumes all models have been trained and all models
+share equal number of inputs and outputs (channels).</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>models</code></strong> :&ensp;<code>mogptk.Model</code></dt>
+<dd>Trained model to evaluate, can be more than one</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>list</code></dt>
+<dd>List of numpy arrays with the inputs of the test set.
+Length is the output dimension.</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>list</code></dt>
+<dd>List of numpy array with the true ouputs of test set.
+Length is the output dimension.</dd>
+<dt><strong><code>raw_errors</code></strong> :&ensp;<code>bool</code></dt>
+<dd>If true returns for each model a list is returned
+with the errors of each channel (y_true - y_pred).
+If false returns for each model a list of 3 arrays with the
+mean absolute error (MAE), mean absolute porcentual error (MAPE)
+and root mean squared error (RMSE) for each channel.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>List</code> <code>with</code> <code>length</code> <code>equal</code> <code>to</code> <code>the</code> <code>number</code> of <code>models</code>, <code>each</code> <code>element</code></dt>
+<dd>&nbsp;</dd>
+<dt><code>contains</code> <code>a</code> <code>list</code> of <code>length</code> of <code>the</code> <code>output</code> <code>dim</code> <code>and</code> <code>each</code></dt>
+<dd>&nbsp;</dd>
+</dl>
+<p>element is an array with the errors.</p>
+<h2 id="example">Example</h2>
+<p>Given model1, model2, x_test, y_test of correct format.</p>
+<pre><code>&gt;&gt;&gt; errors = mogptk.test_errors(model1, model2, x_test, y_test)
+&gt;&gt;&gt; errors[i][j]
+numpy array with errors from model 'i' at channel 'j'
+</code></pre></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def test_errors(*models, x_test, y_test, raw_errors=False):
+    &#34;&#34;&#34;
+    Return test errors given a model and test set.
+
+    The function assumes all models have been trained and all models
+    share equal number of inputs and outputs (channels).
+
+    Args:
+        models (mogptk.Model): Trained model to evaluate, can be more than one
+
+        x_test (list): List of numpy arrays with the inputs of the test set.
+            Length is the output dimension.
+
+        y_test (list): List of numpy array with the true ouputs of test set.
+            Length is the output dimension.
+
+        raw_errors (bool): If true returns for each model a list is returned
+            with the errors of each channel (y_true - y_pred).
+            If false returns for each model a list of 3 arrays with the
+            mean absolute error (MAE), mean absolute porcentual error (MAPE)
+            and root mean squared error (RMSE) for each channel.
+
+    Returns:
+        List with length equal to the number of models, each element
+        contains a list of length of the output dim and each
+        element is an array with the errors.
+
+    Example:
+        Given model1, model2, x_test, y_test of correct format.
+
+        &gt;&gt;&gt; errors = mogptk.test_errors(model1, model2, x_test, y_test)
+        &gt;&gt;&gt; errors[i][j]
+        numpy array with errors from model &#39;i&#39; at channel &#39;j&#39;
+    &#34;&#34;&#34;
+
+    error_per_model = []
+
+    for model in models:
+
+        n_channels = model.data.get_output_dims()
+
+        error_per_channel = []
+
+        # predict with model
+        y_pred, var_pred = model.predict(x_test)
+
+        for i in range(n_channels):
+            errors = y_test[i] - y_pred[i]
+            # if only error values
+            if raw_errors:
+                error_per_channel.append(errors)
+
+            # composite errors
+            else:
+                mae = np.abs(errors).mean()
+                mape = (np.abs(errors) / y_test[i] * 100).mean()
+                rmse = (np.sqrt(errors**2)).mean()
+                error_per_channel.append(np.array([mae, mape, rmse]))
+
+        error_per_model.append(error_per_channel)
+
+    return error_per_model</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -229,6 +397,7 @@ However if a latent function is defined in the data this will be used as the tru
 <ul class="">
 <li><code><a title="mogptk.errors.errors" href="#mogptk.errors.errors">errors</a></code></li>
 <li><code><a title="mogptk.errors.mean_absolute_percentage_error" href="#mogptk.errors.mean_absolute_percentage_error">mean_absolute_percentage_error</a></code></li>
+<li><code><a title="mogptk.errors.test_errors" href="#mogptk.errors.test_errors">test_errors</a></code></li>
 </ul>
 </li>
 </ul>

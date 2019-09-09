@@ -52,6 +52,14 @@ class model:
     &#34;&#34;&#34;
 
     def __init__(self, name, data, Q):
+        if not isinstance(data, list):
+            data = [data]
+
+        input_dims = data[0].get_input_dims()
+        for channel in data:
+            if channel.get_input_dims() != input_dims:
+                raise Exception(&#34;all data channels must have the same amount of input dimensions (for now)&#34;)
+
         self.name = name
         self.data = data
         self.model = None
@@ -59,18 +67,22 @@ class model:
         self.params = []
         self.fixed_params = []
 
+    # overridden by specific models
     def _kernel(self):
-        # overridden by specific models
         raise Exception(&#34;kernel not specified&#34;)
     
-    def _transform_data(self, x, y):
-        # overridden by specific models
+    # overridden by specific models
+    def _transform_data(self):
         raise Exception(&#34;kernel not specified&#34;)
 
+    # overridden by specific models
     def info(self):
+        print(&#34;info() not implemented for kernel&#34;)
         pass
 
+    # overridden by specific models
     def plot(self):
+        print(&#34;plot() not implemented for kernel&#34;)
         pass
 
     def _update_params(self, trainables):
@@ -80,6 +92,12 @@ class model:
                 q = int(names[3])
                 name = names[4]
                 self.params[q][name] = val
+
+    def get_input_dims(self):
+        return self.data[0].get_input_dims()
+
+    def get_output_dims(self):
+        return len(self.data)
 
     def get_params(self):
         &#34;&#34;&#34;
@@ -138,7 +156,9 @@ class model:
 
         self.model.mogptk_type = self.__class__.__name__
         self.model.mogptk_name = self.name
-        self.model.mogptk_data = self.data._encode()
+        self.model.mogptk_data = []
+        for channel in self.data:
+            self.model.mogptk_data.append(channel._encode())
         self.model.mogptk_Q = self.Q
         self.model.mogptk_params = self.params
         self.model.mogptk_fixed_params = self.fixed_params
@@ -148,7 +168,7 @@ class model:
                 gpflow.Saver().save(filename, self.model)
 
     def build(self, kind=&#39;full&#39;):
-        x, y = self._transform_data(self.data.X, self.data.Y)
+        x, y = self._transform_data([channel.X for channel in self.data], [channel.Y for channel in self.data])
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
@@ -195,6 +215,21 @@ class model:
             method (str): Optimizer to use, if &#34;Adam&#34; is chosen,
                 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
                 optimizer is used. Default to scipy &#39;L-BFGS-B&#39;.
+
+            plot (bool): Default to False.
+
+            opt_params (dict): Aditional dictionary with parameters on optimizer.
+                If method is &#39;Adam&#39; see,
+                https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py
+                If method is in scipy-optimizer see:
+                https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
+                https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+
+            params (dict): Aditional dictionary with parameters to minimice. 
+                See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
+                for more details.
+
+            export_graph (bool): Default to False.
         &#34;&#34;&#34;
 
         start_time = time.time()
@@ -239,7 +274,7 @@ class model:
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self, X):
+    def predict(self):
         &#34;&#34;&#34;
         Predict with model.
 
@@ -251,34 +286,26 @@ class model:
             pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
         Returns:
-            X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+            Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
 
         &#34;&#34;&#34;
         if self.model == None:
             raise Exception(&#34;build (and train) the model before doing predictions&#34;)
 
-        # TODO: extract X from dict or from Prediction
-
+        x = self._transform_data([channel.X_pred for channel in self.data])
         with self.graph.as_default():
             with self.session.as_default():
-                x, _ = self._transform_data(X)
                 mu, var = self.model.predict_f(x)
 
-        n = 0
-        for channel in X:
-            n += X[channel].shape[0]
-        
         i = 0
         Y_mu = {}
         Y_var = {}
-        for channel in X:
-            n = X[channel].shape[0]
+        for channel in self.data:
+            n = channel.X_pred.shape[0]
             if n != 0:
-                Y_mu[channel] = mu[i:i+n].reshape(1, -1)[0]
-                Y_var[channel] = var[i:i+n].reshape(1, -1)[0]
-                i += n
-        #TODO: set mu and var in Prediction, or create a new one? Prediction should be reusable, or easily copyable
-        return Y_mu, Y_var</code></pre>
+                channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
+                channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
+                i += n</code></pre>
 </details>
 </section>
 <section>
@@ -331,6 +358,14 @@ the model can be used to train a predict.</p>
     &#34;&#34;&#34;
 
     def __init__(self, name, data, Q):
+        if not isinstance(data, list):
+            data = [data]
+
+        input_dims = data[0].get_input_dims()
+        for channel in data:
+            if channel.get_input_dims() != input_dims:
+                raise Exception(&#34;all data channels must have the same amount of input dimensions (for now)&#34;)
+
         self.name = name
         self.data = data
         self.model = None
@@ -338,18 +373,22 @@ the model can be used to train a predict.</p>
         self.params = []
         self.fixed_params = []
 
+    # overridden by specific models
     def _kernel(self):
-        # overridden by specific models
         raise Exception(&#34;kernel not specified&#34;)
     
-    def _transform_data(self, x, y):
-        # overridden by specific models
+    # overridden by specific models
+    def _transform_data(self):
         raise Exception(&#34;kernel not specified&#34;)
 
+    # overridden by specific models
     def info(self):
+        print(&#34;info() not implemented for kernel&#34;)
         pass
 
+    # overridden by specific models
     def plot(self):
+        print(&#34;plot() not implemented for kernel&#34;)
         pass
 
     def _update_params(self, trainables):
@@ -359,6 +398,12 @@ the model can be used to train a predict.</p>
                 q = int(names[3])
                 name = names[4]
                 self.params[q][name] = val
+
+    def get_input_dims(self):
+        return self.data[0].get_input_dims()
+
+    def get_output_dims(self):
+        return len(self.data)
 
     def get_params(self):
         &#34;&#34;&#34;
@@ -417,7 +462,9 @@ the model can be used to train a predict.</p>
 
         self.model.mogptk_type = self.__class__.__name__
         self.model.mogptk_name = self.name
-        self.model.mogptk_data = self.data._encode()
+        self.model.mogptk_data = []
+        for channel in self.data:
+            self.model.mogptk_data.append(channel._encode())
         self.model.mogptk_Q = self.Q
         self.model.mogptk_params = self.params
         self.model.mogptk_fixed_params = self.fixed_params
@@ -427,7 +474,7 @@ the model can be used to train a predict.</p>
                 gpflow.Saver().save(filename, self.model)
 
     def build(self, kind=&#39;full&#39;):
-        x, y = self._transform_data(self.data.X, self.data.Y)
+        x, y = self._transform_data([channel.X for channel in self.data], [channel.Y for channel in self.data])
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
@@ -474,6 +521,21 @@ the model can be used to train a predict.</p>
             method (str): Optimizer to use, if &#34;Adam&#34; is chosen,
                 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
                 optimizer is used. Default to scipy &#39;L-BFGS-B&#39;.
+
+            plot (bool): Default to False.
+
+            opt_params (dict): Aditional dictionary with parameters on optimizer.
+                If method is &#39;Adam&#39; see,
+                https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py
+                If method is in scipy-optimizer see:
+                https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
+                https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+
+            params (dict): Aditional dictionary with parameters to minimice. 
+                See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
+                for more details.
+
+            export_graph (bool): Default to False.
         &#34;&#34;&#34;
 
         start_time = time.time()
@@ -518,7 +580,7 @@ the model can be used to train a predict.</p>
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self, X):
+    def predict(self):
         &#34;&#34;&#34;
         Predict with model.
 
@@ -530,34 +592,26 @@ the model can be used to train a predict.</p>
             pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
         Returns:
-            X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+            Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
 
         &#34;&#34;&#34;
         if self.model == None:
             raise Exception(&#34;build (and train) the model before doing predictions&#34;)
 
-        # TODO: extract X from dict or from Prediction
-
+        x = self._transform_data([channel.X_pred for channel in self.data])
         with self.graph.as_default():
             with self.session.as_default():
-                x, _ = self._transform_data(X)
                 mu, var = self.model.predict_f(x)
 
-        n = 0
-        for channel in X:
-            n += X[channel].shape[0]
-        
         i = 0
         Y_mu = {}
         Y_var = {}
-        for channel in X:
-            n = X[channel].shape[0]
+        for channel in self.data:
+            n = channel.X_pred.shape[0]
             if n != 0:
-                Y_mu[channel] = mu[i:i+n].reshape(1, -1)[0]
-                Y_var[channel] = var[i:i+n].reshape(1, -1)[0]
-                i += n
-        #TODO: set mu and var in Prediction, or create a new one? Prediction should be reusable, or easily copyable
-        return Y_mu, Y_var</code></pre>
+                channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
+                channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
+                i += n</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -577,7 +631,7 @@ the model can be used to train a predict.</p>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def build(self, kind=&#39;full&#39;):
-    x, y = self._transform_data(self.data.X, self.data.Y)
+    x, y = self._transform_data([channel.X for channel in self.data], [channel.Y for channel in self.data])
 
     self.graph = tf.Graph()
     self.session = tf.Session(graph=self.graph)
@@ -620,6 +674,28 @@ the model can be used to train a predict.</p>
     self.fixed_params.append(key)</code></pre>
 </details>
 </dd>
+<dt id="mogptk.model.model.get_input_dims"><code class="name flex">
+<span>def <span class="ident">get_input_dims</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_input_dims(self):
+    return self.data[0].get_input_dims()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.get_output_dims"><code class="name flex">
+<span>def <span class="ident">get_output_dims</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_output_dims(self):
+    return len(self.data)</code></pre>
+</details>
+</dd>
 <dt id="mogptk.model.model.get_params"><code class="name flex">
 <span>def <span class="ident">get_params</span></span>(<span>self)</span>
 </code></dt>
@@ -642,6 +718,7 @@ the model can be used to train a predict.</p>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def info(self):
+    print(&#34;info() not implemented for kernel&#34;)
     pass</code></pre>
 </details>
 </dd>
@@ -653,11 +730,12 @@ the model can be used to train a predict.</p>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def plot(self):
+    print(&#34;plot() not implemented for kernel&#34;)
     pass</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.predict"><code class="name flex">
-<span>def <span class="ident">predict</span></span>(<span>self, X)</span>
+<span>def <span class="ident">predict</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Predict with model.</p>
@@ -670,10 +748,10 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.</p></section>
+<p>Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.</p></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def predict(self, X):
+<pre><code class="python">def predict(self):
     &#34;&#34;&#34;
     Predict with model.
 
@@ -685,34 +763,26 @@ It returns the X, Y_mu, Y_var values per channel.</p>
         pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
     Returns:
-        X_pred, Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+        Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
 
     &#34;&#34;&#34;
     if self.model == None:
         raise Exception(&#34;build (and train) the model before doing predictions&#34;)
 
-    # TODO: extract X from dict or from Prediction
-
+    x = self._transform_data([channel.X_pred for channel in self.data])
     with self.graph.as_default():
         with self.session.as_default():
-            x, _ = self._transform_data(X)
             mu, var = self.model.predict_f(x)
 
-    n = 0
-    for channel in X:
-        n += X[channel].shape[0]
-    
     i = 0
     Y_mu = {}
     Y_var = {}
-    for channel in X:
-        n = X[channel].shape[0]
+    for channel in self.data:
+        n = channel.X_pred.shape[0]
         if n != 0:
-            Y_mu[channel] = mu[i:i+n].reshape(1, -1)[0]
-            Y_var[channel] = var[i:i+n].reshape(1, -1)[0]
-            i += n
-    #TODO: set mu and var in Prediction, or create a new one? Prediction should be reusable, or easily copyable
-    return Y_mu, Y_var</code></pre>
+            channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
+            channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
+            i += n</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.print_params"><code class="name flex">
@@ -751,7 +821,9 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 
     self.model.mogptk_type = self.__class__.__name__
     self.model.mogptk_name = self.name
-    self.model.mogptk_data = self.data._encode()
+    self.model.mogptk_data = []
+    for channel in self.data:
+        self.model.mogptk_data.append(channel._encode())
     self.model.mogptk_Q = self.Q
     self.model.mogptk_params = self.params
     self.model.mogptk_fixed_params = self.fixed_params
@@ -814,6 +886,21 @@ When using the 'Adam' optimizer, a learning_rate can be set.</p>
 <dd>Optimizer to use, if "Adam" is chosen,
 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
 optimizer is used. Default to scipy 'L-BFGS-B'.</dd>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Default to False.</dd>
+<dt><strong><code>opt_params</code></strong> :&ensp;<code>dict</code></dt>
+<dd>Aditional dictionary with parameters on optimizer.
+If method is 'Adam' see,
+<a href="https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py">https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py</a>
+If method is in scipy-optimizer see:
+<a href="https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py">https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py</a>
+<a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a></dd>
+<dt><strong><code>params</code></strong> :&ensp;<code>dict</code></dt>
+<dd>Aditional dictionary with parameters to minimice.
+See <a href="https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py">https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py</a>
+for more details.</dd>
+<dt><strong><code>export_graph</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Default to False.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
@@ -833,6 +920,21 @@ optimizer is used. Default to scipy 'L-BFGS-B'.</dd>
         method (str): Optimizer to use, if &#34;Adam&#34; is chosen,
             gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
             optimizer is used. Default to scipy &#39;L-BFGS-B&#39;.
+
+        plot (bool): Default to False.
+
+        opt_params (dict): Aditional dictionary with parameters on optimizer.
+            If method is &#39;Adam&#39; see,
+            https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py
+            If method is in scipy-optimizer see:
+            https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
+            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+
+        params (dict): Aditional dictionary with parameters to minimice. 
+            See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
+            for more details.
+
+        export_graph (bool): Default to False.
     &#34;&#34;&#34;
 
     start_time = time.time()
@@ -908,6 +1010,8 @@ optimizer is used. Default to scipy 'L-BFGS-B'.</dd>
 <ul class="two-column">
 <li><code><a title="mogptk.model.model.build" href="#mogptk.model.model.build">build</a></code></li>
 <li><code><a title="mogptk.model.model.fix_params" href="#mogptk.model.model.fix_params">fix_params</a></code></li>
+<li><code><a title="mogptk.model.model.get_input_dims" href="#mogptk.model.model.get_input_dims">get_input_dims</a></code></li>
+<li><code><a title="mogptk.model.model.get_output_dims" href="#mogptk.model.model.get_output_dims">get_output_dims</a></code></li>
 <li><code><a title="mogptk.model.model.get_params" href="#mogptk.model.model.get_params">get_params</a></code></li>
 <li><code><a title="mogptk.model.model.info" href="#mogptk.model.model.info">info</a></code></li>
 <li><code><a title="mogptk.model.model.plot" href="#mogptk.model.model.plot">plot</a></code></li>
