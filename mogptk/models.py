@@ -47,20 +47,16 @@ def LoadModel(filename):
 
 def _transform_data_mogp(x, y):
     chan = []
-    for channel in range(len(data)):
-        chan.append(channel * np.ones(len(data[channel].X)))
-    chan = np.array(chan)
-    chan = chan.reshape(-1, 1)
+    for channel in range(len(x)):
+        chan.append(channel * np.ones(len(x[channel])))
+    chan = np.concatenate(chan).reshape(-1, 1)
     
-    x = np.array(x)
+    x = np.concatenate(x)
     x = np.concatenate((chan, x), axis=1)
     if y == None:
-        print(x)
         return x
 
-    y = np.array(y)
     y = np.concatenate(y).reshape(-1, 1)
-    print(x, y)
     return x, y
 
 def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=False):
@@ -90,7 +86,7 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=Fa
         for i in range(input_dims):
             sm = SM(data[channel], Q)
             sm.init_params(init)
-            sm.train(method=method, maxiter=maxiter)
+            #sm.train(method=method, maxiter=maxiter)
 
             if plot:
                 nyquist = data[channel].get_nyquist_estimation()
@@ -162,28 +158,26 @@ class SM(model):
                 self.params[q]['mixture_scales'] = np.array(scales[q])
 
         elif method=='LS':
-            means, amplitudes = self.data[0].get_ls_estimation(self.Q)
-            if np.sum(amplitudes) == 0.0:
+            amplitudes, means, variances = self.data[0].get_ls_estimation(self.Q)
+            if len(amplitudes) == 0:
                 logging.warning('BNSE could not find peaks for SM')
                 return
 
-            weights = amplitudes[0] # TODO: take into account input dimensions!
-            weights = np.sqrt(weights/np.sum(weights))
             for q in range(self.Q):
-                self.params[q]['mixture_weights'] = weights[q]
+                self.params[q]['mixture_weights'] = amplitudes[0,q] # TODO: take into account input dimensions!
                 self.params[q]['mixture_means'] = means.T[q]
+                self.params[q]['mixture_scales'] = variances.T[q]
 
         elif method=='BNSE':
-            means, amplitudes = self.data[0].get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.data[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logging.warning('BNSE could not find peaks for SM')
                 return
 
-            weights = amplitudes[0] # TODO: take into account input dimensions!
-            weights = np.sqrt(weights/np.sum(weights))
             for q in range(self.Q):
-                self.params[q]['mixture_weights'] = weights[q]
+                self.params[q]['mixture_weights'] = amplitudes[0,q] # TODO: take into account input dimensions!
                 self.params[q]['mixture_means'] = means.T[q]
+                self.params[q]['mixture_scales'] = variances.T[q]
 
     def _transform_data(self, x, y=None):
         if y == None:

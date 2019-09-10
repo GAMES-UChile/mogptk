@@ -4,7 +4,7 @@ import inspect
 import dill
 import numpy as np
 from mogptk.bnse import *
-from scipy.signal import lombscargle, find_peaks
+from scipy import signal
 import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
@@ -687,14 +687,15 @@ class Data:
         if n < 1 or duration < 1:
             return
 
-        m = self.X.shape[0] - n*duration
+        # TODO: what if N != 1 and we have dates on the X-axis? Make sure that ranges do not overlap and are picked randomly
+        m = (self.X[-1]-self.X[0]) - n*duration
         if m <= 0:
             raise Exception("no data left after removing ranges")
 
         locs = np.round(np.sort(np.random.rand(n)) * m)
         for i in range(len(locs)):
             loc = int(locs[i] + i * duration)
-            idx = np.arange(loc, loc+duration)
+            idx = np.arange(int(loc), int(loc+duration))
             self.mask[idx] = False
     
     ################################################################
@@ -812,8 +813,11 @@ class Data:
         """
         input_dims = self.get_input_dims()
 
-        freqs = np.zeros((input_dims, Q))
-        amps = np.zeros((input_dims, Q))
+        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
+        A = np.zeros((input_dims, Q))
+        B = np.zeros((input_dims, Q))
+        C = np.zeros((input_dims, Q))
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
@@ -824,27 +828,25 @@ class Data:
             bnse.train()
             bnse.compute_moments()
 
-            peaks, amplitudes = bnse.get_freq_peaks() # TODO: get peak widths
-            if len(peaks) == 0:
+            amplitudes, positions, variances = bnse.get_freq_peaks() # TODO: get peak widths
+            if len(positions) == 0:
                 continue
 
-            peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
-            amplitudes.sort()
-
-            if Q < len(peaks):
-                peaks = peaks[:Q]
-                amplitudes = amplitudes[:Q]
-            elif len(peaks) != 0:
+            n = len(positions)
+            if n < Q and n != 0:
+                # if there not enough peaks, we will repeat them
                 j = 0
-                n = len(peaks)
-                while Q > len(peaks):
-                    peaks = np.append(peaks, peaks[j] + (np.random.standard_t(3, 1) * 0.01)[0])
+                while len(positions) < Q:
                     amplitudes = np.append(amplitudes, amplitudes[j])
+                    positions = np.append(positions, positions[j])
+                    variances = np.append(variances, variances[j])
                     j = (j+1) % n
-            
-            freqs[i,:] = 2*np.pi*peaks
-            amps[i,:] = amplitudes
-        return freqs / np.pi / 2, amps
+
+            A[i,:] = amplitudes[:Q]
+            B[i,:] = positions[:Q]
+            C[i,:] = variances[:Q]
+        print(A,B,C)
+        return A, B, C
 
     def get_ls_estimation(self, Q=1, n=50000):
         """
@@ -860,34 +862,43 @@ class Data:
         """
         input_dims = self.get_input_dims()
 
-        freqs = np.zeros((input_dims, Q))
-        amps = np.zeros((input_dims, Q))
+        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
+        A = np.zeros((input_dims, Q))
+        B = np.zeros((input_dims, Q))
+        C = np.zeros((input_dims, Q))
 
         nyquist = self.get_nyquist_estimation() * 2 * np.pi
         for i in range(input_dims):
-            freq_space = np.linspace(0, nyquist[i], n+1)[1:]
-            pgram = lombscargle(self.X[:,i], self.Y, freq_space)
-            peaks_index, _ = find_peaks(pgram)
+            x = np.linspace(0, nyquist[i], n+1)[1:]
+            dx = x[1]-x[0]
 
-            freqs_peaks = freq_space[peaks_index]
-            amplitudes = pgram[peaks_index]
+            y = signal.lombscargle(self.X[:,i], self.Y, x)
+            ind, _ = signal.find_peaks(y)
+            ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
-            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
+            widths, width_heights, _, _ = signal.peak_widths(y, ind, rel_height=0.5)
+            widths *= dx / np.pi / 2.0
 
-            if Q < len(peaks):
-                peaks = peaks[:Q]
-            # if there is less peaks than components
-            elif len(peaks) != 0:
+            positions = x[ind] / np.pi / 2.0
+            amplitudes = y[ind]
+            variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
+
+            n = len(positions)
+            if n < Q and n != 0:
+                # if there not enough peaks, we will repeat them
                 j = 0
-                n = len(peaks)
-                while Q > len(peaks):
-                    peaks = np.r_[peaks, peaks[j] + np.random.standard_normal(2)]
+                while len(positions) < Q:
+                    amplitudes = np.append(amplitudes, amplitudes[j])
+                    positions = np.append(positions, positions[j])
+                    variances = np.append(variances, variances[j])
                     j = (j+1) % n
 
-            freqs[i,:] = peaks[:,1]
-            amps[i,:] = peaks[:,0]
-
-        return freqs / np.pi / 2, amps
+            A[i,:] = amplitudes[:Q]
+            B[i,:] = positions[:Q]
+            C[i,:] = variances[:Q]
+        print(A,B,C)
+        return A, B, C
     
     #def get_gm_estimation(self):
     #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
@@ -1018,7 +1029,7 @@ class Data:
 
         X = np.linspace(0.0, freq, 10001)[1:]
         if method == 'lombscargle':
-            Y = lombscargle(X_space, self.Y, X)
+            Y = signal.lombscargle(X_space, self.Y, X)
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 

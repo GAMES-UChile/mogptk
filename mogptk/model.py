@@ -144,7 +144,7 @@ class model:
                 gpflow.Saver().save(filename, self.model)
 
     def build(self, kind='full'):
-        x, y = self._transform_data([channel.X for channel in self.data], [channel.Y for channel in self.data])
+        x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
@@ -267,9 +267,6 @@ class model:
         """
         if self.model == None:
             raise Exception("build (and train) the model before doing predictions")
-        
-        for channel in self.data:
-            repr(channel)
 
         x = self._transform_data([channel.X_pred for channel in self.data])
         with self.graph.as_default():
@@ -277,8 +274,6 @@ class model:
                 mu, var = self.model.predict_f(x)
 
         i = 0
-        Y_mu = {}
-        Y_var = {}
         for channel in self.data:
             n = channel.X_pred.shape[0]
             if n != 0:
