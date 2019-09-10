@@ -84,7 +84,7 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
     share equal number of inputs and outputs (channels).
 
     Args:
-        models (mogptk.Model): Trained model to evaluate, can be more than one
+        models (mogptk.model): Trained model to evaluate, can be more than one
 
         x_test (list): List of numpy arrays with the inputs of the test set.
             Length is the output dimension.
