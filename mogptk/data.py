@@ -865,7 +865,7 @@ class Data:
 
         nyquist = self.get_nyquist_estimation() * 2 * np.pi
         for i in range(input_dims):
-            freq_space = np.linspace(0, nyquist[i], n_ls+1)[1:]
+            freq_space = np.linspace(0, nyquist[i], n+1)[1:]
             pgram = lombscargle(self.X[:,i], self.Y, freq_space)
             peaks_index, _ = find_peaks(pgram)
 

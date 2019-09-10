@@ -4,6 +4,7 @@ import numpy as np
 from pprint import pprint
 import gpflow
 import tensorflow as tf
+import pandas as pd
 
 import logging
 logging.getLogger('tensorflow').propagate = False
@@ -55,6 +56,12 @@ class model:
     def info(self):
         print("info() not implemented for kernel")
         pass
+
+    def print(self):
+        pd.set_option('display.max_colwidth', -1)
+        df = pd.DataFrame(self.get_params())
+        df.index.name = 'Q'
+        display(df)
 
     # overridden by specific models
     def plot(self):
@@ -110,13 +117,6 @@ class model:
 
     def unfix_params(self, key):
         self.fixed_params.remove(key)
-
-    def print_params(self):
-        import pandas as pd
-        pd.set_option('display.max_colwidth', -1)
-        df = pd.DataFrame(self.get_params())
-        df.index.name = 'Q'
-        display(df)
 
     def save(self, filename):
         if self.model == None:
@@ -267,6 +267,9 @@ class model:
         """
         if self.model == None:
             raise Exception("build (and train) the model before doing predictions")
+        
+        for channel in self.data:
+            repr(channel)
 
         x = self._transform_data([channel.X_pred for channel in self.data])
         with self.graph.as_default():

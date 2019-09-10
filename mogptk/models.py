@@ -75,8 +75,8 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=Fa
     returns: 
         params[q][name][output dim][input dim]
     """
-    input_dims = data.get_input_dims()
-    output_dims = data.get_output_dims()
+    input_dims = data[0].get_input_dims()
+    output_dims = len(data)
 
     params = []
     for q in range(Q):
@@ -86,21 +86,18 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=Fa
             'scale': np.empty((input_dims, output_dims)),
         })
 
-    for channel in range(data.get_output_dims()):
-        for i in range(data.get_input_dims()):
-            sm_data = Data()
-            sm_data.add(data.X[channel][:,i], data.Y[channel])
-
-            sm = SM(sm_data, Q)
+    for channel in range(output_dims):
+        for i in range(input_dims):
+            sm = SM(data[channel], Q)
             sm.init_params(init)
             sm.train(method=method, maxiter=maxiter)
 
             if plot:
-                nyquist = sm_data.get_nyquist_estimation()
+                nyquist = data[channel].get_nyquist_estimation()
                 means = sm._get_param_across('mixture_means')
                 weights = sm._get_param_across('mixture_weights')
                 scales = sm._get_param_across('mixture_scales')
-                plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=data.channel_names[channel])
+                plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=data[channel].name)
 
             for q in range(Q):
                 params[q]['weight'][i,channel] = sm.params[q]['mixture_weights']
@@ -225,7 +222,7 @@ class MOSM(model):
     def __init__(self, data, Q=1, name="MOSM"):
         model.__init__(self, name, data, Q)
 
-        input_dims = self.data.get_input_dims()
+        input_dims = self.get_input_dims()
         output_dims = self.get_output_dims()
         for _ in range(Q):
             self.params.append({
@@ -270,26 +267,27 @@ class MOSM(model):
             self.init_means()
 
         elif mode=='full':
-            params = estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+            params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
                 self.params[q]["magnitude"] = np.average(params[q]['weight'], axis=0)
                 self.params[q]["mean"] = params[q]['mean']
                 self.params[q]["variance"] = params[q]['scale']
 
     def plot(self):
-        nyquist = self.data.get_nyquist_estimation()
+        names = [channel.name for channel in self.data]
+        nyquist = [channel.get_nyquist_estimation() for channel in self.data]
         means = self._get_param_across('mean')
         weights = self._get_param_across('magnitude')**2
         scales = self._get_param_across('variance')
-        plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=self.data.channel_names)
+        plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names)
 
     def info(self):
-        for channel in range(self.data.get_output_dims()):
+        for channel in range(self.get_output_dims()):
             for q in range(self.Q):
                 mean = self.params[q]["mean"][:,channel]
                 var = self.params[q]["variance"][:,channel]
                 if np.linalg.norm(mean) < np.linalg.norm(var):
-                    print("‣ MOSM approaches RBF kernel for Q=%d in channel='%s'" % (q, self.data.channel_names[channel]))
+                    print("‣ MOSM approaches RBF kernel for Q=%d in channel='%s'" % (q, self.data[channel].name))
 
     def _transform_data(self, x, y=None):
         return _transform_data_mogp(x, y)
@@ -297,8 +295,8 @@ class MOSM(model):
     def _kernel(self):
         for q in range(self.Q):
             kernel = MultiOutputSpectralMixture(
-                self.data.get_input_dims(),
-                self.data.get_output_dims(),
+                self.get_input_dims(),
+                self.get_output_dims(),
                 self.params[q]["magnitude"],
                 self.params[q]["mean"],
                 self.params[q]["variance"],
