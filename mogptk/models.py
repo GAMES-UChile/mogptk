@@ -150,7 +150,7 @@ class SM(model):
             raise Exception("Posible methods are 'random', 'LS' and 'BNSE' (see documentation).")
 
         if method=='random':
-            x, y = self._data()
+            x, y = self.data[0].get_obs()
             weights, means, scales = sm_init(x, y, self.Q)
             for q in range(self.Q):
                 self.params[q]['mixture_weights'] = weights[q]
@@ -254,10 +254,10 @@ class MOSM(model):
                 directly. 'full' estimates the spectral mean, variance and weights with GP-SM.
         """
 
-        if mode not in ['full', 'means']:
-            raise Exception("posible modes are either 'full' or 'means'.")
+        if mode not in ['SM', 'BNSE']:
+            raise Exception("posible modes are either 'full' or 'BNSE'.")
 
-        if mode=='means':
+        if mode=='BNSE':
             self.init_means()
 
         elif mode=='full':

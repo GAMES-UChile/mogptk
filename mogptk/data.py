@@ -10,6 +10,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import re
 import pandas as pd
+from sklearn.linear_model import Ridge
     
 duration_regex = re.compile(
     r'^((?P<years>[\.\d]+?)y)?'
@@ -19,6 +20,23 @@ duration_regex = re.compile(
     r'((?P<hours>[\.\d]+?)h)?'
     r'((?P<minutes>[\.\d]+?)m)?'
     r'((?P<seconds>[\.\d]+?)s)?$')
+
+
+def _detransform(transformations, x, y):
+    """
+    Apply inverse transformations to a set of values.
+
+    Used to apply inverse tranformations of a channel stored
+    in a Data class to a set.
+
+    Args:
+        transformations(list): List of transformations(objects) in order of aplication.
+        x(ndarray): Array of n_points x n_dim of inputs.
+        y(ndarray): Array of n_points outputs.
+    """
+    for t in transformations[::-1]:
+        y = t._backward(x, y)
+    return y
 
 def _parse_duration_to_sec(s):
     x = duration_regex.match(s)
@@ -142,6 +160,8 @@ class FormatDateTime:
 class TransformDetrend:
     """
     TransformDetrend is a transformer that detrends the data.
+
+    TODO : add regression or other order polinomial.
     """
     def __init__(self, data):
         if data.get_input_dims() != 1:
@@ -311,15 +331,22 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         return data
 
 class Data:
-    def __init__(self, X, Y, name=None, format=None):
+    def __init__(self, X, Y, name='', format=None):
         """
-        Data class holds all the observations, latent functions and prediction data. This class takes the data raw, but you can load data also conveniently using LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model. Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
+        Data class holds all the observations, latent functions and prediction data.
+
+        This class takes the data raw, but you can load data also conveniently using
+        LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model.
+        Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure,
+        and aggregating data for given spans on X, such as aggregating daily data into
+        weekly data. Additionally, we also use this class to set the range we want to predict.
 
         Args:
             X (list,ndarray): Independent variable data of shape (n) or (n,input_dims).
             Y (list,ndarray): Dependent variable data of shape (n).
             name (str,optional): Name of dataset.
-            format (list,optional): List of formatters (such as FormatNumber (default), FormatDate, FormetDateTime, ...) for each input dimension.
+            format (list,optional): List of formatters (such as FormatNumber (default), FormatDate,
+                FormetDateTime, ...) for each input dimension.
 
         Examples:
             >>> Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -480,6 +507,9 @@ class Data:
             transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
 
         Examples:
+            >>> import mogptk
+            >>> from mogptk import TransformDetrend
+            >>> data = mogptk.Data(x, y)
             >>> data.transform(TransformDetrend)
         """
         t = transformer
@@ -490,6 +520,7 @@ class Data:
         if self.F != None:
             f = self.F
             self.F = lambda x: t._forward(x, f(x))
+        self.transformations.append(t)
     
     def filter(self, start, end):
         """
@@ -800,7 +831,7 @@ class Data:
             nyquist[i] = 0.5/dist
         return nyquist
 
-    def get_bnse_estimation(self, Q=1):
+    def get_bnse_estimation(self, Q=1, n=5000):
         """
         Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
@@ -824,7 +855,7 @@ class Data:
             x = self.X[:,i]
             y = self.Y
             bnse = bse(x, y)
-            bnse.set_freqspace(nyquist[i], dimension=5000)
+            bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
             bnse.compute_moments()
 
@@ -845,7 +876,6 @@ class Data:
             A[i,:] = amplitudes[:Q]
             B[i,:] = positions[:Q]
             C[i,:] = variances[:Q]
-        print(A,B,C)
         return A, B, C
 
     def get_ls_estimation(self, Q=1, n=50000):
@@ -897,7 +927,6 @@ class Data:
             A[i,:] = amplitudes[:Q]
             B[i,:] = positions[:Q]
             C[i,:] = variances[:Q]
-        print(A,B,C)
         return A, B, C
     
     #def get_gm_estimation(self):
@@ -919,9 +948,9 @@ class Data:
         if self.get_input_dims() == 2:
             raise Exception("two dimensional input data not yet implemented") # TODO
 
-        sns.set(font_scale=2)
-        sns.axes_style("darkgrid")
-        sns.set_style("whitegrid")
+        # sns.set(font_scale=2)
+        # sns.axes_style("darkgrid")
+        # sns.set_style("whitegrid")
 
         fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
         if title != None:
@@ -986,6 +1015,8 @@ class Data:
         """
         Plot the spectrum of the data.
 
+        TODO: Add BNSE as spectrum estimate option.
+
         Args:
             method (str,optional): Set the method to get the spectrum such as 'lombscargle'.
             angularfreq (bool,optional): Use angular frequencies.
@@ -1001,9 +1032,9 @@ class Data:
         if self.get_input_dims() == 2:
             raise Exception("two dimensional input data not yet implemented") # TODO
 
-        sns.set(font_scale=2)
-        sns.axes_style("darkgrid")
-        sns.set_style("whitegrid")
+        # sns.set(font_scale=2)
+        # sns.axes_style("darkgrid")
+        # sns.set_style("whitegrid")
 
         fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
         if title != None:
