@@ -4,9 +4,9 @@ import seaborn as sns
 from scipy.stats import norm
 
 def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None):
-    sns.set(font_scale=2)
-    sns.axes_style("darkgrid")
-    sns.set_style("whitegrid")
+    # sns.set(font_scale=2)
+    # sns.axes_style("darkgrid")
+    # sns.set_style("whitegrid")
     
     if means.ndim == 2:
         means = np.expand_dims(means, axis=2)
@@ -67,21 +67,26 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
         plt.show()
 
 
-def plot_prediction(model, grid, figsize=(12, 8), ylims=None, names=None, title=''):
+def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, title=''):
 
     """
     Plot training points, all data and prediction for all channels.
 
     Args:
-
-
+        Model (mogptk.Model object): Model to use.
+        grid (tuple) : Tuple with the 2 dimensions of the grid.
+        figsize(tuple): Figure size, default to (12, 8).
+        ylims(list): List of tuples with limits for Y axis for
+            each channel.
+        Names(list): List of the names of each title.
+        title(str): Title of the plot.
     Returns:
 
     """
     # get data
-    x_train = model.data.X
-    y_train = model.data.Y
-    x_all = model.data.X_all
+    x_train = [channel.X for channel in model.data]
+    y_train = [channel.Y for channel in model.data]
+    x_all = [channel.Y_all for channel in model.data]
     y_all = model.data.Y_all
     x_pred = {i:array for i, array in enumerate(model.data.X_all)}
 
@@ -89,6 +94,9 @@ def plot_prediction(model, grid, figsize=(12, 8), ylims=None, names=None, title=
 
     if (grid[0] * grid[1]) < n_dim:
         raise Exception('Grid not big enough for all channels')
+
+    if grid is None:
+        grid = (np.ceil(n_dim/2), 2)
 
     # predict with model
     mean_pred, var_pred = model.predict(x_pred)

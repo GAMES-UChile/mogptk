@@ -4,6 +4,7 @@ import numpy as np
 from pprint import pprint
 import gpflow
 import tensorflow as tf
+from .data import _detransform
 
 import logging
 logging.getLogger('tensorflow').propagate = False
@@ -37,7 +38,7 @@ class model:
                 raise Exception("all data channels must have the same amount of input dimensions (for now)")
 
         self.name = name
-        self.data = data
+        self.data = [channel.copy() for channel in data]
         self.model = None
         self.Q = Q
         self.params = []
@@ -104,6 +105,17 @@ class model:
             raise Exception("parameter name '%s' does not exist" % (key))
 
         self.params[q][key] = val
+
+    def set_pred(self, channel, x):
+        """
+        Sets prediction range
+
+        TODO: Change so it can receive strings
+        """
+        self.data[channel].set_pred(x)
+
+    def set_pred_range(self, channel, start=None, end=None, n=None, step=None):
+        self.data[channel].set_pred_range(start, end, n, step)
 
     def fix_params(self, key):
         self.fixed_params.append(key)
@@ -203,7 +215,7 @@ class model:
 
             params (dict): Aditional dictionary with parameters to minimice. 
                 See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
-                for more details.
+                for more ails.
 
             export_graph (bool): Default to False.
         """
@@ -250,7 +262,7 @@ class model:
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self):
+    def predict(self, x_pred=None):
         """
         Predict with model.
 
@@ -259,26 +271,59 @@ class model:
         It returns the X, Y_mu, Y_var values per channel.
 
         Args:
-            pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
         Returns:
-            Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+            Y_mu_pred, Y_var_pred: Prediction input, output and confidence interval of 95% of the model.
 
         """
         if self.model == None:
             raise Exception("build (and train) the model before doing predictions")
 
+        # if user pass a prediction input
+        if x_pred is not None:
+            for i, x_channel in enumerate(x_pred):
+                self.data[i].set_pred(x_channel)
+
+        # check if there is some prediction seted
+        for channel in self.data:
+            if channel.X_pred.size == 0:
+                raise Exception('no prediction value set, use x_pred argument or set manually using data.set_pred().')
+
         x = self._transform_data([channel.X_pred for channel in self.data])
+
+        # predict with model
         with self.graph.as_default():
             with self.session.as_default():
                 mu, var = self.model.predict_f(x)
 
-        i = 0
-        Y_mu = {}
-        Y_var = {}
-        for channel in self.data:
+        # reshape for channels
+        for i, channel in enumerate(self.data):
             n = channel.X_pred.shape[0]
             if n != 0:
                 channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
                 channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
-                i += n
+
+        # inverse transformations
+        Y_mu_predicted = []
+        Y_upper_var_predicted = []
+        Y_lower_var_predicted = []
+
+        for channel in self.data:
+            # detransform mean
+            y_pred_detrans = _detransform(channel.transformations, channel.X_pred, channel.Y_mu_pred)
+            Y_mu_predicted.append(y_pred_detrans)
+            
+            # upper confidence interval
+            u_ci = channel.Y_mu_pred + 2 * np.sqrt(channel.Y_var_pred)
+            u_ci = _detransform(channel.transformations, channel.X_pred, u_ci)
+            Y_upper_var_predicted.append(u_ci)
+
+            # lower confidence interval
+            l_ci = channel.Y_mu_pred - 2 * np.sqrt(channel.Y_var_pred)
+            l_ci = _detransform(channel.transformations, channel.X_pred, l_ci)
+            Y_lower_var_predicted.append(l_ci)
+
+        return Y_mu_predicted, Y_lower_var_predicted, Y_upper_var_predicted
+
+
