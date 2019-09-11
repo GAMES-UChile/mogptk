@@ -167,13 +167,18 @@ class TransformDetrend:
         if data.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
-        self.coef = np.polyfit(data.X[:,0], data.Y, 1)
+        # self.coef = np.polyfit(data.X[:,0], data.Y, 1)
+        reg = Ridge(alpha=0.1, fit_intercept=True)
+        reg.fit(data.X, data.Y)
+        self.trend = reg
 
     def _forward(self, x, y):
-        return y-self.coef[1]-self.coef[0]*x[:,0]
+        # return y - np.polyval(self.coef, x[:, 0])
+        return y - self.trend.predict(x)
     
     def _backward(self, x, y):
-        return y+self.coef[1]+self.coef[0]*x[:,0]
+        # return y + np.polyval(self.coef, x[:, 0])
+        return y + self.trend.predict(x)
 
 class TransformNormalize:
     """

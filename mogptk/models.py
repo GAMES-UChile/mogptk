@@ -241,7 +241,7 @@ class MOSM(model):
         for q in range(self.Q):
             self.params[q]["mean"] = peaks[:, :, q].T * np.pi * 2
 
-    def init_params(self, mode='full', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
+    def init_params(self, mode='SM', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
         Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
 
@@ -251,16 +251,16 @@ class MOSM(model):
 
         Args:
             mode (str): Parameters to initialize, 'means' estimates only the means trough BNSE
-                directly. 'full' estimates the spectral mean, variance and weights with GP-SM.
+                directly. 'SM' estimates the spectral mean, variance and weights with GP-SM.
         """
 
         if mode not in ['SM', 'BNSE']:
-            raise Exception("posible modes are either 'full' or 'BNSE'.")
+            raise Exception("posible modes are either 'SM' or 'BNSE'.")
 
         if mode=='BNSE':
             self.init_means()
 
-        elif mode=='full':
+        elif mode=='SM':
             params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
                 self.params[q]["magnitude"] = np.average(params[q]['weight'], axis=0)
