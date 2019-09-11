@@ -253,19 +253,16 @@ class MOSM(model):
             mode (str): Parameters to initialize, 'means' estimates only the means trough BNSE
                 directly. 'full' estimates the spectral mean, variance and weights with GP-SM.
         """
-
-        if mode not in ['SM', 'BNSE']:
-            raise Exception("posible modes are either 'full' or 'BNSE'.")
-
-        if mode=='BNSE':
+        if mode=='means':
             self.init_means()
-
         elif mode=='full':
             params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
                 self.params[q]["magnitude"] = np.average(params[q]['weight'], axis=0)
                 self.params[q]["mean"] = params[q]['mean']
                 self.params[q]["variance"] = params[q]['scale']
+        else:
+            raise Exception("possible modes are either 'full' or 'means'")
 
     def plot(self):
         names = [channel.name for channel in self.data]
