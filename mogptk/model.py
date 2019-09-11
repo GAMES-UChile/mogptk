@@ -299,11 +299,13 @@ class model:
                 mu, var = self.model.predict_f(x)
 
         # reshape for channels
-        for i, channel in enumerate(self.data):
+        i = 0
+        for channel in self.data:
             n = channel.X_pred.shape[0]
             if n != 0:
                 channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
                 channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
+                i += n
 
         # inverse transformations
         Y_mu_predicted = []
