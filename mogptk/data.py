@@ -842,10 +842,13 @@ class Data:
 
         Args:
             Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points of the grid to evaluate 
+                frequencies, default to 5000.
 
         Returns:
-            ndarray: Frequency array of shape (input_dims,Q).
-            ndarray: Amplitude array of shape (input_dims,Q).
+            amplitudes: Amplitude array of shape (input_dims,Q).
+            positions: Frequency array of shape (input_dims,Q).
+            variances: Variance array of shape (input_dims, Q)
         """
         input_dims = self.get_input_dims()
 
@@ -864,7 +867,7 @@ class Data:
             bnse.train()
             bnse.compute_moments()
 
-            amplitudes, positions, variances = bnse.get_freq_peaks() # TODO: get peak widths
+            amplitudes, positions, variances = bnse.get_freq_peaks()
             if len(positions) == 0:
                 continue
 

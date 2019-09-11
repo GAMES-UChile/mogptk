@@ -86,7 +86,7 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=Fa
         for i in range(input_dims):
             sm = SM(data[channel], Q)
             sm.init_params(init)
-            #sm.train(method=method, maxiter=maxiter)
+            sm.train(method=method, maxiter=maxiter)
 
             if plot:
                 nyquist = data[channel].get_nyquist_estimation()
@@ -231,17 +231,25 @@ class MOSM(model):
     def init_means(self):
         """
         Initialize spectral means using BNSE[1]
+
         """
-        peaks, _ = self.data.get_bnse_estimation(self.Q)
-        peaks = np.array(peaks)
+        # peaks, _ = self.data.get_bnse_estimation(self.Q)
+        # peaks = np.array(peaks)
         # for q in range(self.Q):
         #    self.params[q]["mean"] = peaks[0].T[q].reshape(-1, 1)
         #    for channel in range(1,self.data.get_output_dims()):
         #        self.params[q]["mean"] = np.append(self.params[q]["mean"], peaks[channel].T[q].reshape(-1, 1))
-        for q in range(self.Q):
-            self.params[q]["mean"] = peaks[:, :, q].T * np.pi * 2
 
-    def init_params(self, mode='SM', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
+        for channel in range(self.get_output_dims()):
+            amplitudes, means, variances = self.data[channel].get_bnse_estimation(self.Q)
+
+            for q in range(self.Q):
+                self.params[q]["mean"][:, channel] = means[:, q] * 2 * np.pi
+                self.params[q]["magnitude"][channel] = amplitudes[:, q].mean()
+                self.params[q]["variance"][:, channel] = variances[:, q]
+
+
+    def init_params(self, mode='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
         Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
 
@@ -252,11 +260,13 @@ class MOSM(model):
         Args:
             mode (str): Parameters to initialize, 'means' estimates only the means trough BNSE
                 directly. 'SM' estimates the spectral mean, variance and weights with GP-SM.
+
+        TODO: test normalizing amplitudes.
         """
 
-        if mode=='means':
+        if mode=='BNSE':
             self.init_means()
-        elif mode=='full':
+        elif mode=='SM':
             params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
                 self.params[q]["magnitude"] = np.average(params[q]['weight'], axis=0)
