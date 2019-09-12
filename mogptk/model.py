@@ -276,7 +276,8 @@ class model:
             x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
         Returns:
-            Y_mu_pred, Y_var_pred: Prediction input, output and confidence interval of 95% of the model.
+            Y_mu_pred, Y_lower_ci_predicted, Y_upper_ci_predicted: 
+            Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
 
         """
         if self.model == None:
@@ -310,8 +311,8 @@ class model:
 
         # inverse transformations
         Y_mu_predicted = []
-        Y_upper_var_predicted = []
-        Y_lower_var_predicted = []
+        Y_upper_ci_predicted = []
+        Y_lower_ci_predicted = []
 
         for channel in self.data:
             # detransform mean
@@ -321,12 +322,12 @@ class model:
             # upper confidence interval
             u_ci = channel.Y_mu_pred + 2 * np.sqrt(channel.Y_var_pred)
             u_ci = _detransform(channel.transformations, channel.X_pred, u_ci)
-            Y_upper_var_predicted.append(u_ci)
+            Y_upper_ci_predicted.append(u_ci)
 
             # lower confidence interval
             l_ci = channel.Y_mu_pred - 2 * np.sqrt(channel.Y_var_pred)
             l_ci = _detransform(channel.transformations, channel.X_pred, l_ci)
-            Y_lower_var_predicted.append(l_ci)
+            Y_lower_ci_predicted.append(l_ci)
 
-        return Y_mu_predicted, Y_lower_var_predicted, Y_upper_var_predicted
+        return Y_mu_predicted, Y_lower_ci_predicted, Y_upper_ci_predicted
 
