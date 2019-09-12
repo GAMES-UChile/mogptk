@@ -324,8 +324,8 @@ class CSM(model):
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
         self.Rq = Rq
         
-        input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
         for _ in range(Q):
             self.params.append({
                 "constant": np.random.random((Rq, output_dims)),
@@ -377,8 +377,8 @@ class CSM(model):
     def _kernel(self):
         for q in range(self.Q):
             kernel = CrossSpectralMixture(
-                self.data.get_input_dims(),
-                self.data.get_output_dims(),
+                self.get_input_dims(),
+                self.get_output_dims(),
                 self.Rq,
                 self.params[q]["constant"],
                 self.params[q]["mean"],
@@ -403,8 +403,8 @@ class SM_LMC(model):
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
         self.Rq = Rq
         
-        input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
         for _ in range(Q):
             self.params.append({
                 "constant": np.random.standard_normal((Rq, output_dims)),
@@ -424,8 +424,8 @@ class SM_LMC(model):
         # data.normalize()
         all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
 
-        input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
         params = {
             'weight': np.zeros((self.Q*output_dims)),
             'mean': np.zeros((self.Q*output_dims, input_dims)),
@@ -455,8 +455,8 @@ class SM_LMC(model):
     def _kernel(self):
         for q in range(self.Q):
             kernel = SpectralMixtureLMC(
-                self.data.get_input_dims(),
-                self.data.get_output_dims(),
+                self.get_input_dims(),
+                self.get_output_dims(),
                 self.Rq,
                 self.params[q]["constant"],
                 self.params[q]["mean"],
@@ -476,8 +476,8 @@ class CG(model):
     def __init__(self, data, Q=1, name="CG"):
         model.__init__(self, name, data, Q)
         
-        input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
         for _ in range(Q):
             self.params.append({
                 "constant": np.random.random((output_dims)),
@@ -504,8 +504,8 @@ class CG(model):
     def _kernel(self):
         for q in range(self.Q):
             kernel = ConvolutionalGaussianOLD(
-                self.data.get_input_dims(),
-                self.data.get_output_dims(),
+                self.get_input_dims(),
+                self.get_output_dims(),
                 self.params[q]["constant"],
                 self.params[q]["variance"],
             )

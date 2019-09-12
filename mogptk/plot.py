@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import norm
+from .data import _detransform
 
 def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None):
     # sns.set(font_scale=2)
@@ -66,6 +67,8 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
     if show:
         plt.show()
 
+    return fig, axes
+
 
 def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, title=''):
 
@@ -80,17 +83,15 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
             each channel.
         Names(list): List of the names of each title.
         title(str): Title of the plot.
-    Returns:
-
     """
     # get data
-    x_train = [channel.X for channel in model.data]
-    y_train = [channel.Y for channel in model.data]
-    x_all = [channel.Y_all for channel in model.data]
-    y_all = model.data.Y_all
-    x_pred = {i:array for i, array in enumerate(model.data.X_all)}
+    x_train = [c.X[c.mask] for c in model.data]
+    y_train = [_detransform(c.transformations, c.X[c.mask], c.Y[c.mask]) for c in model.data]
+    x_all = [c.X for c in model.data]
+    y_all = [_detransform(c.transformations, c.X, c.Y) for c in model.data]
+    x_pred = [c.X for c in model.data]
 
-    n_dim = model.data.get_output_dims()
+    n_dim = model.get_output_dims()
 
     if (grid[0] * grid[1]) < n_dim:
         raise Exception('Grid not big enough for all channels')
@@ -99,7 +100,7 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
         grid = (np.ceil(n_dim/2), 2)
 
     # predict with model
-    mean_pred, var_pred = model.predict(x_pred)
+    mean_pred, lower_ci, upper_ci = model.predict(x_pred)
 
     # create plot
     f, axarr = plt.subplots(grid[0], grid[1], sharex=True, figsize=figsize)
@@ -113,8 +114,8 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
         
         axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label='Pred', c=sns.color_palette()[i%10])
         axarr[i].fill_between(x_pred[i][:, 0].reshape(-1),
-                              mean_pred[i] + 2 * np.sqrt(var_pred[i]),
-                              mean_pred[i] - 2 * np.sqrt(var_pred[i]),
+                              lower_ci[i],
+                              upper_ci[i],
                               label='95% c.i',
                               color=sns.color_palette()[i%10],
                               alpha=0.4)
@@ -134,4 +135,6 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
         
     plt.suptitle(title, y=1.02)
     plt.tight_layout()
+
+    return f
 

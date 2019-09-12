@@ -19,7 +19,7 @@ class model:
 
     Example:
 
-        ---TO-DO---
+        ---TODO---
 
     Atributes:
         name ():
@@ -91,19 +91,18 @@ class model:
         
     def _get_param_across(self, name='mixture_means'):
         """
-        Get all the name parameters across all components
+        Get all the name parameters across all components.
         """
         return np.array([self.params[q][name] for q in range(self.Q)])
 
     def set_param(self, q, key, val):
         """
-        Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.
+        Sets an initial kernel parameter prior to optimizations for component 'q'
+        with key the parameter name.
 
         Args:
             q (int): Component of kernel.
-
             key (str): Name of component.
-
             val (float, ndarray): Value of parameter.
         """
         if q < 0 or len(self.params) <= q:
@@ -187,36 +186,40 @@ class model:
                 else:
                     raise Exception("parameter name '%s' does not exist" % (key))
 
-    def train(self, method='L-BFGS-B', kind='full', plot=False, tol=1e-6, maxiter=2000, opt_params={}, params={}, export_graph=False):
+    def train(
+        self,
+        method='L-BFGS-B',
+        kind='full',
+        plot=False,
+        tol=1e-6,
+        maxiter=2000,
+        opt_params={},
+        params={},
+        export_graph=False):
         """
         Builds and trains the model using the kernel and its parameters.
 
         For different optimizers, see scipy.optimize.minimize.
         It can be bounded by a maximum number of iterations, disp will output final
-        optimization information.
-        When using the 'Adam' optimizer, a learning_rate can be set.
+        optimization information. When using the 'Adam' optimizer, a
+        learning_rate can be set.
 
         Args:
-            kind (str): Type of model to use, posible mode are 'full', 'sparse' and
-                'sparse-variational'.
-
             method (str): Optimizer to use, if "Adam" is chosen,
                 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
                 optimizer is used. Default to scipy 'L-BFGS-B'.
-
-            plot (bool): Default to False.
-
+            kind (str): Type of model to use, posible mode are 'full', 'sparse' and
+                'sparse-variational'.
+            plot (bool): If true will plot the spectrum. Default to False.
             opt_params (dict): Aditional dictionary with parameters on optimizer.
-                If method is 'Adam' see,
+                If method is 'Adam' see:
                 https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py
                 If method is in scipy-optimizer see:
                 https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
                 https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-
             params (dict): Aditional dictionary with parameters to minimice. 
                 See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
-                for more ails.
-
+                for more details.
             export_graph (bool): Default to False.
         """
 

@@ -115,15 +115,12 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
 
     for model in models:
 
-        n_channels = model.data.get_output_dims()
+        n_channels = model.get_output_dims()
 
         error_per_channel = []
 
-        # iterate on test to pass to data class
-        fmodel.set_pred(i, x_test[i])
-
         # predict with model
-        y_pred, var_pred = model.predict()
+        y_pred, _, _ = model.predict(x_test)
 
         for i in range(n_channels):
             errors = y_test[i] - y_pred[i]
