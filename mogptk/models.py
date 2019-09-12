@@ -419,6 +419,15 @@ class SM_LMC(model):
         The initialization is done fitting a single output GP with Sepectral mixture (SM)
         kernel for each channel. Furthermore, each GP-SM in fitted initializing
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
+
+        Args:
+            sm_init(str): Method to initialize spectral mixture parameters, options are
+                'random', 'LS' and 'BNSE'. See SM.init_params() for extendend documentation
+                default to 'BNSE'.
+            sm_method(str): Method to optimice the spectral mixture.
+                see <model>.train() for for details.
+            sm_maxiter(int): Maximum number of iterations per Spectral mixture.
+            plot(bool): If true will show the PSD for the kernels.
         """
         data = self.data.copy()
         # data.normalize()
