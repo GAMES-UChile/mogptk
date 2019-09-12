@@ -956,10 +956,6 @@ class Data:
         if self.get_input_dims() == 2:
             raise Exception("two dimensional input data not yet implemented") # TODO
 
-        # sns.set(font_scale=2)
-        # sns.axes_style("darkgrid")
-        # sns.set_style("whitegrid")
-
         fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
         if title != None:
             fig.suptitle(title, fontsize=36)

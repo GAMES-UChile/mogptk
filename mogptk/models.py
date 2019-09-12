@@ -334,7 +334,7 @@ class CSM(model):
                 "phase": np.zeros((Rq, output_dims)),
             })
     
-    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, disp=False, plot=False):
+    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
         Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
 
@@ -344,10 +344,10 @@ class CSM(model):
         """
         data = self.data.copy()
         # data.normalize()
-        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+        all_params = _estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
         
-        input_dims = self.data.get_input_dims()
-        output_dims = self.data.get_output_dims()
+        input_dims = self.get_input_dims()
+        output_dims = self.get_output_dims()
         params = {
             'weight': np.zeros((self.Q*output_dims)),
             'mean': np.zeros((self.Q*output_dims, input_dims)),
@@ -412,7 +412,7 @@ class SM_LMC(model):
                 "variance": np.random.random((input_dims)),
             })
     
-    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, disp=False, plot=False):
+    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
         Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
 
@@ -422,7 +422,7 @@ class SM_LMC(model):
         """
         data = self.data.copy()
         # data.normalize()
-        all_params = estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+        all_params = _estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
 
         input_dims = self.get_input_dims()
         output_dims = self.get_output_dims()
@@ -484,7 +484,7 @@ class CG(model):
                 "variance": np.zeros((input_dims, output_dims)),
             })
 
-    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, disp=False, plot=False):
+    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
         Initialize kernel parameters, variance and mixture weights. 
 
@@ -492,9 +492,7 @@ class CG(model):
         kernel for each channel. Furthermore, each GP-SM in fitted initializing
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
         """
-        params = estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, disp=disp, plot=plot) # TODO: fix spectral mean
-
-        print("from SM:", params)
+        params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot) # TODO: fix spectral mean
         for q in range(self.Q):
             self.params[q]["variance"] = params[q]['scale']
 

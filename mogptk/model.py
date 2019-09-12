@@ -56,7 +56,10 @@ class model:
     # overridden by specific models
     def info(self):
         print("info() not implemented for kernel")
-        pass
+
+    # overridden by specific models
+    def plot(self):
+        print("plot() not implemented for kernel")
 
     def print(self):
         pd.set_option('display.max_colwidth', -1)
@@ -64,10 +67,9 @@ class model:
         df.index.name = 'Q'
         display(df)
 
-    # overridden by specific models
-    def plot(self):
-        print("plot() not implemented for kernel")
-        pass
+    def plot_data(self):
+        for channel in self.data:
+            channel.plot()
 
     def _update_params(self, trainables):
         for key, val in trainables.items():
