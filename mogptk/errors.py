@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from sklearn import metrics
 from sklearn.utils import check_array
 
@@ -37,25 +38,25 @@ def errors(*models, **kwargs):
 
     errors = []
     for model in models:
-        if model.data.get_input_dims() != 1:
+        if model.get_input_dims() != 1:
             raise Exception("cannot (yet) estimate errors when using multi input dimensions")
-
-        if len(model.X_pred) == 0:
-            continue
 
         Y_true = np.empty(0)
         Y_pred = np.empty(0)
-        for channel in range(model.data.get_output_dims()):
+        for channel in model.data:
+            if len(channel.X_pred) == 0:
+                continue
+
             if all_obs:
-                x, y_true = model.data.get_all_obs(channel)
+                x, y_true = channel.get_all_obs()
             else:
-                x, y_true = model.data.get_del_obs(channel)
+                x, y_true = channel.get_del_obs()
 
             if len(x) > 0:
-                if channel in model.data.F:
-                    y_true = model.data.F[channel](x) # use exact latent function to remove imposed Gaussian error on data points
+                if channel.F != None:
+                    y_true = channel.F(x) # use exact latent function to remove imposed Gaussian error on data points
 
-                y_pred = np.interp(x, model.X_pred[channel].reshape(-1), model.Y_mu_pred[channel]) # TODO: multi input dims
+                y_pred = np.interp(x, channel.X_pred.reshape(-1), channel.Y_mu_pred) # TODO: multi input dims
 
                 Y_true = np.append(Y_true, y_true)
                 Y_pred = np.append(Y_pred, y_pred)
@@ -68,7 +69,6 @@ def errors(*models, **kwargs):
         })
 
     if output:
-        import pandas as pd
         df = pd.DataFrame(errors)
         df.set_index('model', inplace=True)
         display(df)
