@@ -156,24 +156,43 @@ class model:
             with self.session.as_default():
                 gpflow.Saver().save(filename, self.model)
 
-    def build(self, kind='full'):
+    def build(self, likelihood=None, variational=False, sparse=False):
+        """
+        Build the model.
+
+        Args:
+            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
+        """
+
         x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
         with self.graph.as_default():
             with self.session.as_default():
-                if kind == 'full':
-                    self.model = gpflow.models.GPR(x, y, self._kernel())
-                elif kind == 'sparse':
-                    # TODO: test if induction points are set
-                    self.name += ' (sparse)'
-                    self.model = gpflow.models.SGPR(x, y, self._kernel())
-                elif kind == 'sparse-variational':
-                    self.name += ' (sparse-variational)'
-                    self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
+                if likelihood == None:
+                    if not sparse:
+                        self.model = gpflow.models.GPR(x, y, self._kernel())
+                    else:
+                        # TODO: test if induction points are set
+                        self.name += ' (sparse)'
+                        self.model = gpflow.models.SGPR(x, y, self._kernel())
+                elif not variational:
+                    if not sparse:
+                        self.name += ' (MCMC)'
+                        self.model = gpflow.models.GPMC(x, y, self._kernel(), likelihood)
+                    else:
+                        self.name += ' (sparse MCMC)'
+                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), likelihood)
                 else:
-                    raise Exception("model type '%s' does not exist" % (kind))
+                    if not sparse:
+                        self.name += ' (variational)'
+                        self.model = gpflow.models.VGP(x, y, self._kernel(), likelihood)
+                    else:
+                        self.name += ' (sparse variational)'
+                        self.model = gpflow.models.SVGP(x, y, self._kernel(), likelihood)
         
         for key in self.fixed_params:
             if hasattr(self.model.kern, 'kernels'):
@@ -191,7 +210,9 @@ class model:
     def train(
         self,
         method='L-BFGS-B',
-        kind='full',
+        likelihood=None,
+        variational=False,
+        sparse=False,
         plot=False,
         tol=1e-6,
         maxiter=2000,
@@ -210,8 +231,9 @@ class model:
             method (str): Optimizer to use, if "Adam" is chosen,
                 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
                 optimizer is used. Default to scipy 'L-BFGS-B'.
-            kind (str): Type of model to use, posible mode are 'full', 'sparse' and
-                'sparse-variational'.
+            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
             plot (bool): If true will plot the spectrum. Default to False.
             opt_params (dict): Aditional dictionary with parameters on optimizer.
                 If method is 'Adam' see:
@@ -227,7 +249,7 @@ class model:
 
         start_time = time.time()
         
-        self.build(kind)
+        self.build(likelihood, variational, sparse)
 
         with self.graph.as_default():
             with self.session.as_default():
