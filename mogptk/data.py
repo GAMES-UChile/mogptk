@@ -168,18 +168,18 @@ class TransformDetrend:
         if data.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
-        # self.coef = np.polyfit(data.X[:,0], data.Y, 1)
-        reg = Ridge(alpha=0.1, fit_intercept=True)
-        reg.fit(data.X, data.Y)
-        self.trend = reg
+        self.coef = np.polyfit(data.X[:,0], data.Y, 2)
+        # reg = Ridge(alpha=0.1, fit_intercept=True)
+        # reg.fit(data.X, data.Y)
+        # self.trend = reg
 
     def _forward(self, x, y):
-        # return y - np.polyval(self.coef, x[:, 0])
-        return y - self.trend.predict(x)
+        return y - np.polyval(self.coef, x[:, 0])
+        # return y - self.trend.predict(x)
     
     def _backward(self, x, y):
-        # return y + np.polyval(self.coef, x[:, 0])
-        return y + self.trend.predict(x)
+        return y + np.polyval(self.coef, x[:, 0])
+        # return y + self.trend.predict(x)
 
 class TransformNormalize:
     """
@@ -844,12 +844,12 @@ class Data:
         Args:
             Q (int): Number of peaks to find, defaults to 1.
             n (int): Number of points of the grid to evaluate 
-                frequencies, default to 5000.
+                frequencies, defaults to 5000.
 
         Returns:
             amplitudes: Amplitude array of shape (input_dims,Q).
             positions: Frequency array of shape (input_dims,Q).
-            variances: Variance array of shape (input_dims, Q)
+            variances: Variance array of shape (input_dims, Q).
         """
         input_dims = self.get_input_dims()
 
@@ -1078,6 +1078,8 @@ class Data:
             plt.savefig(filename+'.pdf', dpi=300)
         if show:
             plt.show()
+
+        return axes[0, 0]
 
 def _check_function(f, input_dims):
     if not inspect.isfunction(f):

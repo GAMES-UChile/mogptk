@@ -59,7 +59,7 @@ def _transform_data_mogp(x, y):
     y = np.concatenate(y).reshape(-1, 1)
     return x, y
 
-def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=False):
+def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=1000, plot=False):
     """
     Estimate kernel param with single ouput GP-SM
 
@@ -164,9 +164,9 @@ class SM(model):
                 return
 
             for q in range(self.Q):
-                self.params[q]['mixture_weights'] = amplitudes[0,q] # TODO: take into account input dimensions!
+                self.params[q]['mixture_weights'] = amplitudes[:, q].mean() / amplitudes.mean()
                 self.params[q]['mixture_means'] = means.T[q]
-                self.params[q]['mixture_scales'] = variances.T[q]
+                self.params[q]['mixture_scales'] = variances.T[q] * 2
 
         elif method=='BNSE':
             amplitudes, means, variances = self.data[0].get_bnse_estimation(self.Q)
@@ -175,9 +175,9 @@ class SM(model):
                 return
 
             for q in range(self.Q):
-                self.params[q]['mixture_weights'] = amplitudes[0,q] # TODO: take into account input dimensions!
+                self.params[q]['mixture_weights'] = amplitudes[:, q].mean() / amplitudes.mean()
                 self.params[q]['mixture_means'] = means.T[q]
-                self.params[q]['mixture_scales'] = variances.T[q]
+                self.params[q]['mixture_scales'] = variances.T[q] * 2
 
     def _transform_data(self, x, y=None):
         if y == None:
@@ -246,7 +246,11 @@ class MOSM(model):
             for q in range(self.Q):
                 self.params[q]["mean"][:, channel] = means[:, q] * 2 * np.pi
                 self.params[q]["magnitude"][channel] = amplitudes[:, q].mean()
-                self.params[q]["variance"][:, channel] = variances[:, q]
+                self.params[q]["variance"][:, channel] = variances[:, q] * 2
+
+        # normalize across channels
+        for q in range(self.Q):
+            self.params[q]["magnitude"] = np.sqrt(self.params[q]["magnitude"] / self.params[q]["magnitude"].mean())
 
 
     def init_params(self, mode='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=3000, plot=False):
@@ -271,7 +275,7 @@ class MOSM(model):
             for q in range(self.Q):
                 self.params[q]["magnitude"] = np.average(params[q]['weight'], axis=0)
                 self.params[q]["mean"] = params[q]['mean']
-                self.params[q]["variance"] = params[q]['scale']
+                self.params[q]["variance"] = params[q]['scale'] * 2
         else:
             raise Exception("possible modes are either 'BNSE' or 'SM'")
 
