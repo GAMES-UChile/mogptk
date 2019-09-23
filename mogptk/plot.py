@@ -120,7 +120,7 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
                               color=sns.color_palette()[i%10],
                               alpha=0.4)
         
-        axarr[i].legend(ncol=4, loc='upper center')
+        axarr[i].legend(ncol=4, loc='upper center', fontsize=8)
         axarr[i].set_xlim(-1, x_all[i][-1])
 
         # set channels name

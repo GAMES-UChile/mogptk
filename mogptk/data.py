@@ -34,8 +34,9 @@ def _detransform(transformations, x, y):
         x(ndarray): Array of n_points x n_dim of inputs.
         y(ndarray): Array of n_points outputs.
     """
-    for t in transformations[::-1]:
-        y = t._backward(x, y)
+    if len(transformations) > 0:
+        for t in transformations[::-1]:
+            y = t._backward(x, y)
     return y
 
 def _parse_duration_to_sec(s):
