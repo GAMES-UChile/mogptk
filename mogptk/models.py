@@ -83,7 +83,7 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=1000, plot=Fa
         })
 
     for channel in range(output_dims):
-        for i in range(input_dims):
+        for i in range(input_dims):  # TODO one SM per channel
             sm = SM(data[channel], Q)
             sm.init_params(init)
             sm.train(method=method, maxiter=maxiter)
@@ -269,7 +269,18 @@ class MOSM(model):
         """
 
         if mode=='BNSE':
-            self.init_means()
+            for channel in range(self.get_output_dims()):
+                amplitudes, means, variances = self.data[channel].get_bnse_estimation(self.Q)
+
+                for q in range(self.Q):
+                    self.params[q]["mean"][:, channel] = means[:, q] * 2 * np.pi
+                    self.params[q]["magnitude"][channel] = amplitudes[:, q].mean()
+                    self.params[q]["variance"][:, channel] = variances[:, q] * 2
+
+            # normalize across channels
+            for q in range(self.Q):
+                self.params[q]["magnitude"] = np.sqrt(self.params[q]["magnitude"] / self.params[q]["magnitude"].mean())
+
         elif mode=='SM':
             params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
@@ -294,6 +305,58 @@ class MOSM(model):
                 var = self.params[q]["variance"][:,channel]
                 if np.linalg.norm(mean) < np.linalg.norm(var):
                     print("‣ MOSM approaches RBF kernel for Q=%d in channel='%s'" % (q, self.data[channel].name))
+
+    def get_cross_params(self):
+        """
+        Obtain cross parameters from MOSM
+
+        Returns:
+            cross_params(dict): Dictionary with the cross parameters, 'covariance', 'mean',
+            'magnitude', 'delay' and 'phase'. Each one a output_dim x output_dim x input_dim x Q
+            array with the cross parameters, with the exception of 'magnitude' and 'phase' where 
+            the cross parameters are a output_dim x output_dim x Q array.
+            NOTE: this assumes the same input dimension for all channels.
+        """
+        m = self.get_output_dims()
+        d = self.get_input_dims()
+        Q = self.Q
+
+        cross_params = {}
+
+        cross_params['covariance'] = np.zeros((m, m, d, Q))
+        cross_params['mean'] = np.zeros((m, m, d, Q))
+        cross_params['magnitude'] = np.zeros((m, m, Q))
+        cross_params['delay'] = np.zeros((m, m, d, Q))
+        cross_params['phase'] = np.zeros((m, m, Q))
+
+        for q in range(Q):
+            for i in range(m):
+                for j in range(m):
+                    var_i = self.params[q]['variance'][:, i]
+                    var_j = self.params[q]['variance'][:, j]
+                    mu_i = self.params[q]['mean'][:, i]
+                    mu_j = self.params[q]['mean'][:, j]
+                    w_i = self.params[q]['magnitude'][i]
+                    w_j = self.params[q]['magnitude'][j]
+                    sv = var_i + var_j
+
+                    # cross covariance
+                    cross_params['covariance'][i, j, :, q] = 2 * (var_i * var_j) / sv
+                    # cross mean
+                    cross_mean_num = var_i.dot(mu_j) + var_j.dot(mu_i)
+                    cross_params['mean'][i, j, :, q] = cross_mean_num / sv
+                    # cross magnitude
+                    exp_term = -1/4 * ((mu_i - mu_j)**2 / sv).sum()
+                    cross_params['magnitude'][i, j, q] = w_i * w_j * np.exp(exp_term)
+            # cross phase
+            phase_q = self.params[q]['phase']
+            cross_params['phase'][:, :, q] = np.subtract.outer(phase_q, phase_q)
+            for n in range(d):
+                # cross delay        
+                delay_n_q = self.params[q]['delay'][n, :]
+                cross_params['delay'][:, :, n, q] = np.subtract.outer(delay_n_q, delay_n_q)
+
+        return cross_params
 
     def _transform_data(self, x, y=None):
         return _transform_data_mogp(x, y)
@@ -361,44 +424,52 @@ class CSM(model):
                 means += single_mean
                 variances += single_var
 
+            # get mean across channels
             amplitudes *= 1 / self.get_output_dims()
             means *= 1 / self.get_output_dims()
             variances *= 1 / self.get_output_dims()
 
             for q in range(self.Q):
                 self.params[q]["mean"] = means[:, q] * 2 * np.pi
-                self.params[q]["variance"] = variances[:, q]
+                self.params[q]["variance"] = variances[:, q] * 2
 
                 for channel in range(self.get_output_dims()):
                     self.params[q]["constant"][:, channel] = amplitudes[:, q].mean()
-                    
-        elif method == 'SM':
-            all_params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
-            
-            input_dims = self.get_input_dims()
-            output_dims = self.get_output_dims()
-            params = {
-                'weight': np.zeros((self.Q*output_dims)),
-                'mean': np.zeros((self.Q*output_dims, input_dims)),
-                'scale': np.zeros((self.Q*output_dims, input_dims)),
-            }
-            for channel in range(output_dims):
-                for q in range(self.Q):
-                    weight = np.average(all_params[q]['weight'][:,channel])
-                    if weight != 0.0:
-                        weight /= np.sum(all_params[q]['weight'])
-                    mean = all_params[q]['mean'][:,channel].reshape(1, -1)
-                    scale = all_params[q]['scale'][:,channel].reshape(1, -1)
-                    params['weight'][channel*q+q] = weight
-                    params['mean'][channel*q+q,:] = mean
-                    params['scale'][channel*q+q,:] = scale
 
-            indices = np.argsort(params['weight'])[::-1]
+                # normalize across channels
+                self.params[q]["constant"] = self.params[q]["constant"] / self.params[q]["constant"].mean()    
+        elif method == 'SM':
+            # all_params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+            
+            # input_dims = self.get_input_dims()
+            # output_dims = self.get_output_dims()
+            # params = {
+            #     'weight': np.zeros((self.Q*output_dims)),
+            #     'mean': np.zeros((self.Q*output_dims, input_dims)),
+            #     'scale': np.zeros((self.Q*output_dims, input_dims)),
+            # }
+            # for channel in range(output_dims):
+            #     for q in range(self.Q):
+            #         weight = np.average(all_params[q]['weight'][:,channel])
+            #         if weight != 0.0:
+            #             weight /= np.sum(all_params[q]['weight'])
+            #         mean = all_params[q]['mean'][:,channel].reshape(1, -1)
+            #         scale = all_params[q]['scale'][:,channel].reshape(1, -1)
+            #         params['weight'][channel*q+q] = weight
+            #         params['mean'][channel*q+q,:] = mean
+            #         params['scale'][channel*q+q,:] = scale
+
+            # indices = np.argsort(params['weight'])[::-1]
+            # for q in range(self.Q):
+            #     if q < len(indices):
+            #         i = indices[q]
+            #         self.params[q]['mean'] = params['mean'][i]
+            #         self.params[q]['variance'] = params['scale'][i] * 2
+            params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
-                if q < len(indices):
-                    i = indices[q]
-                    self.params[q]['mean'] = params['mean'][i]
-                    self.params[q]['variance'] = params['scale'][i]
+                self.params[q]["constant"] = params[q]['weight'].mean(axis=0).reshape(self.Rq, -1)
+                self.params[q]["mean"] = params[q]['mean'].mean(axis=1)
+                self.params[q]["variance"] = params[q]['scale'].mean(axis=1) * 2
         else:
             raise Exception("possible modes are either 'BNSE' or 'SM'")
 
@@ -443,7 +514,7 @@ class SM_LMC(model):
                 "variance": np.random.random((input_dims)),
             })
     
-    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
+    def init_params(self, method='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
         Initialize kernel parameters, spectral mean, (and optionaly) variance and mixture weights. 
 
@@ -460,34 +531,69 @@ class SM_LMC(model):
             sm_maxiter(int): Maximum number of iterations per Spectral mixture.
             plot(bool): If true will show the PSD for the kernels.
         """
-        data = self.data.copy()
+        # data = self.data.copy()
         # data.normalize()
-        all_params = _estimate_from_sm(data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+        
+        if method=='BNSE':
+            amplitudes = np.zeros((self.get_input_dims(), self.Q))
+            means = np.zeros((self.get_input_dims(), self.Q))
+            variances = np.zeros((self.get_input_dims(), self.Q))
 
-        input_dims = self.get_input_dims()
-        output_dims = self.get_output_dims()
-        params = {
-            'weight': np.zeros((self.Q*output_dims)),
-            'mean': np.zeros((self.Q*output_dims, input_dims)),
-            'scale': np.zeros((self.Q*output_dims, input_dims)),
-        }
-        for channel in range(output_dims):
+            for channel in range(self.get_output_dims()):
+                single_amp, single_mean, single_var = self.data[channel].get_bnse_estimation(self.Q)
+
+                amplitudes += single_amp
+                means += single_mean
+                variances += single_var
+
+            # get mean across channels
+            amplitudes *= 1 / self.get_output_dims()
+            means *= 1 / self.get_output_dims()
+            variances *= 1 / self.get_output_dims()
+
             for q in range(self.Q):
-                weight = np.average(all_params[q]['weight'][:,channel])
-                if weight != 0.0:
-                    weight /= np.sum(all_params[q]['weight'])
-                mean = all_params[q]['mean'][:,channel].reshape(1, -1)
-                scale = all_params[q]['scale'][:,channel].reshape(1, -1)
-                params['weight'][channel*q+q] = weight
-                params['mean'][channel*q+q,:] = mean
-                params['scale'][channel*q+q,:] = scale
+                self.params[q]["mean"] = means[:, q] * 2 * np.pi
+                self.params[q]["scale"] = variances[:, q] * 2
 
-        indices = np.argsort(params['weight'])[::-1]
-        for q in range(self.Q):
-            if q < len(indices):
-                i = indices[q]
-                self.params[q]['mean'] = params['mean'][i]
-                self.params[q]['variance'] = params['scale'][i]
+                for channel in range(self.get_output_dims()):
+                    self.params[q]["constant"][:, channel] = amplitudes[:, q].mean()
+
+                # normalize across channels
+                self.params[q]["constant"] = self.params[q]["constant"] / self.params[q]["constant"].mean()
+        elif method=='SM':
+            # all_params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+
+            # input_dims = self.get_input_dims()
+            # output_dims = self.get_output_dims()
+            # params = {
+            #     'weight': np.zeros((self.Q*output_dims)),
+            #     'mean': np.zeros((self.Q*output_dims, input_dims)),
+            #     'scale': np.zeros((self.Q*output_dims, input_dims)),
+            # }
+            # for channel in range(output_dims):
+            #     for q in range(self.Q):
+            #         weight = np.average(all_params[q]['weight'][:,channel])
+            #         if weight != 0.0:
+            #             weight /= np.sum(all_params[q]['weight'])
+            #         mean = all_params[q]['mean'][:,channel].reshape(1, -1)
+            #         scale = all_params[q]['scale'][:,channel].reshape(1, -1)
+            #         params['weight'][channel*q+q] = weight
+            #         params['mean'][channel*q+q,:] = mean
+            #         params['scale'][channel*q+q,:] = scale
+
+            # indices = np.argsort(params['weight'])[::-1]
+            # for q in range(self.Q):
+            #     if q < len(indices):
+            #         i = indices[q]
+            #         self.params[q]['mean'] = params['mean'][i]
+            #         self.params[q]['variance'] = params['scale'][i] * 2
+            params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+            for q in range(self.Q):
+                self.params[q]["constant"] = params[q]['weight'].mean(axis=0).reshape(self.Rq, -1)
+                self.params[q]["mean"] = params[q]['mean'].mean(axis=1)
+                self.params[q]["variance"] = params[q]['scale'].mean(axis=1) * 2
+        else:
+            raise Exception("possible modes are either 'BNSE' or 'SM'")
 
     def _transform_data(self, x, y=None):
         return _transform_data_mogp(x, y)

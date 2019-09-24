@@ -80,6 +80,10 @@ class model:
                 self.params[q][name] = val
 
     def get_input_dims(self):
+        """
+        Returns input dimension
+        """
+        # TODO: solve the different input dimension per channel case
         return self.data[0].get_input_dims()
 
     def get_output_dims(self):
