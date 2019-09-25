@@ -413,31 +413,28 @@ class CSM(model):
         # data = self.data.copy()
         # data.normalize()
         if method == 'BNSE':
-            amplitudes = np.zeros((self.get_input_dims(), self.Q))
+
             means = np.zeros((self.get_input_dims(), self.Q))
             variances = np.zeros((self.get_input_dims(), self.Q))
 
             for channel in range(self.get_output_dims()):
                 single_amp, single_mean, single_var = self.data[channel].get_bnse_estimation(self.Q)
-
-                amplitudes += single_amp
                 means += single_mean
                 variances += single_var
 
+                for q in range(self.Q):
+                    self.params[q]["constant"][:, channel] = single_amp[:, q].mean()
+
             # get mean across channels
-            amplitudes *= 1 / self.get_output_dims()
             means *= 1 / self.get_output_dims()
             variances *= 1 / self.get_output_dims()
 
             for q in range(self.Q):
                 self.params[q]["mean"] = means[:, q] * 2 * np.pi
-                self.params[q]["variance"] = variances[:, q] * 2
-
-                for channel in range(self.get_output_dims()):
-                    self.params[q]["constant"][:, channel] = amplitudes[:, q].mean()
+                self.params[q]["variance"] = variances[:, q] * 5
 
                 # normalize across channels
-                self.params[q]["constant"] = self.params[q]["constant"] / self.params[q]["constant"].mean()    
+                self.params[q]["constant"] = self.params[q]["constant"] / self.params[q]["constant"].max()
         elif method == 'SM':
             # all_params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             
@@ -535,19 +532,19 @@ class SM_LMC(model):
         # data.normalize()
         
         if method=='BNSE':
-            amplitudes = np.zeros((self.get_input_dims(), self.Q))
             means = np.zeros((self.get_input_dims(), self.Q))
             variances = np.zeros((self.get_input_dims(), self.Q))
 
             for channel in range(self.get_output_dims()):
                 single_amp, single_mean, single_var = self.data[channel].get_bnse_estimation(self.Q)
 
-                amplitudes += single_amp
                 means += single_mean
                 variances += single_var
 
+                for q in range(self.Q):
+                    self.params[q]["constant"][:, channel] = amplitudes[:, q].mean()
+
             # get mean across channels
-            amplitudes *= 1 / self.get_output_dims()
             means *= 1 / self.get_output_dims()
             variances *= 1 / self.get_output_dims()
 
@@ -555,11 +552,8 @@ class SM_LMC(model):
                 self.params[q]["mean"] = means[:, q] * 2 * np.pi
                 self.params[q]["scale"] = variances[:, q] * 2
 
-                for channel in range(self.get_output_dims()):
-                    self.params[q]["constant"][:, channel] = amplitudes[:, q].mean()
-
                 # normalize across channels
-                self.params[q]["constant"] = self.params[q]["constant"] / self.params[q]["constant"].mean()
+                self.params[q]["constant"] = np.sqrt(self.params[q]["constant"] / self.params[q]["constant"].mean())
         elif method=='SM':
             # all_params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
 
