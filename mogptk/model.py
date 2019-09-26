@@ -160,7 +160,7 @@ class model:
             with self.session.as_default():
                 gpflow.Saver().save(filename, self.model)
 
-    def build(self, likelihood=None, variational=False, sparse=False):
+    def build(self, likelihood=None, variational=False, sparse=False, like_params={}):
         """
         Build the model.
 
@@ -176,6 +176,7 @@ class model:
         self.session = tf.Session(graph=self.graph)
         with self.graph.as_default():
             with self.session.as_default():
+                # Gaussian likelihood
                 if likelihood == None:
                     if not sparse:
                         self.model = gpflow.models.GPR(x, y, self._kernel())
@@ -183,20 +184,22 @@ class model:
                         # TODO: test if induction points are set
                         self.name += ' (sparse)'
                         self.model = gpflow.models.SGPR(x, y, self._kernel())
+                # MCMC
                 elif not variational:
                     if not sparse:
                         self.name += ' (MCMC)'
-                        self.model = gpflow.models.GPMC(x, y, self._kernel(), likelihood)
+                        self.model = gpflow.models.GPMC(x, y, self._kernel(), likelihood(like_params))
                     else:
                         self.name += ' (sparse MCMC)'
-                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), likelihood)
+                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), likelihood(like_params))
+                # Variational
                 else:
                     if not sparse:
                         self.name += ' (variational)'
-                        self.model = gpflow.models.VGP(x, y, self._kernel(), likelihood)
+                        self.model = gpflow.models.VGP(x, y, self._kernel(), likelihood(like_params))
                     else:
                         self.name += ' (sparse variational)'
-                        self.model = gpflow.models.SVGP(x, y, self._kernel(), likelihood)
+                        self.model = gpflow.models.SVGP(x, y, self._kernel(), likelihood(like_params))
         
         for key in self.fixed_params:
             if hasattr(self.model.kern, 'kernels'):
@@ -221,6 +224,7 @@ class model:
         tol=1e-6,
         maxiter=2000,
         opt_params={},
+        like_params={},
         params={},
         export_graph=False):
         """
@@ -253,7 +257,7 @@ class model:
 
         start_time = time.time()
         
-        self.build(likelihood, variational, sparse)
+        self.build(likelihood, variational, sparse, like_params=like_params)
 
         with self.graph.as_default():
             with self.session.as_default():

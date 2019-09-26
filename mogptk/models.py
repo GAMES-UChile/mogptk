@@ -7,6 +7,7 @@ from .kernels.conv_old import ConvolutionalGaussianOLD
 import numpy as np
 import gpflow
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 def LoadModel(filename):
     if not filename.endswith(".mogptk"):
@@ -264,8 +265,6 @@ class MOSM(model):
         Args:
             mode (str): Parameters to initialize, 'means' estimates only the means trough BNSE
                 directly. 'SM' estimates the spectral mean, variance and weights with GP-SM.
-
-        TODO: test normalizing amplitudes.
         """
 
         if mode=='BNSE':
@@ -297,6 +296,90 @@ class MOSM(model):
         weights = self._get_param_across('magnitude')**2
         scales = self._get_param_across('variance')
         plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names)
+
+    def plot_psd(self, figsize=(12, 8)):
+        """
+        Plot power spectral density and power cross spectral density.
+
+        Note: Implemented only for 1 input dimension.
+        """
+
+        cross_params = self.get_cross_params()
+
+        m = self.get_output_dims()
+
+        f, axarr = plt.subplots(m, m, sharex=True, figsize=figsize)
+
+        for i in range(m):
+            for j in range(m):
+                pass
+                # TODO
+
+        return f, axarr
+
+    def _plot_power_cross_spectral_density(self, ax, params, channels=(0, 0)):
+        """
+        Plot power cross spectral density given axis.
+
+        Args:
+            ax (matplotlib.axis)
+        """
+        i = channels[0]
+        j = channels[1]
+
+        mean = params['mean'][i, j, 0, :]
+        cov = params['covariance'][i, j, 0, :]
+        delay = params['delay'][i, j, 0, :]
+        magn = params['magnitude'][i, j, :]
+        phase = params['phase'][i, j, :]
+
+        # power spectral density
+        if i==j:
+            # TODO
+            pass
+        # power cross spectral density
+        else:
+            # TODO
+            pass
+        return
+
+    def plot_correlations(self):
+        """
+        Plot correlation coeficient matrix.
+
+        This is done evaluating the kernel at K_ij(0, 0)
+        for al channels.
+        """
+
+        m = self.get_output_dims()
+
+        cross_params = self.get_cross_params()
+        mean = cross_params['mean'][:, :, 0, :]
+        cov = cross_params['covariance'][:, :, 0, :]
+        delay = cross_params['delay'][:, :, 0, :]
+        magn = cross_params['magnitude'][:, :, :]
+        phase = cross_params['phase'][:, :, :]
+
+        corr_coef_matrix = np.zeros((m, m))
+
+        alpha = magn / np.sqrt(2 * np.pi * cov)
+
+        np.fill_diagonal(corr_coef_matrix, np.diagonal(alpha.sum(2)))
+
+        for i in range(m):
+            for j in range(m):
+                if i!=j:
+                    pass
+                    corr = np.exp(-0.5 *  delay[i, j, :]**2 * cov[i, j, :]) 
+                    corr *= np.cos(delay[i, j, :] * mean[i, j, :] + phase[i, j, :])
+                    corr_coef_matrix[i, j] = (alpha[i, j, :] * corr).sum()
+                norm = np.sqrt(np.diagonal(alpha.sum(2))[i]) * np.sqrt(np.diagonal(alpha.sum(2))[j])
+                corr_coef_matrix[i, j] /= norm
+
+        fig, ax = plt.subplots()
+        im = ax.matshow(corr_coef_matrix)
+        fig.colorbar(im)
+        return fig, ax, corr_coef_matrix
 
     def info(self):
         for channel in range(self.get_output_dims()):
@@ -542,7 +625,7 @@ class SM_LMC(model):
                 variances += single_var
 
                 for q in range(self.Q):
-                    self.params[q]["constant"][:, channel] = amplitudes[:, q].mean()
+                    self.params[q]["constant"][:, channel] = single_amp[:, q].mean()
 
             # get mean across channels
             means *= 1 / self.get_output_dims()

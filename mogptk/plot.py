@@ -136,5 +136,5 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
     plt.suptitle(title, y=1.02)
     plt.tight_layout()
 
-    return f
+    return f, axarr
 

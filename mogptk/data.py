@@ -409,6 +409,7 @@ class Data:
         return "x=%s\ny=%s" % (self.X.tolist(), self.Y.tolist())
 
     def _encode(self):
+        # TODO: Incorporate with current data structure
         F = self.F
         if F != None:
             F = str(dill.dumps(F))
