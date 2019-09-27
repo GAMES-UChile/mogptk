@@ -297,7 +297,7 @@ class MOSM(model):
         scales = self._get_param_across('variance')
         plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names)
 
-    def plot_psd(self, figsize=(12, 8)):
+    def plot_psd(self, figsize=(20, 14), title=''):
         """
         Plot power spectral density and power cross spectral density.
 
@@ -308,13 +308,16 @@ class MOSM(model):
 
         m = self.get_output_dims()
 
-        f, axarr = plt.subplots(m, m, sharex=True, figsize=figsize)
+        f, axarr = plt.subplots(m, m, sharex=False, figsize=figsize)
 
         for i in range(m):
-            for j in range(m):
-                pass
-                # TODO
+            for j in range(i+1):
+                self._plot_power_cross_spectral_density(
+                    axarr[i, j],
+                    cross_params,
+                    channels=(i, j))
 
+        plt.tight_layout()
         return f, axarr
 
     def _plot_power_cross_spectral_density(self, ax, params, channels=(0, 0)):
@@ -333,14 +336,38 @@ class MOSM(model):
         magn = params['magnitude'][i, j, :]
         phase = params['phase'][i, j, :]
 
+        
+        w_high = (mean + 1* np.sqrt(cov)).max()
+
+        w = np.linspace(-w_high, w_high, 1000)
+
         # power spectral density
         if i==j:
-            # TODO
-            pass
+            psd_total = np.zeros(len(w))
+            for q in range(self.Q):
+                psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q])
+                psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q])
+                psd_q *= magn[q] * 0.5
+
+                ax.plot(w, psd_q, '--r', lw=0.5)
+
+                psd_total += psd_q
+            ax.plot(w, psd_total, 'r', lw=2.1, alpha=0.7)
         # power cross spectral density
         else:
-            # TODO
-            pass
+            psd_total = np.zeros(len(w)) + 0.j
+            for q in range(self.Q):
+                psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
+                psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
+                psd_q *= magn[q] * 0.5
+
+                ax.plot(w, np.real(psd_q), '--b', lw=0.5)
+                ax.plot(w, np.imag(psd_q), '--g', lw=0.5)
+            
+                psd_total += psd_q
+            ax.plot(w, np.real(psd_total), 'b', lw=1.2, alpha=0.7)
+            ax.plot(w, np.imag(psd_total), 'g', lw=1.2, alpha=0.7)
+        ax.set_yticks([])
         return
 
     def plot_correlations(self):
@@ -369,7 +396,6 @@ class MOSM(model):
         for i in range(m):
             for j in range(m):
                 if i!=j:
-                    pass
                     corr = np.exp(-0.5 *  delay[i, j, :]**2 * cov[i, j, :]) 
                     corr *= np.cos(delay[i, j, :] * mean[i, j, :] + phase[i, j, :])
                     corr_coef_matrix[i, j] = (alpha[i, j, :] * corr).sum()
@@ -377,7 +403,7 @@ class MOSM(model):
                 corr_coef_matrix[i, j] /= norm
 
         fig, ax = plt.subplots()
-        im = ax.matshow(corr_coef_matrix)
+        im = ax.matshow(corr_coef_matrix, cmap='coolwarm')
         fig.colorbar(im)
         return fig, ax, corr_coef_matrix
 
