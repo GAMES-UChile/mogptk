@@ -188,18 +188,18 @@ class model:
                 elif not variational:
                     if not sparse:
                         self.name += ' (MCMC)'
-                        self.model = gpflow.models.GPMC(x, y, self._kernel(), likelihood(like_params))
+                        self.model = gpflow.models.GPMC(x, y, self._kernel(), likelihood(**like_params))
                     else:
                         self.name += ' (sparse MCMC)'
-                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), likelihood(like_params))
+                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), likelihood(**like_params))
                 # Variational
                 else:
                     if not sparse:
                         self.name += ' (variational)'
-                        self.model = gpflow.models.VGP(x, y, self._kernel(), likelihood(like_params))
+                        self.model = gpflow.models.VGP(x, y, self._kernel(), likelihood(**like_params))
                     else:
                         self.name += ' (sparse variational)'
-                        self.model = gpflow.models.SVGP(x, y, self._kernel(), likelihood(like_params))
+                        self.model = gpflow.models.SVGP(x, y, self._kernel(), likelihood(**like_params))
         
         for key in self.fixed_params:
             if hasattr(self.model.kern, 'kernels'):
