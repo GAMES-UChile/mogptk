@@ -11,7 +11,7 @@ from .multikernel import MultiKernel
 
 # TODO: dont use angular frequency
 class MultiOutputSpectralMixture(MultiKernel):
-    def __init__(self, input_dim, output_dim, magnitude=None, mean=None, variance=None, delay=None, phase=None, noise=None, active_dim=None):
+    def __init__(self, input_dim, output_dim, magnitude=None, mean=None, variance=None, delay=None, phase=None, active_dim=None):
         """
         - input_dim (int) is the input dimension
         - output_dim (int) is the output dimension
@@ -20,7 +20,6 @@ class MultiOutputSpectralMixture(MultiKernel):
         - variance (np.ndarray) has shape (input_dim, output_dim)
         - delay (np.ndarray) has shape (input_dim, output_dim)
         - phase (np.ndarray) has shape (output_dim)
-        - noise (np.ndarray) has shape (output_dim)
         """
 
         if magnitude is None:
@@ -33,8 +32,6 @@ class MultiOutputSpectralMixture(MultiKernel):
             delay = np.zeros((input_dim, output_dim))
         if phase is None:
             phase = np.zeros((output_dim))
-        if noise is None:
-            noise = np.random.random((output_dim))
 
         if magnitude.shape != (output_dim,):
             raise Exception("bad magnitude shape %s" % (magnitude.shape,))
@@ -46,8 +43,6 @@ class MultiOutputSpectralMixture(MultiKernel):
             raise Exception("bad delay shape %s" % (delay.shape,))
         if phase.shape != (output_dim,):
             raise Exception("bad phase shape %s" % (phase.shape,))
-        if noise.shape != (output_dim,):
-            raise Exception("bad noise shape %s" % (noise.shape,))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
         self.magnitude = Parameter(magnitude)
@@ -55,7 +50,6 @@ class MultiOutputSpectralMixture(MultiKernel):
         self.variance = Parameter(variance, transform=transforms.positive)
         self.delay = Parameter(delay, FixDelay(input_dim, output_dim))
         self.phase = Parameter(phase, FixPhase())
-        self.noise = Parameter(noise, transform=transforms.positive)
         self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
 
     def subK(self, index, X, X2=None):
@@ -75,7 +69,7 @@ class MultiOutputSpectralMixture(MultiKernel):
                         * tf.sqrt(rprod(self.variance[:, i])) \
                         * tf.square(self.magnitude[i])
                 return temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
-                        * tf.cos(rsum(mean * self.dist(X, X2), 0)) + self.noise[i]
+                        * tf.cos(rsum(mean * self.dist(X, X2), 0))
         else:
             def cov_function(X, X2):
                 sv = self.variance[:, i] + self.variance[:, j]
