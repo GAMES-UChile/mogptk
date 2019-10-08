@@ -8,6 +8,7 @@ import numpy as np
 import gpflow
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 def LoadModel(filename):
     if not filename.endswith(".mogptk"):
@@ -370,7 +371,7 @@ class MOSM(model):
         ax.set_yticks([])
         return
 
-    def plot_correlations(self):
+    def plot_correlations(self, fsize=None):
         """
         Plot correlation coeficient matrix.
 
@@ -403,8 +404,16 @@ class MOSM(model):
                 corr_coef_matrix[i, j] /= norm
 
         fig, ax = plt.subplots()
-        im = ax.matshow(corr_coef_matrix, cmap='coolwarm')
+        color_range = np.abs(corr_coef_matrix).max()
+        norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
+        im = ax.matshow(corr_coef_matrix, cmap='coolwarm', norm=norm)
+        # fig.colorbar(im,  boundaries=np.linspace(np.round(corr_coef_matrix.min(), 1), np.round(corr_coef_matrix.max(), 1), 7))
         fig.colorbar(im)
+        for (i, j), z in np.ndenumerate(corr_coef_matrix):
+#             ax.text(j, i, '{:0.1f}'.format(z), ha='center', va='center')
+            ax.text(j, i, '{:0.1f}'.format(z), ha='center', va='center', 
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.5, edgecolor='0.9'),
+                fontsize=fsize)
         return fig, ax, corr_coef_matrix
 
     def info(self):

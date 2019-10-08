@@ -557,7 +557,15 @@ class Data:
 
     def aggregate(self, duration, f=np.mean):
         """
-        Aggregate the data by duration and apply a function to obtain a reduced dataset. For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format with y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second. For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months. If using a number, be aware that when using FormatDate your X data is denoted per day, while with FormatDateTime it is per second.
+        Aggregate the data by duration and apply a function to obtain a reduced dataset.
+
+        For example, group daily data by week and take the mean.
+        The duration can be set as a number which defined the intervals on the X axis,
+        or by a string written in the duration format with:
+        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
+        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+        If using a number, be aware that when using FormatDate your X data is denoted per day,
+        while with FormatDateTime it is per second.
 
         Args:
             duration (float,str): Duration along the X axis or as a string in the duration format.

@@ -174,8 +174,11 @@ class model:
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
+
+
         with self.graph.as_default():
             with self.session.as_default():
+
                 # Gaussian likelihood
                 if likelihood == None:
                     if not sparse:
@@ -186,20 +189,22 @@ class model:
                         self.model = gpflow.models.SGPR(x, y, self._kernel())
                 # MCMC
                 elif not variational:
+                    self.likelihood = likelihood(**like_params)
                     if not sparse:
                         self.name += ' (MCMC)'
-                        self.model = gpflow.models.GPMC(x, y, self._kernel(), likelihood(**like_params))
+                        self.model = gpflow.models.GPMC(x, y, self._kernel(), self.likelihood)
                     else:
                         self.name += ' (sparse MCMC)'
-                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), likelihood(**like_params))
+                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), self.likelihood)
                 # Variational
                 else:
+                    self.likelihood = likelihood(**like_params)
                     if not sparse:
                         self.name += ' (variational)'
-                        self.model = gpflow.models.VGP(x, y, self._kernel(), likelihood(**like_params))
+                        self.model = gpflow.models.VGP(x, y, self._kernel(), self.likelihood)
                     else:
                         self.name += ' (sparse variational)'
-                        self.model = gpflow.models.SVGP(x, y, self._kernel(), likelihood(**like_params))
+                        self.model = gpflow.models.SVGP(x, y, self._kernel(), self.likelihood)
         
         for key in self.fixed_params:
             if hasattr(self.model.kern, 'kernels'):
@@ -284,7 +289,7 @@ class model:
                     opt.minimize(self.model, anchor=True, **params)
                 else:
                     opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
-                    opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, **params)
+                    opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, disp=True, **params)
 
                 self._update_params(self.model.read_trainables())
 

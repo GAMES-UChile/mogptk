@@ -112,7 +112,7 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
         axarr[i].plot(x_train[i][:, 0], y_train[i], '.k', label='Train', )
         axarr[i].plot(x_all[i][:, 0], y_all[i], '--', label='Test', c='gray')
         
-        axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label='Pred', c=sns.color_palette()[i%10])
+        axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label='Post.Mean', c=sns.color_palette()[i%10])
         axarr[i].fill_between(x_pred[i][:, 0].reshape(-1),
                               lower_ci[i],
                               upper_ci[i],
@@ -121,7 +121,7 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
                               alpha=0.4)
         
         axarr[i].legend(ncol=4, loc='upper center', fontsize=8)
-        axarr[i].set_xlim(-1, x_all[i][-1])
+        axarr[i].set_xlim(x_all[i][0]-1, x_all[i][-1])
 
         # set channels name
         if names is not None:
@@ -131,7 +131,7 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
 
         # set y lims
         if ylims is not None:
-            axarr[i].set_xlim(ylims[i]) 
+            axarr[i].set_ylim(ylims[i]) 
         
     plt.suptitle(title, y=1.02)
     plt.tight_layout()
