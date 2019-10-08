@@ -22,7 +22,9 @@ def LoadModel(filename):
 
     model_type = gpmodel.mogptk_type
     name = gpmodel.mogptk_name
-    data = Data._decode(gpmodel.mogptk_data)
+    data = []
+    for channel in gpmodel.mogptk_data:
+        data.append(Data._decode(channel))
     Q = gpmodel.mogptk_Q
     params = gpmodel.mogptk_params
     fixed_params = gpmodel.mogptk_fixed_params
