@@ -1,5 +1,5 @@
 __pycache__/
 *.py[cod]
-.ipynb_checkpoints
-.mogptk
+*.ipynb_checkpoints
+*.mogptk
 examples/log

@@ -409,46 +409,10 @@ class Data:
         return "x=%s\ny=%s" % (self.X.tolist(), self.Y.tolist())
 
     def _encode(self):
-        # TODO: Incorporate with current data structure
-        F = self.F
-        if F != None:
-            F = str(dill.dumps(F))
-
-        return {
-            'name': self.name,
-            'X': self.X,
-            'Y': self.Y,
-            'mask': self.mask,
-            'F': F,
-            'X_pred': X_pred,
-            'Y_mu_pred': Y_mu_pred,
-            'Y_var_pred': Y_var_pred,
-            'input_label': self.input_label,
-            'output_label': self.output_label,
-            'formatters': self.formatters,
-            'transformations': self.transformations,
-        }
+        return str(dill.dumps(self))
 
     def _decode(d):
-        self = Data()
-        self.name = d['name']
-        self.X = d['X']
-        self.Y = d['Y']
-        self.mask = d['mask']
-        self.X_pred = d['X_pred']
-        self.Y_mu_pred = d['Y_mu_pred']
-        self.Y_var_pred = d['Y_var_pred']
-        self.input_label = d['input_label']
-        self.output_label = d['output_label']
-        self.formatters = d['formatters']
-        self.transformations = d['transformations']
-
-        F = d['F']
-        if F != None:
-            F = dill.loads(eval(F))
-        self.F = F
-
-        return self
+        return dill.loads(eval(d))
 
     def set_name(self, name):
         """
