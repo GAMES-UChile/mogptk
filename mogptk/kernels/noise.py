@@ -35,8 +35,22 @@ class Noise(MultiKernel):
         """Return a function that calculates proper sub-kernel."""
         if i == j:
             def cov_function(X, X2):
-                return self.noise[i]
+                if X==X2:
+                    d = tf.fill(tf.shape(X)[:-1], self.noise[i])
+                    return tf.cast(tf.matrix_diag(d), tf.float32)
+                else:
+                    shape = tf.concat([tf.shape(X)[:-1], tf.shape(X2)[:-1]], 0)
+                    return tf.fill(shape, 0.0)
         else:
             def cov_function(X, X2):
-                return 0.0
+                shape = tf.concat([tf.shape(X)[:-1], tf.shape(X2)[:-1]], 0)
+                return tf.fill(shape, 0.0)
         return cov_function
+
+
+    def dist(self, X, X2):
+        if X2 is None:
+            X2 = X
+        X = tf.expand_dims(tf.transpose(X), axis=2)
+        X2 = tf.expand_dims(tf.transpose(X2), axis=1)
+        return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)

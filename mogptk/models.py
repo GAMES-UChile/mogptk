@@ -2,7 +2,7 @@ import logging
 from .plot import plot_spectrum
 from .data import Data
 from .model import model
-from .kernels import SpectralMixture, sm_init, MultiOutputSpectralMixture, SpectralMixtureLMC, ConvolutionalGaussian, CrossSpectralMixture
+from .kernels import SpectralMixture, sm_init, MultiOutputSpectralMixture, SpectralMixtureLMC, ConvolutionalGaussian, CrossSpectralMixture, Noise
 from .kernels.conv_old import ConvolutionalGaussianOLD
 import numpy as np
 import gpflow
