@@ -484,9 +484,8 @@ class MOSM(model):
         return _transform_data_mogp(x, y)
 
     def _kernel(self):
-        kernel = Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
         for q in range(self.Q):
-            kernel += MultiOutputSpectralMixture(
+            kernel = MultiOutputSpectralMixture(
                 self.get_input_dims(),
                 self.get_output_dims(),
                 self.params[q]["magnitude"],
@@ -495,7 +494,12 @@ class MOSM(model):
                 self.params[q]["delay"],
                 self.params[q]["phase"],
             )
-        return kernel
+            if q == 0:
+                kernel_set = kernel
+            else:
+                kernel_set += kernel
+        kernel_set += Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
+        return kernel_set
 
 class CSM(model):
     """
@@ -594,9 +598,8 @@ class CSM(model):
         return _transform_data_mogp(x, y)
 
     def _kernel(self):
-        kernel = Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
         for q in range(self.Q):
-            kernel += CrossSpectralMixture(
+            kernel = CrossSpectralMixture(
                 self.get_input_dims(),
                 self.get_output_dims(),
                 self.Rq,
@@ -605,7 +608,12 @@ class CSM(model):
                 self.params[q]["variance"],
                 self.params[q]["phase"],
             )
-        return kernel
+            if q == 0:
+                kernel_set = kernel
+            else:
+                kernel_set += kernel
+        kernel_set += Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
+        return kernel_set
 
 class SM_LMC(model):
     """
@@ -712,9 +720,8 @@ class SM_LMC(model):
         return _transform_data_mogp(x, y)
 
     def _kernel(self):
-        kernel = Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
         for q in range(self.Q):
-            kernel += SpectralMixtureLMC(
+            kernel = SpectralMixtureLMC(
                 self.get_input_dims(),
                 self.get_output_dims(),
                 self.Rq,
@@ -722,7 +729,12 @@ class SM_LMC(model):
                 self.params[q]["mean"],
                 self.params[q]["variance"],
             )
-        return kernel
+            if q == 0:
+                kernel_set = kernel
+            else:
+                kernel_set += kernel
+        kernel_set += Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
+        return kernel_set
 
 class CG(model):
     """
@@ -758,13 +770,17 @@ class CG(model):
         return _transform_data_mogp(x, y)
 
     def _kernel(self):
-        kernel = Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
         for q in range(self.Q):
-            kernel += ConvolutionalGaussianOLD(
+            kernel = ConvolutionalGaussianOLD(
                 self.get_input_dims(),
                 self.get_output_dims(),
                 self.params[q]["constant"],
                 self.params[q]["variance"],
             )
-        return kernel
+            if q == 0:
+                kernel_set = kernel
+            else:
+                kernel_set += kernel
+        kernel_set += Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
+        return kernel_set
     
