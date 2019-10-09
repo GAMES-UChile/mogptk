@@ -37,14 +37,14 @@ class Noise(MultiKernel):
             def cov_function(X, X2):
                 if X==X2:
                     d = tf.fill(tf.shape(X)[:-1], self.noise[i])
-                    return tf.cast(tf.matrix_diag(d), tf.float32)
+                    return tf.cast(tf.matrix_diag(d), tf.float64)
                 else:
                     shape = tf.concat([tf.shape(X)[:-1], tf.shape(X2)[:-1]], 0)
-                    return tf.fill(shape, 0.0)
+                    return tf.cast(tf.fill(shape, 0.0), tf.float64)
         else:
             def cov_function(X, X2):
                 shape = tf.concat([tf.shape(X)[:-1], tf.shape(X2)[:-1]], 0)
-                return tf.fill(shape, 0.0)
+                return tf.cast(tf.fill(shape, 0.0), tf.float64)
         return cov_function
 
 
