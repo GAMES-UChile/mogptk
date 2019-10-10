@@ -454,12 +454,12 @@ class MOSM(model):
         for q in range(Q):
             for i in range(m):
                 for j in range(m):
-                    var_i = self.params[q + 1]['variance'][:, i]
-                    var_j = self.params[q + 1]['variance'][:, j]
-                    mu_i = self.params[q + 1]['mean'][:, i]
-                    mu_j = self.params[q + 1]['mean'][:, j]
-                    w_i = self.params[q + 1]['magnitude'][i]
-                    w_j = self.params[q + 1]['magnitude'][j]
+                    var_i = self.params[q]['variance'][:, i]
+                    var_j = self.params[q]['variance'][:, j]
+                    mu_i = self.params[q]['mean'][:, i]
+                    mu_j = self.params[q]['mean'][:, j]
+                    w_i = self.params[q]['magnitude'][i]
+                    w_j = self.params[q]['magnitude'][j]
                     sv = var_i + var_j
 
                     # cross covariance

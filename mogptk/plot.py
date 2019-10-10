@@ -103,13 +103,13 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
     mean_pred, lower_ci, upper_ci = model.predict(x_pred)
 
     # create plot
-    f, axarr = plt.subplots(grid[0], grid[1], sharex=True, figsize=figsize)
+    f, axarr = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
 
     axarr = axarr.reshape(-1)
 
     # plot
     for i in range(n_dim):
-        axarr[i].plot(x_train[i][:, 0], y_train[i], '.k', label='Train', ms=4)
+        axarr[i].plot(x_train[i][:, 0], y_train[i], '.k', label='Train', ms=3)
         axarr[i].plot(x_all[i][:, 0], y_all[i], '--', label='Test', c='gray',lw=1.4, zorder=5)
         
         axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label='Post.Mean', c=sns.color_palette()[i%10], zorder=1)
