@@ -136,5 +136,15 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
     plt.suptitle(title, y=1.02)
     plt.tight_layout()
 
-    return f, axarr
+    data_dict = {
+    'x_train':x_train,
+    'y_train':y_train,
+    'x_all':x_all,
+    'y_all':y_all,
+    'y_pred':mean_pred,
+    'low_ci':lower_ci,
+    'hi_ci':upper_ci,
+    }
+
+    return f, axarr, data_dict
 

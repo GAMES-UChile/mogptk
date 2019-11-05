@@ -131,9 +131,11 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
             # composite errors
             else:
                 mae = np.abs(errors).mean()
-                mape = (np.abs(errors / y_test[i]) * 100).mean()
+                # mape = (np.abs(errors / y_test[i]) * 100).mean()
+                nmae = mae / y_test[i].mean()
                 rmse = np.sqrt((errors**2).mean())
-                error_per_channel.append(np.array([mae, mape, rmse]))
+                nrmse = rmse / y_test[i].mean()
+                error_per_channel.append(np.array([mae, nmae, rmse, nrmse]))
 
         error_per_model.append(error_per_channel)
 
