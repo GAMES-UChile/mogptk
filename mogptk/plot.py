@@ -121,7 +121,7 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
                               alpha=0.4)
         
         # axarr[i].legend(ncol=4, loc='upper center', fontsize=8)
-        axarr[i].set_xlim(x_all[i][0], x_all[i][-1])
+        # axarr[i].set_xlim(x_all[i][0], x_all[i][-1])
 
         # set channels name
         if names is not None:
