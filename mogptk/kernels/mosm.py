@@ -1,3 +1,4 @@
+import gpflow
 from gpflow.params import Parameter
 from gpflow import transforms
 import numpy as np
@@ -11,7 +12,17 @@ from .multikernel import MultiKernel
 
 # TODO: dont use angular frequency
 class MultiOutputSpectralMixture(MultiKernel):
-    def __init__(self, input_dim, output_dim, magnitude=None, mean=None, variance=None, delay=None, phase=None, active_dim=None):
+    def __init__(
+        self,
+        input_dim,
+        output_dim,
+        magnitude=None,
+        mean=None,
+        variance=None,
+        delay=None,
+        phase=None,
+        active_dim=None,
+        magnitude_prior=None):
         """
         - input_dim (int) is the input dimension
         - output_dim (int) is the output dimension
@@ -45,11 +56,14 @@ class MultiOutputSpectralMixture(MultiKernel):
             raise Exception("bad phase shape %s" % (phase.shape,))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
-        self.magnitude = Parameter(magnitude)
+        self.magnitude = Parameter(magnitude,
+            prior=magnitude_prior)
         self.mean = Parameter(mean, transform=transforms.positive)
         self.variance = Parameter(variance, transform=transforms.positive)
-        self.delay = Parameter(delay, FixDelay(input_dim, output_dim))
-        self.phase = Parameter(phase, FixPhase())
+        # self.delay = Parameter(delay, FixDelay(input_dim, output_dim))
+        # self.phase = Parameter(phase, FixPhase())
+        self.delay = Parameter(delay)
+        self.phase = Parameter(phase)
         self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
 
     def subK(self, index, X, X2=None):

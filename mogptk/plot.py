@@ -93,26 +93,26 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
 
     n_dim = model.get_output_dims()
 
+    if grid is None:
+        grid = (int(np.ceil(n_dim/2)), 2)
+
     if (grid[0] * grid[1]) < n_dim:
         raise Exception('Grid not big enough for all channels')
-
-    if grid is None:
-        grid = (np.ceil(n_dim/2), 2)
 
     # predict with model
     mean_pred, lower_ci, upper_ci = model.predict(x_pred)
 
     # create plot
-    f, axarr = plt.subplots(grid[0], grid[1], sharex=True, figsize=figsize)
+    f, axarr = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
 
     axarr = axarr.reshape(-1)
 
     # plot
     for i in range(n_dim):
-        axarr[i].plot(x_train[i][:, 0], y_train[i], '.k', label='Train', )
-        axarr[i].plot(x_all[i][:, 0], y_all[i], '--', label='Test', c='gray')
+        axarr[i].plot(x_train[i][:, 0], y_train[i], '.k', label='Train', ms=8)
+        axarr[i].plot(x_all[i][:, 0], y_all[i], '--', label='Test', c='gray',lw=1.4, zorder=5)
         
-        axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label='Post.Mean', c=sns.color_palette()[i%10])
+        axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label='Post.Mean', c=sns.color_palette()[i%10], zorder=1)
         axarr[i].fill_between(x_pred[i][:, 0].reshape(-1),
                               lower_ci[i],
                               upper_ci[i],
@@ -120,14 +120,14 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
                               color=sns.color_palette()[i%10],
                               alpha=0.4)
         
-        axarr[i].legend(ncol=4, loc='upper center', fontsize=8)
-        axarr[i].set_xlim(x_all[i][0]-1, x_all[i][-1])
+        # axarr[i].legend(ncol=4, loc='upper center', fontsize=8)
+        # axarr[i].set_xlim(x_all[i][0], x_all[i][-1])
 
         # set channels name
         if names is not None:
             axarr[i].set_title(names[i])
         else:
-            axarr[i].set_title('Channel' + str(i))
+            axarr[i].set_title('Channel ' + str(i))
 
         # set y lims
         if ylims is not None:
@@ -136,5 +136,15 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
     plt.suptitle(title, y=1.02)
     plt.tight_layout()
 
-    return f, axarr
+    data_dict = {
+    'x_train':x_train,
+    'y_train':y_train,
+    'x_all':x_all,
+    'y_all':y_all,
+    'y_pred':mean_pred,
+    'low_ci':lower_ci,
+    'hi_ci':upper_ci,
+    }
+
+    return f, axarr, data_dict
 
