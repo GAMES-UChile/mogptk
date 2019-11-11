@@ -12,21 +12,7 @@ logging.getLogger('tensorflow').propagate = False
 
 class model:
     """
-    Multioutput Gaussian proccess model. Can be either MOSM, CSM, SM-LMC or CONV.
-
-    This class is used to use a multioutput GP model, train and test data can be added,
-    the model can be used to train a predict.
-
-    Example:
-
-        ---TODO---
-
-    Atributes:
-        name ():
-        data (obj, instance of mogptk.data):
-        model ():
-        Q (int): Number of components of the model.
-        parameters ():
+    Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
     """
 
     def __init__(self, name, data, Q):
@@ -36,7 +22,7 @@ class model:
         input_dims = data[0].get_input_dims()
         for channel in data:
             if channel.get_input_dims() != input_dims:
-                raise Exception("all data channels must have the same amount of input dimensions (for now)")
+                raise Exception("all data channels must have the same amount of input dimensions")
 
         self.name = name
         self.data = [channel.copy() for channel in data]
@@ -55,21 +41,28 @@ class model:
 
     # overridden by specific models
     def info(self):
+        """
+        Information about the model.
+        """
         print("info() not implemented for kernel")
 
     # overridden by specific models
     def plot(self):
+        """
+        Plot the model.
+        """
         print("plot() not implemented for kernel")
 
-    def print(self):
+    ################################################################
+
+    def print_params(self):
+        """
+        Print the parameters of the model in a table.
+        """
         pd.set_option('display.max_colwidth', -1)
         df = pd.DataFrame(self.get_params())
         df.index.name = 'Q'
         display(df)
-
-    def plot_data(self):
-        for channel in self.data:
-            channel.plot()
 
     def _update_params(self, trainables):
         for key, val in trainables.items():
@@ -81,12 +74,14 @@ class model:
 
     def get_input_dims(self):
         """
-        Returns input dimension
+        Returns the number of input dimensions of the data.
         """
-        # TODO: solve the different input dimension per channel case
-        return self.data[0].get_input_dims()
+        return self.data[0].get_input_dims()  # all channels have the same number of input dimensions
 
     def get_output_dims(self):
+        """
+        Returns the number of output dimensions of the data, i.e. the number of channels.
+        """
         return len(self.data)
 
     def get_params(self):
@@ -121,9 +116,8 @@ class model:
     def set_pred(self, channel, x):
         """
         Sets prediction range
-
-        TODO: Change so it can receive strings
         """
+        # TODO: Change so it can receive strings
         self.data[channel].set_pred(x)
 
     def set_pred_range(self, channel, start=None, end=None, n=None, step=None):
@@ -137,7 +131,7 @@ class model:
 
     def save(self, filename):
         if self.model == None:
-            raise Exception("build (and train) the model before doing predictions")
+            raise Exception("build the model before saving")
 
         if not filename.endswith(".mogptk"):
             filename += ".mogptk"

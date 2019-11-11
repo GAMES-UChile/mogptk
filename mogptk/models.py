@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 
 def LoadModel(filename):
+    """
+    Load a model from a given file that was previously saved (see the `model.save()` function).
+    """
     if not filename.endswith(".mogptk"):
         filename += ".mogptk"
 
@@ -26,8 +29,6 @@ def LoadModel(filename):
     for channel in gpmodel.mogptk_data:
         data.append(Data._decode(channel))
     Q = gpmodel.mogptk_Q
-    params = gpmodel.mogptk_params
-    fixed_params = gpmodel.mogptk_fixed_params
 
     if model_type == 'SM':
         m = SM(data, Q, name)
@@ -43,8 +44,8 @@ def LoadModel(filename):
         raise Exception("unknown model type '%s'" % (model_type))
 
     m.model = gpmodel
-    m.params = params
-    m.fixed_params = fixed_params
+    m.params = gpmodel.mogptk_params
+    m.fixed_params = gpmodel.mogptk_fixed_params
     m.graph = graph
     m.session = session
     return m
