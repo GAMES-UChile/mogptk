@@ -160,15 +160,20 @@ class FormatDateTime:
 
 class TransformDetrend:
     """
-    TransformDetrend is a transformer that detrends the data.
+    TransformDetrend is a transformer that detrends the data. It uses NumPy `polyfit` to find an `n` degree polynomial that removes the trend.
 
-    TODO : add regression or other order polinomial.
+    Args:
+        degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
     """
-    def __init__(self, data):
+    # TODO: add regression?
+    def __init__(self, degree=2):
+        self.degree = degree
+
+    def _data(self, data):
         if data.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
-        self.coef = np.polyfit(data.X[:,0], data.Y, 2)
+        self.coef = np.polyfit(data.X[:,0], data.Y, self.degree)
         # reg = Ridge(alpha=0.1, fit_intercept=True)
         # reg.fit(data.X, data.Y)
         # self.trend = reg
@@ -183,11 +188,15 @@ class TransformDetrend:
 
 class TransformNormalize:
     """
-    TransformNormalize is a transformer that normalizes the data, so that all Y data is between 0 and 1.
+    TransformNormalize is a transformer that normalizes the data so that the y-axis is between 0 and 1.
     """
-    def __init__(self, data):
-        self.ymin = np.amin([self.ymin, np.amin(self.Y)])
-        self.ymax = np.amax([self.ymax, np.amax(self.Y)])
+    def __init__(self):
+        pass
+
+    def _data(self, data):
+        # TODO: use data.mask?
+        self.ymin = np.amin(data.Y)
+        self.ymax = np.amax(data.Y)
 
     def _forward(self, x, y):
         return (y-self.ymin)/(self.ymax-self.ymin)
@@ -197,13 +206,19 @@ class TransformNormalize:
 
 class TransformLog:
     """
-    TransformLog is a transformer that takes the log of the data. Make sure there is no negative data.
+    TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the y-axis so that all values are greater than or equal to 1.
     """
-    def _forward(x, y):
-        return np.log(y)
+    def __init__(self):
+        pass
+
+    def _data(self, data):
+        self.shift = 1-np.amin(data.Y)
+
+    def _forward(self, x, y):
+        return np.log(y+self.shift)
     
-    def _backward(x, y):
-        return np.exp(y)
+    def _backward(self, x, y):
+        return np.exp(y)-self.shift
 
 def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
     """
@@ -335,6 +350,9 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         data = Data(X, Y, name=name, format=fmts)
         data.set_labels(x_col, y_col)
         return data
+
+def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
+    pass # TODO: implement
 
 class Data:
     def __init__(self, X, Y, name='', format=None):
@@ -487,8 +505,9 @@ class Data:
             >>> data.transform(TransformDetrend)
         """
         t = transformer
-        if '__init__' in vars(transformer):
-            t = transformer(self)
+        if isinstance(t, type):
+            t = transformer()
+        t._data(self)
 
         self.Y = t._forward(self.X, self.Y)
         if self.F != None:
