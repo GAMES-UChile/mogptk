@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 import seaborn as sns
 from scipy.stats import norm
 from .data import _detransform
@@ -121,13 +122,23 @@ def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, t
                               alpha=0.4)
         
         # axarr[i].legend(ncol=4, loc='upper center', fontsize=8)
-        # axarr[i].set_xlim(x_all[i][0], x_all[i][-1])
+
+        # axarr[i].locator_params(tight=True, nbins=6)
+        axarr[i].xaxis.set_major_locator(plt.MaxNLocator(6))
+
+        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: model.data[i].formatters[0]._format(x))
+        axarr[i].xaxis.set_major_formatter(formatter)
+
 
         # set channels name
         if names is not None:
             axarr[i].set_title(names[i])
         else:
-            axarr[i].set_title('Channel ' + str(i))
+            channel_name = model.data[i].name
+            if channel_name != '':
+                axarr[i].set_title(channel_name)
+            else:
+                axarr[i].set_title('Channel ' + str(i))
 
         # set y lims
         if ylims is not None:
