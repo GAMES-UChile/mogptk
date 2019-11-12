@@ -25,7 +25,6 @@
 <pre><code class="python">import csv
 import copy
 import inspect
-import dill
 import numpy as np
 from mogptk.bnse import *
 from scipy import signal
@@ -184,15 +183,20 @@ class FormatDateTime:
 
 class TransformDetrend:
     &#34;&#34;&#34;
-    TransformDetrend is a transformer that detrends the data.
+    TransformDetrend is a transformer that detrends the data. It uses NumPy `polyfit` to find an `n` degree polynomial that removes the trend.
 
-    TODO : add regression or other order polinomial.
+    Args:
+        degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
     &#34;&#34;&#34;
-    def __init__(self, data):
+    # TODO: add regression?
+    def __init__(self, degree=2):
+        self.degree = degree
+
+    def _data(self, data):
         if data.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
-        self.coef = np.polyfit(data.X[:,0], data.Y, 2)
+        self.coef = np.polyfit(data.X[:,0], data.Y, self.degree)
         # reg = Ridge(alpha=0.1, fit_intercept=True)
         # reg.fit(data.X, data.Y)
         # self.trend = reg
@@ -207,11 +211,15 @@ class TransformDetrend:
 
 class TransformNormalize:
     &#34;&#34;&#34;
-    TransformNormalize is a transformer that normalizes the data, so that all Y data is between 0 and 1.
+    TransformNormalize is a transformer that normalizes the data so that the y-axis is between 0 and 1.
     &#34;&#34;&#34;
-    def __init__(self, data):
-        self.ymin = np.amin([self.ymin, np.amin(self.Y)])
-        self.ymax = np.amax([self.ymax, np.amax(self.Y)])
+    def __init__(self):
+        pass
+
+    def _data(self, data):
+        # TODO: use data.mask?
+        self.ymin = np.amin(data.Y)
+        self.ymax = np.amax(data.Y)
 
     def _forward(self, x, y):
         return (y-self.ymin)/(self.ymax-self.ymin)
@@ -221,13 +229,19 @@ class TransformNormalize:
 
 class TransformLog:
     &#34;&#34;&#34;
-    TransformLog is a transformer that takes the log of the data. Make sure there is no negative data.
+    TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the y-axis so that all values are greater than or equal to 1.
     &#34;&#34;&#34;
-    def _forward(x, y):
-        return np.log(y)
+    def __init__(self):
+        pass
+
+    def _data(self, data):
+        self.shift = 1-np.amin(data.Y)
+
+    def _forward(self, x, y):
+        return np.log(y+self.shift)
     
-    def _backward(x, y):
-        return np.exp(y)
+    def _backward(self, x, y):
+        return np.exp(y)-self.shift
 
 def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
     &#34;&#34;&#34;
@@ -360,8 +374,11 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         data.set_labels(x_col, y_col)
         return data
 
+def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
+    pass # TODO: implement
+
 class Data:
-    def __init__(self, X, Y, name=&#39;&#39;, format=None):
+    def __init__(self, X, Y, name=&#34;&#34;, format=None):
         &#34;&#34;&#34;
         Data class holds all the observations, latent functions and prediction data.
 
@@ -389,6 +406,9 @@ class Data:
             Y = np.array(Y)
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
             raise ValueError(&#34;X and Y must be lists or numpy arrays&#34;)
+
+        X = X.astype(float)
+        Y = Y.astype(float)
 
         if X.ndim == 1:
             X = X.reshape(-1, 1)
@@ -431,12 +451,6 @@ class Data:
 
     def __str__(self):
         return &#34;x=%s\ny=%s&#34; % (self.X.tolist(), self.Y.tolist())
-
-    def _encode(self):
-        return str(dill.dumps(self))
-
-    def _decode(d):
-        return dill.loads(eval(d))
 
     def set_name(self, name):
         &#34;&#34;&#34;
@@ -508,8 +522,9 @@ class Data:
             &gt;&gt;&gt; data.transform(TransformDetrend)
         &#34;&#34;&#34;
         t = transformer
-        if &#39;__init__&#39; in vars(transformer):
-            t = transformer(self)
+        if isinstance(t, type):
+            t = transformer()
+        t._data(self)
 
         self.Y = t._forward(self.X, self.Y)
         if self.F != None:
@@ -736,7 +751,11 @@ class Data:
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
-        Sets the prediction range to the interval [start,end] with either &#39;n&#39; points or a given &#39;step&#39; between the points. Start and end can be set as strings and step in the duration string format if the proper formatter is set.
+        Sets the prediction range
+
+        The interval is set with [start,end], with either &#39;n&#39; points or a
+        given &#39;step&#39; between the points. Start and end can be set as strings and
+        step in the duration string format if the proper formatter is set.
 
         Args:
             start (float,str,optional): Start of interval, defaults to the first observation.
@@ -793,7 +812,7 @@ class Data:
             if cstep == None:
                 cstep = (cend[0]-cstart[0])/100
             else:
-                cstep = self.formatters[0]._parse(cstep)
+                cstep = self.formatters[0]._parse_duration(cstep)
             self.X_pred = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)
     
     def set_pred(self, x):
@@ -806,12 +825,17 @@ class Data:
         Examples:
             &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
         &#34;&#34;&#34;
-        if x.ndim != 2 or x.shape[1] != self.get_input_dims():
-            raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
         if isinstance(x, list):
             x = np.array(x)
         elif not isinstance(x, np.ndarray):
             raise ValueError(&#34;x expected to be a list or Numpy array&#34;)
+
+        x = x.astype(float)
+
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+        if x.ndim != 2 or x.shape[1] != self.get_input_dims():
+            raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
 
         self.X_pred = x
 
@@ -1230,6 +1254,17 @@ def _normalize_input_dims(x, input_dims):
         return data</code></pre>
 </details>
 </dd>
+<dt id="mogptk.data.LoadDataFrame"><code class="name flex">
+<span>def <span class="ident">LoadDataFrame</span></span>(<span>df, x_cols, y_col, name=None, format={}, filter=None, **kwargs)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
+    pass # TODO: implement</code></pre>
+</details>
+</dd>
 <dt id="mogptk.data.LoadFunction"><code class="name flex">
 <span>def <span class="ident">LoadFunction</span></span>(<span>f, start, end, n, var=0.0, name=None, random=False)</span>
 </code></dt>
@@ -1354,7 +1389,7 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class Data:
-    def __init__(self, X, Y, name=&#39;&#39;, format=None):
+    def __init__(self, X, Y, name=&#34;&#34;, format=None):
         &#34;&#34;&#34;
         Data class holds all the observations, latent functions and prediction data.
 
@@ -1382,6 +1417,9 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
             Y = np.array(Y)
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
             raise ValueError(&#34;X and Y must be lists or numpy arrays&#34;)
+
+        X = X.astype(float)
+        Y = Y.astype(float)
 
         if X.ndim == 1:
             X = X.reshape(-1, 1)
@@ -1424,12 +1462,6 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
 
     def __str__(self):
         return &#34;x=%s\ny=%s&#34; % (self.X.tolist(), self.Y.tolist())
-
-    def _encode(self):
-        return str(dill.dumps(self))
-
-    def _decode(d):
-        return dill.loads(eval(d))
 
     def set_name(self, name):
         &#34;&#34;&#34;
@@ -1501,8 +1533,9 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
             &gt;&gt;&gt; data.transform(TransformDetrend)
         &#34;&#34;&#34;
         t = transformer
-        if &#39;__init__&#39; in vars(transformer):
-            t = transformer(self)
+        if isinstance(t, type):
+            t = transformer()
+        t._data(self)
 
         self.Y = t._forward(self.X, self.Y)
         if self.F != None:
@@ -1729,7 +1762,11 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
-        Sets the prediction range to the interval [start,end] with either &#39;n&#39; points or a given &#39;step&#39; between the points. Start and end can be set as strings and step in the duration string format if the proper formatter is set.
+        Sets the prediction range
+
+        The interval is set with [start,end], with either &#39;n&#39; points or a
+        given &#39;step&#39; between the points. Start and end can be set as strings and
+        step in the duration string format if the proper formatter is set.
 
         Args:
             start (float,str,optional): Start of interval, defaults to the first observation.
@@ -1786,7 +1823,7 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
             if cstep == None:
                 cstep = (cend[0]-cstart[0])/100
             else:
-                cstep = self.formatters[0]._parse(cstep)
+                cstep = self.formatters[0]._parse_duration(cstep)
             self.X_pred = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)
     
     def set_pred(self, x):
@@ -1799,12 +1836,17 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
         Examples:
             &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
         &#34;&#34;&#34;
-        if x.ndim != 2 or x.shape[1] != self.get_input_dims():
-            raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
         if isinstance(x, list):
             x = np.array(x)
         elif not isinstance(x, np.ndarray):
             raise ValueError(&#34;x expected to be a list or Numpy array&#34;)
+
+        x = x.astype(float)
+
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+        if x.ndim != 2 or x.shape[1] != self.get_input_dims():
+            raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
 
         self.X_pred = x
 
@@ -2074,7 +2116,7 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.data.Data.aggregate"><code class="name flex">
-<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=<function mean at 0x7f05971ac0d0>)</span>
+<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=<function mean at 0x7fc69d580950>)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
@@ -2978,12 +3020,17 @@ frequencies, defaults to 5000.</dd>
     Examples:
         &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
     &#34;&#34;&#34;
-    if x.ndim != 2 or x.shape[1] != self.get_input_dims():
-        raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
     if isinstance(x, list):
         x = np.array(x)
     elif not isinstance(x, np.ndarray):
         raise ValueError(&#34;x expected to be a list or Numpy array&#34;)
+
+    x = x.astype(float)
+
+    if x.ndim == 1:
+        x = x.reshape(-1, 1)
+    if x.ndim != 2 or x.shape[1] != self.get_input_dims():
+        raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
 
     self.X_pred = x</code></pre>
 </details>
@@ -2992,7 +3039,10 @@ frequencies, defaults to 5000.</dd>
 <span>def <span class="ident">set_pred_range</span></span>(<span>self, start=None, end=None, n=None, step=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Sets the prediction range to the interval [start,end] with either 'n' points or a given 'step' between the points. Start and end can be set as strings and step in the duration string format if the proper formatter is set.</p>
+<section class="desc"><p>Sets the prediction range</p>
+<p>The interval is set with [start,end], with either 'n' points or a
+given 'step' between the points. Start and end can be set as strings and
+step in the duration string format if the proper formatter is set.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>start</code></strong> :&ensp;<code>float</code>,<code>str</code>,optional</dt>
@@ -3016,7 +3066,11 @@ frequencies, defaults to 5000.</dd>
 <summary>Source code</summary>
 <pre><code class="python">def set_pred_range(self, start=None, end=None, n=None, step=None):
     &#34;&#34;&#34;
-    Sets the prediction range to the interval [start,end] with either &#39;n&#39; points or a given &#39;step&#39; between the points. Start and end can be set as strings and step in the duration string format if the proper formatter is set.
+    Sets the prediction range
+
+    The interval is set with [start,end], with either &#39;n&#39; points or a
+    given &#39;step&#39; between the points. Start and end can be set as strings and
+    step in the duration string format if the proper formatter is set.
 
     Args:
         start (float,str,optional): Start of interval, defaults to the first observation.
@@ -3073,7 +3127,7 @@ frequencies, defaults to 5000.</dd>
         if cstep == None:
             cstep = (cend[0]-cstart[0])/100
         else:
-            cstep = self.formatters[0]._parse(cstep)
+            cstep = self.formatters[0]._parse_duration(cstep)
         self.X_pred = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)</code></pre>
 </details>
 </dd>
@@ -3109,8 +3163,9 @@ frequencies, defaults to 5000.</dd>
         &gt;&gt;&gt; data.transform(TransformDetrend)
     &#34;&#34;&#34;
     t = transformer
-    if &#39;__init__&#39; in vars(transformer):
-        t = transformer(self)
+    if isinstance(t, type):
+        t = transformer()
+    t._data(self)
 
     self.Y = t._forward(self.X, self.Y)
     if self.F != None:
@@ -3246,24 +3301,33 @@ frequencies, defaults to 5000.</dd>
 </dd>
 <dt id="mogptk.data.TransformDetrend"><code class="flex name class">
 <span>class <span class="ident">TransformDetrend</span></span>
-<span>(</span><span>data)</span>
+<span>(</span><span>degree=2)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>TransformDetrend is a transformer that detrends the data.</p>
-<p>TODO : add regression or other order polinomial.</p></section>
+<section class="desc"><p>TransformDetrend is a transformer that detrends the data. It uses NumPy <code>polyfit</code> to find an <code>n</code> degree polynomial that removes the trend.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>degree</code></strong> :&ensp;<code>int</code></dt>
+<dd>Polynomial degree that will be fit, i.e. <code>2</code> will find a quadratic trend and remove it from the data.</dd>
+</dl></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class TransformDetrend:
     &#34;&#34;&#34;
-    TransformDetrend is a transformer that detrends the data.
+    TransformDetrend is a transformer that detrends the data. It uses NumPy `polyfit` to find an `n` degree polynomial that removes the trend.
 
-    TODO : add regression or other order polinomial.
+    Args:
+        degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
     &#34;&#34;&#34;
-    def __init__(self, data):
+    # TODO: add regression?
+    def __init__(self, degree=2):
+        self.degree = degree
+
+    def _data(self, data):
         if data.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
-        self.coef = np.polyfit(data.X[:,0], data.Y, 2)
+        self.coef = np.polyfit(data.X[:,0], data.Y, self.degree)
         # reg = Ridge(alpha=0.1, fit_intercept=True)
         # reg.fit(data.X, data.Y)
         # self.trend = reg
@@ -3278,38 +3342,46 @@ frequencies, defaults to 5000.</dd>
 </dd>
 <dt id="mogptk.data.TransformLog"><code class="flex name class">
 <span>class <span class="ident">TransformLog</span></span>
-<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>TransformLog is a transformer that takes the log of the data. Make sure there is no negative data.</p></section>
+<section class="desc"><p>TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the y-axis so that all values are greater than or equal to 1.</p></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class TransformLog:
     &#34;&#34;&#34;
-    TransformLog is a transformer that takes the log of the data. Make sure there is no negative data.
+    TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the y-axis so that all values are greater than or equal to 1.
     &#34;&#34;&#34;
-    def _forward(x, y):
-        return np.log(y)
+    def __init__(self):
+        pass
+
+    def _data(self, data):
+        self.shift = 1-np.amin(data.Y)
+
+    def _forward(self, x, y):
+        return np.log(y+self.shift)
     
-    def _backward(x, y):
-        return np.exp(y)</code></pre>
+    def _backward(self, x, y):
+        return np.exp(y)-self.shift</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.TransformNormalize"><code class="flex name class">
 <span>class <span class="ident">TransformNormalize</span></span>
-<span>(</span><span>data)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>TransformNormalize is a transformer that normalizes the data, so that all Y data is between 0 and 1.</p></section>
+<section class="desc"><p>TransformNormalize is a transformer that normalizes the data so that the y-axis is between 0 and 1.</p></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class TransformNormalize:
     &#34;&#34;&#34;
-    TransformNormalize is a transformer that normalizes the data, so that all Y data is between 0 and 1.
+    TransformNormalize is a transformer that normalizes the data so that the y-axis is between 0 and 1.
     &#34;&#34;&#34;
-    def __init__(self, data):
-        self.ymin = np.amin([self.ymin, np.amin(self.Y)])
-        self.ymax = np.amax([self.ymax, np.amax(self.Y)])
+    def __init__(self):
+        pass
+
+    def _data(self, data):
+        # TODO: use data.mask?
+        self.ymin = np.amin(data.Y)
+        self.ymax = np.amax(data.Y)
 
     def _forward(self, x, y):
         return (y-self.ymin)/(self.ymax-self.ymin)
@@ -3335,6 +3407,7 @@ frequencies, defaults to 5000.</dd>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="mogptk.data.LoadCSV" href="#mogptk.data.LoadCSV">LoadCSV</a></code></li>
+<li><code><a title="mogptk.data.LoadDataFrame" href="#mogptk.data.LoadDataFrame">LoadDataFrame</a></code></li>
 <li><code><a title="mogptk.data.LoadFunction" href="#mogptk.data.LoadFunction">LoadFunction</a></code></li>
 </ul>
 </li>

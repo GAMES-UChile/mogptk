@@ -44,11 +44,12 @@ class MultiKernel(Kernel):
         Kernel.__init__(self, input_dim, active_dims, name)
         self.output_dim = output_dim
 
-    def subK(self, indexes, X, X2=None):
+    def subK(self, indexes, X, X2):
         return NotImplementedError
 
     def subKdiag(self, indexes, X):
-        return NotImplementedError
+        K = self.subK((indexes, indexes), X, X)
+        return tf.diag_part(K)
 
     @params_as_tensors
     def K(self, X, X2=None):
@@ -115,7 +116,25 @@ class MultiKernel(Kernel):
     def _reconstruct(self, K, splitnum, goback):
         &#34;&#34;&#34;Use quantities from splitback to invert a dynamic_partition.&#34;&#34;&#34;
         tmp = tf.split(K, splitnum, axis=0)
-        return tf.dynamic_stitch(goback, tmp)  # stitch</code></pre>
+        return tf.dynamic_stitch(goback, tmp)  # stitch
+
+    def sqdist(self, X, X2, lscales):
+        &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
+        Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
+        if X2 is None:
+            return -2 * tf.matmul(X * lscales, tf.transpose(X)) \
+                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
+        else:
+            X2s = tf.reduce_sum(tf.square(X2) * lscales, 1)
+            return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
+                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))
+
+    def dist(self, X, X2):
+        if X2 is None:
+            X2 = X
+        X = tf.expand_dims(tf.transpose(X), axis=2)
+        X2 = tf.expand_dims(tf.transpose(X2), axis=1)
+        return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)</code></pre>
 </details>
 </section>
 <section>
@@ -168,11 +187,12 @@ but we store it as a slice for efficiency.</p></section>
         Kernel.__init__(self, input_dim, active_dims, name)
         self.output_dim = output_dim
 
-    def subK(self, indexes, X, X2=None):
+    def subK(self, indexes, X, X2):
         return NotImplementedError
 
     def subKdiag(self, indexes, X):
-        return NotImplementedError
+        K = self.subK((indexes, indexes), X, X)
+        return tf.diag_part(K)
 
     @params_as_tensors
     def K(self, X, X2=None):
@@ -239,7 +259,25 @@ but we store it as a slice for efficiency.</p></section>
     def _reconstruct(self, K, splitnum, goback):
         &#34;&#34;&#34;Use quantities from splitback to invert a dynamic_partition.&#34;&#34;&#34;
         tmp = tf.split(K, splitnum, axis=0)
-        return tf.dynamic_stitch(goback, tmp)  # stitch</code></pre>
+        return tf.dynamic_stitch(goback, tmp)  # stitch
+
+    def sqdist(self, X, X2, lscales):
+        &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
+        Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
+        if X2 is None:
+            return -2 * tf.matmul(X * lscales, tf.transpose(X)) \
+                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
+        else:
+            X2s = tf.reduce_sum(tf.square(X2) * lscales, 1)
+            return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
+                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))
+
+    def dist(self, X, X2):
+        if X2 is None:
+            X2 = X
+        X = tf.expand_dims(tf.transpose(X), axis=2)
+        X2 = tf.expand_dims(tf.transpose(X2), axis=1)
+        return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -322,14 +360,48 @@ def K(self, X, X2=None):
     return self._reconstruct(Kd, Xsplitn, Freturn)</code></pre>
 </details>
 </dd>
-<dt id="mogptk.kernels.multikernel.MultiKernel.subK"><code class="name flex">
-<span>def <span class="ident">subK</span></span>(<span>self, indexes, X, X2=None)</span>
+<dt id="mogptk.kernels.multikernel.MultiKernel.dist"><code class="name flex">
+<span>def <span class="ident">dist</span></span>(<span>self, X, X2)</span>
 </code></dt>
 <dd>
 <section class="desc"></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def subK(self, indexes, X, X2=None):
+<pre><code class="python">def dist(self, X, X2):
+    if X2 is None:
+        X2 = X
+    X = tf.expand_dims(tf.transpose(X), axis=2)
+    X2 = tf.expand_dims(tf.transpose(X2), axis=1)
+    return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.kernels.multikernel.MultiKernel.sqdist"><code class="name flex">
+<span>def <span class="ident">sqdist</span></span>(<span>self, X, X2, lscales)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Return the square distance between two tensors.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def sqdist(self, X, X2, lscales):
+    &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
+    Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
+    if X2 is None:
+        return -2 * tf.matmul(X * lscales, tf.transpose(X)) \
+                + tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
+    else:
+        X2s = tf.reduce_sum(tf.square(X2) * lscales, 1)
+        return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
+                + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.kernels.multikernel.MultiKernel.subK"><code class="name flex">
+<span>def <span class="ident">subK</span></span>(<span>self, indexes, X, X2)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def subK(self, indexes, X, X2):
     return NotImplementedError</code></pre>
 </details>
 </dd>
@@ -341,7 +413,8 @@ def K(self, X, X2=None):
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def subKdiag(self, indexes, X):
-    return NotImplementedError</code></pre>
+    K = self.subK((indexes, indexes), X, X)
+    return tf.diag_part(K)</code></pre>
 </details>
 </dd>
 </dl>
@@ -364,9 +437,11 @@ def K(self, X, X2=None):
 <ul>
 <li>
 <h4><code><a title="mogptk.kernels.multikernel.MultiKernel" href="#mogptk.kernels.multikernel.MultiKernel">MultiKernel</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="mogptk.kernels.multikernel.MultiKernel.K" href="#mogptk.kernels.multikernel.MultiKernel.K">K</a></code></li>
 <li><code><a title="mogptk.kernels.multikernel.MultiKernel.Kdiag" href="#mogptk.kernels.multikernel.MultiKernel.Kdiag">Kdiag</a></code></li>
+<li><code><a title="mogptk.kernels.multikernel.MultiKernel.dist" href="#mogptk.kernels.multikernel.MultiKernel.dist">dist</a></code></li>
+<li><code><a title="mogptk.kernels.multikernel.MultiKernel.sqdist" href="#mogptk.kernels.multikernel.MultiKernel.sqdist">sqdist</a></code></li>
 <li><code><a title="mogptk.kernels.multikernel.MultiKernel.subK" href="#mogptk.kernels.multikernel.MultiKernel.subK">subK</a></code></li>
 <li><code><a title="mogptk.kernels.multikernel.MultiKernel.subKdiag" href="#mogptk.kernels.multikernel.MultiKernel.subKdiag">subKdiag</a></code></li>
 </ul>

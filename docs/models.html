@@ -23,6 +23,7 @@
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">import logging
+import dill
 from .plot import plot_spectrum
 from .data import Data
 from .model import model
@@ -35,6 +36,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 
 def LoadModel(filename):
+    &#34;&#34;&#34;
+    Load a model from a given file that was previously saved (see the `model.save()` function).
+    &#34;&#34;&#34;
     if not filename.endswith(&#34;.mogptk&#34;):
         filename += &#34;.mogptk&#34;
 
@@ -42,21 +46,17 @@ def LoadModel(filename):
     session = tf.Session(graph=graph)
     with graph.as_default():
         with session.as_default():
-            gpmodel = gpflow.saver.Saver().load(filename)
-
-    model_type = gpmodel.mogptk_type
-    name = gpmodel.mogptk_name
-    data = []
-    for channel in gpmodel.mogptk_data:
-        data.append(Data._decode(channel))
-    Q = gpmodel.mogptk_Q
-    params = gpmodel.mogptk_params
-    fixed_params = gpmodel.mogptk_fixed_params
+            model = gpflow.saver.Saver().load(filename)
+            model_type = model.mogptk_type
+            name = model.mogptk_name
+            data = dill.loads(eval(model.mogptk_data))
+            Q = model.mogptk_Q
+            params = model.mogptk_params
 
     if model_type == &#39;SM&#39;:
         m = SM(data, Q, name)
-    elif model_type == &#39;MOGP&#39;:
-        m = MOGP(data, Q, name)
+    elif model_type == &#39;MOSM&#39;:
+        m = MOSM(data, Q, name)
     elif model_type == &#39;CG&#39;:
         m = CG(data, Q, name)
     elif model_type == &#39;CSM&#39;:
@@ -66,11 +66,11 @@ def LoadModel(filename):
     else:
         raise Exception(&#34;unknown model type &#39;%s&#39;&#34; % (model_type))
 
-    m.model = gpmodel
+    m.model = model
     m.params = params
-    m.fixed_params = fixed_params
     m.graph = graph
     m.session = session
+    m.build() # TODO: should not be necessary
     return m
 
 def _transform_data_mogp(x, y):
@@ -821,10 +821,13 @@ class CG(model):
 <span>def <span class="ident">LoadModel</span></span>(<span>filename)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Load a model from a given file that was previously saved (see the <code>model.save()</code> function).</p></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def LoadModel(filename):
+    &#34;&#34;&#34;
+    Load a model from a given file that was previously saved (see the `model.save()` function).
+    &#34;&#34;&#34;
     if not filename.endswith(&#34;.mogptk&#34;):
         filename += &#34;.mogptk&#34;
 
@@ -832,21 +835,17 @@ class CG(model):
     session = tf.Session(graph=graph)
     with graph.as_default():
         with session.as_default():
-            gpmodel = gpflow.saver.Saver().load(filename)
-
-    model_type = gpmodel.mogptk_type
-    name = gpmodel.mogptk_name
-    data = []
-    for channel in gpmodel.mogptk_data:
-        data.append(Data._decode(channel))
-    Q = gpmodel.mogptk_Q
-    params = gpmodel.mogptk_params
-    fixed_params = gpmodel.mogptk_fixed_params
+            model = gpflow.saver.Saver().load(filename)
+            model_type = model.mogptk_type
+            name = model.mogptk_name
+            data = dill.loads(eval(model.mogptk_data))
+            Q = model.mogptk_Q
+            params = model.mogptk_params
 
     if model_type == &#39;SM&#39;:
         m = SM(data, Q, name)
-    elif model_type == &#39;MOGP&#39;:
-        m = MOGP(data, Q, name)
+    elif model_type == &#39;MOSM&#39;:
+        m = MOSM(data, Q, name)
     elif model_type == &#39;CG&#39;:
         m = CG(data, Q, name)
     elif model_type == &#39;CSM&#39;:
@@ -856,11 +855,11 @@ class CG(model):
     else:
         raise Exception(&#34;unknown model type &#39;%s&#39;&#34; % (model_type))
 
-    m.model = gpmodel
+    m.model = model
     m.params = params
-    m.fixed_params = fixed_params
     m.graph = graph
     m.session = session
+    m.build() # TODO: should not be necessary
     return m</code></pre>
 </details>
 </dd>
@@ -960,12 +959,19 @@ its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)</p></secti
 <li><code><b><a title="mogptk.model.model" href="model.html#mogptk.model.model">model</a></b></code>:
 <ul class="hlist">
 <li><code><a title="mogptk.model.model.build" href="model.html#mogptk.model.model.build">build</a></code></li>
+<li><code><a title="mogptk.model.model.fix_param" href="model.html#mogptk.model.model.fix_param">fix_param</a></code></li>
+<li><code><a title="mogptk.model.model.get_channel" href="model.html#mogptk.model.model.get_channel">get_channel</a></code></li>
 <li><code><a title="mogptk.model.model.get_input_dims" href="model.html#mogptk.model.model.get_input_dims">get_input_dims</a></code></li>
+<li><code><a title="mogptk.model.model.get_output_dims" href="model.html#mogptk.model.model.get_output_dims">get_output_dims</a></code></li>
 <li><code><a title="mogptk.model.model.get_params" href="model.html#mogptk.model.model.get_params">get_params</a></code></li>
+<li><code><a title="mogptk.model.model.get_x_pred" href="model.html#mogptk.model.model.get_x_pred">get_x_pred</a></code></li>
+<li><code><a title="mogptk.model.model.info" href="model.html#mogptk.model.model.info">info</a></code></li>
+<li><code><a title="mogptk.model.model.plot" href="model.html#mogptk.model.model.plot">plot</a></code></li>
 <li><code><a title="mogptk.model.model.predict" href="model.html#mogptk.model.model.predict">predict</a></code></li>
+<li><code><a title="mogptk.model.model.print_params" href="model.html#mogptk.model.model.print_params">print_params</a></code></li>
 <li><code><a title="mogptk.model.model.set_param" href="model.html#mogptk.model.model.set_param">set_param</a></code></li>
-<li><code><a title="mogptk.model.model.set_pred" href="model.html#mogptk.model.model.set_pred">set_pred</a></code></li>
 <li><code><a title="mogptk.model.model.train" href="model.html#mogptk.model.model.train">train</a></code></li>
+<li><code><a title="mogptk.model.model.train_param" href="model.html#mogptk.model.model.train_param">train_param</a></code></li>
 </ul>
 </li>
 </ul>
@@ -1184,12 +1190,19 @@ its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)</p></secti
 <li><code><b><a title="mogptk.model.model" href="model.html#mogptk.model.model">model</a></b></code>:
 <ul class="hlist">
 <li><code><a title="mogptk.model.model.build" href="model.html#mogptk.model.model.build">build</a></code></li>
+<li><code><a title="mogptk.model.model.fix_param" href="model.html#mogptk.model.model.fix_param">fix_param</a></code></li>
+<li><code><a title="mogptk.model.model.get_channel" href="model.html#mogptk.model.model.get_channel">get_channel</a></code></li>
 <li><code><a title="mogptk.model.model.get_input_dims" href="model.html#mogptk.model.model.get_input_dims">get_input_dims</a></code></li>
+<li><code><a title="mogptk.model.model.get_output_dims" href="model.html#mogptk.model.model.get_output_dims">get_output_dims</a></code></li>
 <li><code><a title="mogptk.model.model.get_params" href="model.html#mogptk.model.model.get_params">get_params</a></code></li>
+<li><code><a title="mogptk.model.model.get_x_pred" href="model.html#mogptk.model.model.get_x_pred">get_x_pred</a></code></li>
+<li><code><a title="mogptk.model.model.info" href="model.html#mogptk.model.model.info">info</a></code></li>
+<li><code><a title="mogptk.model.model.plot" href="model.html#mogptk.model.model.plot">plot</a></code></li>
 <li><code><a title="mogptk.model.model.predict" href="model.html#mogptk.model.model.predict">predict</a></code></li>
+<li><code><a title="mogptk.model.model.print_params" href="model.html#mogptk.model.model.print_params">print_params</a></code></li>
 <li><code><a title="mogptk.model.model.set_param" href="model.html#mogptk.model.model.set_param">set_param</a></code></li>
-<li><code><a title="mogptk.model.model.set_pred" href="model.html#mogptk.model.model.set_pred">set_pred</a></code></li>
 <li><code><a title="mogptk.model.model.train" href="model.html#mogptk.model.model.train">train</a></code></li>
+<li><code><a title="mogptk.model.model.train_param" href="model.html#mogptk.model.model.train_param">train_param</a></code></li>
 </ul>
 </li>
 </ul>
@@ -1572,22 +1585,6 @@ parameter estimation to improve optimization outputs.</p></section>
     return cross_params</code></pre>
 </details>
 </dd>
-<dt id="mogptk.models.MOSM.info"><code class="name flex">
-<span>def <span class="ident">info</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<section class="desc"></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def info(self):
-    for channel in range(self.get_output_dims()):
-        for q in range(self.Q):
-            mean = self.params[q][&#34;mean&#34;][:,channel]
-            var = self.params[q][&#34;variance&#34;][:,channel]
-            if np.linalg.norm(mean) &lt; np.linalg.norm(var):
-                print(&#34;‣ MOSM approaches RBF kernel for Q=%d in channel=&#39;%s&#39;&#34; % (q, self.data[channel].name))</code></pre>
-</details>
-</dd>
 <dt id="mogptk.models.MOSM.init_means"><code class="name flex">
 <span>def <span class="ident">init_means</span></span>(<span>self)</span>
 </code></dt>
@@ -1670,22 +1667,6 @@ directly. 'SM' estimates the spectral mean, variance and weights with GP-SM.</dd
             self.params[q][&#34;variance&#34;] = params[q][&#39;scale&#39;] * 2
     else:
         raise Exception(&#34;possible modes are either &#39;BNSE&#39; or &#39;SM&#39;&#34;)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.models.MOSM.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<section class="desc"></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def plot(self):
-    names = [channel.name for channel in self.data]
-    nyquist = [channel.get_nyquist_estimation() for channel in self.data]
-    means = self._get_param_across(&#39;mean&#39;)
-    weights = self._get_param_across(&#39;magnitude&#39;)**2
-    scales = self._get_param_across(&#39;variance&#39;)
-    plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.models.MOSM.plot_correlations"><code class="name flex">
@@ -1781,12 +1762,19 @@ for al channels.</p></section>
 <li><code><b><a title="mogptk.model.model" href="model.html#mogptk.model.model">model</a></b></code>:
 <ul class="hlist">
 <li><code><a title="mogptk.model.model.build" href="model.html#mogptk.model.model.build">build</a></code></li>
+<li><code><a title="mogptk.model.model.fix_param" href="model.html#mogptk.model.model.fix_param">fix_param</a></code></li>
+<li><code><a title="mogptk.model.model.get_channel" href="model.html#mogptk.model.model.get_channel">get_channel</a></code></li>
 <li><code><a title="mogptk.model.model.get_input_dims" href="model.html#mogptk.model.model.get_input_dims">get_input_dims</a></code></li>
+<li><code><a title="mogptk.model.model.get_output_dims" href="model.html#mogptk.model.model.get_output_dims">get_output_dims</a></code></li>
 <li><code><a title="mogptk.model.model.get_params" href="model.html#mogptk.model.model.get_params">get_params</a></code></li>
+<li><code><a title="mogptk.model.model.get_x_pred" href="model.html#mogptk.model.model.get_x_pred">get_x_pred</a></code></li>
+<li><code><a title="mogptk.model.model.info" href="model.html#mogptk.model.model.info">info</a></code></li>
+<li><code><a title="mogptk.model.model.plot" href="model.html#mogptk.model.model.plot">plot</a></code></li>
 <li><code><a title="mogptk.model.model.predict" href="model.html#mogptk.model.model.predict">predict</a></code></li>
+<li><code><a title="mogptk.model.model.print_params" href="model.html#mogptk.model.model.print_params">print_params</a></code></li>
 <li><code><a title="mogptk.model.model.set_param" href="model.html#mogptk.model.model.set_param">set_param</a></code></li>
-<li><code><a title="mogptk.model.model.set_pred" href="model.html#mogptk.model.model.set_pred">set_pred</a></code></li>
 <li><code><a title="mogptk.model.model.train" href="model.html#mogptk.model.model.train">train</a></code></li>
+<li><code><a title="mogptk.model.model.train_param" href="model.html#mogptk.model.model.train_param">train_param</a></code></li>
 </ul>
 </li>
 </ul>
@@ -1988,12 +1976,19 @@ and use the first Q peaks as the means and mixture weights.</p>
 <li><code><b><a title="mogptk.model.model" href="model.html#mogptk.model.model">model</a></b></code>:
 <ul class="hlist">
 <li><code><a title="mogptk.model.model.build" href="model.html#mogptk.model.model.build">build</a></code></li>
+<li><code><a title="mogptk.model.model.fix_param" href="model.html#mogptk.model.model.fix_param">fix_param</a></code></li>
+<li><code><a title="mogptk.model.model.get_channel" href="model.html#mogptk.model.model.get_channel">get_channel</a></code></li>
 <li><code><a title="mogptk.model.model.get_input_dims" href="model.html#mogptk.model.model.get_input_dims">get_input_dims</a></code></li>
+<li><code><a title="mogptk.model.model.get_output_dims" href="model.html#mogptk.model.model.get_output_dims">get_output_dims</a></code></li>
 <li><code><a title="mogptk.model.model.get_params" href="model.html#mogptk.model.model.get_params">get_params</a></code></li>
+<li><code><a title="mogptk.model.model.get_x_pred" href="model.html#mogptk.model.model.get_x_pred">get_x_pred</a></code></li>
+<li><code><a title="mogptk.model.model.info" href="model.html#mogptk.model.model.info">info</a></code></li>
+<li><code><a title="mogptk.model.model.plot" href="model.html#mogptk.model.model.plot">plot</a></code></li>
 <li><code><a title="mogptk.model.model.predict" href="model.html#mogptk.model.model.predict">predict</a></code></li>
+<li><code><a title="mogptk.model.model.print_params" href="model.html#mogptk.model.model.print_params">print_params</a></code></li>
 <li><code><a title="mogptk.model.model.set_param" href="model.html#mogptk.model.model.set_param">set_param</a></code></li>
-<li><code><a title="mogptk.model.model.set_pred" href="model.html#mogptk.model.model.set_pred">set_pred</a></code></li>
 <li><code><a title="mogptk.model.model.train" href="model.html#mogptk.model.model.train">train</a></code></li>
+<li><code><a title="mogptk.model.model.train_param" href="model.html#mogptk.model.model.train_param">train_param</a></code></li>
 </ul>
 </li>
 </ul>
@@ -2236,12 +2231,19 @@ plot(bool): If true will show the PSD for the kernels.</p></section>
 <li><code><b><a title="mogptk.model.model" href="model.html#mogptk.model.model">model</a></b></code>:
 <ul class="hlist">
 <li><code><a title="mogptk.model.model.build" href="model.html#mogptk.model.model.build">build</a></code></li>
+<li><code><a title="mogptk.model.model.fix_param" href="model.html#mogptk.model.model.fix_param">fix_param</a></code></li>
+<li><code><a title="mogptk.model.model.get_channel" href="model.html#mogptk.model.model.get_channel">get_channel</a></code></li>
 <li><code><a title="mogptk.model.model.get_input_dims" href="model.html#mogptk.model.model.get_input_dims">get_input_dims</a></code></li>
+<li><code><a title="mogptk.model.model.get_output_dims" href="model.html#mogptk.model.model.get_output_dims">get_output_dims</a></code></li>
 <li><code><a title="mogptk.model.model.get_params" href="model.html#mogptk.model.model.get_params">get_params</a></code></li>
+<li><code><a title="mogptk.model.model.get_x_pred" href="model.html#mogptk.model.model.get_x_pred">get_x_pred</a></code></li>
+<li><code><a title="mogptk.model.model.info" href="model.html#mogptk.model.model.info">info</a></code></li>
+<li><code><a title="mogptk.model.model.plot" href="model.html#mogptk.model.model.plot">plot</a></code></li>
 <li><code><a title="mogptk.model.model.predict" href="model.html#mogptk.model.model.predict">predict</a></code></li>
+<li><code><a title="mogptk.model.model.print_params" href="model.html#mogptk.model.model.print_params">print_params</a></code></li>
 <li><code><a title="mogptk.model.model.set_param" href="model.html#mogptk.model.model.set_param">set_param</a></code></li>
-<li><code><a title="mogptk.model.model.set_pred" href="model.html#mogptk.model.model.set_pred">set_pred</a></code></li>
 <li><code><a title="mogptk.model.model.train" href="model.html#mogptk.model.model.train">train</a></code></li>
+<li><code><a title="mogptk.model.model.train_param" href="model.html#mogptk.model.model.train_param">train_param</a></code></li>
 </ul>
 </li>
 </ul>
@@ -2281,12 +2283,10 @@ plot(bool): If true will show the PSD for the kernels.</p></section>
 </li>
 <li>
 <h4><code><a title="mogptk.models.MOSM" href="#mogptk.models.MOSM">MOSM</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="mogptk.models.MOSM.get_cross_params" href="#mogptk.models.MOSM.get_cross_params">get_cross_params</a></code></li>
-<li><code><a title="mogptk.models.MOSM.info" href="#mogptk.models.MOSM.info">info</a></code></li>
 <li><code><a title="mogptk.models.MOSM.init_means" href="#mogptk.models.MOSM.init_means">init_means</a></code></li>
 <li><code><a title="mogptk.models.MOSM.init_params" href="#mogptk.models.MOSM.init_params">init_params</a></code></li>
-<li><code><a title="mogptk.models.MOSM.plot" href="#mogptk.models.MOSM.plot">plot</a></code></li>
 <li><code><a title="mogptk.models.MOSM.plot_correlations" href="#mogptk.models.MOSM.plot_correlations">plot_correlations</a></code></li>
 <li><code><a title="mogptk.models.MOSM.plot_psd" href="#mogptk.models.MOSM.plot_psd">plot_psd</a></code></li>
 </ul>

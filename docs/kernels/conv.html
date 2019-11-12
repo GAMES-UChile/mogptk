@@ -60,59 +60,30 @@ class ConvolutionalGaussian(MultiKernel):
         self.constant = Parameter(constant, transform=transforms.positive)
         self.variance = Parameter(variance, transform=transforms.positive)
         self.latent_variance = Parameter(latent_variance, transform=transforms.positive)
-        self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
 
-    def subK(self, index, X, X2=None):
+    def subK(self, index, X, X2):
         i, j = index
-        return self.kerns[i][j](X, X2)
+        Tau = self.dist(X,X2)
+        # constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
 
-    def subKdiag(self, index, X):
-        K = self.subK((index, index), X, X)
-        return tf.diag_part(K)
+        # cross_var = self.variance[:,i] + self.variance[:,j]
+        # if i == j:
+        #    cross_var = self.variance[:,i] + 1e-8
+        #else:
+        #    cross_var = (self.variance[:,i] * self.variance[:,i]) / (self.variance[:,i] + self.variance[:,j])
+        cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
 
-    def _kernel_factory(self, i, j):
-        &#34;&#34;&#34;Return a function that calculates proper sub-kernel.&#34;&#34;&#34;
-        def cov_function(X,X2):
-            Tau = self.dist(X,X2)
-            # constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
+        cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(1 / self.latent_variance) * tf.sqrt(cross_var)
 
-            # cross_var = self.variance[:,i] + self.variance[:,j]
-            # if i == j:
-            #    cross_var = self.variance[:,i] + 1e-8
-            #else:
-            #    cross_var = (self.variance[:,i] * self.variance[:,i]) / (self.variance[:,i] + self.variance[:,j])
-            cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
+        if i == j:
+            cross_var = cross_var + 1e-8
 
-            cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(1 / self.latent_variance) * tf.sqrt(cross_var)
-
-            if i == j:
-                cross_var = cross_var + 1e-8
-
-            # exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
-            # exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
-            # exp = tf.exp(exp_term)
-            # complete_expression = tf.reduce_sum(cross_magnitude*exp, axis=0, name=&#34;cov_function&#34;)
-            # return complete_expression
-            return cross_magnitude * tf.exp(-0.5 * self.sqdist(X, X2, cross_var))
-        return cov_function
-
-    def dist(self, X, X2):
-        if X2 is None:
-            X2 = X
-        X = tf.expand_dims(tf.transpose(X), axis=2)
-        X2 = tf.expand_dims(tf.transpose(X2), axis=1)
-        return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)
-
-    def sqdist(self, X, X2, lscales):
-        &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
-        Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
-        if X2 is None:
-            return -2 * tf.matmul(X * lscales, tf.transpose(X)) \
-                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
-        else:
-            X2s = tf.reduce_sum(tf.square(X2) * lscales, 1)
-            return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
-                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))</code></pre>
+        # exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
+        # exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+        # exp = tf.exp(exp_term)
+        # complete_expression = tf.reduce_sum(cross_magnitude*exp, axis=0, name=&#34;cov_function&#34;)
+        # return complete_expression
+        return cross_magnitude * tf.exp(-0.5 * self.sqdist(X, X2, cross_var))</code></pre>
 </details>
 </section>
 <section>
@@ -173,59 +144,30 @@ matrix appropriately.</p>
         self.constant = Parameter(constant, transform=transforms.positive)
         self.variance = Parameter(variance, transform=transforms.positive)
         self.latent_variance = Parameter(latent_variance, transform=transforms.positive)
-        self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
 
-    def subK(self, index, X, X2=None):
+    def subK(self, index, X, X2):
         i, j = index
-        return self.kerns[i][j](X, X2)
+        Tau = self.dist(X,X2)
+        # constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
 
-    def subKdiag(self, index, X):
-        K = self.subK((index, index), X, X)
-        return tf.diag_part(K)
+        # cross_var = self.variance[:,i] + self.variance[:,j]
+        # if i == j:
+        #    cross_var = self.variance[:,i] + 1e-8
+        #else:
+        #    cross_var = (self.variance[:,i] * self.variance[:,i]) / (self.variance[:,i] + self.variance[:,j])
+        cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
 
-    def _kernel_factory(self, i, j):
-        &#34;&#34;&#34;Return a function that calculates proper sub-kernel.&#34;&#34;&#34;
-        def cov_function(X,X2):
-            Tau = self.dist(X,X2)
-            # constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
+        cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(1 / self.latent_variance) * tf.sqrt(cross_var)
 
-            # cross_var = self.variance[:,i] + self.variance[:,j]
-            # if i == j:
-            #    cross_var = self.variance[:,i] + 1e-8
-            #else:
-            #    cross_var = (self.variance[:,i] * self.variance[:,i]) / (self.variance[:,i] + self.variance[:,j])
-            cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
+        if i == j:
+            cross_var = cross_var + 1e-8
 
-            cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(1 / self.latent_variance) * tf.sqrt(cross_var)
-
-            if i == j:
-                cross_var = cross_var + 1e-8
-
-            # exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
-            # exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
-            # exp = tf.exp(exp_term)
-            # complete_expression = tf.reduce_sum(cross_magnitude*exp, axis=0, name=&#34;cov_function&#34;)
-            # return complete_expression
-            return cross_magnitude * tf.exp(-0.5 * self.sqdist(X, X2, cross_var))
-        return cov_function
-
-    def dist(self, X, X2):
-        if X2 is None:
-            X2 = X
-        X = tf.expand_dims(tf.transpose(X), axis=2)
-        X2 = tf.expand_dims(tf.transpose(X2), axis=1)
-        return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)
-
-    def sqdist(self, X, X2, lscales):
-        &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
-        Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
-        if X2 is None:
-            return -2 * tf.matmul(X * lscales, tf.transpose(X)) \
-                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
-        else:
-            X2s = tf.reduce_sum(tf.square(X2) * lscales, 1)
-            return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
-                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))</code></pre>
+        # exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
+        # exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+        # exp = tf.exp(exp_term)
+        # complete_expression = tf.reduce_sum(cross_magnitude*exp, axis=0, name=&#34;cov_function&#34;)
+        # return complete_expression
+        return cross_magnitude * tf.exp(-0.5 * self.sqdist(X, X2, cross_var))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -238,65 +180,47 @@ matrix appropriately.</p>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.conv.ConvolutionalGaussian.dist"><code class="name flex">
-<span>def <span class="ident">dist</span></span>(<span>self, X, X2)</span>
-</code></dt>
-<dd>
-<section class="desc"></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def dist(self, X, X2):
-    if X2 is None:
-        X2 = X
-    X = tf.expand_dims(tf.transpose(X), axis=2)
-    X2 = tf.expand_dims(tf.transpose(X2), axis=1)
-    return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.kernels.conv.ConvolutionalGaussian.sqdist"><code class="name flex">
-<span>def <span class="ident">sqdist</span></span>(<span>self, X, X2, lscales)</span>
-</code></dt>
-<dd>
-<section class="desc"><p>Return the square distance between two tensors.</p></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def sqdist(self, X, X2, lscales):
-    &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
-    Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
-    if X2 is None:
-        return -2 * tf.matmul(X * lscales, tf.transpose(X)) \
-                + tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
-    else:
-        X2s = tf.reduce_sum(tf.square(X2) * lscales, 1)
-        return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
-                + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))</code></pre>
-</details>
-</dd>
 <dt id="mogptk.kernels.conv.ConvolutionalGaussian.subK"><code class="name flex">
-<span>def <span class="ident">subK</span></span>(<span>self, index, X, X2=None)</span>
+<span>def <span class="ident">subK</span></span>(<span>self, index, X, X2)</span>
 </code></dt>
 <dd>
 <section class="desc"></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def subK(self, index, X, X2=None):
+<pre><code class="python">def subK(self, index, X, X2):
     i, j = index
-    return self.kerns[i][j](X, X2)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.kernels.conv.ConvolutionalGaussian.subKdiag"><code class="name flex">
-<span>def <span class="ident">subKdiag</span></span>(<span>self, index, X)</span>
-</code></dt>
-<dd>
-<section class="desc"></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def subKdiag(self, index, X):
-    K = self.subK((index, index), X, X)
-    return tf.diag_part(K)</code></pre>
+    Tau = self.dist(X,X2)
+    # constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
+
+    # cross_var = self.variance[:,i] + self.variance[:,j]
+    # if i == j:
+    #    cross_var = self.variance[:,i] + 1e-8
+    #else:
+    #    cross_var = (self.variance[:,i] * self.variance[:,i]) / (self.variance[:,i] + self.variance[:,j])
+    cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
+
+    cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(1 / self.latent_variance) * tf.sqrt(cross_var)
+
+    if i == j:
+        cross_var = cross_var + 1e-8
+
+    # exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
+    # exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+    # exp = tf.exp(exp_term)
+    # complete_expression = tf.reduce_sum(cross_magnitude*exp, axis=0, name=&#34;cov_function&#34;)
+    # return complete_expression
+    return cross_magnitude * tf.exp(-0.5 * self.sqdist(X, X2, cross_var))</code></pre>
 </details>
 </dd>
 </dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.kernels.multikernel.MultiKernel" href="multikernel.html#mogptk.kernels.multikernel.MultiKernel">MultiKernel</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.kernels.multikernel.MultiKernel.sqdist" href="multikernel.html#mogptk.kernels.multikernel.MultiKernel.sqdist">sqdist</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 </dl>
 </section>
@@ -317,10 +241,7 @@ matrix appropriately.</p>
 <li>
 <h4><code><a title="mogptk.kernels.conv.ConvolutionalGaussian" href="#mogptk.kernels.conv.ConvolutionalGaussian">ConvolutionalGaussian</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.conv.ConvolutionalGaussian.dist" href="#mogptk.kernels.conv.ConvolutionalGaussian.dist">dist</a></code></li>
-<li><code><a title="mogptk.kernels.conv.ConvolutionalGaussian.sqdist" href="#mogptk.kernels.conv.ConvolutionalGaussian.sqdist">sqdist</a></code></li>
 <li><code><a title="mogptk.kernels.conv.ConvolutionalGaussian.subK" href="#mogptk.kernels.conv.ConvolutionalGaussian.subK">subK</a></code></li>
-<li><code><a title="mogptk.kernels.conv.ConvolutionalGaussian.subKdiag" href="#mogptk.kernels.conv.ConvolutionalGaussian.subKdiag">subKdiag</a></code></li>
 </ul>
 </li>
 </ul>
