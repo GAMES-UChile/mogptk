@@ -28,7 +28,6 @@ def LoadModel(filename):
             data = dill.loads(eval(model.mogptk_data))
             Q = model.mogptk_Q
             params = model.mogptk_params
-            fixed_params = model.mogptk_fixed_params
 
     if model_type == 'SM':
         m = SM(data, Q, name)
@@ -45,7 +44,6 @@ def LoadModel(filename):
 
     m.model = model
     m.params = params
-    m.fixed_params = fixed_params
     m.graph = graph
     m.session = session
     m.build() # TODO: should not be necessary

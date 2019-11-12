@@ -354,7 +354,7 @@ def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs
     pass # TODO: implement
 
 class Data:
-    def __init__(self, X, Y, name='', format=None):
+    def __init__(self, X, Y, name="", format=None):
         """
         Data class holds all the observations, latent functions and prediction data.
 

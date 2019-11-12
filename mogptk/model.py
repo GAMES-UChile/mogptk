@@ -20,17 +20,21 @@ class model:
         if not isinstance(data, list):
             data = [data]
 
+        names = set()
         input_dims = data[0].get_input_dims()
         for channel in data:
             if channel.get_input_dims() != input_dims:
                 raise Exception("all data channels must have the same amount of input dimensions")
+            if channel.name != "":
+                if channel.name in names:
+                    raise Exception("data channels must have different names")
+                names.add(channel.name)
 
         self.name = name
         self.data = [channel.copy() for channel in data]
         self.model = None
         self.Q = Q
-        self.params = []
-        self.fixed_params = []
+        self.params = [] # TODO: remove and use GPflow?
 
     # overridden by specific models
     def _kernel(self):
@@ -85,6 +89,22 @@ class model:
         """
         return len(self.data)
 
+    def get_channel(self, channel):
+        """
+        Return Data for a channel.
+
+        Args:
+            channel (int,string): Index or name of the channel.
+        """
+        if isinstance(channel, int):
+            if channel < len(self.data):
+                return self.data[channel]
+        elif isinstance(channel, str):
+            for data in self.data:
+                if data.name == channel:
+                    return data
+        raise ValueError("channel '%d' does not exist" % (channel))
+
     def get_params(self):
         """
         Returns all parameters set for the kernel per component.
@@ -121,21 +141,45 @@ class model:
 
         self.params[q][key] = val
 
-    def set_pred(self, channel, x):
+    def fix_param(self, key):
         """
-        Sets prediction range
+        Make parameter untrainable (undo with `train_param`).
+
+        Args:
+            key (string): Name of the parameter.
         """
-        # TODO: Change so it can receive strings
-        self.data[channel].set_pred(x)
+        if self.model == None:
+            raise Exception("build the model before disabling training on parameter")
 
-    def set_pred_range(self, channel, start=None, end=None, n=None, step=None):
-        self.data[channel].set_pred_range(start, end, n, step)
+        if hasattr(self.model.kern, 'kernels'):
+            for kernel_i, kernel in enumerate(self.model.kern.kernels):
+                for param_name, param_val in kernel.__dict__.items():
+                    if param_name == key and isinstance(param_val, gpflow.params.parameter.Parameter):
+                        getattr(self.model.kern.kernels[kernel_i], param_name).trainable = False
+        else:
+            for param_name, param_val in self.model.kern.__dict__.items():
+                if param_name == key and isinstance(param_val, gpflow.params.parameter.Parameter):
+                    getattr(self.model.kern, param_name).trainable = False
 
-    def fix_params(self, key):
-        self.fixed_params.append(key)
+    def train_param(self, key):
+        """
+        Make parameter trainable (that was previously fixed, see `fix_param`).
 
-    def unfix_params(self, key):
-        self.fixed_params.remove(key)
+        Args:
+            key (string): Name of the parameter.
+        """
+        if self.model == None:
+            raise Exception("build the model before enabling training on parameter")
+
+        if hasattr(self.model.kern, 'kernels'):
+            for kernel_i, kernel in enumerate(self.model.kern.kernels):
+                for param_name, param_val in kernel.__dict__.items():
+                    if param_name == key and isinstance(param_val, gpflow.params.parameter.Parameter):
+                        getattr(self.model.kern.kernels[kernel_i], param_name).trainable = True
+        else:
+            for param_name, param_val in self.model.kern.__dict__.items():
+                if param_name == key and isinstance(param_val, gpflow.params.parameter.Parameter):
+                    getattr(self.model.kern, param_name).trainable = True
 
     def save(self, filename):
         if self.model == None:
@@ -154,7 +198,6 @@ class model:
         self.model.mogptk_data = str(dill.dumps(self.data))
         self.model.mogptk_Q = self.Q
         self.model.mogptk_params = self.params
-        self.model.mogptk_fixed_params = self.fixed_params
 
         with self.graph.as_default():
             with self.session.as_default():
@@ -171,9 +214,6 @@ class model:
         """
 
         x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
-
-        if hasattr(self, 'session'):
-            self.session.close()
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
@@ -215,7 +255,7 @@ class model:
         params={},
         export_graph=False):
         """
-        Builds and trains the model using the kernel and its parameters.
+        Trains the model using the kernel and its parameters.
 
         For different optimizers, see scipy.optimize.minimize.
         It can be bounded by a maximum number of iterations, disp will output final
@@ -241,20 +281,6 @@ class model:
         """
         if self.model == None:
             raise Exception("build the model before training")
-
-        for key in self.fixed_params:
-            # TODO: set trainable to True for others
-            if hasattr(self.model.kern, 'kernels'):
-                for kern in self.model.kern.kernels:
-                    if hasattr(kern, key):
-                        getattr(kern, key).trainable = False
-                    else:
-                        raise Exception("parameter name '%s' does not exist" % (key))
-            else:
-                if hasattr(self.model.kern, key):
-                    getattr(self.model.kern, key).trainable = False
-                else:
-                    raise Exception("parameter name '%s' does not exist" % (key))
 
         start_time = time.time()
         with self.graph.as_default():
