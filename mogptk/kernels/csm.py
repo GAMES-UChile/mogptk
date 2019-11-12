@@ -61,10 +61,3 @@ class CrossSpectralMixture(MultiKernel):
     def subKdiag(self, index, X):
         K = self.subK((index, index), X, X)
         return tf.diag_part(K)
-
-    def dist(self, X, X2):
-        if X2 is None:
-            X2 = X
-        X = tf.expand_dims(tf.transpose(X), axis=2)
-        X2 = tf.expand_dims(tf.transpose(X2), axis=1)
-        return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)

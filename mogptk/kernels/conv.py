@@ -65,20 +65,3 @@ class ConvolutionalGaussian(MultiKernel):
         K = self.subK((index, index), X, X)
         return tf.diag_part(K)
 
-    def dist(self, X, X2):
-        if X2 is None:
-            X2 = X
-        X = tf.expand_dims(tf.transpose(X), axis=2)
-        X2 = tf.expand_dims(tf.transpose(X2), axis=1)
-        return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)
-
-    def sqdist(self, X, X2, lscales):
-        """Return the square distance between two tensors."""
-        Xs = tf.reduce_sum(tf.square(X) * lscales, 1)
-        if X2 is None:
-            return -2 * tf.matmul(X * lscales, tf.transpose(X)) \
-                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
-        else:
-            X2s = tf.reduce_sum(tf.square(X2) * lscales, 1)
-            return -2 * tf.matmul(X * lscales, tf.transpose(X2)) \
-                    + tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))
