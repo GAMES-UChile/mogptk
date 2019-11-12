@@ -20,11 +20,12 @@ class MultiKernel(Kernel):
         Kernel.__init__(self, input_dim, active_dims, name)
         self.output_dim = output_dim
 
-    def subK(self, indexes, X, X2=None):
+    def subK(self, indexes, X, X2):
         return NotImplementedError
 
     def subKdiag(self, indexes, X):
-        return NotImplementedError
+        K = self.subK((indexes, indexes), X, X)
+        return tf.diag_part(K)
 
     @params_as_tensors
     def K(self, X, X2=None):

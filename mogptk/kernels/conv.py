@@ -37,7 +37,7 @@ class ConvolutionalGaussian(MultiKernel):
         self.variance = Parameter(variance, transform=transforms.positive)
         self.latent_variance = Parameter(latent_variance, transform=transforms.positive)
 
-    def subK(self, index, X, X2=None):
+    def subK(self, index, X, X2):
         i, j = index
         Tau = self.dist(X,X2)
         # constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
@@ -60,8 +60,4 @@ class ConvolutionalGaussian(MultiKernel):
         # complete_expression = tf.reduce_sum(cross_magnitude*exp, axis=0, name="cov_function")
         # return complete_expression
         return cross_magnitude * tf.exp(-0.5 * self.sqdist(X, X2, cross_var))
-
-    def subKdiag(self, index, X):
-        K = self.subK((index, index), X, X)
-        return tf.diag_part(K)
 

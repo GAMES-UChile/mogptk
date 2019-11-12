@@ -22,14 +22,11 @@ class Noise(MultiKernel):
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
         self.noise = Parameter(noise, transform=transforms.positive)
 
-    def subK(self, index, X, X2=None):
-        shape = tf.concat([tf.shape(X)[:-1], tf.shape(X2)[:-1]], 0)
-        K = tf.cast(tf.fill(shape, 0.0), tf.float64)
+    def subK(self, index, X, X2):
+        i, j = index
+        if i == j:
+            K = tf.matrix_diag(tf.fill(tf.shape(X)[:-1], self.noise[i]))
+        else:
+            K = tf.zeroes([tf.shape(X)[:-1], tf.shape(X2)[:-1]])
         return K
-
-    def subKdiag(self, index, X):
-        i = index
-        d = tf.fill(tf.shape(X)[:-1], self.noise[i])
-        K = tf.cast(tf.matrix_diag(d), tf.float64)
-        return tf.diag_part(K)
 

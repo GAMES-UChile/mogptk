@@ -62,33 +62,31 @@ class MultiOutputSpectralMixture(MultiKernel):
         self.delay = Parameter(delay)
         self.phase = Parameter(phase)
 
-    def subK(self, index, X, X2=None):
+    def subK(self, index, X, X2):
         i, j = index
-        sv = self.variance[:, i] + self.variance[:, j]
-        cross_delay = tf.reshape(
-            self.delay[:, i] - self.delay[:, j],
-            [self.input_dim, 1, 1]
-        )
-        cross_phase = self.phase[i] - self.phase[j]
-        cross_var = (2 * self.variance[:, i] * self.variance[:, j]) / sv
-        cross_mean = tf.reshape(
-            (self.variance[:, i] * self.mean[:, j] + self.variance[:, j] * self.mean[:, i]) / sv,
-            [self.input_dim, 1, 1]
-        )
-        cross_magnitude = self.magnitude[i] * self.magnitude[j] \
-                * tf.exp(-0.25 * rsum(tf.square(self.mean[:, i] - self.mean[:, j]) / sv))
+        if i == j:
+            mean = tf.expand_dims(tf.slice(self.mean, [0, i], [self.input_dim, 1]), axis=2)
+            temp = np.power(2 * np.pi, self.input_dim / 2) \
+                    * tf.sqrt(rprod(self.variance[:, i])) \
+                    * tf.square(self.magnitude[i])
+            K = temp * tf.exp(-0.5 * self.sqdist(X, X, self.variance[:, i])) \
+                    * tf.cos(rsum(mean * self.dist(X, X), 0))
+        else:
+            sv = self.variance[:, i] + self.variance[:, j]
+            cross_delay = tf.reshape(
+                self.delay[:, i] - self.delay[:, j],
+                [self.input_dim, 1, 1]
+            )
+            cross_phase = self.phase[i] - self.phase[j]
+            cross_var = (2 * self.variance[:, i] * self.variance[:, j]) / sv
+            cross_mean = tf.reshape(
+                (self.variance[:, i] * self.mean[:, j] + self.variance[:, j] * self.mean[:, i]) / sv,
+                [self.input_dim, 1, 1]
+            )
+            cross_magnitude = self.magnitude[i] * self.magnitude[j] \
+                    * tf.exp(-0.25 * rsum(tf.square(self.mean[:, i] - self.mean[:, j]) / sv))
 
-        alpha = np.power(2 * np.pi, self.input_dim / 2) * tf.sqrt(rprod(cross_var)) * cross_magnitude
-        K = alpha * tf.exp(-0.5 * self.sqdist(X + self.delay[:, i], X2 + self.delay[:, j], cross_var)) \
-                * tf.cos(rsum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
+            alpha = np.power(2 * np.pi, self.input_dim / 2) * tf.sqrt(rprod(cross_var)) * cross_magnitude
+            K = alpha * tf.exp(-0.5 * self.sqdist(X + self.delay[:, i], X2 + self.delay[:, j], cross_var)) \
+                    * tf.cos(rsum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
         return K
-
-    def subKdiag(self, index, X):
-        i = index
-        mean = tf.expand_dims(tf.slice(self.mean, [0, i], [self.input_dim, 1]), axis=2)
-        temp = np.power(2 * np.pi, self.input_dim / 2) \
-                * tf.sqrt(rprod(self.variance[:, i])) \
-                * tf.square(self.magnitude[i])
-        K = temp * tf.exp(-0.5 * self.sqdist(X, X, self.variance[:, i])) \
-                * tf.cos(rsum(mean * self.dist(X, X), 0))
-        return tf.diag_part(K)

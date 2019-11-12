@@ -45,7 +45,7 @@ class CrossSpectralMixture(MultiKernel):
         self.variance = Parameter(variance, transform=transforms.positive)
         self.phase = Parameter(phase, transform = transforms.positive)
 
-    def subK(self, index, X, X2=None):
+    def subK(self, index, X, X2):
         i, j = index
         Tau = self.dist(X,X2)
         constants = tf.sqrt(self.constant[:,i]*self.constant[:,j])
@@ -57,7 +57,3 @@ class CrossSpectralMixture(MultiKernel):
         cos = tf.cos(cos_term)
         complete_expression = tf.reduce_sum(constants_times_exp*cos, axis = 0)
         return complete_expression
-
-    def subKdiag(self, index, X):
-        K = self.subK((index, index), X, X)
-        return tf.diag_part(K)
