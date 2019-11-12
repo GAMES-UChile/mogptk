@@ -1,5 +1,6 @@
 import os
 import time
+import dill
 import numpy as np
 from pprint import pprint
 import gpflow
@@ -163,6 +164,9 @@ class model:
         """
 
         x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
+
+        if hasattr(self, 'session'):
+            self.session.close()
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)

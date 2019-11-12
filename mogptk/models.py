@@ -1,4 +1,5 @@
 import logging
+import dill
 from .plot import plot_spectrum
 from .data import Data
 from .model import model
@@ -31,8 +32,8 @@ def LoadModel(filename):
 
     if model_type == 'SM':
         m = SM(data, Q, name)
-    elif model_type == 'MOGP':
-        m = MOGP(data, Q, name)
+    elif model_type == 'MOSM':
+        m = MOSM(data, Q, name)
     elif model_type == 'CG':
         m = CG(data, Q, name)
     elif model_type == 'CSM':
@@ -47,6 +48,7 @@ def LoadModel(filename):
     m.fixed_params = fixed_params
     m.graph = graph
     m.session = session
+    m.build() # TODO: should not be necessary
     return m
 
 def _transform_data_mogp(x, y):
