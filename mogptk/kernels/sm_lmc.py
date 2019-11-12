@@ -38,31 +38,24 @@ class SpectralMixtureLMC(MultiKernel):
         self.constant = Parameter(constant)
         self.mean = Parameter(mean, transform = transforms.positive)
         self.variance = Parameter(variance, transform=transforms.positive)
-        self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
 
     def subK(self, index, X, X2=None):
         i, j = index
-        return self.kerns[i][j](X, X2)
+        Tau = self.dist(X,X2)
+        constants = self.constant[:,i]*self.constant[:,j]
+        exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(self.variance,1),2)
+        exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+        exp = tf.exp(exp_term)
+        constants_times_exp = tf.expand_dims(tf.expand_dims(constants,1),2)*exp
+        cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean,1),2)*Tau, axis=0)
+        cos = tf.cos(cos_term)
+        complete_expression = tf.reduce_sum(constants_times_exp*cos, axis = 0)
+        return complete_expression
 
     def subKdiag(self, index, X):
         K = self.subK((index, index), X, X)
         return tf.diag_part(K)
-
-    def _kernel_factory(self, i, j):
-        """Return a function that calculates proper sub-kernel."""
-        def cov_function(X,X2):
-            Tau = self.dist(X,X2)
-            constants = self.constant[:,i]*self.constant[:,j]
-            exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(self.variance,1),2)
-            exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
-            exp = tf.exp(exp_term)
-            constants_times_exp = tf.expand_dims(tf.expand_dims(constants,1),2)*exp
-            cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean,1),2)*Tau, axis=0)
-            cos = tf.cos(cos_term)
-            complete_expression = tf.reduce_sum(constants_times_exp*cos, axis = 0)
-            return complete_expression
-        return cov_function
-
+    
     def dist(self, X, X2):
         if X2 is None:
             X2 = X

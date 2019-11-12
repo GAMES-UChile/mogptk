@@ -21,36 +21,15 @@ class Noise(MultiKernel):
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
         self.noise = Parameter(noise, transform=transforms.positive)
-        self.kerns = [[self._kernel_factory(i, j) for j in range(output_dim)] for i in range(output_dim)]
 
     def subK(self, index, X, X2=None):
-        i, j = index
-        return self.kerns[i][j](X, X2)
+        shape = tf.concat([tf.shape(X)[:-1], tf.shape(X2)[:-1]], 0)
+        K = tf.cast(tf.fill(shape, 0.0), tf.float64)
+        return K
 
     def subKdiag(self, index, X):
-        K = self.subK((index, index), X, X)
+        i = index
+        d = tf.fill(tf.shape(X)[:-1], self.noise[i])
+        K = tf.cast(tf.matrix_diag(d), tf.float64)
         return tf.diag_part(K)
 
-    def _kernel_factory(self, i, j):
-        """Return a function that calculates proper sub-kernel."""
-        if i == j:
-            def cov_function(X, X2):
-                if X==X2:
-                    d = tf.fill(tf.shape(X)[:-1], self.noise[i])
-                    return tf.cast(tf.matrix_diag(d), tf.float64)
-                else:
-                    shape = tf.concat([tf.shape(X)[:-1], tf.shape(X2)[:-1]], 0)
-                    return tf.cast(tf.fill(shape, 0.0), tf.float64)
-        else:
-            def cov_function(X, X2):
-                shape = tf.concat([tf.shape(X)[:-1], tf.shape(X2)[:-1]], 0)
-                return tf.cast(tf.fill(shape, 0.0), tf.float64)
-        return cov_function
-
-
-    def dist(self, X, X2):
-        if X2 is None:
-            X2 = X
-        X = tf.expand_dims(tf.transpose(X), axis=2)
-        X2 = tf.expand_dims(tf.transpose(X2), axis=1)
-        return tf.matmul(X, tf.ones_like(X2)) + tf.matmul(tf.ones_like(X), -X2)
