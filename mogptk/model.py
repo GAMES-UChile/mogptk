@@ -209,14 +209,9 @@ class model:
     def train(
         self,
         method='L-BFGS-B',
-        likelihood=None,
-        variational=False,
-        sparse=False,
-        plot=False,
         tol=1e-6,
         maxiter=2000,
         opt_params={},
-        like_params={},
         params={},
         export_graph=False):
         """
@@ -230,11 +225,9 @@ class model:
         Args:
             method (str): Optimizer to use, if "Adam" is chosen,
                 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
-                optimizer is used. Default to scipy 'L-BFGS-B'.
-            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
-            sparse (bool): If True, will use sparse GP regression.
-            plot (bool): If true will plot the spectrum. Default to False.
+                optimizer is used. Defaults to scipy 'L-BFGS-B'.
+            tol (float): Tolerance for optimizer. Defaults to 1e-6.
+            maxiter (int): Maximum number of iterations. Defaults to 2000.
             opt_params (dict): Aditional dictionary with parameters on optimizer.
                 If method is 'Adam' see:
                 https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py
@@ -246,11 +239,9 @@ class model:
                 for more details.
             export_graph (bool): Default to False.
         """
+        if self.model == None:
+            raise Exception("build the model before training")
 
-        start_time = time.time()
-        
-        self.build(likelihood, variational, sparse, like_params=like_params)
-        
         for key in self.fixed_params:
             # TODO: set trainable to True for others
             if hasattr(self.model.kern, 'kernels'):
@@ -265,14 +256,12 @@ class model:
                 else:
                     raise Exception("parameter name '%s' does not exist" % (key))
 
+        start_time = time.time()
         with self.graph.as_default():
             with self.session.as_default():
                 if export_graph:
                     def get_tensor(name):
                         return self.graph.get_tensor_by_name('GPR-' + self.model._index + '/likelihood_1/' + name + ':0')
-
-                    #print([n.name for n in tf.get_default_graph().as_graph_def().node])
-
                     writer = tf.summary.FileWriter("log", self.graph)
                     K_summary = tf.summary.histogram('K', get_tensor('K'))
 
@@ -280,8 +269,6 @@ class model:
                 def step(theta):
                     nonlocal step_i
                     if export_graph:
-                        #writer.add_summary(self.session.run(likelihood_summary), step_i)
-                        #writer.add_summary(self.session.run(prior_summary), step_i)
                         writer.add_summary(self.session.run(K_summary), step_i)
                     step_i += 1
 
@@ -295,9 +282,6 @@ class model:
                 self._update_params(self.model.read_trainables())
 
         print("Done in ", (time.time() - start_time)/60, " minutes")
-
-        if plot:
-            self.plot()
 
     ################################################################################
     # Predictions ##################################################################
@@ -320,7 +304,7 @@ class model:
 
         """
         if self.model == None:
-            raise Exception("build (and train) the model before doing predictions")
+            raise Exception("build the model before doing predictions")
 
         # if user pass a prediction input
         if x_pred is not None:
