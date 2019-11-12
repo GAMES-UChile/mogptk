@@ -23,6 +23,7 @@
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">import numpy as np
+import pandas as pd
 from sklearn import metrics
 from sklearn.utils import check_array
 
@@ -61,25 +62,25 @@ def errors(*models, **kwargs):
 
     errors = []
     for model in models:
-        if model.data.get_input_dims() != 1:
+        if model.get_input_dims() != 1:
             raise Exception(&#34;cannot (yet) estimate errors when using multi input dimensions&#34;)
-
-        if len(model.X_pred) == 0:
-            continue
 
         Y_true = np.empty(0)
         Y_pred = np.empty(0)
-        for channel in range(model.data.get_output_dims()):
+        for channel in model.data:
+            if len(channel.X_pred) == 0:
+                continue
+
             if all_obs:
-                x, y_true = model.data.get_all_obs(channel)
+                x, y_true = channel.get_all_obs()
             else:
-                x, y_true = model.data.get_del_obs(channel)
+                x, y_true = channel.get_del_obs()
 
             if len(x) &gt; 0:
-                if channel in model.data.F:
-                    y_true = model.data.F[channel](x) # use exact latent function to remove imposed Gaussian error on data points
+                if channel.F != None:
+                    y_true = channel.F(x) # use exact latent function to remove imposed Gaussian error on data points
 
-                y_pred = np.interp(x, model.X_pred[channel].reshape(-1), model.Y_mu_pred[channel]) # TODO: multi input dims
+                y_pred = np.interp(x, channel.X_pred.reshape(-1), channel.Y_mu_pred) # TODO: multi input dims
 
                 Y_true = np.append(Y_true, y_true)
                 Y_pred = np.append(Y_pred, y_pred)
@@ -92,7 +93,6 @@ def errors(*models, **kwargs):
         })
 
     if output:
-        import pandas as pd
         df = pd.DataFrame(errors)
         df.set_index(&#39;model&#39;, inplace=True)
         display(df)
@@ -108,7 +108,7 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
     share equal number of inputs and outputs (channels).
 
     Args:
-        models (mogptk.Model): Trained model to evaluate, can be more than one
+        models (mogptk.model): Trained model to evaluate, can be more than one
 
         x_test (list): List of numpy arrays with the inputs of the test set.
             Length is the output dimension.
@@ -139,12 +139,12 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
 
     for model in models:
 
-        n_channels = model.data.get_output_dims()
+        n_channels = model.get_output_dims()
 
         error_per_channel = []
 
         # predict with model
-        y_pred, var_pred = model.predict(x_test)
+        y_pred, _, _ = model.predict(x_test)
 
         for i in range(n_channels):
             errors = y_test[i] - y_pred[i]
@@ -155,9 +155,11 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
             # composite errors
             else:
                 mae = np.abs(errors).mean()
-                mape = (np.abs(errors) / y_test[i] * 100).mean()
-                rmse = (np.sqrt(errors**2)).mean()
-                error_per_channel.append(np.array([mae, mape, rmse]))
+                # mape = (np.abs(errors / y_test[i]) * 100).mean()
+                nmae = mae / y_test[i].mean()
+                rmse = np.sqrt((errors**2).mean())
+                nrmse = rmse / y_test[i].mean()
+                error_per_channel.append(np.array([mae, nmae, rmse, nrmse]))
 
         error_per_model.append(error_per_channel)
 
@@ -220,25 +222,25 @@ However if a latent function is defined in the data this will be used as the tru
 
     errors = []
     for model in models:
-        if model.data.get_input_dims() != 1:
+        if model.get_input_dims() != 1:
             raise Exception(&#34;cannot (yet) estimate errors when using multi input dimensions&#34;)
-
-        if len(model.X_pred) == 0:
-            continue
 
         Y_true = np.empty(0)
         Y_pred = np.empty(0)
-        for channel in range(model.data.get_output_dims()):
+        for channel in model.data:
+            if len(channel.X_pred) == 0:
+                continue
+
             if all_obs:
-                x, y_true = model.data.get_all_obs(channel)
+                x, y_true = channel.get_all_obs()
             else:
-                x, y_true = model.data.get_del_obs(channel)
+                x, y_true = channel.get_del_obs()
 
             if len(x) &gt; 0:
-                if channel in model.data.F:
-                    y_true = model.data.F[channel](x) # use exact latent function to remove imposed Gaussian error on data points
+                if channel.F != None:
+                    y_true = channel.F(x) # use exact latent function to remove imposed Gaussian error on data points
 
-                y_pred = np.interp(x, model.X_pred[channel].reshape(-1), model.Y_mu_pred[channel]) # TODO: multi input dims
+                y_pred = np.interp(x, channel.X_pred.reshape(-1), channel.Y_mu_pred) # TODO: multi input dims
 
                 Y_true = np.append(Y_true, y_true)
                 Y_pred = np.append(Y_pred, y_pred)
@@ -251,7 +253,6 @@ However if a latent function is defined in the data this will be used as the tru
         })
 
     if output:
-        import pandas as pd
         df = pd.DataFrame(errors)
         df.set_index(&#39;model&#39;, inplace=True)
         display(df)
@@ -282,7 +283,7 @@ However if a latent function is defined in the data this will be used as the tru
 share equal number of inputs and outputs (channels).</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>models</code></strong> :&ensp;<code>mogptk.Model</code></dt>
+<dt><strong><code>models</code></strong> :&ensp;<a title="mogptk.model" href="model.html"><code>mogptk.model</code></a></dt>
 <dd>Trained model to evaluate, can be more than one</dd>
 <dt><strong><code>x_test</code></strong> :&ensp;<code>list</code></dt>
 <dd>List of numpy arrays with the inputs of the test set.
@@ -321,7 +322,7 @@ numpy array with errors from model 'i' at channel 'j'
     share equal number of inputs and outputs (channels).
 
     Args:
-        models (mogptk.Model): Trained model to evaluate, can be more than one
+        models (mogptk.model): Trained model to evaluate, can be more than one
 
         x_test (list): List of numpy arrays with the inputs of the test set.
             Length is the output dimension.
@@ -352,12 +353,12 @@ numpy array with errors from model 'i' at channel 'j'
 
     for model in models:
 
-        n_channels = model.data.get_output_dims()
+        n_channels = model.get_output_dims()
 
         error_per_channel = []
 
         # predict with model
-        y_pred, var_pred = model.predict(x_test)
+        y_pred, _, _ = model.predict(x_test)
 
         for i in range(n_channels):
             errors = y_test[i] - y_pred[i]
@@ -368,9 +369,11 @@ numpy array with errors from model 'i' at channel 'j'
             # composite errors
             else:
                 mae = np.abs(errors).mean()
-                mape = (np.abs(errors) / y_test[i] * 100).mean()
-                rmse = (np.sqrt(errors**2)).mean()
-                error_per_channel.append(np.array([mae, mape, rmse]))
+                # mape = (np.abs(errors / y_test[i]) * 100).mean()
+                nmae = mae / y_test[i].mean()
+                rmse = np.sqrt((errors**2).mean())
+                nrmse = rmse / y_test[i].mean()
+                error_per_channel.append(np.array([mae, nmae, rmse, nrmse]))
 
         error_per_model.append(error_per_channel)
 

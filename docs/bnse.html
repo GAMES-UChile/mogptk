@@ -25,20 +25,15 @@
 <pre><code class="python">import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.optimize import minimize
-from scipy.signal import find_peaks
-#import scipy.signal as sp
-#sns.set_style(&#34;whitegrid&#34;)
-#import scipy.signal as sp
-#import spectrum as spectrum
+from scipy import optimize, signal
 
-plot_params = {&#39;legend.fontsize&#39;: 18,
-          &#39;figure.figsize&#39;: (15, 5),
-         &#39;xtick.labelsize&#39;:&#39;18&#39;,
-         &#39;ytick.labelsize&#39;:&#39;18&#39;,
-         &#39;axes.titlesize&#39;:&#39;24&#39;,
-         &#39;axes.labelsize&#39;:&#39;22&#39;}
-plt.rcParams.update(plot_params)
+#plot_params = {&#39;legend.fontsize&#39;: 18,
+#          &#39;figure.figsize&#39;: (15, 5),
+#         &#39;xtick.labelsize&#39;:&#39;18&#39;,
+#         &#39;ytick.labelsize&#39;:&#39;18&#39;,
+#         &#39;axes.titlesize&#39;:&#39;24&#39;,
+#         &#39;axes.labelsize&#39;:&#39;22&#39;}
+#plt.rcParams.update(plot_params)
 
 class bse:
 
@@ -111,7 +106,7 @@ class bse:
 
     def train(self):
         hypers0 = np.array([np.log(self.sigma), np.log(self.gamma), np.log(self.theta), np.log(self.sigma_n)])
-        res = minimize(self.nlogp, hypers0, args=(), method=&#39;L-BFGS-B&#39;, jac = self.dnlogp, options={&#39;maxiter&#39;: 500, &#39;disp&#39;: True})
+        res = optimize.minimize(self.nlogp, hypers0, args=(), method=&#39;L-BFGS-B&#39;, jac = self.dnlogp, options={&#39;maxiter&#39;: 500, &#39;disp&#39;: True})
         self.sigma = np.exp(res.x[0])
         self.gamma = np.exp(res.x[1])
         self.theta = np.exp(res.x[2])
@@ -136,9 +131,22 @@ class bse:
         return cov_real, xcov_real, cov_space, self.w, self.posterior_mean_psd
 
     def get_freq_peaks(self):
-        posterior_mean_psd = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
-        peaks, _  = find_peaks(posterior_mean_psd)
-        return self.w[peaks], posterior_mean_psd[peaks]
+        x = self.w
+        dx = x[1]-x[0]
+
+        y = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
+        ind, _ = signal.find_peaks(y)
+        if len(ind) == 0:
+            return np.empty(), np.empty(), np.empty()
+        ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
+
+        widths, width_heights, _, _ = signal.peak_widths(y, ind, rel_height=0.5)
+        widths *= dx
+
+        positions = x[ind]
+        amplitudes = y[ind]
+        variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
+        return amplitudes, positions, variances
 
     def plot_time_posterior(self, flag=None):
         #posterior moments for time
@@ -194,7 +202,7 @@ class bse:
         plt.plot(self.w,samples[:,0], color=&#39;red&#39;, alpha=0.35, label=&#39;posterior samples&#39;)
         plt.plot(self.w,self.posterior_mean_psd, color=&#39;black&#39;, label = &#39;(analytical) posterior mean&#39;)
         if flag == &#39;show peaks&#39;:
-            peaks, _  = find_peaks(self.posterior_mean_psd)
+            peaks, _  = signal.find_peaks(self.posterior_mean_psd)
             plt.stem(self.w[peaks],self.posterior_mean_psd[peaks], markerfmt=&#39;ko&#39;, label=&#39;peaks&#39;)
         plt.title(&#39;Sample posterior power spectral density&#39;)
         plt.xlabel(&#39;frequency&#39;)
@@ -449,7 +457,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 
     def train(self):
         hypers0 = np.array([np.log(self.sigma), np.log(self.gamma), np.log(self.theta), np.log(self.sigma_n)])
-        res = minimize(self.nlogp, hypers0, args=(), method=&#39;L-BFGS-B&#39;, jac = self.dnlogp, options={&#39;maxiter&#39;: 500, &#39;disp&#39;: True})
+        res = optimize.minimize(self.nlogp, hypers0, args=(), method=&#39;L-BFGS-B&#39;, jac = self.dnlogp, options={&#39;maxiter&#39;: 500, &#39;disp&#39;: True})
         self.sigma = np.exp(res.x[0])
         self.gamma = np.exp(res.x[1])
         self.theta = np.exp(res.x[2])
@@ -474,9 +482,22 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
         return cov_real, xcov_real, cov_space, self.w, self.posterior_mean_psd
 
     def get_freq_peaks(self):
-        posterior_mean_psd = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
-        peaks, _  = find_peaks(posterior_mean_psd)
-        return self.w[peaks], posterior_mean_psd[peaks]
+        x = self.w
+        dx = x[1]-x[0]
+
+        y = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
+        ind, _ = signal.find_peaks(y)
+        if len(ind) == 0:
+            return np.empty(), np.empty(), np.empty()
+        ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
+
+        widths, width_heights, _, _ = signal.peak_widths(y, ind, rel_height=0.5)
+        widths *= dx
+
+        positions = x[ind]
+        amplitudes = y[ind]
+        variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
+        return amplitudes, positions, variances
 
     def plot_time_posterior(self, flag=None):
         #posterior moments for time
@@ -532,7 +553,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
         plt.plot(self.w,samples[:,0], color=&#39;red&#39;, alpha=0.35, label=&#39;posterior samples&#39;)
         plt.plot(self.w,self.posterior_mean_psd, color=&#39;black&#39;, label = &#39;(analytical) posterior mean&#39;)
         if flag == &#39;show peaks&#39;:
-            peaks, _  = find_peaks(self.posterior_mean_psd)
+            peaks, _  = signal.find_peaks(self.posterior_mean_psd)
             plt.stem(self.w[peaks],self.posterior_mean_psd[peaks], markerfmt=&#39;ko&#39;, label=&#39;peaks&#39;)
         plt.title(&#39;Sample posterior power spectral density&#39;)
         plt.xlabel(&#39;frequency&#39;)
@@ -615,9 +636,22 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_freq_peaks(self):
-    posterior_mean_psd = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
-    peaks, _  = find_peaks(posterior_mean_psd)
-    return self.w[peaks], posterior_mean_psd[peaks]</code></pre>
+    x = self.w
+    dx = x[1]-x[0]
+
+    y = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
+    ind, _ = signal.find_peaks(y)
+    if len(ind) == 0:
+        return np.empty(), np.empty(), np.empty()
+    ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
+
+    widths, width_heights, _, _ = signal.peak_widths(y, ind, rel_height=0.5)
+    widths *= dx
+
+    positions = x[ind]
+    amplitudes = y[ind]
+    variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
+    return amplitudes, positions, variances</code></pre>
 </details>
 </dd>
 <dt id="mogptk.bnse.bse.neg_log_likelihood"><code class="name flex">
@@ -707,7 +741,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
     plt.plot(self.w,samples[:,0], color=&#39;red&#39;, alpha=0.35, label=&#39;posterior samples&#39;)
     plt.plot(self.w,self.posterior_mean_psd, color=&#39;black&#39;, label = &#39;(analytical) posterior mean&#39;)
     if flag == &#39;show peaks&#39;:
-        peaks, _  = find_peaks(self.posterior_mean_psd)
+        peaks, _  = signal.find_peaks(self.posterior_mean_psd)
         plt.stem(self.w[peaks],self.posterior_mean_psd[peaks], markerfmt=&#39;ko&#39;, label=&#39;peaks&#39;)
     plt.title(&#39;Sample posterior power spectral density&#39;)
     plt.xlabel(&#39;frequency&#39;)
@@ -774,7 +808,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <summary>Source code</summary>
 <pre><code class="python">def train(self):
     hypers0 = np.array([np.log(self.sigma), np.log(self.gamma), np.log(self.theta), np.log(self.sigma_n)])
-    res = minimize(self.nlogp, hypers0, args=(), method=&#39;L-BFGS-B&#39;, jac = self.dnlogp, options={&#39;maxiter&#39;: 500, &#39;disp&#39;: True})
+    res = optimize.minimize(self.nlogp, hypers0, args=(), method=&#39;L-BFGS-B&#39;, jac = self.dnlogp, options={&#39;maxiter&#39;: 500, &#39;disp&#39;: True})
     self.sigma = np.exp(res.x[0])
     self.gamma = np.exp(res.x[1])
     self.theta = np.exp(res.x[2])

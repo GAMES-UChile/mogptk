@@ -28,12 +28,13 @@ import inspect
 import dill
 import numpy as np
 from mogptk.bnse import *
-from scipy.signal import lombscargle, find_peaks
+from scipy import signal
 import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
 import re
 import pandas as pd
+from sklearn.linear_model import Ridge
     
 duration_regex = re.compile(
     r&#39;^((?P&lt;years&gt;[\.\d]+?)y)?&#39;
@@ -43,6 +44,24 @@ duration_regex = re.compile(
     r&#39;((?P&lt;hours&gt;[\.\d]+?)h)?&#39;
     r&#39;((?P&lt;minutes&gt;[\.\d]+?)m)?&#39;
     r&#39;((?P&lt;seconds&gt;[\.\d]+?)s)?$&#39;)
+
+
+def _detransform(transformations, x, y):
+    &#34;&#34;&#34;
+    Apply inverse transformations to a set of values.
+
+    Used to apply inverse tranformations of a channel stored
+    in a Data class to a set.
+
+    Args:
+        transformations(list): List of transformations(objects) in order of aplication.
+        x(ndarray): Array of n_points x n_dim of inputs.
+        y(ndarray): Array of n_points outputs.
+    &#34;&#34;&#34;
+    if len(transformations) &gt; 0:
+        for t in transformations[::-1]:
+            y = t._backward(x, y)
+    return y
 
 def _parse_duration_to_sec(s):
     x = duration_regex.match(s)
@@ -166,18 +185,25 @@ class FormatDateTime:
 class TransformDetrend:
     &#34;&#34;&#34;
     TransformDetrend is a transformer that detrends the data.
+
+    TODO : add regression or other order polinomial.
     &#34;&#34;&#34;
     def __init__(self, data):
         if data.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
-        self.coef = np.polyfit(data.X[:,0], data.Y, 1)
+        self.coef = np.polyfit(data.X[:,0], data.Y, 2)
+        # reg = Ridge(alpha=0.1, fit_intercept=True)
+        # reg.fit(data.X, data.Y)
+        # self.trend = reg
 
     def _forward(self, x, y):
-        return y-self.coef[1]-self.coef[0]*x[:,0]
+        return y - np.polyval(self.coef, x[:, 0])
+        # return y - self.trend.predict(x)
     
     def _backward(self, x, y):
-        return y+self.coef[1]+self.coef[0]*x[:,0]
+        return y + np.polyval(self.coef, x[:, 0])
+        # return y + self.trend.predict(x)
 
 class TransformNormalize:
     &#34;&#34;&#34;
@@ -335,15 +361,22 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         return data
 
 class Data:
-    def __init__(self, X, Y, name=None, format=None):
+    def __init__(self, X, Y, name=&#39;&#39;, format=None):
         &#34;&#34;&#34;
-        Data class holds all the observations, latent functions and prediction data. This class takes the data raw, but you can load data also conveniently using LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model. Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
+        Data class holds all the observations, latent functions and prediction data.
+
+        This class takes the data raw, but you can load data also conveniently using
+        LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model.
+        Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure,
+        and aggregating data for given spans on X, such as aggregating daily data into
+        weekly data. Additionally, we also use this class to set the range we want to predict.
 
         Args:
             X (list,ndarray): Independent variable data of shape (n) or (n,input_dims).
             Y (list,ndarray): Dependent variable data of shape (n).
             name (str,optional): Name of dataset.
-            format (list,optional): List of formatters (such as FormatNumber (default), FormatDate, FormetDateTime, ...) for each input dimension.
+            format (list,optional): List of formatters (such as FormatNumber (default), FormatDate,
+                FormetDateTime, ...) for each input dimension.
 
         Examples:
             &gt;&gt;&gt; Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -400,45 +433,10 @@ class Data:
         return &#34;x=%s\ny=%s&#34; % (self.X.tolist(), self.Y.tolist())
 
     def _encode(self):
-        F = self.F
-        if F != None:
-            F = str(dill.dumps(F))
-
-        return {
-            &#39;name&#39;: self.name,
-            &#39;X&#39;: self.X,
-            &#39;Y&#39;: self.Y,
-            &#39;mask&#39;: self.mask,
-            &#39;F&#39;: F,
-            &#39;X_pred&#39;: X_pred,
-            &#39;Y_mu_pred&#39;: Y_mu_pred,
-            &#39;Y_var_pred&#39;: Y_var_pred,
-            &#39;input_label&#39;: self.input_label,
-            &#39;output_label&#39;: self.output_label,
-            &#39;formatters&#39;: self.formatters,
-            &#39;transformations&#39;: self.transformations,
-        }
+        return str(dill.dumps(self))
 
     def _decode(d):
-        self = Data()
-        self.name = d[&#39;name&#39;]
-        self.X = d[&#39;X&#39;]
-        self.Y = d[&#39;Y&#39;]
-        self.mask = d[&#39;mask&#39;]
-        self.X_pred = d[&#39;X_pred&#39;]
-        self.Y_mu_pred = d[&#39;Y_mu_pred&#39;]
-        self.Y_var_pred = d[&#39;Y_var_pred&#39;]
-        self.input_label = d[&#39;input_label&#39;]
-        self.output_label = d[&#39;output_label&#39;]
-        self.formatters = d[&#39;formatters&#39;]
-        self.transformations = d[&#39;transformations&#39;]
-
-        F = d[&#39;F&#39;]
-        if F != None:
-            F = dill.loads(eval(F))
-        self.F = F
-
-        return self
+        return dill.loads(eval(d))
 
     def set_name(self, name):
         &#34;&#34;&#34;
@@ -504,6 +502,9 @@ class Data:
             transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
 
         Examples:
+            &gt;&gt;&gt; import mogptk
+            &gt;&gt;&gt; from mogptk import TransformDetrend
+            &gt;&gt;&gt; data = mogptk.Data(x, y)
             &gt;&gt;&gt; data.transform(TransformDetrend)
         &#34;&#34;&#34;
         t = transformer
@@ -514,6 +515,7 @@ class Data:
         if self.F != None:
             f = self.F
             self.F = lambda x: t._forward(x, f(x))
+        self.transformations.append(t)
     
     def filter(self, start, end):
         &#34;&#34;&#34;
@@ -543,7 +545,15 @@ class Data:
 
     def aggregate(self, duration, f=np.mean):
         &#34;&#34;&#34;
-        Aggregate the data by duration and apply a function to obtain a reduced dataset. For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format with y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second. For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months. If using a number, be aware that when using FormatDate your X data is denoted per day, while with FormatDateTime it is per second.
+        Aggregate the data by duration and apply a function to obtain a reduced dataset.
+
+        For example, group daily data by week and take the mean.
+        The duration can be set as a number which defined the intervals on the X axis,
+        or by a string written in the duration format with:
+        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
+        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+        If using a number, be aware that when using FormatDate your X data is denoted per day,
+        while with FormatDateTime it is per second.
 
         Args:
             duration (float,str): Duration along the X axis or as a string in the duration format.
@@ -711,14 +721,15 @@ class Data:
         if n &lt; 1 or duration &lt; 1:
             return
 
-        m = self.X.shape[0] - n*duration
+        # TODO: what if N != 1 and we have dates on the X-axis? Make sure that ranges do not overlap and are picked randomly
+        m = (self.X[-1]-self.X[0]) - n*duration
         if m &lt;= 0:
             raise Exception(&#34;no data left after removing ranges&#34;)
 
         locs = np.round(np.sort(np.random.rand(n)) * m)
         for i in range(len(locs)):
             loc = int(locs[i] + i * duration)
-            idx = np.arange(loc, loc+duration)
+            idx = np.arange(int(loc), int(loc+duration))
             self.mask[idx] = False
     
     ################################################################
@@ -823,52 +834,55 @@ class Data:
             nyquist[i] = 0.5/dist
         return nyquist
 
-    def get_bnse_estimation(self, Q=1):
+    def get_bnse_estimation(self, Q=1, n=5000):
         &#34;&#34;&#34;
         Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
         Args:
             Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points of the grid to evaluate 
+                frequencies, defaults to 5000.
 
         Returns:
-            ndarray: Frequency array of shape (input_dims,Q).
-            ndarray: Amplitude array of shape (input_dims,Q).
+            amplitudes: Amplitude array of shape (input_dims,Q).
+            positions: Frequency array of shape (input_dims,Q).
+            variances: Variance array of shape (input_dims, Q).
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
-        freqs = np.zeros((input_dims, Q))
-        amps = np.zeros((input_dims, Q))
+        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
+        A = np.zeros((input_dims, Q))
+        B = np.zeros((input_dims, Q))
+        C = np.zeros((input_dims, Q))
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
             x = self.X[:,i]
             y = self.Y
             bnse = bse(x, y)
-            bnse.set_freqspace(nyquist[i], dimension=5000)
+            bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
             bnse.compute_moments()
 
-            peaks, amplitudes = bnse.get_freq_peaks() # TODO: get peak widths
-            if len(peaks) == 0:
+            amplitudes, positions, variances = bnse.get_freq_peaks()
+            if len(positions) == 0:
                 continue
 
-            peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
-            amplitudes.sort()
-
-            if Q &lt; len(peaks):
-                peaks = peaks[:Q]
-                amplitudes = amplitudes[:Q]
-            elif len(peaks) != 0:
+            n = len(positions)
+            if n &lt; Q and n != 0:
+                # if there not enough peaks, we will repeat them
                 j = 0
-                n = len(peaks)
-                while Q &gt; len(peaks):
-                    peaks = np.append(peaks, peaks[j] + (np.random.standard_t(3, 1) * 0.01)[0])
+                while len(positions) &lt; Q:
                     amplitudes = np.append(amplitudes, amplitudes[j])
+                    positions = np.append(positions, positions[j])
+                    variances = np.append(variances, variances[j])
                     j = (j+1) % n
-            
-            freqs[i,:] = 2*np.pi*peaks
-            amps[i,:] = amplitudes
-        return freqs / np.pi / 2, amps
+
+            A[i,:] = amplitudes[:Q]
+            B[i,:] = positions[:Q]
+            C[i,:] = variances[:Q]
+        return A, B, C
 
     def get_ls_estimation(self, Q=1, n=50000):
         &#34;&#34;&#34;
@@ -884,34 +898,42 @@ class Data:
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
-        freqs = np.zeros((input_dims, Q))
-        amps = np.zeros((input_dims, Q))
+        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
+        A = np.zeros((input_dims, Q))
+        B = np.zeros((input_dims, Q))
+        C = np.zeros((input_dims, Q))
 
         nyquist = self.get_nyquist_estimation() * 2 * np.pi
         for i in range(input_dims):
-            freq_space = np.linspace(0, nyquist[i], n_ls+1)[1:]
-            pgram = lombscargle(self.X[:,i], self.Y, freq_space)
-            peaks_index, _ = find_peaks(pgram)
+            x = np.linspace(0, nyquist[i], n+1)[1:]
+            dx = x[1]-x[0]
 
-            freqs_peaks = freq_space[peaks_index]
-            amplitudes = pgram[peaks_index]
+            y = signal.lombscargle(self.X[:,i], self.Y, x)
+            ind, _ = signal.find_peaks(y)
+            ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
-            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
+            widths, width_heights, _, _ = signal.peak_widths(y, ind, rel_height=0.5)
+            widths *= dx / np.pi / 2.0
 
-            if Q &lt; len(peaks):
-                peaks = peaks[:Q]
-            # if there is less peaks than components
-            elif len(peaks) != 0:
+            positions = x[ind] / np.pi / 2.0
+            amplitudes = y[ind]
+            variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
+
+            n = len(positions)
+            if n &lt; Q and n != 0:
+                # if there not enough peaks, we will repeat them
                 j = 0
-                n = len(peaks)
-                while Q &gt; len(peaks):
-                    peaks = np.r_[peaks, peaks[j] + np.random.standard_normal(2)]
+                while len(positions) &lt; Q:
+                    amplitudes = np.append(amplitudes, amplitudes[j])
+                    positions = np.append(positions, positions[j])
+                    variances = np.append(variances, variances[j])
                     j = (j+1) % n
 
-            freqs[i,:] = peaks[:,1]
-            amps[i,:] = peaks[:,0]
-
-        return freqs / np.pi / 2, amps
+            A[i,:] = amplitudes[:Q]
+            B[i,:] = positions[:Q]
+            C[i,:] = variances[:Q]
+        return A, B, C
     
     #def get_gm_estimation(self):
     #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
@@ -931,10 +953,6 @@ class Data:
             raise Exception(&#34;cannot plot more than two input dimensions&#34;)
         if self.get_input_dims() == 2:
             raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
-
-        sns.set(font_scale=2)
-        sns.axes_style(&#34;darkgrid&#34;)
-        sns.set_style(&#34;whitegrid&#34;)
 
         fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
         if title != None:
@@ -999,6 +1017,8 @@ class Data:
         &#34;&#34;&#34;
         Plot the spectrum of the data.
 
+        TODO: Add BNSE as spectrum estimate option.
+
         Args:
             method (str,optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
             angularfreq (bool,optional): Use angular frequencies.
@@ -1014,9 +1034,9 @@ class Data:
         if self.get_input_dims() == 2:
             raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-        sns.set(font_scale=2)
-        sns.axes_style(&#34;darkgrid&#34;)
-        sns.set_style(&#34;whitegrid&#34;)
+        # sns.set(font_scale=2)
+        # sns.axes_style(&#34;darkgrid&#34;)
+        # sns.set_style(&#34;whitegrid&#34;)
 
         fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
         if title != None:
@@ -1042,7 +1062,7 @@ class Data:
 
         X = np.linspace(0.0, freq, 10001)[1:]
         if method == &#39;lombscargle&#39;:
-            Y = lombscargle(X_space, self.Y, X)
+            Y = signal.lombscargle(X_space, self.Y, X)
         else:
             raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
@@ -1055,6 +1075,8 @@ class Data:
             plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
         if show:
             plt.show()
+
+        return axes[0, 0]
 
 def _check_function(f, input_dims):
     if not inspect.isfunction(f):
@@ -1304,10 +1326,15 @@ def _normalize_input_dims(x, input_dims):
 <dl>
 <dt id="mogptk.data.Data"><code class="flex name class">
 <span>class <span class="ident">Data</span></span>
-<span>(</span><span>X, Y, name=None, format=None)</span>
+<span>(</span><span>X, Y, name='', format=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Data class holds all the observations, latent functions and prediction data. This class takes the data raw, but you can load data also conveniently using LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model. Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.</p>
+<section class="desc"><p>Data class holds all the observations, latent functions and prediction data.</p>
+<p>This class takes the data raw, but you can load data also conveniently using
+LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model.
+Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure,
+and aggregating data for given spans on X, such as aggregating daily data into
+weekly data. Additionally, we also use this class to set the range we want to predict.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>X</code></strong> :&ensp;<code>list</code>,<code>ndarray</code></dt>
@@ -1317,7 +1344,8 @@ def _normalize_input_dims(x, input_dims):
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code>,optional</dt>
 <dd>Name of dataset.</dd>
 <dt><strong><code>format</code></strong> :&ensp;<code>list</code>,optional</dt>
-<dd>List of formatters (such as FormatNumber (default), FormatDate, FormetDateTime, &hellip;) for each input dimension.</dd>
+<dd>List of formatters (such as FormatNumber (default), FormatDate,
+FormetDateTime, &hellip;) for each input dimension.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -1326,15 +1354,22 @@ def _normalize_input_dims(x, input_dims):
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class Data:
-    def __init__(self, X, Y, name=None, format=None):
+    def __init__(self, X, Y, name=&#39;&#39;, format=None):
         &#34;&#34;&#34;
-        Data class holds all the observations, latent functions and prediction data. This class takes the data raw, but you can load data also conveniently using LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model. Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
+        Data class holds all the observations, latent functions and prediction data.
+
+        This class takes the data raw, but you can load data also conveniently using
+        LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model.
+        Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure,
+        and aggregating data for given spans on X, such as aggregating daily data into
+        weekly data. Additionally, we also use this class to set the range we want to predict.
 
         Args:
             X (list,ndarray): Independent variable data of shape (n) or (n,input_dims).
             Y (list,ndarray): Dependent variable data of shape (n).
             name (str,optional): Name of dataset.
-            format (list,optional): List of formatters (such as FormatNumber (default), FormatDate, FormetDateTime, ...) for each input dimension.
+            format (list,optional): List of formatters (such as FormatNumber (default), FormatDate,
+                FormetDateTime, ...) for each input dimension.
 
         Examples:
             &gt;&gt;&gt; Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -1391,45 +1426,10 @@ def _normalize_input_dims(x, input_dims):
         return &#34;x=%s\ny=%s&#34; % (self.X.tolist(), self.Y.tolist())
 
     def _encode(self):
-        F = self.F
-        if F != None:
-            F = str(dill.dumps(F))
-
-        return {
-            &#39;name&#39;: self.name,
-            &#39;X&#39;: self.X,
-            &#39;Y&#39;: self.Y,
-            &#39;mask&#39;: self.mask,
-            &#39;F&#39;: F,
-            &#39;X_pred&#39;: X_pred,
-            &#39;Y_mu_pred&#39;: Y_mu_pred,
-            &#39;Y_var_pred&#39;: Y_var_pred,
-            &#39;input_label&#39;: self.input_label,
-            &#39;output_label&#39;: self.output_label,
-            &#39;formatters&#39;: self.formatters,
-            &#39;transformations&#39;: self.transformations,
-        }
+        return str(dill.dumps(self))
 
     def _decode(d):
-        self = Data()
-        self.name = d[&#39;name&#39;]
-        self.X = d[&#39;X&#39;]
-        self.Y = d[&#39;Y&#39;]
-        self.mask = d[&#39;mask&#39;]
-        self.X_pred = d[&#39;X_pred&#39;]
-        self.Y_mu_pred = d[&#39;Y_mu_pred&#39;]
-        self.Y_var_pred = d[&#39;Y_var_pred&#39;]
-        self.input_label = d[&#39;input_label&#39;]
-        self.output_label = d[&#39;output_label&#39;]
-        self.formatters = d[&#39;formatters&#39;]
-        self.transformations = d[&#39;transformations&#39;]
-
-        F = d[&#39;F&#39;]
-        if F != None:
-            F = dill.loads(eval(F))
-        self.F = F
-
-        return self
+        return dill.loads(eval(d))
 
     def set_name(self, name):
         &#34;&#34;&#34;
@@ -1495,6 +1495,9 @@ def _normalize_input_dims(x, input_dims):
             transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
 
         Examples:
+            &gt;&gt;&gt; import mogptk
+            &gt;&gt;&gt; from mogptk import TransformDetrend
+            &gt;&gt;&gt; data = mogptk.Data(x, y)
             &gt;&gt;&gt; data.transform(TransformDetrend)
         &#34;&#34;&#34;
         t = transformer
@@ -1505,6 +1508,7 @@ def _normalize_input_dims(x, input_dims):
         if self.F != None:
             f = self.F
             self.F = lambda x: t._forward(x, f(x))
+        self.transformations.append(t)
     
     def filter(self, start, end):
         &#34;&#34;&#34;
@@ -1534,7 +1538,15 @@ def _normalize_input_dims(x, input_dims):
 
     def aggregate(self, duration, f=np.mean):
         &#34;&#34;&#34;
-        Aggregate the data by duration and apply a function to obtain a reduced dataset. For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format with y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second. For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months. If using a number, be aware that when using FormatDate your X data is denoted per day, while with FormatDateTime it is per second.
+        Aggregate the data by duration and apply a function to obtain a reduced dataset.
+
+        For example, group daily data by week and take the mean.
+        The duration can be set as a number which defined the intervals on the X axis,
+        or by a string written in the duration format with:
+        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
+        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+        If using a number, be aware that when using FormatDate your X data is denoted per day,
+        while with FormatDateTime it is per second.
 
         Args:
             duration (float,str): Duration along the X axis or as a string in the duration format.
@@ -1702,14 +1714,15 @@ def _normalize_input_dims(x, input_dims):
         if n &lt; 1 or duration &lt; 1:
             return
 
-        m = self.X.shape[0] - n*duration
+        # TODO: what if N != 1 and we have dates on the X-axis? Make sure that ranges do not overlap and are picked randomly
+        m = (self.X[-1]-self.X[0]) - n*duration
         if m &lt;= 0:
             raise Exception(&#34;no data left after removing ranges&#34;)
 
         locs = np.round(np.sort(np.random.rand(n)) * m)
         for i in range(len(locs)):
             loc = int(locs[i] + i * duration)
-            idx = np.arange(loc, loc+duration)
+            idx = np.arange(int(loc), int(loc+duration))
             self.mask[idx] = False
     
     ################################################################
@@ -1814,52 +1827,55 @@ def _normalize_input_dims(x, input_dims):
             nyquist[i] = 0.5/dist
         return nyquist
 
-    def get_bnse_estimation(self, Q=1):
+    def get_bnse_estimation(self, Q=1, n=5000):
         &#34;&#34;&#34;
         Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
         Args:
             Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points of the grid to evaluate 
+                frequencies, defaults to 5000.
 
         Returns:
-            ndarray: Frequency array of shape (input_dims,Q).
-            ndarray: Amplitude array of shape (input_dims,Q).
+            amplitudes: Amplitude array of shape (input_dims,Q).
+            positions: Frequency array of shape (input_dims,Q).
+            variances: Variance array of shape (input_dims, Q).
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
-        freqs = np.zeros((input_dims, Q))
-        amps = np.zeros((input_dims, Q))
+        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
+        A = np.zeros((input_dims, Q))
+        B = np.zeros((input_dims, Q))
+        C = np.zeros((input_dims, Q))
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
             x = self.X[:,i]
             y = self.Y
             bnse = bse(x, y)
-            bnse.set_freqspace(nyquist[i], dimension=5000)
+            bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
             bnse.compute_moments()
 
-            peaks, amplitudes = bnse.get_freq_peaks() # TODO: get peak widths
-            if len(peaks) == 0:
+            amplitudes, positions, variances = bnse.get_freq_peaks()
+            if len(positions) == 0:
                 continue
 
-            peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
-            amplitudes.sort()
-
-            if Q &lt; len(peaks):
-                peaks = peaks[:Q]
-                amplitudes = amplitudes[:Q]
-            elif len(peaks) != 0:
+            n = len(positions)
+            if n &lt; Q and n != 0:
+                # if there not enough peaks, we will repeat them
                 j = 0
-                n = len(peaks)
-                while Q &gt; len(peaks):
-                    peaks = np.append(peaks, peaks[j] + (np.random.standard_t(3, 1) * 0.01)[0])
+                while len(positions) &lt; Q:
                     amplitudes = np.append(amplitudes, amplitudes[j])
+                    positions = np.append(positions, positions[j])
+                    variances = np.append(variances, variances[j])
                     j = (j+1) % n
-            
-            freqs[i,:] = 2*np.pi*peaks
-            amps[i,:] = amplitudes
-        return freqs / np.pi / 2, amps
+
+            A[i,:] = amplitudes[:Q]
+            B[i,:] = positions[:Q]
+            C[i,:] = variances[:Q]
+        return A, B, C
 
     def get_ls_estimation(self, Q=1, n=50000):
         &#34;&#34;&#34;
@@ -1875,34 +1891,42 @@ def _normalize_input_dims(x, input_dims):
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
-        freqs = np.zeros((input_dims, Q))
-        amps = np.zeros((input_dims, Q))
+        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
+        A = np.zeros((input_dims, Q))
+        B = np.zeros((input_dims, Q))
+        C = np.zeros((input_dims, Q))
 
         nyquist = self.get_nyquist_estimation() * 2 * np.pi
         for i in range(input_dims):
-            freq_space = np.linspace(0, nyquist[i], n_ls+1)[1:]
-            pgram = lombscargle(self.X[:,i], self.Y, freq_space)
-            peaks_index, _ = find_peaks(pgram)
+            x = np.linspace(0, nyquist[i], n+1)[1:]
+            dx = x[1]-x[0]
 
-            freqs_peaks = freq_space[peaks_index]
-            amplitudes = pgram[peaks_index]
+            y = signal.lombscargle(self.X[:,i], self.Y, x)
+            ind, _ = signal.find_peaks(y)
+            ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
-            peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
+            widths, width_heights, _, _ = signal.peak_widths(y, ind, rel_height=0.5)
+            widths *= dx / np.pi / 2.0
 
-            if Q &lt; len(peaks):
-                peaks = peaks[:Q]
-            # if there is less peaks than components
-            elif len(peaks) != 0:
+            positions = x[ind] / np.pi / 2.0
+            amplitudes = y[ind]
+            variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
+
+            n = len(positions)
+            if n &lt; Q and n != 0:
+                # if there not enough peaks, we will repeat them
                 j = 0
-                n = len(peaks)
-                while Q &gt; len(peaks):
-                    peaks = np.r_[peaks, peaks[j] + np.random.standard_normal(2)]
+                while len(positions) &lt; Q:
+                    amplitudes = np.append(amplitudes, amplitudes[j])
+                    positions = np.append(positions, positions[j])
+                    variances = np.append(variances, variances[j])
                     j = (j+1) % n
 
-            freqs[i,:] = peaks[:,1]
-            amps[i,:] = peaks[:,0]
-
-        return freqs / np.pi / 2, amps
+            A[i,:] = amplitudes[:Q]
+            B[i,:] = positions[:Q]
+            C[i,:] = variances[:Q]
+        return A, B, C
     
     #def get_gm_estimation(self):
     #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
@@ -1922,10 +1946,6 @@ def _normalize_input_dims(x, input_dims):
             raise Exception(&#34;cannot plot more than two input dimensions&#34;)
         if self.get_input_dims() == 2:
             raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
-
-        sns.set(font_scale=2)
-        sns.axes_style(&#34;darkgrid&#34;)
-        sns.set_style(&#34;whitegrid&#34;)
 
         fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
         if title != None:
@@ -1990,6 +2010,8 @@ def _normalize_input_dims(x, input_dims):
         &#34;&#34;&#34;
         Plot the spectrum of the data.
 
+        TODO: Add BNSE as spectrum estimate option.
+
         Args:
             method (str,optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
             angularfreq (bool,optional): Use angular frequencies.
@@ -2005,9 +2027,9 @@ def _normalize_input_dims(x, input_dims):
         if self.get_input_dims() == 2:
             raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-        sns.set(font_scale=2)
-        sns.axes_style(&#34;darkgrid&#34;)
-        sns.set_style(&#34;whitegrid&#34;)
+        # sns.set(font_scale=2)
+        # sns.axes_style(&#34;darkgrid&#34;)
+        # sns.set_style(&#34;whitegrid&#34;)
 
         fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
         if title != None:
@@ -2033,7 +2055,7 @@ def _normalize_input_dims(x, input_dims):
 
         X = np.linspace(0.0, freq, 10001)[1:]
         if method == &#39;lombscargle&#39;:
-            Y = lombscargle(X_space, self.Y, X)
+            Y = signal.lombscargle(X_space, self.Y, X)
         else:
             raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
@@ -2045,15 +2067,24 @@ def _normalize_input_dims(x, input_dims):
         if filename != None:
             plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
         if show:
-            plt.show()</code></pre>
+            plt.show()
+
+        return axes[0, 0]</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.data.Data.aggregate"><code class="name flex">
-<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=<function mean at 0x7f1f156a0f28>)</span>
+<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=<function mean at 0x7f05971ac0d0>)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset. For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format with y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second. For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months. If using a number, be aware that when using FormatDate your X data is denoted per day, while with FormatDateTime it is per second.</p>
+<section class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
+<p>For example, group daily data by week and take the mean.
+The duration can be set as a number which defined the intervals on the X axis,
+or by a string written in the duration format with:
+y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
+For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+If using a number, be aware that when using FormatDate your X data is denoted per day,
+while with FormatDateTime it is per second.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>duration</code></strong> :&ensp;<code>float</code>,<code>str</code></dt>
@@ -2070,7 +2101,15 @@ def _normalize_input_dims(x, input_dims):
 <summary>Source code</summary>
 <pre><code class="python">def aggregate(self, duration, f=np.mean):
     &#34;&#34;&#34;
-    Aggregate the data by duration and apply a function to obtain a reduced dataset. For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format with y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second. For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months. If using a number, be aware that when using FormatDate your X data is denoted per day, while with FormatDateTime it is per second.
+    Aggregate the data by duration and apply a function to obtain a reduced dataset.
+
+    For example, group daily data by week and take the mean.
+    The duration can be set as a number which defined the intervals on the X axis,
+    or by a string written in the duration format with:
+    y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
+    For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+    If using a number, be aware that when using FormatDate your X data is denoted per day,
+    while with FormatDateTime it is per second.
 
     Args:
         duration (float,str): Duration along the X axis or as a string in the duration format.
@@ -2195,7 +2234,7 @@ def _normalize_input_dims(x, input_dims):
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_bnse_estimation"><code class="name flex">
-<span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q=1)</span>
+<span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q=1, n=5000)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).</p>
@@ -2203,62 +2242,70 @@ def _normalize_input_dims(x, input_dims):
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of peaks to find, defaults to 1.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of points of the grid to evaluate
+frequencies, defaults to 5000.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Frequency array of shape (input_dims,Q).</dd>
-<dt><strong><code>ndarray</code></strong></dt>
+<dt><strong><code>amplitudes</code></strong></dt>
 <dd>Amplitude array of shape (input_dims,Q).</dd>
+<dt><strong><code>positions</code></strong></dt>
+<dd>Frequency array of shape (input_dims,Q).</dd>
+<dt><strong><code>variances</code></strong></dt>
+<dd>Variance array of shape (input_dims, Q).</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def get_bnse_estimation(self, Q=1):
+<pre><code class="python">def get_bnse_estimation(self, Q=1, n=5000):
     &#34;&#34;&#34;
     Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
     Args:
         Q (int): Number of peaks to find, defaults to 1.
+        n (int): Number of points of the grid to evaluate 
+            frequencies, defaults to 5000.
 
     Returns:
-        ndarray: Frequency array of shape (input_dims,Q).
-        ndarray: Amplitude array of shape (input_dims,Q).
+        amplitudes: Amplitude array of shape (input_dims,Q).
+        positions: Frequency array of shape (input_dims,Q).
+        variances: Variance array of shape (input_dims, Q).
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
 
-    freqs = np.zeros((input_dims, Q))
-    amps = np.zeros((input_dims, Q))
+    # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+    # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
+    A = np.zeros((input_dims, Q))
+    B = np.zeros((input_dims, Q))
+    C = np.zeros((input_dims, Q))
 
     nyquist = self.get_nyquist_estimation()
     for i in range(input_dims):
         x = self.X[:,i]
         y = self.Y
         bnse = bse(x, y)
-        bnse.set_freqspace(nyquist[i], dimension=5000)
+        bnse.set_freqspace(nyquist[i], dimension=n)
         bnse.train()
         bnse.compute_moments()
 
-        peaks, amplitudes = bnse.get_freq_peaks() # TODO: get peak widths
-        if len(peaks) == 0:
+        amplitudes, positions, variances = bnse.get_freq_peaks()
+        if len(positions) == 0:
             continue
 
-        peaks = np.array([peak for _, peak in sorted(zip(amplitudes, peaks), key=lambda pair: pair[0], reverse=True)])
-        amplitudes.sort()
-
-        if Q &lt; len(peaks):
-            peaks = peaks[:Q]
-            amplitudes = amplitudes[:Q]
-        elif len(peaks) != 0:
+        n = len(positions)
+        if n &lt; Q and n != 0:
+            # if there not enough peaks, we will repeat them
             j = 0
-            n = len(peaks)
-            while Q &gt; len(peaks):
-                peaks = np.append(peaks, peaks[j] + (np.random.standard_t(3, 1) * 0.01)[0])
+            while len(positions) &lt; Q:
                 amplitudes = np.append(amplitudes, amplitudes[j])
+                positions = np.append(positions, positions[j])
+                variances = np.append(variances, variances[j])
                 j = (j+1) % n
-        
-        freqs[i,:] = 2*np.pi*peaks
-        amps[i,:] = amplitudes
-    return freqs / np.pi / 2, amps</code></pre>
+
+        A[i,:] = amplitudes[:Q]
+        B[i,:] = positions[:Q]
+        C[i,:] = variances[:Q]
+    return A, B, C</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_del_obs"><code class="name flex">
@@ -2343,34 +2390,42 @@ def _normalize_input_dims(x, input_dims):
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
 
-    freqs = np.zeros((input_dims, Q))
-    amps = np.zeros((input_dims, Q))
+    # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+    # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
+    A = np.zeros((input_dims, Q))
+    B = np.zeros((input_dims, Q))
+    C = np.zeros((input_dims, Q))
 
     nyquist = self.get_nyquist_estimation() * 2 * np.pi
     for i in range(input_dims):
-        freq_space = np.linspace(0, nyquist[i], n_ls+1)[1:]
-        pgram = lombscargle(self.X[:,i], self.Y, freq_space)
-        peaks_index, _ = find_peaks(pgram)
+        x = np.linspace(0, nyquist[i], n+1)[1:]
+        dx = x[1]-x[0]
 
-        freqs_peaks = freq_space[peaks_index]
-        amplitudes = pgram[peaks_index]
+        y = signal.lombscargle(self.X[:,i], self.Y, x)
+        ind, _ = signal.find_peaks(y)
+        ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
-        peaks = np.array([(amp, peak) for amp, peak in sorted(zip(amplitudes, freqs_peaks), key=lambda pair: pair[0], reverse=True)])
+        widths, width_heights, _, _ = signal.peak_widths(y, ind, rel_height=0.5)
+        widths *= dx / np.pi / 2.0
 
-        if Q &lt; len(peaks):
-            peaks = peaks[:Q]
-        # if there is less peaks than components
-        elif len(peaks) != 0:
+        positions = x[ind] / np.pi / 2.0
+        amplitudes = y[ind]
+        variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
+
+        n = len(positions)
+        if n &lt; Q and n != 0:
+            # if there not enough peaks, we will repeat them
             j = 0
-            n = len(peaks)
-            while Q &gt; len(peaks):
-                peaks = np.r_[peaks, peaks[j] + np.random.standard_normal(2)]
+            while len(positions) &lt; Q:
+                amplitudes = np.append(amplitudes, amplitudes[j])
+                positions = np.append(positions, positions[j])
+                variances = np.append(variances, variances[j])
                 j = (j+1) % n
 
-        freqs[i,:] = peaks[:,1]
-        amps[i,:] = peaks[:,0]
-
-    return freqs / np.pi / 2, amps</code></pre>
+        A[i,:] = amplitudes[:Q]
+        B[i,:] = positions[:Q]
+        C[i,:] = variances[:Q]
+    return A, B, C</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_nyquist_estimation"><code class="name flex">
@@ -2473,10 +2528,6 @@ def _normalize_input_dims(x, input_dims):
     if self.get_input_dims() == 2:
         raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-    sns.set(font_scale=2)
-    sns.axes_style(&#34;darkgrid&#34;)
-    sns.set_style(&#34;whitegrid&#34;)
-
     fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
     if title != None:
         fig.suptitle(title, fontsize=36)
@@ -2542,6 +2593,7 @@ def _normalize_input_dims(x, input_dims):
 </code></dt>
 <dd>
 <section class="desc"><p>Plot the spectrum of the data.</p>
+<p>TODO: Add BNSE as spectrum estimate option.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>method</code></strong> :&ensp;<code>str</code>,optional</dt>
@@ -2565,6 +2617,8 @@ def _normalize_input_dims(x, input_dims):
     &#34;&#34;&#34;
     Plot the spectrum of the data.
 
+    TODO: Add BNSE as spectrum estimate option.
+
     Args:
         method (str,optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
         angularfreq (bool,optional): Use angular frequencies.
@@ -2580,9 +2634,9 @@ def _normalize_input_dims(x, input_dims):
     if self.get_input_dims() == 2:
         raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-    sns.set(font_scale=2)
-    sns.axes_style(&#34;darkgrid&#34;)
-    sns.set_style(&#34;whitegrid&#34;)
+    # sns.set(font_scale=2)
+    # sns.axes_style(&#34;darkgrid&#34;)
+    # sns.set_style(&#34;whitegrid&#34;)
 
     fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
     if title != None:
@@ -2608,7 +2662,7 @@ def _normalize_input_dims(x, input_dims):
 
     X = np.linspace(0.0, freq, 10001)[1:]
     if method == &#39;lombscargle&#39;:
-        Y = lombscargle(X_space, self.Y, X)
+        Y = signal.lombscargle(X_space, self.Y, X)
     else:
         raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
@@ -2620,7 +2674,9 @@ def _normalize_input_dims(x, input_dims):
     if filename != None:
         plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
     if show:
-        plt.show()</code></pre>
+        plt.show()
+
+    return axes[0, 0]</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.remove_random_ranges"><code class="name flex">
@@ -2662,14 +2718,15 @@ def _normalize_input_dims(x, input_dims):
     if n &lt; 1 or duration &lt; 1:
         return
 
-    m = self.X.shape[0] - n*duration
+    # TODO: what if N != 1 and we have dates on the X-axis? Make sure that ranges do not overlap and are picked randomly
+    m = (self.X[-1]-self.X[0]) - n*duration
     if m &lt;= 0:
         raise Exception(&#34;no data left after removing ranges&#34;)
 
     locs = np.round(np.sort(np.random.rand(n)) * m)
     for i in range(len(locs)):
         loc = int(locs[i] + i * duration)
-        idx = np.arange(loc, loc+duration)
+        idx = np.arange(int(loc), int(loc+duration))
         self.mask[idx] = False</code></pre>
 </details>
 </dd>
@@ -3031,7 +3088,10 @@ def _normalize_input_dims(x, input_dims):
 <dd>Transformer object with _forward(x, y) and _backward(x, y) methods.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; data.transform(TransformDetrend)
+<pre><code>&gt;&gt;&gt; import mogptk
+&gt;&gt;&gt; from mogptk import TransformDetrend
+&gt;&gt;&gt; data = mogptk.Data(x, y)
+&gt;&gt;&gt; data.transform(TransformDetrend)
 </code></pre></section>
 <details class="source">
 <summary>Source code</summary>
@@ -3043,6 +3103,9 @@ def _normalize_input_dims(x, input_dims):
         transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
 
     Examples:
+        &gt;&gt;&gt; import mogptk
+        &gt;&gt;&gt; from mogptk import TransformDetrend
+        &gt;&gt;&gt; data = mogptk.Data(x, y)
         &gt;&gt;&gt; data.transform(TransformDetrend)
     &#34;&#34;&#34;
     t = transformer
@@ -3052,7 +3115,8 @@ def _normalize_input_dims(x, input_dims):
     self.Y = t._forward(self.X, self.Y)
     if self.F != None:
         f = self.F
-        self.F = lambda x: t._forward(x, f(x))</code></pre>
+        self.F = lambda x: t._forward(x, f(x))
+    self.transformations.append(t)</code></pre>
 </details>
 </dd>
 </dl>
@@ -3185,24 +3249,31 @@ def _normalize_input_dims(x, input_dims):
 <span>(</span><span>data)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>TransformDetrend is a transformer that detrends the data.</p></section>
+<section class="desc"><p>TransformDetrend is a transformer that detrends the data.</p>
+<p>TODO : add regression or other order polinomial.</p></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class TransformDetrend:
     &#34;&#34;&#34;
     TransformDetrend is a transformer that detrends the data.
+
+    TODO : add regression or other order polinomial.
     &#34;&#34;&#34;
     def __init__(self, data):
         if data.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
-        self.coef = np.polyfit(data.X[:,0], data.Y, 1)
+        self.coef = np.polyfit(data.X[:,0], data.Y, 2)
+        # reg = Ridge(alpha=0.1, fit_intercept=True)
+        # reg.fit(data.X, data.Y)
+        # self.trend = reg
 
     def _forward(self, x, y):
-        return y-self.coef[1]-self.coef[0]*x[:,0]
+        return y - np.polyval(self.coef, x[:, 0])
+        # return y - self.trend.predict(x)
     
     def _backward(self, x, y):
-        return y+self.coef[1]+self.coef[0]*x[:,0]</code></pre>
+        return y + np.polyval(self.coef, x[:, 0])</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.TransformLog"><code class="flex name class">

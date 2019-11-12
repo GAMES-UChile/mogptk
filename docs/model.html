@@ -28,6 +28,8 @@ import numpy as np
 from pprint import pprint
 import gpflow
 import tensorflow as tf
+import pandas as pd
+from .data import _detransform
 
 import logging
 logging.getLogger(&#39;tensorflow&#39;).propagate = False
@@ -41,7 +43,7 @@ class model:
 
     Example:
 
-        ---TO-DO---
+        ---TODO---
 
     Atributes:
         name ():
@@ -61,7 +63,7 @@ class model:
                 raise Exception(&#34;all data channels must have the same amount of input dimensions (for now)&#34;)
 
         self.name = name
-        self.data = data
+        self.data = [channel.copy() for channel in data]
         self.model = None
         self.Q = Q
         self.params = []
@@ -78,12 +80,20 @@ class model:
     # overridden by specific models
     def info(self):
         print(&#34;info() not implemented for kernel&#34;)
-        pass
 
     # overridden by specific models
     def plot(self):
         print(&#34;plot() not implemented for kernel&#34;)
-        pass
+
+    def print(self):
+        pd.set_option(&#39;display.max_colwidth&#39;, -1)
+        df = pd.DataFrame(self.get_params())
+        df.index.name = &#39;Q&#39;
+        display(df)
+
+    def plot_data(self):
+        for channel in self.data:
+            channel.plot()
 
     def _update_params(self, trainables):
         for key, val in trainables.items():
@@ -94,6 +104,10 @@ class model:
                 self.params[q][name] = val
 
     def get_input_dims(self):
+        &#34;&#34;&#34;
+        Returns input dimension
+        &#34;&#34;&#34;
+        # TODO: solve the different input dimension per channel case
         return self.data[0].get_input_dims()
 
     def get_output_dims(self):
@@ -107,19 +121,18 @@ class model:
         
     def _get_param_across(self, name=&#39;mixture_means&#39;):
         &#34;&#34;&#34;
-        Get all the name parameters across all components
+        Get all the name parameters across all components.
         &#34;&#34;&#34;
         return np.array([self.params[q][name] for q in range(self.Q)])
 
     def set_param(self, q, key, val):
         &#34;&#34;&#34;
-        Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.
+        Sets an initial kernel parameter prior to optimizations for component &#39;q&#39;
+        with key the parameter name.
 
         Args:
             q (int): Component of kernel.
-
             key (str): Name of component.
-
             val (float, ndarray): Value of parameter.
         &#34;&#34;&#34;
         if q &lt; 0 or len(self.params) &lt;= q:
@@ -129,18 +142,22 @@ class model:
 
         self.params[q][key] = val
 
+    def set_pred(self, channel, x):
+        &#34;&#34;&#34;
+        Sets prediction range
+
+        TODO: Change so it can receive strings
+        &#34;&#34;&#34;
+        self.data[channel].set_pred(x)
+
+    def set_pred_range(self, channel, start=None, end=None, n=None, step=None):
+        self.data[channel].set_pred_range(start, end, n, step)
+
     def fix_params(self, key):
         self.fixed_params.append(key)
 
     def unfix_params(self, key):
         self.fixed_params.remove(key)
-
-    def print_params(self):
-        import pandas as pd
-        pd.set_option(&#39;display.max_colwidth&#39;, -1)
-        df = pd.DataFrame(self.get_params())
-        df.index.name = &#39;Q&#39;
-        display(df)
 
     def save(self, filename):
         if self.model == None:
@@ -167,24 +184,51 @@ class model:
             with self.session.as_default():
                 gpflow.Saver().save(filename, self.model)
 
-    def build(self, kind=&#39;full&#39;):
-        x, y = self._transform_data([channel.X for channel in self.data], [channel.Y for channel in self.data])
+    def build(self, likelihood=None, variational=False, sparse=False, like_params={}):
+        &#34;&#34;&#34;
+        Build the model.
+
+        Args:
+            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
+        &#34;&#34;&#34;
+
+        x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
+
+
         with self.graph.as_default():
             with self.session.as_default():
-                if kind == &#39;full&#39;:
-                    self.model = gpflow.models.GPR(x, y, self._kernel())
-                elif kind == &#39;sparse&#39;:
-                    # TODO: test if induction points are set
-                    self.name += &#39; (sparse)&#39;
-                    self.model = gpflow.models.SGPR(x, y, self._kernel())
-                elif kind == &#39;sparse-variational&#39;:
-                    self.name += &#39; (sparse-variational)&#39;
-                    self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
+
+                # Gaussian likelihood
+                if likelihood == None:
+                    if not sparse:
+                        self.model = gpflow.models.GPR(x, y, self._kernel())
+                    else:
+                        # TODO: test if induction points are set
+                        self.name += &#39; (sparse)&#39;
+                        self.model = gpflow.models.SGPR(x, y, self._kernel())
+                # MCMC
+                elif not variational:
+                    self.likelihood = likelihood(**like_params)
+                    if not sparse:
+                        self.name += &#39; (MCMC)&#39;
+                        self.model = gpflow.models.GPMC(x, y, self._kernel(), self.likelihood)
+                    else:
+                        self.name += &#39; (sparse MCMC)&#39;
+                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), self.likelihood)
+                # Variational
                 else:
-                    raise Exception(&#34;model type &#39;%s&#39; does not exist&#34; % (kind))
+                    self.likelihood = likelihood(**like_params)
+                    if not sparse:
+                        self.name += &#39; (variational)&#39;
+                        self.model = gpflow.models.VGP(x, y, self._kernel(), self.likelihood)
+                    else:
+                        self.name += &#39; (sparse variational)&#39;
+                        self.model = gpflow.models.SVGP(x, y, self._kernel(), self.likelihood)
         
         for key in self.fixed_params:
             if hasattr(self.model.kern, &#39;kernels&#39;):
@@ -199,42 +243,50 @@ class model:
                 else:
                     raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
 
-    def train(self, method=&#39;L-BFGS-B&#39;, kind=&#39;full&#39;, plot=False, tol=1e-6, maxiter=2000, opt_params={}, params={}, export_graph=False):
+    def train(
+        self,
+        method=&#39;L-BFGS-B&#39;,
+        likelihood=None,
+        variational=False,
+        sparse=False,
+        plot=False,
+        tol=1e-6,
+        maxiter=2000,
+        opt_params={},
+        like_params={},
+        params={},
+        export_graph=False):
         &#34;&#34;&#34;
         Builds and trains the model using the kernel and its parameters.
 
         For different optimizers, see scipy.optimize.minimize.
         It can be bounded by a maximum number of iterations, disp will output final
-        optimization information.
-        When using the &#39;Adam&#39; optimizer, a learning_rate can be set.
+        optimization information. When using the &#39;Adam&#39; optimizer, a
+        learning_rate can be set.
 
         Args:
-            kind (str): Type of model to use, posible mode are &#39;full&#39;, &#39;sparse&#39; and
-                &#39;sparse-variational&#39;.
-
             method (str): Optimizer to use, if &#34;Adam&#34; is chosen,
                 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
                 optimizer is used. Default to scipy &#39;L-BFGS-B&#39;.
-
-            plot (bool): Default to False.
-
+            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
+            plot (bool): If true will plot the spectrum. Default to False.
             opt_params (dict): Aditional dictionary with parameters on optimizer.
-                If method is &#39;Adam&#39; see,
+                If method is &#39;Adam&#39; see:
                 https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py
                 If method is in scipy-optimizer see:
                 https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
                 https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-
             params (dict): Aditional dictionary with parameters to minimice. 
                 See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
                 for more details.
-
             export_graph (bool): Default to False.
         &#34;&#34;&#34;
 
         start_time = time.time()
         
-        self.build(kind)
+        self.build(likelihood, variational, sparse, like_params=like_params)
 
         with self.graph.as_default():
             with self.session.as_default():
@@ -261,7 +313,7 @@ class model:
                     opt.minimize(self.model, anchor=True, **params)
                 else:
                     opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
-                    opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, **params)
+                    opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, disp=True, **params)
 
                 self._update_params(self.model.read_trainables())
 
@@ -274,7 +326,7 @@ class model:
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self):
+    def predict(self, x_pred=None):
         &#34;&#34;&#34;
         Predict with model.
 
@@ -283,29 +335,63 @@ class model:
         It returns the X, Y_mu, Y_var values per channel.
 
         Args:
-            pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
         Returns:
-            Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+            Y_mu_pred, Y_lower_ci_predicted, Y_upper_ci_predicted: 
+            Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
 
         &#34;&#34;&#34;
         if self.model == None:
             raise Exception(&#34;build (and train) the model before doing predictions&#34;)
 
+        # if user pass a prediction input
+        if x_pred is not None:
+            for i, x_channel in enumerate(x_pred):
+                self.data[i].set_pred(x_channel)
+
+        # check if there is some prediction seted
+        for channel in self.data:
+            if channel.X_pred.size == 0:
+                raise Exception(&#39;no prediction value set, use x_pred argument or set manually using data.set_pred().&#39;)
+
         x = self._transform_data([channel.X_pred for channel in self.data])
+
+        # predict with model
         with self.graph.as_default():
             with self.session.as_default():
                 mu, var = self.model.predict_f(x)
 
+        # reshape for channels
         i = 0
-        Y_mu = {}
-        Y_var = {}
         for channel in self.data:
             n = channel.X_pred.shape[0]
             if n != 0:
                 channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
                 channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
-                i += n</code></pre>
+                i += n
+
+        # inverse transformations
+        Y_mu_predicted = []
+        Y_upper_ci_predicted = []
+        Y_lower_ci_predicted = []
+
+        for channel in self.data:
+            # detransform mean
+            y_pred_detrans = _detransform(channel.transformations, channel.X_pred, channel.Y_mu_pred)
+            Y_mu_predicted.append(y_pred_detrans)
+            
+            # upper confidence interval
+            u_ci = channel.Y_mu_pred + 2 * np.sqrt(channel.Y_var_pred)
+            u_ci = _detransform(channel.transformations, channel.X_pred, u_ci)
+            Y_upper_ci_predicted.append(u_ci)
+
+            # lower confidence interval
+            l_ci = channel.Y_mu_pred - 2 * np.sqrt(channel.Y_var_pred)
+            l_ci = _detransform(channel.transformations, channel.X_pred, l_ci)
+            Y_lower_ci_predicted.append(l_ci)
+
+        return Y_mu_predicted, Y_lower_ci_predicted, Y_upper_ci_predicted</code></pre>
 </details>
 </section>
 <section>
@@ -326,7 +412,7 @@ class model:
 <p>This class is used to use a multioutput GP model, train and test data can be added,
 the model can be used to train a predict.</p>
 <h2 id="example">Example</h2>
-<p>&mdash;TO-DO&mdash;</p>
+<p>&mdash;TODO&mdash;</p>
 <h2 id="atributes">Atributes</h2>
 <dl>
 <dt>name ():</dt>
@@ -347,7 +433,7 @@ the model can be used to train a predict.</p>
 
     Example:
 
-        ---TO-DO---
+        ---TODO---
 
     Atributes:
         name ():
@@ -367,7 +453,7 @@ the model can be used to train a predict.</p>
                 raise Exception(&#34;all data channels must have the same amount of input dimensions (for now)&#34;)
 
         self.name = name
-        self.data = data
+        self.data = [channel.copy() for channel in data]
         self.model = None
         self.Q = Q
         self.params = []
@@ -384,12 +470,20 @@ the model can be used to train a predict.</p>
     # overridden by specific models
     def info(self):
         print(&#34;info() not implemented for kernel&#34;)
-        pass
 
     # overridden by specific models
     def plot(self):
         print(&#34;plot() not implemented for kernel&#34;)
-        pass
+
+    def print(self):
+        pd.set_option(&#39;display.max_colwidth&#39;, -1)
+        df = pd.DataFrame(self.get_params())
+        df.index.name = &#39;Q&#39;
+        display(df)
+
+    def plot_data(self):
+        for channel in self.data:
+            channel.plot()
 
     def _update_params(self, trainables):
         for key, val in trainables.items():
@@ -400,6 +494,10 @@ the model can be used to train a predict.</p>
                 self.params[q][name] = val
 
     def get_input_dims(self):
+        &#34;&#34;&#34;
+        Returns input dimension
+        &#34;&#34;&#34;
+        # TODO: solve the different input dimension per channel case
         return self.data[0].get_input_dims()
 
     def get_output_dims(self):
@@ -413,19 +511,18 @@ the model can be used to train a predict.</p>
         
     def _get_param_across(self, name=&#39;mixture_means&#39;):
         &#34;&#34;&#34;
-        Get all the name parameters across all components
+        Get all the name parameters across all components.
         &#34;&#34;&#34;
         return np.array([self.params[q][name] for q in range(self.Q)])
 
     def set_param(self, q, key, val):
         &#34;&#34;&#34;
-        Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.
+        Sets an initial kernel parameter prior to optimizations for component &#39;q&#39;
+        with key the parameter name.
 
         Args:
             q (int): Component of kernel.
-
             key (str): Name of component.
-
             val (float, ndarray): Value of parameter.
         &#34;&#34;&#34;
         if q &lt; 0 or len(self.params) &lt;= q:
@@ -435,18 +532,22 @@ the model can be used to train a predict.</p>
 
         self.params[q][key] = val
 
+    def set_pred(self, channel, x):
+        &#34;&#34;&#34;
+        Sets prediction range
+
+        TODO: Change so it can receive strings
+        &#34;&#34;&#34;
+        self.data[channel].set_pred(x)
+
+    def set_pred_range(self, channel, start=None, end=None, n=None, step=None):
+        self.data[channel].set_pred_range(start, end, n, step)
+
     def fix_params(self, key):
         self.fixed_params.append(key)
 
     def unfix_params(self, key):
         self.fixed_params.remove(key)
-
-    def print_params(self):
-        import pandas as pd
-        pd.set_option(&#39;display.max_colwidth&#39;, -1)
-        df = pd.DataFrame(self.get_params())
-        df.index.name = &#39;Q&#39;
-        display(df)
 
     def save(self, filename):
         if self.model == None:
@@ -473,24 +574,51 @@ the model can be used to train a predict.</p>
             with self.session.as_default():
                 gpflow.Saver().save(filename, self.model)
 
-    def build(self, kind=&#39;full&#39;):
-        x, y = self._transform_data([channel.X for channel in self.data], [channel.Y for channel in self.data])
+    def build(self, likelihood=None, variational=False, sparse=False, like_params={}):
+        &#34;&#34;&#34;
+        Build the model.
+
+        Args:
+            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
+        &#34;&#34;&#34;
+
+        x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
+
+
         with self.graph.as_default():
             with self.session.as_default():
-                if kind == &#39;full&#39;:
-                    self.model = gpflow.models.GPR(x, y, self._kernel())
-                elif kind == &#39;sparse&#39;:
-                    # TODO: test if induction points are set
-                    self.name += &#39; (sparse)&#39;
-                    self.model = gpflow.models.SGPR(x, y, self._kernel())
-                elif kind == &#39;sparse-variational&#39;:
-                    self.name += &#39; (sparse-variational)&#39;
-                    self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
+
+                # Gaussian likelihood
+                if likelihood == None:
+                    if not sparse:
+                        self.model = gpflow.models.GPR(x, y, self._kernel())
+                    else:
+                        # TODO: test if induction points are set
+                        self.name += &#39; (sparse)&#39;
+                        self.model = gpflow.models.SGPR(x, y, self._kernel())
+                # MCMC
+                elif not variational:
+                    self.likelihood = likelihood(**like_params)
+                    if not sparse:
+                        self.name += &#39; (MCMC)&#39;
+                        self.model = gpflow.models.GPMC(x, y, self._kernel(), self.likelihood)
+                    else:
+                        self.name += &#39; (sparse MCMC)&#39;
+                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), self.likelihood)
+                # Variational
                 else:
-                    raise Exception(&#34;model type &#39;%s&#39; does not exist&#34; % (kind))
+                    self.likelihood = likelihood(**like_params)
+                    if not sparse:
+                        self.name += &#39; (variational)&#39;
+                        self.model = gpflow.models.VGP(x, y, self._kernel(), self.likelihood)
+                    else:
+                        self.name += &#39; (sparse variational)&#39;
+                        self.model = gpflow.models.SVGP(x, y, self._kernel(), self.likelihood)
         
         for key in self.fixed_params:
             if hasattr(self.model.kern, &#39;kernels&#39;):
@@ -505,42 +633,50 @@ the model can be used to train a predict.</p>
                 else:
                     raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
 
-    def train(self, method=&#39;L-BFGS-B&#39;, kind=&#39;full&#39;, plot=False, tol=1e-6, maxiter=2000, opt_params={}, params={}, export_graph=False):
+    def train(
+        self,
+        method=&#39;L-BFGS-B&#39;,
+        likelihood=None,
+        variational=False,
+        sparse=False,
+        plot=False,
+        tol=1e-6,
+        maxiter=2000,
+        opt_params={},
+        like_params={},
+        params={},
+        export_graph=False):
         &#34;&#34;&#34;
         Builds and trains the model using the kernel and its parameters.
 
         For different optimizers, see scipy.optimize.minimize.
         It can be bounded by a maximum number of iterations, disp will output final
-        optimization information.
-        When using the &#39;Adam&#39; optimizer, a learning_rate can be set.
+        optimization information. When using the &#39;Adam&#39; optimizer, a
+        learning_rate can be set.
 
         Args:
-            kind (str): Type of model to use, posible mode are &#39;full&#39;, &#39;sparse&#39; and
-                &#39;sparse-variational&#39;.
-
             method (str): Optimizer to use, if &#34;Adam&#34; is chosen,
                 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
                 optimizer is used. Default to scipy &#39;L-BFGS-B&#39;.
-
-            plot (bool): Default to False.
-
+            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
+            plot (bool): If true will plot the spectrum. Default to False.
             opt_params (dict): Aditional dictionary with parameters on optimizer.
-                If method is &#39;Adam&#39; see,
+                If method is &#39;Adam&#39; see:
                 https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py
                 If method is in scipy-optimizer see:
                 https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
                 https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-
             params (dict): Aditional dictionary with parameters to minimice. 
                 See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
                 for more details.
-
             export_graph (bool): Default to False.
         &#34;&#34;&#34;
 
         start_time = time.time()
         
-        self.build(kind)
+        self.build(likelihood, variational, sparse, like_params=like_params)
 
         with self.graph.as_default():
             with self.session.as_default():
@@ -567,7 +703,7 @@ the model can be used to train a predict.</p>
                     opt.minimize(self.model, anchor=True, **params)
                 else:
                     opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
-                    opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, **params)
+                    opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, disp=True, **params)
 
                 self._update_params(self.model.read_trainables())
 
@@ -580,7 +716,7 @@ the model can be used to train a predict.</p>
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self):
+    def predict(self, x_pred=None):
         &#34;&#34;&#34;
         Predict with model.
 
@@ -589,29 +725,63 @@ the model can be used to train a predict.</p>
         It returns the X, Y_mu, Y_var values per channel.
 
         Args:
-            pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
         Returns:
-            Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+            Y_mu_pred, Y_lower_ci_predicted, Y_upper_ci_predicted: 
+            Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
 
         &#34;&#34;&#34;
         if self.model == None:
             raise Exception(&#34;build (and train) the model before doing predictions&#34;)
 
+        # if user pass a prediction input
+        if x_pred is not None:
+            for i, x_channel in enumerate(x_pred):
+                self.data[i].set_pred(x_channel)
+
+        # check if there is some prediction seted
+        for channel in self.data:
+            if channel.X_pred.size == 0:
+                raise Exception(&#39;no prediction value set, use x_pred argument or set manually using data.set_pred().&#39;)
+
         x = self._transform_data([channel.X_pred for channel in self.data])
+
+        # predict with model
         with self.graph.as_default():
             with self.session.as_default():
                 mu, var = self.model.predict_f(x)
 
+        # reshape for channels
         i = 0
-        Y_mu = {}
-        Y_var = {}
         for channel in self.data:
             n = channel.X_pred.shape[0]
             if n != 0:
                 channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
                 channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
-                i += n</code></pre>
+                i += n
+
+        # inverse transformations
+        Y_mu_predicted = []
+        Y_upper_ci_predicted = []
+        Y_lower_ci_predicted = []
+
+        for channel in self.data:
+            # detransform mean
+            y_pred_detrans = _detransform(channel.transformations, channel.X_pred, channel.Y_mu_pred)
+            Y_mu_predicted.append(y_pred_detrans)
+            
+            # upper confidence interval
+            u_ci = channel.Y_mu_pred + 2 * np.sqrt(channel.Y_var_pred)
+            u_ci = _detransform(channel.transformations, channel.X_pred, u_ci)
+            Y_upper_ci_predicted.append(u_ci)
+
+            # lower confidence interval
+            l_ci = channel.Y_mu_pred - 2 * np.sqrt(channel.Y_var_pred)
+            l_ci = _detransform(channel.transformations, channel.X_pred, l_ci)
+            Y_lower_ci_predicted.append(l_ci)
+
+        return Y_mu_predicted, Y_lower_ci_predicted, Y_upper_ci_predicted</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -624,30 +794,66 @@ the model can be used to train a predict.</p>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.model.model.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>self, kind='full')</span>
+<span>def <span class="ident">build</span></span>(<span>self, likelihood=None, variational=False, sparse=False, like_params={})</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Build the model.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpflow.likelihoods</code></dt>
+<dd>Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.</dd>
+<dt><strong><code>variational</code></strong> :&ensp;<code>bool</code></dt>
+<dd>If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.</dd>
+<dt><strong><code>sparse</code></strong> :&ensp;<code>bool</code></dt>
+<dd>If True, will use sparse GP regression.</dd>
+</dl></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def build(self, kind=&#39;full&#39;):
-    x, y = self._transform_data([channel.X for channel in self.data], [channel.Y for channel in self.data])
+<pre><code class="python">def build(self, likelihood=None, variational=False, sparse=False, like_params={}):
+    &#34;&#34;&#34;
+    Build the model.
+
+    Args:
+        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
+        sparse (bool): If True, will use sparse GP regression.
+    &#34;&#34;&#34;
+
+    x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
 
     self.graph = tf.Graph()
     self.session = tf.Session(graph=self.graph)
+
+
     with self.graph.as_default():
         with self.session.as_default():
-            if kind == &#39;full&#39;:
-                self.model = gpflow.models.GPR(x, y, self._kernel())
-            elif kind == &#39;sparse&#39;:
-                # TODO: test if induction points are set
-                self.name += &#39; (sparse)&#39;
-                self.model = gpflow.models.SGPR(x, y, self._kernel())
-            elif kind == &#39;sparse-variational&#39;:
-                self.name += &#39; (sparse-variational)&#39;
-                self.model = gpflow.models.SVGP(x, y, self._kernel(), gpflow.likelihoods.Gaussian())
+
+            # Gaussian likelihood
+            if likelihood == None:
+                if not sparse:
+                    self.model = gpflow.models.GPR(x, y, self._kernel())
+                else:
+                    # TODO: test if induction points are set
+                    self.name += &#39; (sparse)&#39;
+                    self.model = gpflow.models.SGPR(x, y, self._kernel())
+            # MCMC
+            elif not variational:
+                self.likelihood = likelihood(**like_params)
+                if not sparse:
+                    self.name += &#39; (MCMC)&#39;
+                    self.model = gpflow.models.GPMC(x, y, self._kernel(), self.likelihood)
+                else:
+                    self.name += &#39; (sparse MCMC)&#39;
+                    self.model = gpflow.models.SGPMC(x, y, self._kernel(), self.likelihood)
+            # Variational
             else:
-                raise Exception(&#34;model type &#39;%s&#39; does not exist&#34; % (kind))
+                self.likelihood = likelihood(**like_params)
+                if not sparse:
+                    self.name += &#39; (variational)&#39;
+                    self.model = gpflow.models.VGP(x, y, self._kernel(), self.likelihood)
+                else:
+                    self.name += &#39; (sparse variational)&#39;
+                    self.model = gpflow.models.SVGP(x, y, self._kernel(), self.likelihood)
     
     for key in self.fixed_params:
         if hasattr(self.model.kern, &#39;kernels&#39;):
@@ -678,10 +884,14 @@ the model can be used to train a predict.</p>
 <span>def <span class="ident">get_input_dims</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Returns input dimension</p></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_input_dims(self):
+    &#34;&#34;&#34;
+    Returns input dimension
+    &#34;&#34;&#34;
+    # TODO: solve the different input dimension per channel case
     return self.data[0].get_input_dims()</code></pre>
 </details>
 </dd>
@@ -718,8 +928,7 @@ the model can be used to train a predict.</p>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def info(self):
-    print(&#34;info() not implemented for kernel&#34;)
-    pass</code></pre>
+    print(&#34;info() not implemented for kernel&#34;)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.plot"><code class="name flex">
@@ -730,12 +939,23 @@ the model can be used to train a predict.</p>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def plot(self):
-    print(&#34;plot() not implemented for kernel&#34;)
-    pass</code></pre>
+    print(&#34;plot() not implemented for kernel&#34;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.plot_data"><code class="name flex">
+<span>def <span class="ident">plot_data</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def plot_data(self):
+    for channel in self.data:
+        channel.plot()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.predict"><code class="name flex">
-<span>def <span class="ident">predict</span></span>(<span>self)</span>
+<span>def <span class="ident">predict</span></span>(<span>self, x_pred=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Predict with model.</p>
@@ -744,14 +964,18 @@ be made with atribute self.X_pred that can be setted with other functions.
 It returns the X, Y_mu, Y_var values per channel.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>pred</code></strong> :&ensp;<code>dict</code>,<code>Prediction</code></dt>
+<dt><strong><code>x_pred</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
 <dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.</p></section>
+<dl>
+<dt><strong><code>Y_mu_pred</code></strong>, <strong><code>Y_lower_ci_predicted</code></strong>, <strong><code>Y_upper_ci_predicted</code></strong></dt>
+<dd>&nbsp;</dd>
+</dl>
+<p>Prediction output and confidence interval of 95% of the model (Upper and lower bounds).</p></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def predict(self):
+<pre><code class="python">def predict(self, x_pred=None):
     &#34;&#34;&#34;
     Predict with model.
 
@@ -760,40 +984,73 @@ It returns the X, Y_mu, Y_var values per channel.</p>
     It returns the X, Y_mu, Y_var values per channel.
 
     Args:
-        pred (dict,Prediction): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+        x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
     Returns:
-        Y_mu_pred, Y_var_pred: Prediction input, output and variance of the model.
+        Y_mu_pred, Y_lower_ci_predicted, Y_upper_ci_predicted: 
+        Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
 
     &#34;&#34;&#34;
     if self.model == None:
         raise Exception(&#34;build (and train) the model before doing predictions&#34;)
 
+    # if user pass a prediction input
+    if x_pred is not None:
+        for i, x_channel in enumerate(x_pred):
+            self.data[i].set_pred(x_channel)
+
+    # check if there is some prediction seted
+    for channel in self.data:
+        if channel.X_pred.size == 0:
+            raise Exception(&#39;no prediction value set, use x_pred argument or set manually using data.set_pred().&#39;)
+
     x = self._transform_data([channel.X_pred for channel in self.data])
+
+    # predict with model
     with self.graph.as_default():
         with self.session.as_default():
             mu, var = self.model.predict_f(x)
 
+    # reshape for channels
     i = 0
-    Y_mu = {}
-    Y_var = {}
     for channel in self.data:
         n = channel.X_pred.shape[0]
         if n != 0:
             channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
             channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
-            i += n</code></pre>
+            i += n
+
+    # inverse transformations
+    Y_mu_predicted = []
+    Y_upper_ci_predicted = []
+    Y_lower_ci_predicted = []
+
+    for channel in self.data:
+        # detransform mean
+        y_pred_detrans = _detransform(channel.transformations, channel.X_pred, channel.Y_mu_pred)
+        Y_mu_predicted.append(y_pred_detrans)
+        
+        # upper confidence interval
+        u_ci = channel.Y_mu_pred + 2 * np.sqrt(channel.Y_var_pred)
+        u_ci = _detransform(channel.transformations, channel.X_pred, u_ci)
+        Y_upper_ci_predicted.append(u_ci)
+
+        # lower confidence interval
+        l_ci = channel.Y_mu_pred - 2 * np.sqrt(channel.Y_var_pred)
+        l_ci = _detransform(channel.transformations, channel.X_pred, l_ci)
+        Y_lower_ci_predicted.append(l_ci)
+
+    return Y_mu_predicted, Y_lower_ci_predicted, Y_upper_ci_predicted</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.print_params"><code class="name flex">
-<span>def <span class="ident">print_params</span></span>(<span>self)</span>
+<dt id="mogptk.model.model.print"><code class="name flex">
+<span>def <span class="ident">print</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def print_params(self):
-    import pandas as pd
+<pre><code class="python">def print(self):
     pd.set_option(&#39;display.max_colwidth&#39;, -1)
     df = pd.DataFrame(self.get_params())
     df.index.name = &#39;Q&#39;
@@ -837,7 +1094,8 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <span>def <span class="ident">set_param</span></span>(<span>self, q, key, val)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.</p>
+<section class="desc"><p>Sets an initial kernel parameter prior to optimizations for component 'q'
+with key the parameter name.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>q</code></strong> :&ensp;<code>int</code></dt>
@@ -851,13 +1109,12 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <summary>Source code</summary>
 <pre><code class="python">def set_param(self, q, key, val):
     &#34;&#34;&#34;
-    Sets an initial kernel parameter prior to optimizations for component q with key the parameter name.
+    Sets an initial kernel parameter prior to optimizations for component &#39;q&#39;
+    with key the parameter name.
 
     Args:
         q (int): Component of kernel.
-
         key (str): Name of component.
-
         val (float, ndarray): Value of parameter.
     &#34;&#34;&#34;
     if q &lt; 0 or len(self.params) &lt;= q:
@@ -868,29 +1125,60 @@ It returns the X, Y_mu, Y_var values per channel.</p>
     self.params[q][key] = val</code></pre>
 </details>
 </dd>
+<dt id="mogptk.model.model.set_pred"><code class="name flex">
+<span>def <span class="ident">set_pred</span></span>(<span>self, channel, x)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Sets prediction range</p>
+<p>TODO: Change so it can receive strings</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_pred(self, channel, x):
+    &#34;&#34;&#34;
+    Sets prediction range
+
+    TODO: Change so it can receive strings
+    &#34;&#34;&#34;
+    self.data[channel].set_pred(x)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.set_pred_range"><code class="name flex">
+<span>def <span class="ident">set_pred_range</span></span>(<span>self, channel, start=None, end=None, n=None, step=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_pred_range(self, channel, start=None, end=None, n=None, step=None):
+    self.data[channel].set_pred_range(start, end, n, step)</code></pre>
+</details>
+</dd>
 <dt id="mogptk.model.model.train"><code class="name flex">
-<span>def <span class="ident">train</span></span>(<span>self, method='L-BFGS-B', kind='full', plot=False, tol=1e-06, maxiter=2000, opt_params={}, params={}, export_graph=False)</span>
+<span>def <span class="ident">train</span></span>(<span>self, method='L-BFGS-B', likelihood=None, variational=False, sparse=False, plot=False, tol=1e-06, maxiter=2000, opt_params={}, like_params={}, params={}, export_graph=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Builds and trains the model using the kernel and its parameters.</p>
 <p>For different optimizers, see scipy.optimize.minimize.
 It can be bounded by a maximum number of iterations, disp will output final
-optimization information.
-When using the 'Adam' optimizer, a learning_rate can be set.</p>
+optimization information. When using the 'Adam' optimizer, a
+learning_rate can be set.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>kind</code></strong> :&ensp;<code>str</code></dt>
-<dd>Type of model to use, posible mode are 'full', 'sparse' and
-'sparse-variational'.</dd>
 <dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
 <dd>Optimizer to use, if "Adam" is chosen,
 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
 optimizer is used. Default to scipy 'L-BFGS-B'.</dd>
+<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpflow.likelihoods</code></dt>
+<dd>Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.</dd>
+<dt><strong><code>variational</code></strong> :&ensp;<code>bool</code></dt>
+<dd>If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.</dd>
+<dt><strong><code>sparse</code></strong> :&ensp;<code>bool</code></dt>
+<dd>If True, will use sparse GP regression.</dd>
 <dt><strong><code>plot</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Default to False.</dd>
+<dd>If true will plot the spectrum. Default to False.</dd>
 <dt><strong><code>opt_params</code></strong> :&ensp;<code>dict</code></dt>
 <dd>Aditional dictionary with parameters on optimizer.
-If method is 'Adam' see,
+If method is 'Adam' see:
 <a href="https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py">https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py</a>
 If method is in scipy-optimizer see:
 <a href="https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py">https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py</a>
@@ -904,42 +1192,50 @@ for more details.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def train(self, method=&#39;L-BFGS-B&#39;, kind=&#39;full&#39;, plot=False, tol=1e-6, maxiter=2000, opt_params={}, params={}, export_graph=False):
+<pre><code class="python">def train(
+    self,
+    method=&#39;L-BFGS-B&#39;,
+    likelihood=None,
+    variational=False,
+    sparse=False,
+    plot=False,
+    tol=1e-6,
+    maxiter=2000,
+    opt_params={},
+    like_params={},
+    params={},
+    export_graph=False):
     &#34;&#34;&#34;
     Builds and trains the model using the kernel and its parameters.
 
     For different optimizers, see scipy.optimize.minimize.
     It can be bounded by a maximum number of iterations, disp will output final
-    optimization information.
-    When using the &#39;Adam&#39; optimizer, a learning_rate can be set.
+    optimization information. When using the &#39;Adam&#39; optimizer, a
+    learning_rate can be set.
 
     Args:
-        kind (str): Type of model to use, posible mode are &#39;full&#39;, &#39;sparse&#39; and
-            &#39;sparse-variational&#39;.
-
         method (str): Optimizer to use, if &#34;Adam&#34; is chosen,
             gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
             optimizer is used. Default to scipy &#39;L-BFGS-B&#39;.
-
-        plot (bool): Default to False.
-
+        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
+        sparse (bool): If True, will use sparse GP regression.
+        plot (bool): If true will plot the spectrum. Default to False.
         opt_params (dict): Aditional dictionary with parameters on optimizer.
-            If method is &#39;Adam&#39; see,
+            If method is &#39;Adam&#39; see:
             https://github.com/GPflow/GPflow/blob/develop/gpflow/training/tensorflow_optimizer.py
             If method is in scipy-optimizer see:
             https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
             https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-
         params (dict): Aditional dictionary with parameters to minimice. 
             See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
             for more details.
-
         export_graph (bool): Default to False.
     &#34;&#34;&#34;
 
     start_time = time.time()
     
-    self.build(kind)
+    self.build(likelihood, variational, sparse, like_params=like_params)
 
     with self.graph.as_default():
         with self.session.as_default():
@@ -966,7 +1262,7 @@ for more details.</dd>
                 opt.minimize(self.model, anchor=True, **params)
             else:
                 opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
-                opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, **params)
+                opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, disp=True, **params)
 
             self._update_params(self.model.read_trainables())
 
@@ -1015,10 +1311,13 @@ for more details.</dd>
 <li><code><a title="mogptk.model.model.get_params" href="#mogptk.model.model.get_params">get_params</a></code></li>
 <li><code><a title="mogptk.model.model.info" href="#mogptk.model.model.info">info</a></code></li>
 <li><code><a title="mogptk.model.model.plot" href="#mogptk.model.model.plot">plot</a></code></li>
+<li><code><a title="mogptk.model.model.plot_data" href="#mogptk.model.model.plot_data">plot_data</a></code></li>
 <li><code><a title="mogptk.model.model.predict" href="#mogptk.model.model.predict">predict</a></code></li>
-<li><code><a title="mogptk.model.model.print_params" href="#mogptk.model.model.print_params">print_params</a></code></li>
+<li><code><a title="mogptk.model.model.print" href="#mogptk.model.model.print">print</a></code></li>
 <li><code><a title="mogptk.model.model.save" href="#mogptk.model.model.save">save</a></code></li>
 <li><code><a title="mogptk.model.model.set_param" href="#mogptk.model.model.set_param">set_param</a></code></li>
+<li><code><a title="mogptk.model.model.set_pred" href="#mogptk.model.model.set_pred">set_pred</a></code></li>
+<li><code><a title="mogptk.model.model.set_pred_range" href="#mogptk.model.model.set_pred_range">set_pred_range</a></code></li>
 <li><code><a title="mogptk.model.model.train" href="#mogptk.model.model.train">train</a></code></li>
 <li><code><a title="mogptk.model.model.unfix_params" href="#mogptk.model.model.unfix_params">unfix_params</a></code></li>
 </ul>
