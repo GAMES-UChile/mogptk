@@ -143,9 +143,7 @@ class model:
 
         self.model.mogptk_type = self.__class__.__name__
         self.model.mogptk_name = self.name
-        self.model.mogptk_data = []
-        for channel in self.data:
-            self.model.mogptk_data.append(channel._encode())
+        self.model.mogptk_data = str(dill.dumps(self.data))
         self.model.mogptk_Q = self.Q
         self.model.mogptk_params = self.params
         self.model.mogptk_fixed_params = self.fixed_params
@@ -168,11 +166,8 @@ class model:
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
-
-
         with self.graph.as_default():
             with self.session.as_default():
-
                 # Gaussian likelihood
                 if likelihood == None:
                     if not sparse:
@@ -199,19 +194,6 @@ class model:
                     else:
                         self.name += ' (sparse variational)'
                         self.model = gpflow.models.SVGP(x, y, self._kernel(), self.likelihood)
-        
-        for key in self.fixed_params:
-            if hasattr(self.model.kern, 'kernels'):
-                for kern in self.model.kern.kernels:
-                    if hasattr(kern, key):
-                        getattr(kern, key).trainable = False
-                    else:
-                        raise Exception("parameter name '%s' does not exist" % (key))
-            else:
-                if hasattr(self.model.kern, key):
-                    getattr(self.model.kern, key).trainable = False
-                else:
-                    raise Exception("parameter name '%s' does not exist" % (key))
 
     def train(
         self,
@@ -257,6 +239,20 @@ class model:
         start_time = time.time()
         
         self.build(likelihood, variational, sparse, like_params=like_params)
+        
+        for key in self.fixed_params:
+            # TODO: set trainable to True for others
+            if hasattr(self.model.kern, 'kernels'):
+                for kern in self.model.kern.kernels:
+                    if hasattr(kern, key):
+                        getattr(kern, key).trainable = False
+                    else:
+                        raise Exception("parameter name '%s' does not exist" % (key))
+            else:
+                if hasattr(self.model.kern, key):
+                    getattr(self.model.kern, key).trainable = False
+                else:
+                    raise Exception("parameter name '%s' does not exist" % (key))
 
         with self.graph.as_default():
             with self.session.as_default():

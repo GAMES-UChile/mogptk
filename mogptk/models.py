@@ -21,14 +21,13 @@ def LoadModel(filename):
     session = tf.Session(graph=graph)
     with graph.as_default():
         with session.as_default():
-            gpmodel = gpflow.saver.Saver().load(filename)
-
-    model_type = gpmodel.mogptk_type
-    name = gpmodel.mogptk_name
-    data = []
-    for channel in gpmodel.mogptk_data:
-        data.append(Data._decode(channel))
-    Q = gpmodel.mogptk_Q
+            model = gpflow.saver.Saver().load(filename)
+            model_type = model.mogptk_type
+            name = model.mogptk_name
+            data = dill.loads(eval(model.mogptk_data))
+            Q = model.mogptk_Q
+            params = model.mogptk_params
+            fixed_params = model.mogptk_fixed_params
 
     if model_type == 'SM':
         m = SM(data, Q, name)
@@ -43,9 +42,9 @@ def LoadModel(filename):
     else:
         raise Exception("unknown model type '%s'" % (model_type))
 
-    m.model = gpmodel
-    m.params = gpmodel.mogptk_params
-    m.fixed_params = gpmodel.mogptk_fixed_params
+    m.model = model
+    m.params = params
+    m.fixed_params = fixed_params
     m.graph = graph
     m.session = session
     return m

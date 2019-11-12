@@ -1,7 +1,6 @@
 import csv
 import copy
 import inspect
-import dill
 import numpy as np
 from mogptk.bnse import *
 from scipy import signal
@@ -425,12 +424,6 @@ class Data:
 
     def __str__(self):
         return "x=%s\ny=%s" % (self.X.tolist(), self.Y.tolist())
-
-    def _encode(self):
-        return str(dill.dumps(self))
-
-    def _decode(d):
-        return dill.loads(eval(d))
 
     def set_name(self, name):
         """
