@@ -90,6 +90,13 @@ class model:
         Returns all parameters set for the kernel per component.
         """
         return self.params
+
+    def get_x_pred(self):
+        """
+        Returns the input used in the last prediction
+        """
+        return [channel.X_pred for channel in self.data]
+
         
     def _get_param_across(self, name='mixture_means'):
         """

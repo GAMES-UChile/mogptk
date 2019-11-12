@@ -383,6 +383,9 @@ class Data:
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
             raise ValueError("X and Y must be lists or numpy arrays")
 
+        X = X.astype(float)
+        Y = Y.astype(float)
+
         if X.ndim == 1:
             X = X.reshape(-1, 1)
         if X.ndim != 2:
@@ -724,7 +727,11 @@ class Data:
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
         """
-        Sets the prediction range to the interval [start,end] with either 'n' points or a given 'step' between the points. Start and end can be set as strings and step in the duration string format if the proper formatter is set.
+        Sets the prediction range
+
+        The interval is set with [start,end], with either 'n' points or a
+        given 'step' between the points. Start and end can be set as strings and
+        step in the duration string format if the proper formatter is set.
 
         Args:
             start (float,str,optional): Start of interval, defaults to the first observation.
@@ -781,7 +788,7 @@ class Data:
             if cstep == None:
                 cstep = (cend[0]-cstart[0])/100
             else:
-                cstep = self.formatters[0]._parse(cstep)
+                cstep = self.formatters[0]._parse_duration(cstep)
             self.X_pred = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)
     
     def set_pred(self, x):
@@ -794,12 +801,17 @@ class Data:
         Examples:
             >>> data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
         """
-        if x.ndim != 2 or x.shape[1] != self.get_input_dims():
-            raise ValueError("x shape must be (n,input_dims)")
         if isinstance(x, list):
             x = np.array(x)
         elif not isinstance(x, np.ndarray):
             raise ValueError("x expected to be a list or Numpy array")
+
+        x = x.astype(float)
+
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+        if x.ndim != 2 or x.shape[1] != self.get_input_dims():
+            raise ValueError("x shape must be (n,input_dims)")
 
         self.X_pred = x
 
