@@ -63,6 +63,22 @@ def _transform_data_mogp(x, y):
     y = np.concatenate(y).reshape(-1, 1)
     return x, y
 
+
+def _estimate_noise_var(data):
+    """
+    Estimate noise variance with a tenth of the channel variance
+    """
+
+    output_dims = len(data)
+
+    noise_var = np.zeros(output_dims)
+
+    for i, channel in enumerate(data):
+        noise_var[i] = (channel.Y).var() / 30
+
+    return noise_var
+
+
 def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=1000, plot=False):
     """
     Estimate kernel param with single ouput GP-SM
@@ -147,6 +163,9 @@ class SM(model):
         'BNSE' third is using the BNSE (Tobar 2018) to estimate the PSD 
             and use the first Q peaks as the means and mixture weights.
 
+        In all cases the noise is initialized with a tenth of the variance 
+        for each channel.
+
         *** Only for single input dimension for each channel.
         """
 
@@ -182,6 +201,9 @@ class SM(model):
                 self.params[q]['mixture_weights'] = amplitudes[:, q].mean() / amplitudes.mean()
                 self.params[q]['mixture_means'] = means.T[q]
                 self.params[q]['mixture_scales'] = variances.T[q] * 2
+
+        # noise init
+        self.params[self.Q]['noise'] = _estimate_noise_var(self.data)
 
     def _transform_data(self, x, y=None):
         if y == None:
@@ -267,6 +289,9 @@ class MOSM(model):
         kernel for each channel. Furthermore, each GP-SM in fitted initializing
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
 
+        In all cases the noise is initialized with a tenth of the variance 
+        for each channel.
+
         Args:
             mode (str): Parameters to initialize, 'means' estimates only the means trough BNSE
                 directly. 'SM' estimates the spectral mean, variance and weights with GP-SM.
@@ -293,6 +318,9 @@ class MOSM(model):
                 self.params[q]["variance"] = params[q]['scale'] * 2
         else:
             raise Exception("possible modes are either 'BNSE' or 'SM'")
+
+        # noise init
+        self.params[self.Q]['noise'] = _estimate_noise_var(self.data)
 
     def plot(self):
         names = [channel.name for channel in self.data]
@@ -532,6 +560,9 @@ class CSM(model):
         The initialization is done fitting a single output GP with Sepectral mixture (SM)
         kernel for each channel. Furthermore, each GP-SM in fitted initializing
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
+
+        In all cases the noise is initialized with a tenth of the variance 
+        for each channel.
         """
 
         # data = self.data.copy()
@@ -594,6 +625,9 @@ class CSM(model):
         else:
             raise Exception("possible modes are either 'BNSE' or 'SM'")
 
+        # noise init
+        self.params[self.Q]['noise'] = _estimate_noise_var(self.data)
+
     def _transform_data(self, x, y=None):
         return _transform_data_mogp(x, y)
 
@@ -654,6 +688,10 @@ class SM_LMC(model):
                 see <model>.train() for for details.
             sm_maxiter(int): Maximum number of iterations per Spectral mixture.
             plot(bool): If true will show the PSD for the kernels.
+
+
+        In all cases the noise is initialized with a tenth of the variance 
+        for each channel.
         """
         # data = self.data.copy()
         # data.normalize()
@@ -716,6 +754,9 @@ class SM_LMC(model):
         else:
             raise Exception("possible modes are either 'BNSE' or 'SM'")
 
+        # noise init
+        self.params[self.Q]['noise'] = _estimate_noise_var(self.data)
+
     def _transform_data(self, x, y=None):
         return _transform_data_mogp(x, y)
 
@@ -761,10 +802,16 @@ class CG(model):
         The initialization is done fitting a single output GP with Sepectral mixture (SM)
         kernel for each channel. Furthermore, each GP-SM in fitted initializing
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
+
+        In all cases the noise is initialized with a tenth of the variance 
+        for each channel.
         """
         params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot) # TODO: fix spectral mean
         for q in range(self.Q):
             self.params[q]["variance"] = params[q]['scale']
+
+        # noise init
+        self.params[self.Q]['noise'] = _estimate_noise_var(self.data)
 
     def _transform_data(self, x, y=None):
         return _transform_data_mogp(x, y)
