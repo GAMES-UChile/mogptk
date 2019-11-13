@@ -211,13 +211,14 @@ class TransformLog:
         pass
 
     def _data(self, data):
-        self.shift = 1-np.amin(data.Y)
+        self.shift = 1 - np.amin(data.Y)
+        self.mean = np.log(data.Y + self.shift).mean()
 
     def _forward(self, x, y):
-        return np.log(y+self.shift)
+        return np.log(y + self.shift) - self.mean
     
     def _backward(self, x, y):
-        return np.exp(y)-self.shift
+        return np.exp(y + self.mean) - self.shift
 
 def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
     """
