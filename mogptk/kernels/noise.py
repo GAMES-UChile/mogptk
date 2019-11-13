@@ -24,9 +24,9 @@ class Noise(MultiKernel):
 
     def subK(self, index, X, X2):
         i, j = index
-        if i == j:
-            K = tf.matrix_diag(tf.fill(tf.shape(X)[:-1], self.noise[i]))
+        if i != j or X != X2:
+            K = tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
         else:
-            K = tf.zeroes([tf.shape(X)[:-1], tf.shape(X2)[:-1]])
+            K = tf.matrix_diag(tf.fill([tf.shape(X)[0]], self.noise[i]))
         return K
 

@@ -47,13 +47,12 @@ class CrossSpectralMixture(MultiKernel):
 
     def subK(self, index, X, X2):
         i, j = index
-        Tau = self.dist(X,X2)
-        constants = tf.sqrt(self.constant[:,i]*self.constant[:,j])
-        exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(self.variance,1),2)
-        exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+        Tau = self.dist(X, X2)
+        constants = tf.sqrt(self.constant[:,i] * self.constant[:,j])
+        exp_term = tf.square(Tau) * tf.expand_dims(tf.expand_dims(self.variance, 1), 2)
+        exp_term = (-1/2) * tf.reduce_sum(exp_term, axis=0)
         exp = tf.exp(exp_term)
-        constants_times_exp = tf.expand_dims(tf.expand_dims(constants,1),2)*exp
-        cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean,1),2)*Tau, axis=0) + tf.expand_dims(tf.expand_dims(self.phase[:,i] - self.phase[:,j],1),2)
+        constants_times_exp = tf.expand_dims(tf.expand_dims(constants, 1), 2) * exp
+        cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean, 1), 2) * Tau, axis=0) + tf.expand_dims(tf.expand_dims(self.phase[:,i] - self.phase[:,j], 1), 2)
         cos = tf.cos(cos_term)
-        complete_expression = tf.reduce_sum(constants_times_exp*cos, axis = 0)
-        return complete_expression
+        return tf.reduce_sum(constants_times_exp * cos, axis=0)

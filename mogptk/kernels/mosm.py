@@ -69,8 +69,8 @@ class MultiOutputSpectralMixture(MultiKernel):
             temp = np.power(2 * np.pi, self.input_dim / 2) \
                     * tf.sqrt(rprod(self.variance[:, i])) \
                     * tf.square(self.magnitude[i])
-            K = temp * tf.exp(-0.5 * self.sqdist(X, X, self.variance[:, i])) \
-                    * tf.cos(rsum(mean * self.dist(X, X), 0))
+            K = temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
+                    * tf.cos(rsum(mean * self.dist(X, X2), 0))
         else:
             sv = self.variance[:, i] + self.variance[:, j]
             cross_delay = tf.reshape(
