@@ -106,6 +106,7 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=1000, plot=Fa
         for i in range(input_dims):  # TODO one SM per channel
             sm = SM(data[channel], Q)
             sm.init_params(init)
+            sm.build()
             sm.train(method=method, maxiter=maxiter)
 
             if plot:
@@ -163,7 +164,7 @@ class SM(model):
         'BNSE' third is using the BNSE (Tobar 2018) to estimate the PSD 
             and use the first Q peaks as the means and mixture weights.
 
-        In all cases the noise is initialized with a tenth of the variance 
+        In all cases the noise is initialized with 1/30 of the variance 
         for each channel.
 
         *** Only for single input dimension for each channel.
@@ -201,9 +202,6 @@ class SM(model):
                 self.params[q]['mixture_weights'] = amplitudes[:, q].mean() / amplitudes.mean()
                 self.params[q]['mixture_means'] = means.T[q]
                 self.params[q]['mixture_scales'] = variances.T[q] * 2
-
-        # noise init
-        self.params[self.Q]['noise'] = _estimate_noise_var(self.data)
 
     def _transform_data(self, x, y=None):
         if y == None:
@@ -289,7 +287,7 @@ class MOSM(model):
         kernel for each channel. Furthermore, each GP-SM in fitted initializing
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
 
-        In all cases the noise is initialized with a tenth of the variance 
+        In all cases the noise is initialized with 1/30 of the variance 
         for each channel.
 
         Args:
@@ -561,7 +559,7 @@ class CSM(model):
         kernel for each channel. Furthermore, each GP-SM in fitted initializing
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
 
-        In all cases the noise is initialized with a tenth of the variance 
+        In all cases the noise is initialized with 1/30 of the variance 
         for each channel.
         """
 
@@ -690,7 +688,7 @@ class SM_LMC(model):
             plot(bool): If true will show the PSD for the kernels.
 
 
-        In all cases the noise is initialized with a tenth of the variance 
+        In all cases the noise is initialized with 1/30 of the variance 
         for each channel.
         """
         # data = self.data.copy()
@@ -803,7 +801,7 @@ class CG(model):
         kernel for each channel. Furthermore, each GP-SM in fitted initializing
         its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
 
-        In all cases the noise is initialized with a tenth of the variance 
+        In all cases the noise is initialized with 1/30 of the variance 
         for each channel.
         """
         params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot) # TODO: fix spectral mean
