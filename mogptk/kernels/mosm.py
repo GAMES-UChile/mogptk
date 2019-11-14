@@ -12,48 +12,19 @@ from .multikernel import MultiKernel
 
 # TODO: dont use angular frequency
 class MultiOutputSpectralMixture(MultiKernel):
-    def __init__(
-        self,
-        input_dim,
-        output_dim,
-        magnitude=None,
-        mean=None,
-        variance=None,
-        delay=None,
-        phase=None,
-        active_dim=None,
-        magnitude_prior=None):
+    def __init__(self, input_dim, output_dim, active_dim=None, magnitude_prior=None):
         """
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - magnitude (np.ndarray) has shape (output_dim)
-        - mean (np.ndarray) has shape (input_dim, output_dim)
-        - variance (np.ndarray) has shape (input_dim, output_dim)
-        - delay (np.ndarray) has shape (input_dim, output_dim)
-        - phase (np.ndarray) has shape (output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
+        - magnitude_prior (gpflow.Prior): Prior on the magnitude.
         """
 
-        if magnitude is None:
-            magnitude = np.random.standard_normal((output_dim))
-        if mean is None:
-            mean = np.random.standard_normal((input_dim, output_dim))
-        if variance is None:
-            variance = np.random.random((input_dim, output_dim))
-        if delay is None:
-            delay = np.zeros((input_dim, output_dim))
-        if phase is None:
-            phase = np.zeros((output_dim))
-
-        if magnitude.shape != (output_dim,):
-            raise Exception("bad magnitude shape %s" % (magnitude.shape,))
-        if mean.shape != (input_dim, output_dim):
-            raise Exception("bad mean shape %s" % (mean.shape,))
-        if variance.shape != (input_dim, output_dim):
-            raise Exception("bad variance shape %s" % (variance.shape,))
-        if delay.shape != (input_dim, output_dim):
-            raise Exception("bad delay shape %s" % (delay.shape,))
-        if phase.shape != (output_dim,):
-            raise Exception("bad phase shape %s" % (phase.shape,))
+        magnitude = np.random.standard_normal((output_dim))
+        mean = np.random.standard_normal((input_dim, output_dim))
+        variance = np.random.random((input_dim, output_dim))
+        delay = np.zeros((input_dim, output_dim))
+        phase = np.zeros((output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
         self.magnitude = Parameter(magnitude, prior=magnitude_prior)

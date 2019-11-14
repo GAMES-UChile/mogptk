@@ -10,27 +10,16 @@ from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
 class ConvolutionalGaussian(MultiKernel):
-    def __init__(self, input_dim, output_dim, constant=None, variance=None, latent_variance=None, active_dims=None):
+    def __init__(self, input_dim, output_dim, active_dims=None):
         """
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - constant (np.ndarray) has shape (output_dim)
-        - variance (np.ndarray) has shape (input_dim, output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
         """
 
-        if constant is None:
-            constant = np.random.random((output_dim))
-        if variance is None:
-            variance = np.random.random((input_dim, output_dim))
-        if latent_variance is None:
-            latent_variance = np.random.random((input_dim))
-
-        if constant.shape != (output_dim,):
-            raise Exception("bad constant shape %s" % (constant.shape,))
-        if variance.shape != (input_dim, output_dim):
-            raise Exception("bad variance shape %s" % (variance.shape,))
-        if latent_variance.shape != (input_dim,):
-            raise Exception("bad latent variance shape %s" % (latent_variance.shape,))
+        constant = np.random.random((output_dim))
+        variance = np.zeros((input_dim, output_dim))
+        latent_variance = np.random.random((input_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(constant, transform=transforms.positive)

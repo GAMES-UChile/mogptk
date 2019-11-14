@@ -11,33 +11,18 @@ from .multikernel import MultiKernel
 
 # uses angular freq
 class CrossSpectralMixture(MultiKernel):
-    def __init__(self, input_dim, output_dim, Rq, constant=None, mean=None, variance=None, phase=None, active_dims=None):
+    def __init__(self, input_dim, output_dim, Rq, active_dims=None):
         """
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - constant (np.ndarray) has shape (Rq, output_dim)
-        - mean (np.ndarray) has shape (input_dim)
-        - variance (np.ndarray) has shape (input_dim)
-        - phase (np.ndarray) has shape (Rq, output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - Rq (int): The number of subcomponents.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
         """
 
-        if constant is None:
-            constant = np.random.random((Rq, output_dim))
-        if mean is None:
-            mean = np.random.random(input_dim)
-        if variance is None:
-            variance = np.random.random(input_dim)
-        if phase is None:
-            phase = np.zeros((Rq, output_dim))
-
-        if constant.shape != (Rq, output_dim):
-            raise Exception("bad constant shape %s" % (constant.shape,))
-        if mean.shape != (input_dim,):
-            raise Exception("bad mean shape %s" % (mean.shape,))
-        if variance.shape != (input_dim,):
-            raise Exception("bad variance shape %s" % (variance.shape,))
-        if phase.shape != (Rq, output_dim):
-            raise Exception("bad phase shape %s" % (phase.shape,))
+        constant = np.random.random((Rq, output_dim))
+        mean = np.random.random(input_dim)
+        variance = np.random.random(input_dim)
+        phase = np.zeros((Rq, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(constant, transform=transforms.positive)

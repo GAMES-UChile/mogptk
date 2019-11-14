@@ -6,18 +6,14 @@ import tensorflow as tf
 from .multikernel import MultiKernel
 
 class Noise(MultiKernel):
-    def __init__(self, input_dim, output_dim, noise=None, active_dim=None):
+    def __init__(self, input_dim, output_dim, active_dim=None):
         """
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - noise (np.ndarray) has shape (output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
         """
 
-        if noise is None:
-            noise = np.random.random((output_dim))
-
-        if noise.shape != (output_dim,):
-            raise Exception("bad noise shape %s" % (noise.shape,))
+        noise = np.random.random((output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
         self.noise = Parameter(noise, transform=transforms.positive)

@@ -109,25 +109,35 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=1000, plot=Fa
 class SM(model):
     """
     Single output GP with Spectral mixture kernel.
+        
+    Args:
+        data (Data,list of Data): Data object or list of Data objects for each channel. Only one channel allowed for SM.
+        Q (int): Number of components to use.
+        name (string): Name of the model.
+        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
+        sparse (bool): If True, will use sparse GP regression. Defaults to False.
+        like_params (dict): Parameters to GPflow likelihood.
     """
-    def __init__(self, data, Q=1, name="SM"):
-        model.__init__(self, name, data, Q)
-
+    def __init__(self, data, Q=1, name="SM", likelihood=None, variational=False, sparse=False, like_params={}):
         input_dims = self.get_input_dims()
         output_dims = self.get_output_dims()
         if output_dims != 1:
-            raise Exception("Single output Spectral Mixture kernel can only take one output dimension in the data")
+            raise Exception("single output Spectral Mixture kernel can only take one output dimension in the data")
 
-        weights = np.abs(np.random.standard_normal((Q)))
-        means = np.abs(np.random.standard_normal((Q, input_dims)))
-        scales = np.abs(np.random.standard_normal((Q, input_dims)))
+        #weights = np.array([self.params[q]['mixture_weights'] for q in range(self.Q)])
+        #means = np.array([self.params[q]['mixture_means'] for q in range(self.Q)])
+        #scales = np.array([self.params[q]['mixture_scales'] for q in range(self.Q)]).T
+        kernel = SpectralMixture(
+            input_dims,
+            self.Q,
+        )
+        model.__init__(self, data, name, kernel, likelihood, variational, sparse, like_params)
 
-        for q in range(Q):
-            self.params.append({
-                'mixture_weights': weights[q],
-                'mixture_means': np.array(means[q]),
-                'mixture_scales': np.array(scales[q]),
-            })
+    def _transform_data(self, x, y=None):
+        if y == None:
+            return x[0]
+        return x[0], np.expand_dims(y[0], 1)
 
     def init_params(self, method='BNSE'):
         """
@@ -151,7 +161,7 @@ class SM(model):
         """
 
         if method not in ['random', 'LS', 'BNSE']:
-            raise Exception("Posible methods are 'random', 'LS' and 'BNSE' (see documentation).")
+            raise Exception("posible methods are 'random', 'LS' and 'BNSE' (see documentation).")
 
         if method=='random':
             x, y = self.data[0].get_obs()
@@ -183,23 +193,6 @@ class SM(model):
                 self.params[q]['mixture_means'] = means.T[q]
                 self.params[q]['mixture_scales'] = variances.T[q] * 2
 
-    def _transform_data(self, x, y=None):
-        if y == None:
-            return x[0]
-        return x[0], np.expand_dims(y[0], 1)
-
-    def _kernel(self):
-        weights = np.array([self.params[q]['mixture_weights'] for q in range(self.Q)])
-        means = np.array([self.params[q]['mixture_means'] for q in range(self.Q)])
-        scales = np.array([self.params[q]['mixture_scales'] for q in range(self.Q)]).T
-        return SpectralMixture(
-            self.Q,
-            weights,
-            means,
-            scales,
-            self.get_input_dims(),
-        )
-
     def _update_params(self, trainables):
         for key, val in trainables.items():
             names = key.split("/")
@@ -213,26 +206,32 @@ class SM(model):
 class MOSM(model):
     """
     Multi Output Spectral Mixture kernel as proposed by our paper.
-
-    It takes a number of components Q and allows for recommended initial
-    parameter estimation to improve optimization outputs.
+        
+    Args:
+        data (Data,list of Data): Data object or list of Data objects for each channel.
+        Q (int): Number of components to use.
+        name (string): Name of the model.
+        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
+        sparse (bool): If True, will use sparse GP regression. Defaults to False.
+        like_params (dict): Parameters to GPflow likelihood.
     """
-    def __init__(self, data, Q=1, name="MOSM"):
-        model.__init__(self, name, data, Q)
+    def __init__(self, data, Q=1, name="MOSM", likelihood=None, variational=False, sparse=False, like_params={}):
+        for q in range(self.Q):
+            kernel = MultiOutputSpectralMixture(
+                self.get_input_dims(),
+                self.get_output_dims(),
+            )
+            if q == 0:
+                kernel_set = kernel
+            else:
+                kernel_set += kernel
+        kernel_set += Noise(self.get_input_dims(), self.get_output_dims())
 
-        input_dims = self.get_input_dims()
-        output_dims = self.get_output_dims()
-        for _ in range(Q):
-            self.params.append({
-                "magnitude": np.random.standard_normal((output_dims)),
-                "mean": np.random.standard_normal((input_dims, output_dims)),
-                "variance": np.random.random((input_dims, output_dims)),
-                "delay": np.zeros((input_dims, output_dims)),
-                "phase": np.zeros((output_dims)),
-            })
-        self.params.append({
-            "noise": np.random.random((output_dims)),
-        })
+        model.__init__(self, data, name, kernel_set, likelihood, variational, sparse, like_params)
+
+    def _transform_data(self, x, y=None):
+        return _transform_data_mogp(x, y)
 
     def init_means(self):
         """
@@ -480,50 +479,41 @@ class MOSM(model):
 
         return cross_params
 
-    def _transform_data(self, x, y=None):
-        return _transform_data_mogp(x, y)
+class CSM(model):
+    """
+    Cross Spectral Mixture kernel with Q components and Rq latent functions.
+        
+    Args:
+        data (Data,list of Data): Data object or list of Data objects for each channel.
+        Q (int): Number of components to use.
+        Rq (int): Number of subcomponents to use.
+        name (string): Name of the model.
+        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
+        sparse (bool): If True, will use sparse GP regression. Defaults to False.
+        like_params (dict): Parameters to GPflow likelihood.
+    """
+    def __init__(self, data, Q=1, Rq=1, name="CSM", likelihood=None, variational=False, sparse=False, like_params={}):
+        if Rq != 1:
+            raise Exception("Rq != 1 is not (yet) supported") # TODO: support
+        self.Rq = Rq
 
-    def _kernel(self):
         for q in range(self.Q):
-            kernel = MultiOutputSpectralMixture(
+            kernel = CrossSpectralMixture(
                 self.get_input_dims(),
                 self.get_output_dims(),
-                self.params[q]["magnitude"],
-                self.params[q]["mean"],
-                self.params[q]["variance"],
-                self.params[q]["delay"],
-                self.params[q]["phase"],
+                self.Rq,
             )
             if q == 0:
                 kernel_set = kernel
             else:
                 kernel_set += kernel
-        kernel_set += Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
-        return kernel_set
+        kernel_set += Noise(self.get_input_dims(), self.get_output_dims())
 
-class CSM(model):
-    """
-    Cross Spectral Mixture kernel with Q components and Rq latent functions.
-    """
-    def __init__(self, data, Q=1, Rq=1, name="CSM"):
-        model.__init__(self, name, data, Q)
+        model.__init__(self, data, name, kernel_set, likelihood, variational, sparse, like_params)
 
-        if Rq != 1:
-            raise Exception("Rq != 1 is not (yet) supported") # TODO: support
-        self.Rq = Rq
-        
-        input_dims = self.get_input_dims()
-        output_dims = self.get_output_dims()
-        for _ in range(Q):
-            self.params.append({
-                "constant": np.random.random((Rq, output_dims)),
-                "mean": np.random.random((input_dims)),
-                "variance": np.random.random((input_dims)),
-                "phase": np.zeros((Rq, output_dims)),
-            })
-        self.params.append({
-            "noise": np.random.random((output_dims)),
-        })
+    def _transform_data(self, x, y=None):
+        return _transform_data_mogp(x, y)
     
     def init_params(self, method='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=3000, plot=False):
         """
@@ -594,49 +584,41 @@ class CSM(model):
         else:
             raise Exception("possible modes are either 'BNSE' or 'SM'")
 
-    def _transform_data(self, x, y=None):
-        return _transform_data_mogp(x, y)
+class SM_LMC(model):
+    """
+    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
+        
+    Args:
+        data (Data,list of Data): Data object or list of Data objects for each channel.
+        Q (int): Number of components to use.
+        Rq (int): Number of subcomponents to use.
+        name (string): Name of the model.
+        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
+        sparse (bool): If True, will use sparse GP regression. Defaults to False.
+        like_params (dict): Parameters to GPflow likelihood.
+    """
+    def __init__(self, data, Q=1, Rq=1, name="SM-LMC", likelihood=None, variational=False, sparse=False, like_params={}):
+        if Rq != 1:
+            raise Exception("Rq != 1 is not (yet) supported") # TODO: support
+        self.Rq = Rq
 
-    def _kernel(self):
         for q in range(self.Q):
-            kernel = CrossSpectralMixture(
+            kernel = SpectralMixtureLMC(
                 self.get_input_dims(),
                 self.get_output_dims(),
                 self.Rq,
-                self.params[q]["constant"],
-                self.params[q]["mean"],
-                self.params[q]["variance"],
-                self.params[q]["phase"],
             )
             if q == 0:
                 kernel_set = kernel
             else:
                 kernel_set += kernel
-        kernel_set += Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
-        return kernel_set
+        kernel_set += Noise(self.get_input_dims(), self.get_output_dims())
 
-class SM_LMC(model):
-    """
-    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
-    """
-    def __init__(self, data, Q=1, Rq=1, name="SM-LMC"):
-        model.__init__(self, name, data, Q)
+        model.__init__(self, data, name, kernel_set, likelihood, variational, sparse, like_params)
 
-        if Rq != 1:
-            raise Exception("Rq != 1 is not (yet) supported") # TODO: support
-        self.Rq = Rq
-        
-        input_dims = self.get_input_dims()
-        output_dims = self.get_output_dims()
-        for _ in range(Q):
-            self.params.append({
-                "constant": np.random.standard_normal((Rq, output_dims)),
-                "mean": np.random.random((input_dims)),
-                "variance": np.random.random((input_dims)),
-            })
-        self.params.append({
-            "noise": np.random.random((output_dims)),
-        })
+    def _transform_data(self, x, y=None):
+        return _transform_data_mogp(x, y)
     
     def init_params(self, method='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
@@ -716,43 +698,36 @@ class SM_LMC(model):
         else:
             raise Exception("possible modes are either 'BNSE' or 'SM'")
 
-    def _transform_data(self, x, y=None):
-        return _transform_data_mogp(x, y)
-
-    def _kernel(self):
+class CG(model):
+    """
+    CG is the Convolutional Gaussian kernel with Q components.
+        
+    Args:
+        data (Data,list of Data): Data object or list of Data objects for each channel.
+        Q (int): Number of components to use.
+        Rq (int): Number of subcomponents to use.
+        name (string): Name of the model.
+        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
+        sparse (bool): If True, will use sparse GP regression. Defaults to False.
+        like_params (dict): Parameters to GPflow likelihood.
+    """
+    def __init__(self, data, Q=1, name="CG", likelihood=None, variational=False, sparse=False, like_params={}):
         for q in range(self.Q):
-            kernel = SpectralMixtureLMC(
+            kernel = ConvolutionalGaussianOLD(
                 self.get_input_dims(),
                 self.get_output_dims(),
-                self.Rq,
-                self.params[q]["constant"],
-                self.params[q]["mean"],
-                self.params[q]["variance"],
             )
             if q == 0:
                 kernel_set = kernel
             else:
                 kernel_set += kernel
-        kernel_set += Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
-        return kernel_set
+        kernel_set += Noise(self.get_input_dims(), self.get_output_dims())
 
-class CG(model):
-    """
-    CG is the Convolutional Gaussian kernel with Q components.
-    """
-    def __init__(self, data, Q=1, name="CG"):
-        model.__init__(self, name, data, Q)
-        
-        input_dims = self.get_input_dims()
-        output_dims = self.get_output_dims()
-        for _ in range(Q):
-            self.params.append({
-                "constant": np.random.random((output_dims)),
-                "variance": np.zeros((input_dims, output_dims)),
-            })
-        self.params.append({
-            "noise": np.random.random((output_dims)),
-        })
+        model.__init__(self, data, name, kernel_set, likelihood, variational, sparse, like_params)
+
+    def _transform_data(self, x, y=None):
+        return _transform_data_mogp(x, y)
 
     def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
@@ -765,22 +740,4 @@ class CG(model):
         params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot) # TODO: fix spectral mean
         for q in range(self.Q):
             self.params[q]["variance"] = params[q]['scale']
-
-    def _transform_data(self, x, y=None):
-        return _transform_data_mogp(x, y)
-
-    def _kernel(self):
-        for q in range(self.Q):
-            kernel = ConvolutionalGaussianOLD(
-                self.get_input_dims(),
-                self.get_output_dims(),
-                self.params[q]["constant"],
-                self.params[q]["variance"],
-            )
-            if q == 0:
-                kernel_set = kernel
-            else:
-                kernel_set += kernel
-        kernel_set += Noise(self.get_input_dims(), self.get_output_dims(), self.params[len(self.params)-1]["noise"])
-        return kernel_set
     

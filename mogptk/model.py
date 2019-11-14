@@ -14,9 +14,18 @@ logging.getLogger('tensorflow').propagate = False
 class model:
     """
     Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+        
+    Args:
+        data (Data,list of Data): Data object or list of Data objects for each channel.
+        name (string): Name of the model.
+        kernel (gpflow.Kernel): Kernel to use.
+        likelihood (gpflow.Likelihood): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+        sparse (bool): If True, will use sparse GP regression.
+        like_params (dict): Parameters to GPflow likelihood.
     """
 
-    def __init__(self, name, data, Q):
+    def __init__(self, data, name, kernel, likelihood, variational, sparse, like_params):
         if not isinstance(data, list):
             data = [data]
 
@@ -32,9 +41,38 @@ class model:
 
         self.name = name
         self.data = [channel.copy() for channel in data]
-        self.model = None
-        self.Q = Q
-        self.params = [] # TODO: remove and use GPflow?
+        self.graph = tf.Graph()
+        self.session = tf.Session(graph=self.graph)
+
+        x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
+        with self.graph.as_default():
+            with self.session.as_default():
+                # Gaussian likelihood
+                if likelihood == None:
+                    if not sparse:
+                        self.model = gpflow.models.GPR(x, y, kernel)
+                    else:
+                        # TODO: test if induction points are set
+                        self.name += ' (sparse)'
+                        self.model = gpflow.models.SGPR(x, y, kernel)
+                # MCMC
+                elif not variational:
+                    self.likelihood = likelihood(**like_params)
+                    if not sparse:
+                        self.name += ' (MCMC)'
+                        self.model = gpflow.models.GPMC(x, y, kernel, self.likelihood)
+                    else:
+                        self.name += ' (sparse MCMC)'
+                        self.model = gpflow.models.SGPMC(x, y, kernel, self.likelihood)
+                # Variational
+                else:
+                    self.likelihood = likelihood(**like_params)
+                    if not sparse:
+                        self.name += ' (variational)'
+                        self.model = gpflow.models.VGP(x, y, kernel, self.likelihood)
+                    else:
+                        self.name += ' (sparse variational)'
+                        self.model = gpflow.models.SVGP(x, y, kernel, self.likelihood)
 
     # overridden by specific models
     def _kernel(self):
@@ -148,9 +186,6 @@ class model:
         Args:
             key (string): Name of the parameter.
         """
-        if self.model == None:
-            raise Exception("build the model before disabling training on parameter")
-
         if hasattr(self.model.kern, 'kernels'):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
                 for param_name, param_val in kernel.__dict__.items():
@@ -168,9 +203,6 @@ class model:
         Args:
             key (string): Name of the parameter.
         """
-        if self.model == None:
-            raise Exception("build the model before enabling training on parameter")
-
         if hasattr(self.model.kern, 'kernels'):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
                 for param_name, param_val in kernel.__dict__.items():
@@ -182,9 +214,6 @@ class model:
                     getattr(self.model.kern, param_name).trainable = True
 
     def save(self, filename):
-        if self.model == None:
-            raise Exception("build the model before saving")
-
         if not filename.endswith(".mogptk"):
             filename += ".mogptk"
 
@@ -202,49 +231,6 @@ class model:
         with self.graph.as_default():
             with self.session.as_default():
                 gpflow.Saver().save(filename, self.model)
-
-    def build(self, likelihood=None, variational=False, sparse=False, like_params={}):
-        """
-        Build the model.
-
-        Args:
-            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
-            sparse (bool): If True, will use sparse GP regression.
-        """
-
-        x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
-
-        self.graph = tf.Graph()
-        self.session = tf.Session(graph=self.graph)
-        with self.graph.as_default():
-            with self.session.as_default():
-                # Gaussian likelihood
-                if likelihood == None:
-                    if not sparse:
-                        self.model = gpflow.models.GPR(x, y, self._kernel())
-                    else:
-                        # TODO: test if induction points are set
-                        self.name += ' (sparse)'
-                        self.model = gpflow.models.SGPR(x, y, self._kernel())
-                # MCMC
-                elif not variational:
-                    self.likelihood = likelihood(**like_params)
-                    if not sparse:
-                        self.name += ' (MCMC)'
-                        self.model = gpflow.models.GPMC(x, y, self._kernel(), self.likelihood)
-                    else:
-                        self.name += ' (sparse MCMC)'
-                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), self.likelihood)
-                # Variational
-                else:
-                    self.likelihood = likelihood(**like_params)
-                    if not sparse:
-                        self.name += ' (variational)'
-                        self.model = gpflow.models.VGP(x, y, self._kernel(), self.likelihood)
-                    else:
-                        self.name += ' (sparse variational)'
-                        self.model = gpflow.models.SVGP(x, y, self._kernel(), self.likelihood)
 
     def train(
         self,
@@ -279,9 +265,6 @@ class model:
                 for more details.
             export_graph (bool): Default to False.
         """
-        if self.model == None:
-            raise Exception("build the model before training")
-
         start_time = time.time()
         with self.graph.as_default():
             with self.session.as_default():
@@ -329,9 +312,6 @@ class model:
             Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
 
         """
-        if self.model == None:
-            raise Exception("build the model before doing predictions")
-
         # if user pass a prediction input
         if x_pred is not None:
             for i, x_channel in enumerate(x_pred):

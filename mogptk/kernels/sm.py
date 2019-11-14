@@ -22,35 +22,19 @@ from gpflow import transforms, autoflow,settings
 # TODO: means are spatial freqs, optimize by using angular freq
 # TODO: split out the Q part and use kernel + kernel + ... Q times?
 class SpectralMixture(Kernel):
-    def __init__(self, num_mixtures=1, mixture_weights=None, mixture_means=None, mixture_scales=None, input_dim=1, active_dims=None, name=None):
+    def __init__(self, input_dim, Q=1, active_dims=None):
         """
-        - num_mixtures (int) is Q
-        - weight (np.ndarray) has shape (Q)
-        - mean (np.ndarray) has shape (Q, input_dim)
-        - variance (np.ndarray) has shape (input_dim, Q)
-        - input_dim (int) is the input dimension
+        - Q (int): The number of mixtures.
 
         References:
         http://hips.seas.harvard.edu/files/wilson-extrapolation-icml-2013_0.pdf
         http://www.cs.cmu.edu/~andrewgw/typo.pdf
         """
-        Q = num_mixtures
+        mixture_weights = np.random.standard_normal((Q))
+        mixture_means = np.random.standard_normal((Q, input_dim))
+        mixture_scales = np.random.standard_normal((input_dim, Q))
 
-        if mixture_weights is None:
-            mixture_weights = np.random.standard_normal((Q))
-        if mixture_means is None:
-            mixture_means = np.random.standard_normal((Q, input_dim))
-        if mixture_scales is None:
-            mixture_scales = np.random.standard_normal((input_dim, Q))
-
-        if mixture_weights.shape != (Q,):
-            raise Exception("bad weight shape %s" % (mixture_weights.shape,))
-        if mixture_means.shape != (Q, input_dim):
-            raise Exception("bad mean shape %s" % (mixture_means.shape,))
-        if mixture_scales.shape != (input_dim, Q):
-            raise Exception("bad variance shape %s" % (mixture_scales.shape,))
-
-        super().__init__(input_dim, active_dims, name=name)
+        super().__init__(input_dim, active_dims)
         self.num_mixtures = Parameter(num_mixtures, trainable=False)
         self.mixture_weights = Parameter(mixture_weights, transform=transforms.positive)
         self.mixture_scales = Parameter(mixture_scales, transform=transforms.positive)
