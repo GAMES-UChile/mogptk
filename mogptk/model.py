@@ -12,39 +12,33 @@ import logging
 logging.getLogger('tensorflow').propagate = False
 
 class model:
-    """
-    Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
-        
-    Args:
-        data (Data,list of Data): Data object or list of Data objects for each channel.
-        name (string): Name of the model.
-        kernel (gpflow.Kernel): Kernel to use.
-        likelihood (gpflow.Likelihood): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
-        sparse (bool): If True, will use sparse GP regression.
-        like_params (dict): Parameters to GPflow likelihood.
-    """
+    def __init__(self, name, dataset, kernel, likelihood, variational, sparse, like_params):
+        """
+        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+            
+        Args:
+            name (string): Name of the model.
+            dataset (DataSet): DataSet with Data objects for all the channels.
+            kernel (gpflow.Kernel): Kernel to use.
+            likelihood (gpflow.Likelihood): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
+            like_params (dict): Parameters to GPflow likelihood.
+        """
 
-    def __init__(self, data, name, kernel, likelihood, variational, sparse, like_params):
-        if not isinstance(data, list):
-            data = [data]
-
-        names = set()
-        input_dims = data[0].get_input_dims()
-        for channel in data:
-            if channel.get_input_dims() != input_dims:
-                raise Exception("all data channels must have the same amount of input dimensions")
-            if channel.name != "":
-                if channel.name in names:
-                    raise Exception("data channels must have different names")
-                names.add(channel.name)
+        if dataset.get_output_dims() == 0:
+            raise Exception("dataset must have at least one channel")
+        if len(set(dataset.get_names())) != len(dataset.get_names()):
+            raise Exception("all data channels must have unique names")
+        if len(set(dataset.get_input_dims())) != 1:
+            raise Exception("all data channels must have the same amount of input dimensions")
 
         self.name = name
-        self.data = [channel.copy() for channel in data]
+        self.dataset = dataset#.copy() # TODO: user has to do copy?
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
 
-        x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
+        x, y = dataset.to_kernel()
         with self.graph.as_default():
             with self.session.as_default():
                 # Gaussian likelihood
@@ -75,14 +69,6 @@ class model:
                         self.model = gpflow.models.SVGP(x, y, kernel, self.likelihood)
 
     # overridden by specific models
-    def _kernel(self):
-        raise Exception("kernel not specified")
-    
-    # overridden by specific models
-    def _transform_data(self):
-        raise Exception("kernel not specified")
-
-    # overridden by specific models
     def info(self):
         """
         Information about the model.
@@ -107,14 +93,6 @@ class model:
         df.index.name = 'Q'
         display(df)
 
-    def _update_params(self, trainables):
-        for key, val in trainables.items():
-            names = key.split("/")
-            if len(names) == 5 and names[1] == 'kern' and names[2] == 'kernels':
-                q = int(names[3])
-                name = names[4]
-                self.params[q][name] = val
-
     def get_input_dims(self):
         """
         Returns the number of input dimensions of the data.
@@ -127,40 +105,38 @@ class model:
         """
         return len(self.data)
 
-    def get_channel(self, channel):
-        """
-        Return Data for a channel.
-
-        Args:
-            channel (int,string): Index or name of the channel.
-        """
-        if isinstance(channel, int):
-            if channel < len(self.data):
-                return self.data[channel]
-        elif isinstance(channel, str):
-            for data in self.data:
-                if data.name == channel:
-                    return data
-        raise ValueError("channel '%d' does not exist" % (channel))
-
-    def get_params(self):
-        """
-        Returns all parameters set for the kernel per component.
-        """
-        return self.params
-
     def get_x_pred(self):
         """
         Returns the input used in the last prediction
         """
         return [channel.X_pred for channel in self.data]
 
+    def get_params(self):
+        """
+        Returns all parameters set for the kernel per component.
+        """
+        print(self.model.kern.kernels)
+        print(self.model.read_trainables())
+        print(self.model.kern.kernels)
+
+        kernels = [self.model.kern]
+        if hasattr(self.model.kern, 'kernels'):
+            kernels = self.model.kern.kernels
         
-    def _get_param_across(self, name='mixture_means'):
-        """
-        Get all the name parameters across all components.
-        """
-        return np.array([self.params[q][name] for q in range(self.Q)])
+        params = []
+        for i, kernel in enumerate(kernels):
+            param = {}
+            for key, val in kernel.__dict__.items():
+                if isinstance(val, gpflow.params.parameter.Parameter):
+                    param[key] = val
+            params.append(param)
+        return params
+        
+    #def _get_param_across(self, name='mixture_means'):
+    #    """
+    #    Get all the name parameters across all components.
+    #    """
+    #    return np.array([self.params[q][name] for q in range(self.Q)])
 
     def set_param(self, q, key, val):
         """
@@ -172,12 +148,22 @@ class model:
             key (str): Name of component.
             val (float, ndarray): Value of parameter.
         """
-        if q < 0 or len(self.params) <= q:
-            raise Exception("qth component %d does not exist" % (q))
-        if key not in self.params[q]:
+        if not isinstance(val, (int, float)):
+            raise Exception("value %s of type %s is not a number type" % (val, type(val)))
+
+        if hasattr(self.model.kern, 'kernels'):
+            if q < 0 or len(self.model.kern.kernels) <= q:
+                raise Exception("qth component %d does not exist" % (q))
+            kern = self.model.kern.kernels[q].__dict__
+        else:
+            if q != 0:
+                raise Exception("qth component %d does not exist" % (q))
+            kern = self.model.kern.__dict__
+
+        if key not in kern or not isinstance(kern[key], gpflow.params.parameter.Parameter):
             raise Exception("parameter name '%s' does not exist" % (key))
 
-        self.params[q][key] = val
+        kern[key] = val
 
     def fix_param(self, key):
         """

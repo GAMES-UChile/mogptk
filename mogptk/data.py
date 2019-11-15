@@ -353,6 +353,110 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
 def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
     pass # TODO: implement
 
+class DataSet:
+    def __init__(self, *args):
+        """
+        DataSet is a class that holds multiple Data objects as channels.
+
+        Args:
+            *args (Data,DataSet,list,dict): Accepts multiple arguments, each of which should be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+        """
+
+        self.channels = []
+        for arg in args:
+            if isinstance(arg, Data):
+                self.channels.append(arg)
+            elif isinstance(arg, DataSet):
+                for val in arg.channels:
+                    self.channels.append(val)
+            elif isinstance(arg, list) and all(isinstance(val, Data) for val in arg):
+                for val in arg:
+                    self.channels.append(val)
+            elif isinstance(arg, dict) and all(isinstance(val, Data) for val in arg.values()):
+                for key, val in arg.items():
+                    val.name = key
+                    self.channels.append(val)
+
+    def get_input_dims(self):
+        """
+        Return the input dimensions for each channel.
+
+        Returns:
+            list: List of ints of input dimensions.
+        """
+        return [channel.get_input_dims() for channel in self.channels]
+
+    def get_output_dims(self):
+        """
+        Return the output dimensions of the dataset, i.e. the number of channels.
+
+        Returns:
+            int: Output dimensions.
+        """
+        return len(self.channels)
+
+    def get_names(self):
+        """
+        Return the names of the channels.
+
+        Returns:
+            list: List of names.
+        """
+        return [channel.name for channel in self.channels]
+
+    def get(self, index):
+        """
+        Return Data objects for a channel.
+
+        Args:
+            index (int,string): Index or name of the channel.
+
+        Returns:
+            Data: Channel data.
+        """
+        if isinstance(index, int):
+            if index < len(self.channels):
+                return self.channels[index]
+        elif isinstance(index, str):
+            for channel in self.channels:
+                if channel.name == index:
+                    return channel
+        raise ValueError("channel '%d' does not exist in DataSet" % (index))
+
+    def to_kernel(self):
+        """
+        Return the data vectors in the format as used by the kernels.
+
+        Returns:
+            ndarray: X data of shape (n,. TODO
+            ndarray: Y data.
+        """
+        x = [channel.X[channel.mask] for channel in self.channels]
+        y = [channel.Y[channel.mask] for channel in self.channels]
+
+        chan = []
+        for channel in range(len(x)):
+            chan.append(channel * np.ones(len(x[channel])))
+        chan = np.concatenate(chan).reshape(-1, 1)
+        
+        x = np.concatenate(x)
+        x = np.concatenate((chan, x), axis=1)
+        if y == None:
+            return x
+
+        y = np.concatenate(y).reshape(-1, 1)
+        print(x.shape, y.shape)
+        return x, y
+
+    def copy(self):
+        """
+        Make a deep copy of DataSet.
+
+        Returns:
+            DataSet: DataSet.
+        """
+        return copy.deepcopy(self)
+
 class Data:
     def __init__(self, X, Y, name="", format=None):
         """
@@ -369,7 +473,7 @@ class Data:
             Y (list,ndarray): Dependent variable data of shape (n).
             name (str,optional): Name of dataset.
             format (list,optional): List of formatters (such as FormatNumber (default), FormatDate,
-                FormetDateTime, ...) for each input dimension.
+                FormatDateTime, ...) for each input dimension.
 
         Examples:
             >>> Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -477,7 +581,7 @@ class Data:
 
     def copy(self):
         """
-        Make a deep copy of the dataset.
+        Make a deep copy of Data.
 
         Returns:
             Data: Data.
