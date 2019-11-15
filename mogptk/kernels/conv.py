@@ -42,17 +42,18 @@ class ConvolutionalGaussian(MultiKernel):
         Tau = self.dist(X,X2)
         # constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
 
-        # cross_var = self.variance[:,i] + self.variance[:,j]
-        # if i == j:
-        #    cross_var = self.variance[:,i] + 1e-8
-        #else:
-        #    cross_var = (self.variance[:,i] * self.variance[:,i]) / (self.variance[:,i] + self.variance[:,j])
-        cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
+        
+        if i == j:
+           cross_var = self.variance[:,i] + 1e-8
+        else:
+           cross_var = (self.variance[:,i] * self.variance[:, j]) / (self.variance[:, i] + self.variance[:, j])
+
+        # cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
 
         cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(1 / self.latent_variance) * tf.sqrt(cross_var)
 
         if i == j:
-            cross_var = cross_var + 1e-8
+            cross_var = cross_var + 1e-12
 
         # exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
         # exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
