@@ -1,14 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-import seaborn as sns
 from scipy.stats import norm
 from .data import _detransform
 
 def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None):
-    # sns.set(font_scale=2)
-    # sns.axes_style("darkgrid")
-    # sns.set_style("whitegrid")
     
     if means.ndim == 2:
         means = np.expand_dims(means, axis=2)
@@ -69,93 +65,4 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
         plt.show()
 
     return fig, axes
-
-
-def plot_prediction(model, grid=None, figsize=(12, 8), ylims=None, names=None, title=''):
-
-    """
-    Plot training points, all data and prediction for all channels.
-
-    Args:
-        Model (mogptk.Model object): Model to use.
-        grid (tuple) : Tuple with the 2 dimensions of the grid.
-        figsize(tuple): Figure size, default to (12, 8).
-        ylims(list): List of tuples with limits for Y axis for
-            each channel.
-        Names(list): List of the names of each title.
-        title(str): Title of the plot.
-    """
-    # get data
-    x_train = [c.X[c.mask] for c in model.data]
-    y_train = [_detransform(c.transformations, c.X[c.mask], c.Y[c.mask]) for c in model.data]
-    x_all = [c.X for c in model.data]
-    y_all = [_detransform(c.transformations, c.X, c.Y) for c in model.data]
-    x_pred = [c.X for c in model.data]
-
-    n_dim = model.get_output_dims()
-
-    if grid is None:
-        grid = (int(np.ceil(n_dim/2)), 2)
-
-    if (grid[0] * grid[1]) < n_dim:
-        raise Exception('Grid not big enough for all channels')
-
-    # predict with model
-    mean_pred, lower_ci, upper_ci = model.predict(x_pred)
-
-    # create plot
-    f, axarr = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
-
-    axarr = axarr.reshape(-1)
-
-    # plot
-    for i in range(n_dim):
-        axarr[i].plot(x_train[i][:, 0], y_train[i], '.k', label='Train', ms=8)
-        axarr[i].plot(x_all[i][:, 0], y_all[i], '--', label='Test', c='gray',lw=1.4, zorder=5)
-        
-        axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label='Post.Mean', c=sns.color_palette()[i%10], zorder=1)
-        axarr[i].fill_between(x_pred[i][:, 0].reshape(-1),
-                              lower_ci[i],
-                              upper_ci[i],
-                              label='95% c.i',
-                              color=sns.color_palette()[i%10],
-                              alpha=0.4)
-        
-        # axarr[i].legend(ncol=4, loc='upper center', fontsize=8)
-
-        # axarr[i].locator_params(tight=True, nbins=6)
-        axarr[i].xaxis.set_major_locator(plt.MaxNLocator(6))
-
-        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: model.data[i].formatters[0]._format(x))
-        axarr[i].xaxis.set_major_formatter(formatter)
-
-
-        # set channels name
-        if names is not None:
-            axarr[i].set_title(names[i])
-        else:
-            channel_name = model.data[i].name
-            if channel_name != '':
-                axarr[i].set_title(channel_name)
-            else:
-                axarr[i].set_title('Channel ' + str(i))
-
-        # set y lims
-        if ylims is not None:
-            axarr[i].set_ylim(ylims[i]) 
-        
-    plt.suptitle(title, y=1.02)
-    plt.tight_layout()
-
-    data_dict = {
-    'x_train':x_train,
-    'y_train':y_train,
-    'x_all':x_all,
-    'y_all':y_all,
-    'y_pred':mean_pred,
-    'low_ci':lower_ci,
-    'hi_ci':upper_ci,
-    }
-
-    return f, axarr, data_dict
 
