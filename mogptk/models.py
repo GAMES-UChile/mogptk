@@ -10,6 +10,7 @@ import gpflow
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from scipy.stats import norm
 
 def LoadModel(filename):
     """
@@ -87,6 +88,11 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=1000, plot=Fa
         data (obj; mogptk.Data): Data class instance.
 
         Q (int): Number of components.
+        init (str): Method to initialize, 'BNSE', 'LS' or 'Random'
+        method (str): Optimization method, either 'Adam' or any
+            scipy optimizer.
+        maxiter (int): Maximum number of iteration.
+        plot (bool): If true plot the kernel PSD of each channel.
 
     returns: 
         params[q][name][output dim][input dim]
@@ -227,6 +233,44 @@ class SM(model):
                 for q in range(len(val)):
                     self.params[q][name] = val[q]
 
+
+    def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
+        """
+        Plot power spectral density of 
+        single output GP-SM
+        """
+        means = self._get_param_across('mixture_means').reshape(-1)
+        weights = self._get_param_across('mixture_weights').reshape(-1)
+        scales = self._get_param_across('mixture_scales').reshape(-1)
+        
+        # calculate bounds
+        x_low = norm.ppf(0.001, loc=means, scale=scales).min()
+        x_high = norm.ppf(0.99, loc=means, scale=scales).max()
+        
+        x = np.linspace(x_low, x_high + 1, 1000)
+        psd = np.zeros_like(x)
+
+        f, ax = plt.subplots(1, 1, figsize=figsize)
+        # fig, axes = plt.subplots(1, 1, figsize=(20, 5)
+        
+        for q in range(self.Q):
+            single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
+            ax.plot(x, single_psd, '--', lw=1.2, c='xkcd:strawberry', zorder=2)
+            ax.axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color='grey')
+            psd = psd + single_psd
+            
+        # symmetrize PSD
+        if psd[x<0].size != 0:
+            psd = psd + np.r_[psd[x<0][::-1], np.zeros((x>=0).sum())]
+            
+        ax.plot(x, psd, lw=2.5, c='r', alpha=0.7, zorder=1)
+        ax.set_xlim(0, x[-1] + 0.1)
+        if log_scale:
+            ax.set_yscale('log')
+        ax.set_xlabel(r'$\omega$')
+        ax.set_ylabel('PSD')
+        ax.set_title(title)
+
 class MOSM(model):
     """
     Multi Output Spectral Mixture kernel as proposed by our paper.
@@ -361,7 +405,9 @@ class MOSM(model):
         Plot power cross spectral density given axis.
 
         Args:
-            ax (matplotlib.axis)
+            ax (matplotlib.axis): Axis to plot to.
+            params(dict): Kernel parameters.
+            channels (tuple of ints): Channels to use.
         """
         i = channels[0]
         j = channels[1]
@@ -406,7 +452,7 @@ class MOSM(model):
         ax.set_yticks([])
         return
 
-    def plot_correlations(self, fsize=None):
+    def plot_correlations(self, figsize=None):
         """
         Plot correlation coeficient matrix.
 
@@ -448,7 +494,7 @@ class MOSM(model):
 #             ax.text(j, i, '{:0.1f}'.format(z), ha='center', va='center')
             ax.text(j, i, '{:0.1f}'.format(z), ha='center', va='center', 
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.5, edgecolor='0.9'),
-                fontsize=fsize)
+                fontsize=figsize)
         return fig, ax, corr_coef_matrix
 
     def info(self):

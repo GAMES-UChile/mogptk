@@ -385,7 +385,7 @@ class model:
 
 
 
-    def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title='', return_figure=False):
+    def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title='', ret_fig=False):
 
         """
         Plot training points, all data and prediction for training range for all channels.
@@ -477,6 +477,6 @@ class model:
         'hi_ci':upper_ci,
         }
 
-        if return_figure:
+        if ret_fig:
             return f, axarr, data_dict
 
