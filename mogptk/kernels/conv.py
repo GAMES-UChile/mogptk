@@ -44,16 +44,18 @@ class ConvolutionalGaussian(MultiKernel):
 
         
         if i == j:
-           cross_var = self.variance[:,i] + 1e-8
+            cross_var = self.variance[:,i] / 2 + 1e-8
         else:
-           cross_var = (self.variance[:,i] * self.variance[:, j]) / (self.variance[:, i] + self.variance[:, j])
+            # cross_var = (self.variance[:,i] * self.variance[:, j] * self.latent_variance) / (
+            #     self.variance[:, i] + self.variance[:, j] + self.latent_variance)
+
+            cross_var = (self.variance[:,i] * self.variance[:, j]) / (
+                self.variance[:, i] + self.variance[:, j])
 
         # cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
 
-        cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(1 / self.latent_variance) * tf.sqrt(cross_var)
+        cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(rprod(cross_var)) * np.power(2 * np.pi, self.input_dim / 2)
 
-        if i == j:
-            cross_var = cross_var + 1e-12
 
         # exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
         # exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)

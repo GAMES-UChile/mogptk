@@ -845,8 +845,8 @@ class Data:
                 frequencies, defaults to 5000.
 
         Returns:
-            amplitudes: Amplitude array of shape (input_dims,Q).
-            positions: Frequency array of shape (input_dims,Q).
+            amplitudes: Amplitude array of shape (input_dims, Q).
+            positions: Frequency array of shape (input_dims, Q).
             variances: Variance array of shape (input_dims, Q).
         """
         input_dims = self.get_input_dims()

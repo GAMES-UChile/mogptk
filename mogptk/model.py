@@ -398,8 +398,10 @@ class model:
                 each channel.
             Names(list): List of the names of each title.
             title(str): Title of the plot.
-            return_figure(bool): If true returns the matplotlib figure, 
+            ret_fig(bool): If true returns the matplotlib figure, 
                 array of axis and dictionary with all the points used.
+
+        TODO: Add case for single output SM kernel.
         """
         # get data
         x_train = [c.X[c.mask] for c in self.data]

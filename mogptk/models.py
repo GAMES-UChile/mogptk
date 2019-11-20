@@ -80,7 +80,7 @@ def _estimate_noise_var(data):
     return noise_var
 
 
-def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=1000, plot=False):
+def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=False, fix_means=False):
     """
     Estimate kernel param with single ouput GP-SM
 
@@ -93,6 +93,7 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=1000, plot=Fa
             scipy optimizer.
         maxiter (int): Maximum number of iteration.
         plot (bool): If true plot the kernel PSD of each channel.
+        fix_means(bool): Fix spectral means to zero in trainning.
 
     returns: 
         params[q][name][output dim][input dim]
@@ -112,8 +113,18 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=1000, plot=Fa
         for i in range(input_dims):  # TODO one SM per channel
             sm = SM(data[channel], Q)
             sm.init_params(init)
+
+            if fix_means:
+                for q in range(sm.Q):
+                    sm.params[q]['mixture_means'] = np.zeros(input_dims)
+                    sm.params[q]['mixture_scales'] *= 100
+
             sm.build()
-            sm.train(method=method, maxiter=maxiter)
+
+            if fix_means:
+                sm.fix_param('mixture_means')
+
+            sm.train(method=method, maxiter=maxiter, tol=1e-50)
 
             if plot:
                 nyquist = data[channel].get_nyquist_estimation()
@@ -358,11 +369,20 @@ class MOSM(model):
                 self.params[q]["magnitude"] = np.sqrt(self.params[q]["magnitude"] / self.params[q]["magnitude"].mean())
 
         elif mode=='SM':
-            params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+            params = _estimate_from_sm(
+                self.data,
+                self.Q,
+                init=sm_init,
+                method=sm_method,
+                maxiter=sm_maxiter,
+                plot=plot)
+
             for q in range(self.Q):
-                self.params[q]["magnitude"] = np.average(params[q]['weight'], axis=0)
+                self.params[q]["magnitude"] = params[q]['weight'].mean(axis=0)
                 self.params[q]["mean"] = params[q]['mean']
                 self.params[q]["variance"] = params[q]['scale'] * 2
+
+                self.params[q]["magnitude"] = np.sqrt(self.params[q]["magnitude"] / self.params[q]["magnitude"].mean())
         else:
             raise Exception("possible modes are either 'BNSE' or 'SM'")
 
@@ -857,21 +877,36 @@ class CG(model):
             "noise": np.random.random((output_dims)),
         })
 
-    def init_params(self, sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
+    def init_params(self, sm_init='random', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
         Initialize kernel parameters, variance and mixture weights. 
 
         The initialization is done fitting a single output GP with Sepectral mixture (SM)
-        kernel for each channel. Furthermore, each GP-SM in fitted initializing
-        its parameters with Bayesian Nonparametric Spectral Estimation (BNSE)
+        kernel for each channel with spectral means fixed to 0 for all Q.
 
         In all cases the noise is initialized with 1/30 of the variance 
         for each channel.
+
+        Args:
+            sm_init (str): Method of initializing SM kernels.
+            sm_method (str): Optimization method for SM kernels.
+            sm_maxiter (str): Maximum iteration for SM kernels.
+            plt (bool): Show the PSD of the kernel after fitting SM kernels.
+                Default to false.
         """
-        params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot) # TODO: fix spectral mean
+        params = _estimate_from_sm(self.data,
+            self.Q,
+            init=sm_init,
+            method=sm_method,
+            maxiter=sm_maxiter,
+            plot=plot,
+            fix_means=True)
+
         for q in range(self.Q):
             self.params[q]["variance"] = params[q]['scale']
             self.params[q]["constant"] = params[q]['weight'].mean(axis=0)
+
+            self.params[q]["constant"] = self.params[q]["constant"] / self.params[q]["constant"].mean()
 
         # noise init
         self.params[self.Q]['noise'] = _estimate_noise_var(self.data)
