@@ -165,7 +165,7 @@ class TransformDetrend:
         degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
     """
     # TODO: add regression?
-    def __init__(self, degree=2):
+    def __init__(self, degree=1):
         self.degree = degree
 
     def _data(self, data):

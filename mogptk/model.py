@@ -412,7 +412,9 @@ class model:
 
         n_dim = self.get_output_dims()
 
-        if grid is None:
+        if n_dim == 1:
+            grid = (1, 1)
+        elif grid is None:
             grid = (int(np.ceil(n_dim/2)), 2)
 
         if (grid[0] * grid[1]) < n_dim:
@@ -424,6 +426,9 @@ class model:
         # create plot
         f, axarr = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
 
+        if not isinstance(axarr, np.ndarray):
+            axarr = np.array([axarr])
+
         axarr = axarr.reshape(-1)
 
         color_palette = mcolors.TABLEAU_COLORS
@@ -433,7 +438,7 @@ class model:
         for i in range(n_dim):
             color = color_palette[color_names[i]]
 
-            axarr[i].plot(x_train[i][:, 0], y_train[i], '.k', label='Train', ms=8)
+            axarr[i].plot(x_train[i][:, 0], y_train[i], '.k', label='Train', ms=5)
             axarr[i].plot(x_all[i][:, 0], y_all[i], '--', label='Test', c='gray',lw=1.4, zorder=5)
             
             axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label='Post.Mean', c=color, zorder=1)
@@ -459,6 +464,8 @@ class model:
                 channel_name = self.data[i].name
                 if channel_name != '':
                     axarr[i].set_title(channel_name)
+                elif n_dim == 1:
+                    pass
                 else:
                     axarr[i].set_title('Channel ' + str(i))
 
