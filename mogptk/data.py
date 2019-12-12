@@ -165,7 +165,7 @@ class TransformDetrend:
         degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
     """
     # TODO: add regression?
-    def __init__(self, degree=2):
+    def __init__(self, degree=1):
         self.degree = degree
 
     def _data(self, data):
@@ -211,13 +211,14 @@ class TransformLog:
         pass
 
     def _data(self, data):
-        self.shift = 1-np.amin(data.Y)
+        self.shift = 1 - np.amin(data.Y)
+        self.mean = np.log(data.Y + self.shift).mean()
 
     def _forward(self, x, y):
-        return np.log(y+self.shift)
+        return np.log(y + self.shift) - self.mean
     
     def _backward(self, x, y):
-        return np.exp(y)-self.shift
+        return np.exp(y + self.mean) - self.shift
 
 def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
     """
@@ -948,8 +949,8 @@ class Data:
                 frequencies, defaults to 5000.
 
         Returns:
-            amplitudes: Amplitude array of shape (input_dims,Q).
-            positions: Frequency array of shape (input_dims,Q).
+            amplitudes: Amplitude array of shape (input_dims, Q).
+            positions: Frequency array of shape (input_dims, Q).
             variances: Variance array of shape (input_dims, Q).
         """
         input_dims = self.get_input_dims()
