@@ -10,56 +10,6 @@ import matplotlib.pyplot as plt
 import re
 import pandas as pd
 from sklearn.linear_model import Ridge
-    
-duration_regex = re.compile(
-    r'^((?P<years>[\.\d]+?)y)?'
-    r'((?P<months>[\.\d]+?)M)?'
-    r'((?P<weeks>[\.\d]+?)w)?'
-    r'((?P<days>[\.\d]+?)d)?'
-    r'((?P<hours>[\.\d]+?)h)?'
-    r'((?P<minutes>[\.\d]+?)m)?'
-    r'((?P<seconds>[\.\d]+?)s)?$')
-
-
-def _detransform(transformations, x, y):
-    """
-    Apply inverse transformations to a set of values.
-
-    Used to apply inverse tranformations of a channel stored
-    in a Data class to a set.
-
-    Args:
-        transformations(list): List of transformations(objects) in order of aplication.
-        x(ndarray): Array of n_points x n_dim of inputs.
-        y(ndarray): Array of n_points outputs.
-    """
-    if len(transformations) > 0:
-        for t in transformations[::-1]:
-            y = t._backward(x, y)
-    return y
-
-def _parse_duration_to_sec(s):
-    x = duration_regex.match(s)
-    if x == None:
-        raise ValueError('duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd')
-
-    sec = 0
-    matches = x.groups()[1::2]
-    if matches[0]:
-        sec += float(matches[0])*356.2425*24*3600
-    if matches[1]:
-        sec += float(matches[1])*30.4369*24*3600
-    if matches[2]:
-        sec += float(matches[2])*7*24*3600
-    if matches[3]:
-        sec += float(matches[3])*24*3600
-    if matches[4]:
-        sec += float(matches[4])*3600
-    if matches[5]:
-        sec += float(matches[5])*60
-    if matches[6]:
-        sec += float(matches[6])
-    return sec
 
 class FormatNumber:
     """
@@ -157,6 +107,10 @@ class FormatDateTime:
         if maxfreq == None or maxfreq == 'second':
             return 1, 'second'
 
+################################################################
+################################################################
+################################################################
+
 class TransformDetrend:
     """
     TransformDetrend is a transformer that detrends the data. It uses NumPy `polyfit` to find an `n` degree polynomial that removes the trend.
@@ -219,6 +173,10 @@ class TransformLog:
     
     def _backward(self, x, y):
         return np.exp(y + self.mean) - self.shift
+
+################################################################
+################################################################
+################################################################
 
 def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
     """
@@ -354,109 +312,9 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
 def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
     pass # TODO: implement
 
-class DataSet:
-    def __init__(self, *args):
-        """
-        DataSet is a class that holds multiple Data objects as channels.
-
-        Args:
-            *args (Data,DataSet,list,dict): Accepts multiple arguments, each of which should be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
-        """
-
-        self.channels = []
-        for arg in args:
-            if isinstance(arg, Data):
-                self.channels.append(arg)
-            elif isinstance(arg, DataSet):
-                for val in arg.channels:
-                    self.channels.append(val)
-            elif isinstance(arg, list) and all(isinstance(val, Data) for val in arg):
-                for val in arg:
-                    self.channels.append(val)
-            elif isinstance(arg, dict) and all(isinstance(val, Data) for val in arg.values()):
-                for key, val in arg.items():
-                    val.name = key
-                    self.channels.append(val)
-
-    def get_input_dims(self):
-        """
-        Return the input dimensions for each channel.
-
-        Returns:
-            list: List of ints of input dimensions.
-        """
-        return [channel.get_input_dims() for channel in self.channels]
-
-    def get_output_dims(self):
-        """
-        Return the output dimensions of the dataset, i.e. the number of channels.
-
-        Returns:
-            int: Output dimensions.
-        """
-        return len(self.channels)
-
-    def get_names(self):
-        """
-        Return the names of the channels.
-
-        Returns:
-            list: List of names.
-        """
-        return [channel.name for channel in self.channels]
-
-    def get(self, index):
-        """
-        Return Data objects for a channel.
-
-        Args:
-            index (int,string): Index or name of the channel.
-
-        Returns:
-            Data: Channel data.
-        """
-        if isinstance(index, int):
-            if index < len(self.channels):
-                return self.channels[index]
-        elif isinstance(index, str):
-            for channel in self.channels:
-                if channel.name == index:
-                    return channel
-        raise ValueError("channel '%d' does not exist in DataSet" % (index))
-
-    def to_kernel(self):
-        """
-        Return the data vectors in the format as used by the kernels.
-
-        Returns:
-            ndarray: X data of shape (n,. TODO
-            ndarray: Y data.
-        """
-        x = [channel.X[channel.mask] for channel in self.channels]
-        y = [channel.Y[channel.mask] for channel in self.channels]
-
-        chan = []
-        for channel in range(len(x)):
-            chan.append(channel * np.ones(len(x[channel])))
-        chan = np.concatenate(chan).reshape(-1, 1)
-        
-        x = np.concatenate(x)
-        x = np.concatenate((chan, x), axis=1)
-        if y == None:
-            return x
-
-        y = np.concatenate(y).reshape(-1, 1)
-        print(x.shape, y.shape)
-        return x, y
-
-    def copy(self):
-        """
-        Make a deep copy of DataSet.
-
-        Returns:
-            DataSet: DataSet.
-        """
-        return copy.deepcopy(self)
+################################################################
+################################################################
+################################################################
 
 class Data:
     def __init__(self, X, Y, name="", format=None):
@@ -522,8 +380,8 @@ class Data:
         self.mask = np.array([True] * n)
         self.F = None
         self.X_pred = np.array([])
-        self.Y_mu_pred = np.array([])
-        self.Y_var_pred = np.array([])
+        self.Y_mu_pred = {}
+        self.Y_var_pred = {}
 
         self.input_label = [''] * input_dims
         self.output_label = ''
@@ -694,7 +552,7 @@ class Data:
         """
         return self.X.shape[1]
 
-    def get_obs(self):
+    def get_data(self):
         """
         Returns the observations.
 
@@ -702,9 +560,11 @@ class Data:
             ndarray: X data of shape (n,input_dims).
             ndarray: Y data of shape (n).
         """
-        return self.X[self.mask,:], self.Y[self.mask]
+        x = self.X[self.mask,:]
+        y = self.Y[self.mask]
+        return x, _detransform(self.transformations, x, y)
     
-    def get_all_obs(self):
+    def get_all(self):
         """
         Returns all observations (including removed observations).
 
@@ -712,9 +572,11 @@ class Data:
             ndarray: X data of shape (n,input_dims).
             ndarray: Y data of shape (n).
         """
-        return self.X, self.Y
+        x = self.X
+        y = self.Y
+        return x, _detransform(self.transformations, x, y)
 
-    def get_del_obs(self):
+    def get_deleted(self):
         """
         Returns the removed observations.
 
@@ -722,7 +584,9 @@ class Data:
             ndarray: X data of shape (n,input_dims).
             ndarray: Y data of shape (n).
         """
-        return self.X[~self.mask,:], self.Y[~self.mask]
+        x = self.X[~self.mask,:]
+        y = self.Y[~self.mask]
+        return x, _detransform(self.transformations, x, y)
 
     ################################################################
     
@@ -829,6 +693,20 @@ class Data:
             self.mask[idx] = False
     
     ################################################################
+    
+    def get_pred(self, name, sigma=2):
+        if name not in self.Y_mu_pred:
+            raise Exception("prediction name '%s' does not exist" % (name))
+
+        mu = self.Y_mu_pred[name]
+        lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
+        upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
+
+        mu = _detransform(self.transformations, self.X_pred, mu)
+        lower = _detransform(self.transformations, self.X_pred, lower)
+        upper = _detransform(self.transformations, self.X_pred, upper)
+
+        return self.X_pred, mu, lower, upper
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
         """
@@ -882,6 +760,7 @@ class Data:
             raise ValueError("start must be lower than end")
 
         # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
+        self.X_pred = np.array([])
         if step == None and n != None:
             self.X_pred = np.empty((n, self.get_input_dims()))
             for i in range(self.get_input_dims()):
@@ -909,7 +788,7 @@ class Data:
         if isinstance(x, list):
             x = np.array(x)
         elif not isinstance(x, np.ndarray):
-            raise ValueError("x expected to be a list or Numpy array")
+            raise ValueError("x expected to be a list or ndarray")
 
         x = x.astype(float)
 
@@ -1062,19 +941,18 @@ class Data:
         fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
         if title != None:
             fig.suptitle(title, fontsize=36)
-
-        plotting_pred = False
-        plotting_F = False
-        plotting_obs = False
-
-        if self.Y_mu_pred.size != 0:
-            lower = self.Y_mu_pred - self.Y_var_pred
-            upper = self.Y_mu_pred + self.Y_var_pred
-            axes[0,0].plot(self.X_pred[:,0], self.Y_mu_pred, 'b-', lw=3)
-            axes[0,0].fill_between(self.X_pred[:,0], lower, upper, color='b', alpha=0.1)
-            axes[0,0].plot(self.X_pred[:,0], lower, 'b-', lw=1, alpha=0.5)
-            axes[0,0].plot(self.X_pred[:,0], upper, 'b-', lw=1, alpha=0.5)
-            plotting_pred = True
+        
+        legend = []
+        colors = list(matplotlib.colors.TABLEAU_COLORS)
+        for i, name in enumerate(self.X_pred):
+            if self.Y_mu_pred[name].size != 0:
+                lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
+                upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
+                axes[0,0].plot(self.X_pred[name][:,0], self.Y_mu_pred[name], ls='-', color=colors[i], lw=3)
+                axes[0,0].fill_between(self.X_pred[name][:,0], lower, upper, color=colors[i], alpha=0.1)
+                axes[0,0].plot(self.X_pred[name][:,0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
+                axes[0,0].plot(self.X_pred[name][:,0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
+                legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=3, label='Prediction '+name))
 
         if self.F != None:
             n = len(self.X[:,0])*10
@@ -1086,14 +964,15 @@ class Data:
             y = self.F(x)
 
             axes[0,0].plot(x[:,0], y, 'r--', lw=1)
-            plotting_F = True
+            legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent function'))
 
         axes[0,0].plot(self.X[:,0], self.Y, 'k-')
+        legend.append(plt.Line2D([0], [0], ls='-', color='k', label='Data'))
 
         if self.has_removed_obs():
-            X, Y = self.get_obs()
+            X, Y = self.X[self.mask,:], self.Y[self.mask]
             axes[0,0].plot(X[:,0], Y, 'k.', mew=2, ms=8)
-            plotting_obs = True
+            legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))
 
         axes[0,0].set_xlabel(self.input_label[0])
         axes[0,0].set_ylabel(self.output_label)
@@ -1101,16 +980,7 @@ class Data:
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
         axes[0,0].xaxis.set_major_formatter(formatter)
 
-        # build legend
-        if plotting_F or plotting_obs:
-            legend = []
-            legend.append(plt.Line2D([0], [0], ls='-', color='k', label='Data'))
-            if plotting_F:
-                legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent function'))
-            if plotting_obs:
-                legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))
-            if plotting_pred:
-                legend.append(plt.Line2D([0], [0], ls='-', color='b', lw=3, label='Prediction'))
+        if 0 < len(legend):
             plt.legend(handles=legend, loc='best')
 
         if filename != None:
@@ -1213,3 +1083,51 @@ def _normalize_input_dims(x, input_dims):
         raise ValueError("input must be a scalar for single-dimension input or a list of values for each input dimension")
     return x
 
+def _detransform(transformations, x, y):
+    """
+    Apply inverse transformations to a set of values.
+
+    Used to apply inverse tranformations of a channel stored
+    in a Data class to a set.
+
+    Args:
+        transformations(list): List of transformations(objects) in order of aplication.
+        x(ndarray): Array of n_points x n_dim of inputs.
+        y(ndarray): Array of n_points outputs.
+    """
+    if len(transformations) > 0:
+        for t in transformations[::-1]:
+            y = t._backward(x, y)
+    return y
+    
+duration_regex = re.compile(
+    r'^((?P<years>[\.\d]+?)y)?'
+    r'((?P<months>[\.\d]+?)M)?'
+    r'((?P<weeks>[\.\d]+?)w)?'
+    r'((?P<days>[\.\d]+?)d)?'
+    r'((?P<hours>[\.\d]+?)h)?'
+    r'((?P<minutes>[\.\d]+?)m)?'
+    r'((?P<seconds>[\.\d]+?)s)?$')
+
+def _parse_duration_to_sec(s):
+    x = duration_regex.match(s)
+    if x == None:
+        raise ValueError('duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd')
+
+    sec = 0
+    matches = x.groups()[1::2]
+    if matches[0]:
+        sec += float(matches[0])*356.2425*24*3600
+    if matches[1]:
+        sec += float(matches[1])*30.4369*24*3600
+    if matches[2]:
+        sec += float(matches[2])*7*24*3600
+    if matches[3]:
+        sec += float(matches[3])*24*3600
+    if matches[4]:
+        sec += float(matches[4])*3600
+    if matches[5]:
+        sec += float(matches[5])*60
+    if matches[6]:
+        sec += float(matches[6])
+    return sec

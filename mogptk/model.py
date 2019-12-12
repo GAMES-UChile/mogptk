@@ -7,6 +7,7 @@ import gpflow
 import tensorflow as tf
 import pandas as pd
 from .data import _detransform
+from .dataset import DataSet
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -14,21 +15,56 @@ import matplotlib.colors as mcolors
 import logging
 logging.getLogger('tensorflow').propagate = False
 
+def LoadModel(filename):
+    """
+    Load a model from a given file that was previously saved (see the `model.save()` function).
+    """
+    if not filename.endswith(".mogptk"):
+        filename += ".mogptk"
+
+    graph = tf.Graph()
+    session = tf.Session(graph=graph)
+    with graph.as_default():
+        with session.as_default():
+            model = gpflow.saver.Saver().load(filename)
+            model_type = model.mogptk_type
+            name = model.mogptk_name
+            data = dill.loads(eval(model.mogptk_data))
+            Q = model.mogptk_Q
+            params = model.mogptk_params
+
+    if model_type == 'SM':
+        m = SM(data, Q, name)
+    elif model_type == 'MOSM':
+        m = MOSM(data, Q, name)
+    elif model_type == 'CG':
+        m = CG(data, Q, name)
+    elif model_type == 'CSM':
+        m = CSM(data, Q, name)
+    elif model_type == 'SM_LMC':
+        m = SM_LMC(data, Q, name)
+    else:
+        raise Exception("unknown model type '%s'" % (model_type))
+
+    m.model = model
+    m.params = params
+    m.graph = graph
+    m.session = session
+    m.build() # TODO: should not be necessary
+    return m
+
 class model:
-    def __init__(self, name, dataset, kernel, likelihood, variational, sparse, like_params):
+    def __init__(self, name, dataset):
         """
         Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
             
         Args:
             name (string): Name of the model.
             dataset (DataSet): DataSet with Data objects for all the channels.
-            kernel (gpflow.Kernel): Kernel to use.
-            likelihood (gpflow.Likelihood): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
-            sparse (bool): If True, will use sparse GP regression.
-            like_params (dict): Parameters to GPflow likelihood.
         """
-
+        
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
         if dataset.get_output_dims() == 0:
             raise Exception("dataset must have at least one channel")
         if len(set(dataset.get_names())) != len(dataset.get_names()):
@@ -37,11 +73,21 @@ class model:
             raise Exception("all data channels must have the same amount of input dimensions")
 
         self.name = name
-        self.dataset = dataset#.copy() # TODO: user has to do copy?
+        self.dataset = dataset
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
+    
+    def _build(self, kernel, likelihood, variational, sparse, like_params):
+        """
+        Args:
+            kernel (gpflow.Kernel): Kernel to use.
+            likelihood (gpflow.Likelihood): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
+            like_params (dict): Parameters to GPflow likelihood.
+        """
 
-        x, y = dataset.to_kernel()
+        x, y = self.dataset.to_kernel()
         with self.graph.as_default():
             with self.session.as_default():
                 # Gaussian likelihood
@@ -96,50 +142,23 @@ class model:
         df.index.name = 'Q'
         display(df)
 
-    def get_input_dims(self):
-        """
-        Returns the number of input dimensions of the data.
-        """
-        return self.data[0].get_input_dims()  # all channels have the same number of input dimensions
-
-    def get_output_dims(self):
-        """
-        Returns the number of output dimensions of the data, i.e. the number of channels.
-        """
-        return len(self.data)
-
-    def get_x_pred(self):
-        """
-        Returns the input used in the last prediction
-        """
-        return [channel.X_pred for channel in self.data]
-
     def get_params(self):
         """
         Returns all parameters set for the kernel per component.
         """
-        print(self.model.kern.kernels)
-        print(self.model.read_trainables())
-        print(self.model.kern.kernels)
-
-        kernels = [self.model.kern]
-        if hasattr(self.model.kern, 'kernels'):
-            kernels = self.model.kern.kernels
-        
         params = []
-        for i, kernel in enumerate(kernels):
-            param = {}
-            for key, val in kernel.__dict__.items():
-                if isinstance(val, gpflow.params.parameter.Parameter):
-                    param[key] = val
-            params.append(param)
+        if hasattr(self.model.kern, 'kernels'):
+            for kernel_i, kernel in enumerate(self.model.kern.kernels):
+                params.append({})
+                for param_name, param_val in kernel.__dict__.items():
+                    if isinstance(param_val, gpflow.params.parameter.Parameter):
+                        params[kernel_i][param_name] = param_val.read_value()
+        else:
+            params.append({})
+            for param_name, param_val in self.model.kern.__dict__.items():
+                if isinstance(param_val, gpflow.params.parameter.Parameter):
+                    params[0][param_name] = param_val.read_value()
         return params
-        
-    #def _get_param_across(self, name='mixture_means'):
-    #    """
-    #    Get all the name parameters across all components.
-    #    """
-    #    return np.array([self.params[q][name] for q in range(self.Q)])
 
     def set_param(self, q, key, val):
         """
@@ -151,8 +170,10 @@ class model:
             key (str): Name of component.
             val (float, ndarray): Value of parameter.
         """
-        if not isinstance(val, (int, float)):
-            raise Exception("value %s of type %s is not a number type" % (val, type(val)))
+        if isinstance(val, (int, float)):
+            val = np.array(val)
+        if not isinstance(val, np.ndarray):
+            raise Exception("value %s of type %s is not a number type or ndarray" % (val, type(val)))
 
         if hasattr(self.model.kern, 'kernels'):
             if q < 0 or len(self.model.kern.kernels) <= q:
@@ -166,11 +187,16 @@ class model:
         if key not in kern or not isinstance(kern[key], gpflow.params.parameter.Parameter):
             raise Exception("parameter name '%s' does not exist" % (key))
 
-        kern[key] = val
+        if kern[key].shape != val.shape:
+            raise Exception("parameter name '%s' must have shape %s and not %s" % (key, kern[key].shape, val.shape))
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                kern[key].assign(val)
 
     def fix_param(self, key):
         """
-        Make parameter untrainable (undo with `train_param`).
+        Make parameter untrainable (undo with `unfix_param`).
 
         Args:
             key (string): Name of the parameter.
@@ -185,7 +211,7 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.params.parameter.Parameter):
                     getattr(self.model.kern, param_name).trainable = False
 
-    def train_param(self, key):
+    def unfix_param(self, key):
         """
         Make parameter trainable (that was previously fixed, see `fix_param`).
 
@@ -277,15 +303,13 @@ class model:
                     opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
                     opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, disp=True, **params)
 
-                self._update_params(self.model.read_trainables())
-
         print("Done in ", (time.time() - start_time)/60, " minutes")
 
     ################################################################################
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self, x_pred=None):
+    def predict(self, pred_x=None, plot=False):
         """
         Predict with model.
 
@@ -302,54 +326,22 @@ class model:
 
         """
         # if user pass a prediction input
-        if x_pred is not None:
-            for i, x_channel in enumerate(x_pred):
-                self.data[i].set_pred(x_channel)
-
-        # check if there is some prediction seted
-        for channel in self.data:
-            if channel.X_pred.size == 0:
-                raise Exception('no prediction value set, use x_pred argument or set manually using data.set_pred().')
-
-        x = self._transform_data([channel.X_pred for channel in self.data])
+        if pred_x is not None:
+            self.dataset.set_pred(self.name, pred_x)
 
         # predict with model
+        x = self.dataset.to_kernel_pred()
+        if len(x) == 0:
+                raise Exception('no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()')
         with self.graph.as_default():
             with self.session.as_default():
                 mu, var = self.model.predict_f(x)
+        self.dataset.from_kernel_pred(self.name, mu, var)
+        
+        if plot:
+            self.plot_prediction()
 
-        # reshape for channels
-        i = 0
-        for channel in self.data:
-            n = channel.X_pred.shape[0]
-            if n != 0:
-                channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
-                channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
-                i += n
-
-        # inverse transformations
-        Y_mu_predicted = []
-        Y_upper_ci_predicted = []
-        Y_lower_ci_predicted = []
-
-        for channel in self.data:
-            # detransform mean
-            y_pred_detrans = _detransform(channel.transformations, channel.X_pred, channel.Y_mu_pred)
-            Y_mu_predicted.append(y_pred_detrans)
-            
-            # upper confidence interval
-            u_ci = channel.Y_mu_pred + 2 * np.sqrt(channel.Y_var_pred)
-            u_ci = _detransform(channel.transformations, channel.X_pred, u_ci)
-            Y_upper_ci_predicted.append(u_ci)
-
-            # lower confidence interval
-            l_ci = channel.Y_mu_pred - 2 * np.sqrt(channel.Y_var_pred)
-            l_ci = _detransform(channel.transformations, channel.X_pred, l_ci)
-            Y_lower_ci_predicted.append(l_ci)
-
-        return Y_mu_predicted, Y_lower_ci_predicted, Y_upper_ci_predicted
-
-
+        #return self.dataset.get_pred(self.name)
 
     def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title='', ret_fig=False):
 
@@ -370,88 +362,72 @@ class model:
         TODO: Add case for single output SM kernel.
         """
         # get data
-        x_train = [c.X[c.mask] for c in self.data]
-        y_train = [_detransform(c.transformations, c.X[c.mask], c.Y[c.mask]) for c in self.data]
-        x_all = [c.X for c in self.data]
-        y_all = [_detransform(c.transformations, c.X, c.Y) for c in self.data]
-        x_pred = [c.X for c in self.data]
+        x_train, y_train = self.dataset.get_data()
+        x_all, y_all = self.dataset.get_all()
+        x_pred, mu, lower, upper = self.dataset.get_pred(self.name)
 
-        n_dim = self.get_output_dims()
-
+        n_dim = self.dataset.get_output_dims()
         if n_dim == 1:
             grid = (1, 1)
         elif grid is None:
             grid = (int(np.ceil(n_dim/2)), 2)
 
         if (grid[0] * grid[1]) < n_dim:
-            raise Exception('Grid not big enough for all channels')
+            raise Exception('grid not big enough for all channels')
 
-        # predict with model
-        mean_pred, lower_ci, upper_ci = self.predict(x_pred)
+        fig, axes = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
+        axes = np.array(axes).reshape(-1)
 
-        # create plot
-        f, axarr = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
-
-        if not isinstance(axarr, np.ndarray):
-            axarr = np.array([axarr])
-
-        axarr = axarr.reshape(-1)
-
-        color_palette = mcolors.TABLEAU_COLORS
-        color_names = list(mcolors.TABLEAU_COLORS)
-
-        # plot
+        colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i in range(n_dim):
-            color = color_palette[color_names[i]]
-
-            axarr[i].plot(x_train[i][:, 0], y_train[i], '.k', label='Train', ms=5)
-            axarr[i].plot(x_all[i][:, 0], y_all[i], '--', label='Test', c='gray',lw=1.4, zorder=5)
+            axes[i].plot(x_train[i, :, 0], y_train[i], '.k', label='Train', ms=5)
+            axes[i].plot(x_all[i, :, 0], y_all[i], '--', label='Test', c='gray',lw=1.4, zorder=5)
             
-            axarr[i].plot(x_pred[i][:, 0], mean_pred[i], label='Post.Mean', c=color, zorder=1)
-            axarr[i].fill_between(x_pred[i][:, 0].reshape(-1),
-                                  lower_ci[i],
-                                  upper_ci[i],
-                                  label='95% c.i',
-                                  color=color,
-                                  alpha=0.4)
+            axes[i].plot(x_pred[i, :, 0], mu[i], label='Post.Mean', c=colors[i], zorder=1)
+            axes[i].fill_between(x_pred[i, :, 0].reshape(-1),
+                lower[i],
+                upper[i],
+                label='95% c.i',
+                color=colors[i],
+                alpha=0.4)
             
             # axarr[i].legend(ncol=4, loc='upper center', fontsize=8)
 
             # axarr[i].locator_params(tight=True, nbins=6)
-            axarr[i].xaxis.set_major_locator(plt.MaxNLocator(6))
+            axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
-            formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.data[i].formatters[0]._format(x))
-            axarr[i].xaxis.set_major_formatter(formatter)
+            formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0]._format(x))
+            axes[i].xaxis.set_major_formatter(formatter)
 
             # set channels name
             if names is not None:
-                axarr[i].set_title(names[i])
+                axes[i].set_title(names[i])
             else:
-                channel_name = self.data[i].name
+                channel_name = self.dataset.get_names()[i]
                 if channel_name != '':
-                    axarr[i].set_title(channel_name)
+                    axes[i].set_title(channel_name)
                 elif n_dim == 1:
                     pass
                 else:
-                    axarr[i].set_title('Channel ' + str(i))
+                    axes[i].set_title('Channel ' + str(i))
 
             # set y lims
             if ylims is not None:
-                axarr[i].set_ylim(ylims[i]) 
+                axes[i].set_ylim(ylims[i]) 
             
         plt.suptitle(title, y=1.02)
         plt.tight_layout()
 
         data_dict = {
-        'x_train':x_train,
-        'y_train':y_train,
-        'x_all':x_all,
-        'y_all':y_all,
-        'y_pred':mean_pred,
-        'low_ci':lower_ci,
-        'hi_ci':upper_ci,
+            'x_train':x_train,
+            'y_train':y_train,
+            'x_all':x_all,
+            'y_all':y_all,
+            'y_pred':mu,
+            'low_ci':lower,
+            'hi_ci':upper,
         }
 
         if ret_fig:
-            return f, axarr, data_dict
+            return fig, axes, data_dict
 
