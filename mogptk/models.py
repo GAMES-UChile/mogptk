@@ -143,6 +143,35 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=Fa
 class SM(model):
     """
     Single output GP with Spectral mixture kernel.
+
+    A Gaussian process regression using Spectral mixture kernel [1]
+
+    Args:
+        data (list of mogptk.Data): List of channels, each element should be
+            a mogptk.Data object.
+        Q (int): Number of components.
+        name (str): Name of the model.
+
+    Atributes:
+        data (list of mogptk.Data): List of channels, each element is 
+            a mogptk.Data object.
+        params (dict): Dictionary of lenght Q with kernel parameters,
+            the elements are dicts with parameters of each components.
+    ----------
+    Examples:
+    >>> import numpy as np
+    >>> t = np.linspace(0, 10, 100)
+    >>> y = np.sin(0.5 * t)
+    >>> import mogptk
+    >>> data = mogptk.Data(t, y)
+    >>> model = mogptk.SM([data], Q=1)
+    >>> model.build()
+    >>> model.train()
+    >>> model.predict([np.linspace(1, 15, 150)])
+
+    References:
+    [1] A. Wilson and R. Adams, “Gaussian process kernels for pattern discovery and extrapolation,”
+    in International Conference on Machine Learning, 2013.
     """
     def __init__(self, data, Q=1, name="SM"):
         model.__init__(self, name, data, Q)
@@ -284,10 +313,42 @@ class SM(model):
 
 class MOSM(model):
     """
-    Multi Output Spectral Mixture kernel as proposed by our paper.
+    MOGP with Multi Output Spectral Mixture kernel, as proposed in [1].
 
-    It takes a number of components Q and allows for recommended initial
-    parameter estimation to improve optimization outputs.
+    Args:
+        data (list of mogptk.Data): List of channels, each element should be
+            a mogptk.Data object.
+        Q (int): Number of components.
+        name (str): Name of the model.
+        prior (gpflow.prior): Prior on the magnitudes.
+
+    Atributes:
+        data (list of mogptk.Data): List of channels, each element is 
+            a mogptk.Data object.
+        Q (int): Number of components.
+        params (dict): Dictionary of lenght Q + 1 with kernel parameters,
+            the first Q elements are dicts with parameters of each componentes,
+            the last element is the noise variance.
+        prior (gpflow.prior): Prior on the magnitudes.
+
+    ----------
+    Examples:
+    >>> import numpy as np
+    >>> t = np.linspace(0, 10, 100)
+    >>> y1 = np.sin(0.5 * t)
+    >>> y2 = 2 * np.sin(0.2 * t)
+    >>> import mogptk
+    >>> data_list = []
+    >>> mogptk.data_list.append(mogptk.Data(t, y1))
+    >>> mogptk.data_list.append(mogptk.Data(t, y2))
+    >>> model = mogptk.MOSM(data_list, Q=2)
+    >>> model.build()
+    >>> model.train()
+    >>> model.plot_prediction()
+
+    References:
+    [1] G. Parra and F. Tobar, “Spectral mixture kernels for multioutput Gaussian processes,”
+    Advances in Neural Information Processing Systems, 2017.
     """
     def __init__(self, data, Q=1, name="MOSM", prior=None):
         model.__init__(self, name, data, Q)
@@ -310,6 +371,7 @@ class MOSM(model):
     def init_means(self):
         """
         (DEPRECATED)
+
         Initialize spectral means using BNSE[1]
 
         """
@@ -509,10 +571,8 @@ class MOSM(model):
         color_range = np.abs(corr_coef_matrix).max()
         norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
         im = ax.matshow(corr_coef_matrix, cmap='coolwarm', norm=norm)
-        # fig.colorbar(im,  boundaries=np.linspace(np.round(corr_coef_matrix.min(), 1), np.round(corr_coef_matrix.max(), 1), 7))
         fig.colorbar(im)
         for (i, j), z in np.ndenumerate(corr_coef_matrix):
-#             ax.text(j, i, '{:0.1f}'.format(z), ha='center', va='center')
             ax.text(j, i, '{:0.1f}'.format(z), ha='center', va='center', 
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.5, edgecolor='0.9'),
                 fontsize=figsize)
@@ -602,7 +662,41 @@ class MOSM(model):
 
 class CSM(model):
     """
-    Cross Spectral Mixture kernel with Q components and Rq latent functions.
+    Cross Spectral Mixture kernel [1] with Q components and Rq latent functions.
+
+    Args:
+        data (list of mogptk.Data): List of channels, each element should be
+            a mogptk.Data object.
+        Q (int): Number of components.
+        Rq (int): Sub components por components.
+        name (str): Name of the model.
+
+    Atributes:
+        data (list of mogptk.Data): List of channels, each element is 
+            a mogptk.Data object.
+        Q (int): Number of components.
+        params (dict): Dictionary of lenght Q + 1 with kernel parameters,
+            the first Q elements are dicts with parameters of each componentes,
+            the last element is the noise variance.
+
+    ----------
+    Examples:
+    >>> import numpy as np
+    >>> t = np.linspace(0, 10, 100)
+    >>> y1 = np.sin(0.5 * t)
+    >>> y2 = 2 * np.sin(0.2 * t)
+    >>> import mogptk
+    >>> data_list = []
+    >>> mogptk.data_list.append(mogptk.Data(t, y1))
+    >>> mogptk.data_list.append(mogptk.Data(t, y2))
+    >>> model = mogptk.CSM(data_list, Q=2)
+    >>> model.build()
+    >>> model.train()
+    >>> model.plot_prediction()
+
+    References:
+    [1] Ulrich et al, “GP kernels for cross-spectrum analysis”,
+    Advances in neural information processing systems, 2015.
     """
     def __init__(self, data, Q=1, Rq=1, name="CSM"):
         model.__init__(self, name, data, Q)
@@ -733,7 +827,37 @@ class CSM(model):
 
 class SM_LMC(model):
     """
-    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
+    Spectral Mixture - Linear Model of Coregionalization kernel
+    with Q components and Rq latent functions.
+
+    Args:
+        data (list of mogptk.Data): List of channels, each element should be
+            a mogptk.Data object.
+        Q (int): Number of components.
+        Rq (int): Sub components por components.
+        name (str): Name of the model.
+
+    Atributes:
+        data (list of mogptk.Data): List of channels, each element is 
+            a mogptk.Data object.
+        params (dict): Dictionary of lenght Q + 1 with kernel parameters,
+            the first Q elements are dicts with parameters of each componentes,
+            the last element is the noise variance.
+
+    ----------
+    Examples:
+    >>> import numpy as np
+    >>> t = np.linspace(0, 10, 100)
+    >>> y1 = np.sin(0.5 * t)
+    >>> y2 = 2 * np.sin(0.2 * t)
+    >>> import mogptk
+    >>> data_list = []
+    >>> mogptk.data_list.append(mogptk.Data(t, y1))
+    >>> mogptk.data_list.append(mogptk.Data(t, y2))
+    >>> model = mogptk.SM_LMC(data_list, Q=2)
+    >>> model.build()
+    >>> model.train()
+    >>> model.plot_prediction()
     """
     def __init__(self, data, Q=1, Rq=1, name="SM-LMC"):
         model.__init__(self, name, data, Q)
@@ -862,7 +986,39 @@ class SM_LMC(model):
 
 class CG(model):
     """
-    CG is the Convolutional Gaussian kernel with Q components.
+    CG is the Convolutional Gaussian kernel with Q components [1].
+
+    Args:
+        data (list of mogptk.Data): List of channels, each element should be
+            a mogptk.Data object.
+        Q (int): Number of components.
+        name (str): Name of the model.
+
+    Atributes:
+        data (list of mogptk.Data): List of channels, each element is 
+            a mogptk.Data object.
+        Q (int): Number of components.
+        params (dict): Dictionary of lenght Q + 1 with kernel parameters,
+            the first Q elements are dicts with parameters of each components,
+            the last element is the noise variance.
+
+    ----------
+    Examples:
+    >>> import numpy as np
+    >>> t = np.linspace(0, 10, 100)
+    >>> y1 = np.sin(0.5 * t)
+    >>> y2 = 2 * np.sin(0.2 * t)
+    >>> import mogptk
+    >>> data_list = []
+    >>> mogptk.data_list.append(mogptk.Data(t, y1))
+    >>> mogptk.data_list.append(mogptk.Data(t, y2))
+    >>> model = mogptk.CG(data_list, Q=2)
+    >>> model.build()
+    >>> model.train()
+    >>> model.plot_prediction()
+
+    References:
+    [1] M. M. Alvarez and N. Lawrence, "Sparse convolved multiple output gaussian processes", 2009.
     """
     def __init__(self, data, Q=1, name="CG"):
         model.__init__(self, name, data, Q)
