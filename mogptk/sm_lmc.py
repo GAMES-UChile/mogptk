@@ -6,7 +6,7 @@ class SM_LMC(model):
     Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
         
     Args:
-        dataset (DataSet): DataSet object of data for all channels.
+        dataset (mogptk.DataSet): DataSet object of data for all channels.
         Q (int): Number of components to use.
         Rq (int): Number of subcomponents to use.
         name (string): Name of the model.
@@ -18,21 +18,25 @@ class SM_LMC(model):
     def __init__(self, dataset, Q=1, Rq=1, name="SM-LMC", likelihood=None, variational=False, sparse=False, like_params={}):
         if Rq != 1:
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
+
+        model.__init__(self, name, dataset)
+        self.Q = Q
         self.Rq = Rq
 
-        for q in range(self.Q):
-            kernel = SpectralMixtureLMC(
-                self.get_input_dims(),
-                self.get_output_dims(),
-                self.Rq,
-            )
-            if q == 0:
-                kernel_set = kernel
-            else:
-                kernel_set += kernel
-        kernel_set += Noise(self.get_input_dims(), self.get_output_dims())
-
-        model.__init__(self, name, dataset, kernel_set, likelihood, variational, sparse, like_params)
+        with self.graph.as_default():
+            with self.session.as_default():
+                for q in range(self.Q):
+                    kernel = SpectralMixtureLMC(
+                        self.dataset.get_input_dims()[0],
+                        self.dataset.get_output_dims(),
+                        self.Rq,
+                    )
+                    if q == 0:
+                        kernel_set = kernel
+                    else:
+                        kernel_set += kernel
+                kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
+                self._build(kernel_set, likelihood, variational, sparse, like_params)
     
     def estimate_params(self, method='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
@@ -56,65 +60,31 @@ class SM_LMC(model):
             plt (bool): Show the PSD of the kernel after fitting SM kernels.
                 Only valid in 'SM' mode. Default to false.
         """
-        # data = self.data.copy()
-        # data.normalize()
         
-        self.params[self.Q]['noise'] = _estimate_noise_var(self.data)
-        
-        if method=='BNSE':
-            means = np.zeros((self.get_input_dims(), self.Q))
-            variances = np.zeros((self.get_input_dims(), self.Q))
-
-            for channel in range(self.get_output_dims()):
-                single_amp, single_mean, single_var = self.data[channel].get_bnse_estimation(self.Q)
-
-                means += single_mean
-                variances += single_var
-
-                for q in range(self.Q):
-                    self.params[q]["constant"][:, channel] = single_amp[:, q].mean()
-
-            # get mean across channels
-            means *= 1 / self.get_output_dims()
-            variances *= 1 / self.get_output_dims()
-
+        if method == 'BNSE':
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
             for q in range(self.Q):
-                self.params[q]["mean"] = means[:, q] * 2 * np.pi
-                self.params[q]["scale"] = variances[:, q] * 2
+                constant = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
+                for channel in range(len(self.dataset)):
+                    constant[:, channel] = amplitudes[channel, :, q].mean()
+            
+                constant = np.sqrt(constant / constant.mean())
+                mean = means[:, :, q].mean(axis=0)
+                variance = variances[:, :, q].mean(axis=0)
 
-                # normalize across channels
-                self.params[q]["constant"] = np.sqrt(self.params[q]["constant"] / self.params[q]["constant"].mean())
-        elif method=='SM':
-            # all_params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
-
-            # input_dims = self.get_input_dims()
-            # output_dims = self.get_output_dims()
-            # params = {
-            #     'weight': np.zeros((self.Q*output_dims)),
-            #     'mean': np.zeros((self.Q*output_dims, input_dims)),
-            #     'scale': np.zeros((self.Q*output_dims, input_dims)),
-            # }
-            # for channel in range(output_dims):
-            #     for q in range(self.Q):
-            #         weight = np.average(all_params[q]['weight'][:,channel])
-            #         if weight != 0.0:
-            #             weight /= np.sum(all_params[q]['weight'])
-            #         mean = all_params[q]['mean'][:,channel].reshape(1, -1)
-            #         scale = all_params[q]['scale'][:,channel].reshape(1, -1)
-            #         params['weight'][channel*q+q] = weight
-            #         params['mean'][channel*q+q,:] = mean
-            #         params['scale'][channel*q+q,:] = scale
-
-            # indices = np.argsort(params['weight'])[::-1]
-            # for q in range(self.Q):
-            #     if q < len(indices):
-            #         i = indices[q]
-            #         self.params[q]['mean'] = params['mean'][i]
-            #         self.params[q]['variance'] = params['scale'][i] * 2
-            params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+                self.set_param(q, 'constant', constant)
+                self.set_param(q, 'mean', mean * 2 * np.pi)
+                self.set_param(q, 'scale', variance * 2)
+        elif method == 'SM':
+            params = _estimate_from_sm(self.dataset, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
-                self.params[q]["constant"] = params[q]['weight'].mean(axis=0).reshape(self.Rq, -1)
-                self.params[q]["mean"] = params[q]['mean'].mean(axis=1)
-                self.params[q]["variance"] = params[q]['scale'].mean(axis=1) * 2
+                self.set_param(q, 'constant', params[q]['weight'].mean(axis=0).reshape(self.Rq, -1))
+                self.set_param(q, 'mean', params[q]['mean'].mean(axis=1))
+                self.set_param(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
         else:
             raise Exception("possible modes are either 'BNSE' or 'SM'")
+
+        noise = np.empty((self.dataset.get_output_dims()))
+        for i, channel in enumerate(self.dataset):
+            noise[i] = (channel.Y).var() / 30
+        self.set_param(self.Q, 'noise', noise)

@@ -1,4 +1,5 @@
 from .model import *
+from .sm import *
 from .mosm import *
 from .csm import *
 from .sm_lmc import *

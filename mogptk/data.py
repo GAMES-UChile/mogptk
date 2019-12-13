@@ -8,8 +8,6 @@ import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
 import re
-import pandas as pd
-from sklearn.linear_model import Ridge
 
 class FormatNumber:
     """

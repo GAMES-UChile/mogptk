@@ -1,13 +1,12 @@
 from .model import model
 from .kernels import SpectralMixture, sm_init, Noise
 
-def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=False, fix_means=False):
+def _estimate_from_sm(dataset, Q, init='BNSE', method='BFGS', maxiter=2000, plot=False, fix_means=False):
     """
     Estimate kernel param with single ouput GP-SM
 
     Args:
-        data (obj; mogptk.Data): Data class instance.
-
+        dataset (mogptk.DataSet): Data class instance.
         Q (int): Number of components.
         init (str): Method to initialize, 'BNSE', 'LS' or 'Random'
         method (str): Optimization method, either 'Adam' or any
@@ -19,8 +18,8 @@ def _estimate_from_sm(data, Q, init='BNSE', method='BFGS', maxiter=2000, plot=Fa
     returns: 
         params[q][name][output dim][input dim]
     """
-    input_dims = data[0].get_input_dims()
-    output_dims = len(data)
+    input_dims = dataset.get_input_dims()[0]
+    output_dims = dataset.get_output_dims()
 
     params = []
     for q in range(Q):
@@ -66,7 +65,7 @@ class SM(model):
     Single output GP with Spectral mixture kernel.
         
     Args:
-        data (Data,list of Data): Data object or list of Data objects for each channel. Only one channel allowed for SM.
+        data (mogptk.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
         Q (int): Number of components to use.
         name (string): Name of the model.
         likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
@@ -74,7 +73,7 @@ class SM(model):
         sparse (bool): If True, will use sparse GP regression. Defaults to False.
         like_params (dict): Parameters to GPflow likelihood.
     """
-    def __init__(self, data, Q=1, name="SM", likelihood=None, variational=False, sparse=False, like_params={}):
+    def __init__(self, dataset, Q=1, name="SM", likelihood=None, variational=False, sparse=False, like_params={}):
         input_dims = self.get_input_dims()
         output_dims = self.get_output_dims()
         if output_dims != 1:

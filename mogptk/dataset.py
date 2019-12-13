@@ -31,6 +31,9 @@ class DataSet:
     def __len__(self):
         return len(self.channels)
 
+    def __getitem__(self, key):
+        return self.channels[key]
+
     def get_input_dims(self):
         """
         Return the input dimensions per channel.
@@ -176,7 +179,6 @@ class DataSet:
             return x
 
         y = np.concatenate(y).reshape(-1, 1)
-        print(x.shape, y.shape)
         return x, y
 
     def to_kernel_pred(self):

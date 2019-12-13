@@ -1,6 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.pyplot as plt
 from scipy.stats import norm
 from .data import _detransform
 

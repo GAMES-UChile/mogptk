@@ -6,7 +6,7 @@ class CONV(model):
     CONV is the Convolutional Gaussian kernel with Q components.
         
     Args:
-        dataset (DataSet): DataSet object of data for all channels.
+        dataset (mogptk.DataSet): DataSet object of data for all channels.
         Q (int): Number of components to use.
         Rq (int): Number of subcomponents to use.
         name (string): Name of the model.
@@ -16,17 +16,22 @@ class CONV(model):
         like_params (dict): Parameters to GPflow likelihood.
     """
     def __init__(self, dataset, Q=1, name="CG", likelihood=None, variational=False, sparse=False, like_params={}):
-        for q in range(self.Q):
-            kernel = ConvolutionalGaussianOLD(
-                self.get_input_dims(),
-                self.get_output_dims(),
-            )
-            if q == 0:
-                kernel_set = kernel
-            else:
-                kernel_set += kernel
-        kernel_set += Noise(self.get_input_dims(), self.get_output_dims())
-        model.__init__(self, name, dataset, kernel_set, likelihood, variational, sparse, like_params)
+        model.__init__(self, name, dataset)
+        self.Q = Q
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                for q in range(self.Q):
+                    kernel = ConvolutionalGaussian(
+                        self.dataset.get_input_dims()[0],
+                        self.dataset.get_output_dims(),
+                    )
+                    if q == 0:
+                        kernel_set = kernel
+                    else:
+                        kernel_set += kernel
+                kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
+                self._build(kernel_set, likelihood, variational, sparse, like_params)
 
     def estimate_params(self, sm_init='random', sm_method='BFGS', sm_maxiter=2000, plot=False):
         """
@@ -45,7 +50,7 @@ class CONV(model):
             plt (bool): Show the PSD of the kernel after fitting SM kernels.
                 Default to false.
         """
-        params = _estimate_from_sm(self.data,
+        params = _estimate_from_sm(self.dataset,
             self.Q,
             init=sm_init,
             method=sm_method,
@@ -54,11 +59,11 @@ class CONV(model):
             fix_means=True)
 
         for q in range(self.Q):
-            self.params[q]["variance"] = params[q]['scale']
-            self.params[q]["constant"] = params[q]['weight'].mean(axis=0)
+            self.set_param(q, 'constant', params[q]['weight'].mean(axis=0) / params[q]['weight'].mean())
+            self.set_param(q, 'variance', params[q]['scale'])
 
-            self.params[q]["constant"] = self.params[q]["constant"] / self.params[q]["constant"].mean()
-
-        # noise init
-        self.params[self.Q]['noise'] = _estimate_noise_var(self.data)
+        noise = np.empty((self.dataset.get_output_dims()))
+        for i, channel in enumerate(self.dataset):
+            noise[i] = (channel.Y).var() / 30
+        self.set_param(self.Q, 'noise', noise)
     

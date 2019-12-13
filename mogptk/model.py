@@ -2,15 +2,12 @@ import os
 import json
 import time
 import numpy as np
-from pprint import pprint
 import gpflow
 import tensorflow as tf
 import pandas as pd
-from .data import _detransform
 from .dataset import DataSet
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 
 import logging
 logging.getLogger('tensorflow').propagate = False

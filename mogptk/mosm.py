@@ -1,6 +1,7 @@
 import numpy as np
 from .model import model
 from .dataset import DataSet
+from .sm import _estimate_from_sm
 from .kernels import MultiOutputSpectralMixture, Noise
 from .plot import plot_spectrum
 
@@ -33,9 +34,9 @@ class MOSM(model):
                     else:
                         kernel_set += kernel
                 kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
-                model._build(self, kernel_set, likelihood, variational, sparse, like_params)
+                self._build(kernel_set, likelihood, variational, sparse, like_params)
 
-    def estimate_params(self, mode='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=3000, plot=False):
+    def estimate_params(self, method='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=3000, plot=False):
         """
         Estimate kernel parameters.
 
@@ -50,7 +51,7 @@ class MOSM(model):
         of each channel.
 
         Args:
-            mode (str): Method of initializing, possible values are 'BNSE' and SM.
+            method (str): Method of initializing, possible values are 'BNSE' and SM.
             sm_init (str): Method of initializing SM kernels. Only valid in 'SM' mode.
             sm_method (str): Optimization method for SM kernels. Only valid in 'SM' mode.
             sm_maxiter (str): Maximum iteration for SM kernels. Only valid in 'SM' mode.
@@ -58,7 +59,7 @@ class MOSM(model):
                 Only valid in 'SM' mode. Default to false.
         """
 
-        if mode=='BNSE':
+        if method == 'BNSE':
             amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
             for q in range(self.Q):
                 magnitude = np.empty((self.dataset.get_output_dims()))
@@ -76,23 +77,14 @@ class MOSM(model):
                 self.set_param(q, 'mean', mean)
                 self.set_param(q, 'variance', variance)
 
-        elif mode=='SM':
-            params = _estimate_from_sm(
-                self.data,
-                self.Q,
-                init=sm_init,
-                method=sm_method,
-                maxiter=sm_maxiter,
-                plot=plot)
-
+        elif method == 'SM':
+            params = _estimate_from_sm(self.dataset, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
-                self.params[q]["magnitude"] = params[q]['weight'].mean(axis=0)
-                self.params[q]["mean"] = params[q]['mean']
-                self.params[q]["variance"] = params[q]['scale'] * 2
-
-                self.params[q]["magnitude"] = np.sqrt(self.params[q]["magnitude"] / self.params[q]["magnitude"].mean())
+                self.set_param(q, 'magnitude', params[q]['weight'].mean(axis=0) / params[q]['weight'].mean())
+                self.set_param(q, 'mean', params[q]['mean'])
+                self.set_param(q, 'variance', params[q]['scale'] * 2)
         else:
-            raise Exception("possible modes are either 'BNSE' or 'SM'")
+            raise Exception("possible methods are either 'BNSE' or 'SM'")
 
         noise = np.empty((self.dataset.get_output_dims()))
         for i, channel in enumerate(self.dataset):

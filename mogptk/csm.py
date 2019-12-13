@@ -1,3 +1,4 @@
+import numpy as np
 from .model import model
 from .kernels import CrossSpectralMixture, Noise
 
@@ -6,7 +7,7 @@ class CSM(model):
     Cross Spectral Mixture kernel with Q components and Rq latent functions.
         
     Args:
-        dataset (DataSet): DataSet object of data for all channels.
+        dataset (mogptk.DataSet): DataSet object of data for all channels.
         Q (int): Number of components to use.
         Rq (int): Number of subcomponents to use.
         name (string): Name of the model.
@@ -18,21 +19,25 @@ class CSM(model):
     def __init__(self, dataset, Q=1, Rq=1, name="CSM", likelihood=None, variational=False, sparse=False, like_params={}):
         if Rq != 1:
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
+
+        model.__init__(self, name, dataset)
+        self.Q = Q
         self.Rq = Rq
 
-        for q in range(self.Q):
-            kernel = CrossSpectralMixture(
-                self.get_input_dims(),
-                self.get_output_dims(),
-                self.Rq,
-            )
-            if q == 0:
-                kernel_set = kernel
-            else:
-                kernel_set += kernel
-        kernel_set += Noise(self.get_input_dims(), self.get_output_dims())
-
-        model.__init__(self, name, dataset, kernel_set, likelihood, variational, sparse, like_params)
+        with self.graph.as_default():
+            with self.session.as_default():
+                for q in range(self.Q):
+                    kernel = CrossSpectralMixture(
+                        self.dataset.get_input_dims()[0],
+                        self.dataset.get_output_dims(),
+                        self.Rq,
+                    )
+                    if q == 0:
+                        kernel_set = kernel
+                    else:
+                        kernel_set += kernel
+                kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
+                self._build(kernel_set, likelihood, variational, sparse, like_params)
     
     def estimate_params(self, method='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=3000, plot=False):
         """
@@ -57,62 +62,25 @@ class CSM(model):
                 Only valid in 'SM' mode. Default to false.
         """
 
-        # data = self.data.copy()
-        # data.normalize()
         if method == 'BNSE':
-
-            means = np.zeros((self.get_input_dims(), self.Q))
-            variances = np.zeros((self.get_input_dims(), self.Q))
-
-            for channel in range(self.get_output_dims()):
-                single_amp, single_mean, single_var = self.data[channel].get_bnse_estimation(self.Q)
-                means += single_mean
-                variances += single_var
-
-                for q in range(self.Q):
-                    self.params[q]["constant"][:, channel] = single_amp[:, q].mean()
-
-            # get mean across channels
-            means *= 1 / self.get_output_dims()
-            variances *= 1 / self.get_output_dims()
-
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
             for q in range(self.Q):
-                self.params[q]["mean"] = means[:, q] * 2 * np.pi
-                self.params[q]["variance"] = variances[:, q] * 5
-
-                # normalize across channels
-                self.params[q]["constant"] = self.params[q]["constant"] / self.params[q]["constant"].max()
-        elif method == 'SM':
-            # all_params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+                constant = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
+                for channel in range(len(self.dataset)):
+                    constant[:, channel] = amplitudes[channel, :, q].mean()
             
-            # input_dims = self.get_input_dims()
-            # output_dims = self.get_output_dims()
-            # params = {
-            #     'weight': np.zeros((self.Q*output_dims)),
-            #     'mean': np.zeros((self.Q*output_dims, input_dims)),
-            #     'scale': np.zeros((self.Q*output_dims, input_dims)),
-            # }
-            # for channel in range(output_dims):
-            #     for q in range(self.Q):
-            #         weight = np.average(all_params[q]['weight'][:,channel])
-            #         if weight != 0.0:
-            #             weight /= np.sum(all_params[q]['weight'])
-            #         mean = all_params[q]['mean'][:,channel].reshape(1, -1)
-            #         scale = all_params[q]['scale'][:,channel].reshape(1, -1)
-            #         params['weight'][channel*q+q] = weight
-            #         params['mean'][channel*q+q,:] = mean
-            #         params['scale'][channel*q+q,:] = scale
+                constant = constant / constant.max()
+                mean = means[:, :, q].mean(axis=0)
+                variance = variances[:, :, q].mean(axis=0)
 
-            # indices = np.argsort(params['weight'])[::-1]
-            # for q in range(self.Q):
-            #     if q < len(indices):
-            #         i = indices[q]
-            #         self.params[q]['mean'] = params['mean'][i]
-            #         self.params[q]['variance'] = params['scale'][i] * 2
-            params = _estimate_from_sm(self.data, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+                self.set_param(q, 'constant', constant)
+                self.set_param(q, 'mean', mean * 2 * np.pi)
+                self.set_param(q, 'variance', variance * 5)
+        elif method == 'SM':
+            params = _estimate_from_sm(self.dataset, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
-                self.params[q]["constant"] = params[q]['weight'].mean(axis=0).reshape(self.Rq, -1)
-                self.params[q]["mean"] = params[q]['mean'].mean(axis=1)
-                self.params[q]["variance"] = params[q]['scale'].mean(axis=1) * 2
+                self.set_param(q, 'constant', params[q]['weight'].mean(axis=0).reshape(self.Rq, -1))
+                self.set_param(q, 'mean', params[q]['mean'].mean(axis=1))
+                self.set_param(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
         else:
             raise Exception("possible modes are either 'BNSE' or 'SM'")
