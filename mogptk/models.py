@@ -289,7 +289,7 @@ class MOSM(model):
     It takes a number of components Q and allows for recommended initial
     parameter estimation to improve optimization outputs.
     """
-    def __init__(self, data, Q=1, name="MOSM"):
+    def __init__(self, data, Q=1, name="MOSM", prior=None):
         model.__init__(self, name, data, Q)
 
         input_dims = self.get_input_dims()
@@ -305,6 +305,7 @@ class MOSM(model):
         self.params.append({
             "noise": np.random.random((output_dims)),
         })
+        self.prior = prior
 
     def init_means(self):
         """
@@ -590,6 +591,7 @@ class MOSM(model):
                 self.params[q]["variance"],
                 self.params[q]["delay"],
                 self.params[q]["phase"],
+                magnitude_prior=self.prior,
             )
             if q == 0:
                 kernel_set = kernel
