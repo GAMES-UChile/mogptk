@@ -1,6 +1,6 @@
 import os
+import json
 import time
-import dill
 import numpy as np
 from pprint import pprint
 import gpflow
@@ -14,44 +14,6 @@ import matplotlib.colors as mcolors
 
 import logging
 logging.getLogger('tensorflow').propagate = False
-
-def LoadModel(filename):
-    """
-    Load a model from a given file that was previously saved (see the `model.save()` function).
-    """
-    if not filename.endswith(".mogptk"):
-        filename += ".mogptk"
-
-    graph = tf.Graph()
-    session = tf.Session(graph=graph)
-    with graph.as_default():
-        with session.as_default():
-            model = gpflow.saver.Saver().load(filename)
-            model_type = model.mogptk_type
-            name = model.mogptk_name
-            data = dill.loads(eval(model.mogptk_data))
-            Q = model.mogptk_Q
-            params = model.mogptk_params
-
-    if model_type == 'SM':
-        m = SM(data, Q, name)
-    elif model_type == 'MOSM':
-        m = MOSM(data, Q, name)
-    elif model_type == 'CG':
-        m = CG(data, Q, name)
-    elif model_type == 'CSM':
-        m = CSM(data, Q, name)
-    elif model_type == 'SM_LMC':
-        m = SM_LMC(data, Q, name)
-    else:
-        raise Exception("unknown model type '%s'" % (model_type))
-
-    m.model = model
-    m.params = params
-    m.graph = graph
-    m.session = session
-    m.build() # TODO: should not be necessary
-    return m
 
 class model:
     def __init__(self, name, dataset):
@@ -170,7 +132,7 @@ class model:
             key (str): Name of component.
             val (float, ndarray): Value of parameter.
         """
-        if isinstance(val, (int, float)):
+        if isinstance(val, (int, float, list)):
             val = np.array(val)
         if not isinstance(val, np.ndarray):
             raise Exception("value %s of type %s is not a number type or ndarray" % (val, type(val)))
@@ -228,24 +190,46 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.params.parameter.Parameter):
                     getattr(self.model.kern, param_name).trainable = True
 
-    def save(self, filename):
-        if not filename.endswith(".mogptk"):
-            filename += ".mogptk"
+    def save_params(self, filename):
+        """
+        Save model parameters to a given file that can then be loaded with `load_params()`.
+        """
+        filename += "." + self.name + ".params"
 
         try:
             os.remove(filename)
         except OSError:
             pass
+        
+        class NumpyEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                return json.JSONEncoder.default(self, obj)
 
-        self.model.mogptk_type = self.__class__.__name__
-        self.model.mogptk_name = self.name
-        self.model.mogptk_data = str(dill.dumps(self.data))
-        self.model.mogptk_Q = self.Q
-        self.model.mogptk_params = self.params
+        params = self.get_params()
+        with open(filename, 'w') as w:
+            json.dump(params, w, cls=NumpyEncoder)
 
-        with self.graph.as_default():
-            with self.session.as_default():
-                gpflow.Saver().save(filename, self.model)
+    def load_params(self, filename):
+        """
+        Load model parameters from a given file that was previously saved with `save_params()`.
+        """
+        filename += "." + self.name + ".params"
+
+        with open(filename) as r:
+            params = json.load(r)
+
+            if not isinstance(params, list) or not all(isinstance(param, dict) for param in params):
+                raise Exception('parameter file has bad format')
+
+            cur_params = self.get_params()
+            if len(params) != len(cur_params):
+                raise Exception('parameter file uses different Q than current model')
+
+            for q, param in enumerate(params):
+                for key, val in param.items():
+                    self.set_param(q, key, val)
 
     def train(
         self,
