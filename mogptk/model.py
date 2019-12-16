@@ -76,20 +76,6 @@ class model:
                         self.name += ' (sparse variational)'
                         self.model = gpflow.models.SVGP(x, y, kernel, self.likelihood)
 
-    # overridden by specific models
-    def info(self):
-        """
-        Information about the model.
-        """
-        print("info() not implemented for kernel")
-
-    # overridden by specific models
-    def plot(self):
-        """
-        Plot the model.
-        """
-        print("plot() not implemented for kernel")
-
     ################################################################
 
     def print_params(self):
@@ -117,6 +103,16 @@ class model:
             for param_name, param_val in self.model.kern.__dict__.items():
                 if isinstance(param_val, gpflow.params.parameter.Parameter):
                     params[0][param_name] = param_val.read_value()
+        return params
+
+    def get_likelihood_params(self):
+        """
+        Returns all parameters set for the likelihood.
+        """
+        params = {}
+        for param_name, param_val in self.model.likelihood.__dict__.items():
+            if isinstance(param_val, gpflow.params.parameter.Parameter):
+                params[param_name] = param_val.read_value()
         return params
 
     def get_param(self, q, key):
@@ -177,6 +173,30 @@ class model:
             with self.session.as_default():
                 kern[key].assign(val)
 
+    def set_likelihood_param(self, key, val):
+        """
+        Sets a likelihood parameter with key the parameter name.
+
+        Args:
+            key (str): Name of component.
+            val (float, ndarray): Value of parameter.
+        """
+        if isinstance(val, (int, float, list)):
+            val = np.array(val)
+        if not isinstance(val, np.ndarray):
+            raise Exception("value %s of type %s is not a number type or ndarray" % (val, type(val)))
+
+        likelihood = self.model.likelihood.__dict__
+        if key not in likelihood or not isinstance(likelihood[key], gpflow.params.parameter.Parameter):
+            raise Exception("parameter name '%s' does not exist" % (key))
+
+        if likelihood[key].shape != val.shape:
+            raise Exception("parameter name '%s' must have shape %s and not %s" % (key, likelihood[key].shape, val.shape))
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                likelihood[key].assign(val)
+
     def fix_param(self, key):
         """
         Make parameter untrainable (undo with `unfix_param`).
@@ -228,9 +248,13 @@ class model:
                     return obj.tolist()
                 return json.JSONEncoder.default(self, obj)
 
-        params = self.get_params()
+        data = {
+            'model': self.__class__.__name__,
+            'likelihood': self.get_likelihood_params(),
+            'params': self.get_params()
+        }
         with open(filename, 'w') as w:
-            json.dump(params, w, cls=NumpyEncoder)
+            json.dump(data, w, cls=NumpyEncoder)
 
     def load_params(self, filename):
         """
@@ -239,16 +263,24 @@ class model:
         filename += "." + self.name + ".params"
 
         with open(filename) as r:
-            params = json.load(r)
+            data = json.load(r)
 
-            if not isinstance(params, list) or not all(isinstance(param, dict) for param in params):
+            if not isinstance(data, dict) or 'model' not in data or 'likelihood' not in data or 'params' not in data:
+                raise Exception('parameter file has bad format')
+            if not isinstance(data['params'], list) or not all(isinstance(param, dict) for param in data['params']):
                 raise Exception('parameter file has bad format')
 
-            cur_params = self.get_params()
-            if len(params) != len(cur_params):
-                raise Exception('parameter file uses different Q than current model')
+            if data['model'] != self.__class__.__name__:
+                raise Exception("parameter file uses model '%s' which is different from current model '%s'" % (data['model'], self.__class__.__name__))
 
-            for q, param in enumerate(params):
+            cur_params = self.get_params()
+            if len(data['params']) != len(cur_params):
+                raise Exception("parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model's Q different?" % (len(data['params']), len(cur_params)))
+
+            for key, val in data['likelihood'].items():
+                self.set_likelihood_param(key, val)
+
+            for q, param in enumerate(data['params']):
                 for key, val in param.items():
                     self.set_param(q, key, val)
 
