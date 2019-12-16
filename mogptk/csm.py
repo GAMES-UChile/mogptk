@@ -1,6 +1,7 @@
 import numpy as np
 from .model import model
 from .kernels import CrossSpectralMixture, Noise
+from .sm import _estimate_from_sm
 
 class CSM(model):
     """
@@ -39,7 +40,7 @@ class CSM(model):
                 kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
                 self._build(kernel_set, likelihood, variational, sparse, like_params)
     
-    def estimate_params(self, method='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=3000, plot=False):
+    def estimate_params(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
         """
         Estimate kernel parameters.
 
@@ -54,9 +55,9 @@ class CSM(model):
         of each channel.
 
         Args:
-            mode (str): Method of initializing, possible values are 'BNSE' and SM.
-            sm_init (str): Method of initializing SM kernels. Only valid in 'SM' mode.
-            sm_method (str): Optimization method for SM kernels. Only valid in 'SM' mode.
+            method (str): Method of estimation, possible values are 'BNSE' and SM.
+            sm_method (str): Method of estimating SM kernels. Only valid in 'SM' mode.
+            sm_opt (str): Optimization method for SM kernels. Only valid in 'SM' mode.
             sm_maxiter (str): Maximum iteration for SM kernels. Only valid in 'SM' mode.
             plt (bool): Show the PSD of the kernel after fitting SM kernels.
                 Only valid in 'SM' mode. Default to false.
@@ -77,10 +78,10 @@ class CSM(model):
                 self.set_param(q, 'mean', mean * 2 * np.pi)
                 self.set_param(q, 'variance', variance * 5)
         elif method == 'SM':
-            params = _estimate_from_sm(self.dataset, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+            params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
                 self.set_param(q, 'constant', params[q]['weight'].mean(axis=0).reshape(self.Rq, -1))
                 self.set_param(q, 'mean', params[q]['mean'].mean(axis=1))
                 self.set_param(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
         else:
-            raise Exception("possible modes are either 'BNSE' or 'SM'")
+            raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")

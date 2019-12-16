@@ -1,10 +1,11 @@
 import numpy as np
 from .model import model
 from .kernels import SpectralMixture, sm_init, Noise
+from .plot import plot_spectrum
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 
-def _estimate_from_sm(dataset, Q, estimate='BNSE', method='BFGS', maxiter=2000, plot=False, fix_means=False):
+def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000, plot=False, fix_means=False):
     """
     Estimate kernel param with single ouput GP-SM
 
@@ -34,22 +35,22 @@ def _estimate_from_sm(dataset, Q, estimate='BNSE', method='BFGS', maxiter=2000, 
 
     for channel in range(output_dims):
         for i in range(input_dims):  # TODO one SM per channel
-            sm = SM(data[channel], Q)
-            sm.estimate_params(estimate)
+            sm = SM(dataset[channel], Q)
+            sm.estimate_params(method)
 
             if fix_means:
-                sm.set_param(0, 'mixture_means', np.zeros(Q, input_dims))
-                sm.set_param(0, 'mixture_scales', sm.get_param(0, 'mixture_scale') * 100.0)
+                sm.set_param(0, 'mixture_means', np.zeros((Q, input_dims)))
+                sm.set_param(0, 'mixture_scales', sm.get_param(0, 'mixture_scales') * 100.0)
                 sm.fix_param('mixture_means')
 
-            sm.train(method=method, maxiter=maxiter, tol=1e-50)
+            sm.train(method=optimizer, maxiter=maxiter, tol=1e-50)
 
             if plot:
                 nyquist = dataset[channel].get_nyquist_estimation()
-                means = sm._get_param_across('mixture_means')
-                weights = sm._get_param_across('mixture_weights')
-                scales = sm._get_param_across('mixture_scales')
-                plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=data[channel].name)
+                means = sm.get_param(0, 'mixture_means')
+                weights = sm.get_param(0, 'mixture_weights')
+                scales = sm.get_param(0, 'mixture_scales').T
+                plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=dataset[channel].name)
 
             for q in range(Q):
                 params[q]['weight'][i,channel] = sm.get_param(0, 'mixture_weights')[q]

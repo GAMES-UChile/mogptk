@@ -308,7 +308,7 @@ class model:
                     opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
                     opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, disp=True, **params)
 
-        print("Done in ", (time.time() - start_time)/60, " minutes")
+        print("Done in %.1f minutes" % ((time.time() - start_time)/60))
 
     ################################################################################
     # Predictions ##################################################################

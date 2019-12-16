@@ -1,5 +1,7 @@
+import numpy as np
 from .model import model
 from .kernels import ConvolutionalGaussian, Noise
+from .sm import _estimate_from_sm
 
 class CONV(model):
     """
@@ -33,7 +35,7 @@ class CONV(model):
                 kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
                 self._build(kernel_set, likelihood, variational, sparse, like_params)
 
-    def estimate_params(self, sm_init='random', sm_method='BFGS', sm_maxiter=2000, plot=False):
+    def estimate_params(self, method='SM', sm_method='random', sm_opt='BFGS', sm_maxiter=2000, plot=False):
         """
         Estimate kernel parameters, variance and mixture weights. 
 
@@ -44,23 +46,19 @@ class CONV(model):
         for each channel.
 
         Args:
-            sm_init (str): Method of initializing SM kernels.
-            sm_method (str): Optimization method for SM kernels.
+            sm_method (str): Method of estimating SM kernels.
+            sm_opt (str): Optimization method for SM kernels.
             sm_maxiter (str): Maximum iteration for SM kernels.
             plt (bool): Show the PSD of the kernel after fitting SM kernels.
                 Default to false.
         """
-        params = _estimate_from_sm(self.dataset,
-            self.Q,
-            init=sm_init,
-            method=sm_method,
-            maxiter=sm_maxiter,
-            plot=plot,
-            fix_means=True)
-
-        for q in range(self.Q):
-            self.set_param(q, 'constant', params[q]['weight'].mean(axis=0) / params[q]['weight'].mean())
-            self.set_param(q, 'variance', params[q]['scale'])
+        if method == 'SM':
+            params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot, fix_means=True)
+            for q in range(self.Q):
+                self.set_param(q, 'constant', params[q]['weight'].mean(axis=0) / params[q]['weight'].mean())
+                self.set_param(q, 'variance', params[q]['scale'])
+        else:
+            raise Exception("possible methods of estimation are either 'SM'")
 
         noise = np.empty((self.dataset.get_output_dims()))
         for i, channel in enumerate(self.dataset):

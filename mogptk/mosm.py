@@ -36,7 +36,7 @@ class MOSM(model):
                 kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
                 self._build(kernel_set, likelihood, variational, sparse, like_params)
 
-    def estimate_params(self, method='BNSE', sm_init='BNSE', sm_method='BFGS', sm_maxiter=3000, plot=False):
+    def estimate_params(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
         """
         Estimate kernel parameters.
 
@@ -51,9 +51,9 @@ class MOSM(model):
         of each channel.
 
         Args:
-            method (str): Method of initializing, possible values are 'BNSE' and SM.
-            sm_init (str): Method of initializing SM kernels. Only valid in 'SM' mode.
-            sm_method (str): Optimization method for SM kernels. Only valid in 'SM' mode.
+            method (str): Method of estimation, possible values are 'BNSE' and SM.
+            sm_method (str): Method of estimating SM kernels. Only valid in 'SM' mode.
+            sm_opt (str): Optimization method for SM kernels. Only valid in 'SM' mode.
             sm_maxiter (str): Maximum iteration for SM kernels. Only valid in 'SM' mode.
             plt (bool): Show the PSD of the kernel after fitting SM kernels.
                 Only valid in 'SM' mode. Default to false.
@@ -78,13 +78,13 @@ class MOSM(model):
                 self.set_param(q, 'variance', variance)
 
         elif method == 'SM':
-            params = _estimate_from_sm(self.dataset, self.Q, init=sm_init, method=sm_method, maxiter=sm_maxiter, plot=plot)
+            params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
                 self.set_param(q, 'magnitude', params[q]['weight'].mean(axis=0) / params[q]['weight'].mean())
                 self.set_param(q, 'mean', params[q]['mean'])
                 self.set_param(q, 'variance', params[q]['scale'] * 2)
         else:
-            raise Exception("possible methods are either 'BNSE' or 'SM'")
+            raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")
 
         noise = np.empty((self.dataset.get_output_dims()))
         for i, channel in enumerate(self.dataset):
