@@ -146,7 +146,7 @@ class SM(model):
             for q in range(self.Q):
                 self.set_param(q, 'mixture_weights', amplitudes.mean(axis=0) / amplitudes.mean())
                 self.set_param(q, 'mixture_means', means.T)
-                self.set_param(q, 'mixture_scales', variances * 2)
+                self.set_param(q, 'mixture_scales', variances * 2.0)
 
         elif method == 'BNSE':
             amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
@@ -157,13 +157,13 @@ class SM(model):
             for q in range(self.Q):
                 self.set_param(0, 'mixture_weights', amplitudes.mean(axis=0) / amplitudes.mean())
                 self.set_param(0, 'mixture_means', means.T)
-                self.set_param(0, 'mixture_scales', variances * 2)
+                self.set_param(0, 'mixture_scales', variances * 2.0)
 
     def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
         """
         Plot power spectral density of single output GP-SM.
         """
-        means = self.get_param(0, 'mixture_means')
+        means = self.get_param(0, 'mixture_means') * 2.0 * np.pi
         weights = self.get_param(0, 'mixture_weights')
         scales = self.get_param(0, 'mixture_scales').T
         

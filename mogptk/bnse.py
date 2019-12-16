@@ -113,7 +113,7 @@ class bse:
         y = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
         ind, _ = signal.find_peaks(y)
         if len(ind) == 0:
-            return np.empty(), np.empty(), np.empty()
+            return np.array([]), np.array([]), np.array([])
         ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
         widths, width_heights, _, _ = signal.peak_widths(y, ind, rel_height=0.5)

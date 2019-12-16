@@ -1,8 +1,6 @@
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 from scipy.stats import norm
-from .data import _detransform
 
 def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None):
     

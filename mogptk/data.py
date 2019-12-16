@@ -371,6 +371,13 @@ class Data:
             ind = np.argsort(X, axis=0)
             X = np.take_along_axis(X, ind, axis=0)
             Y = np.take_along_axis(Y, ind[:,0], axis=0)
+
+        for dim in range(X.shape[1]):
+            xran = np.max(X[:,dim]) - np.min(X[:,dim])
+            if xran < 1e-3:
+                print("Warning: very small X range may give problems, it is suggested to scale up your X-axis")
+            elif 1e4 < xran:
+                print("Warning: very large X range may give problems, it is suggested to scale down your X-axis")
         
         self.name = name
         self.X = X # shape (n, input_dims)
@@ -560,7 +567,7 @@ class Data:
         """
         x = self.X[self.mask,:]
         y = self.Y[self.mask]
-        return x, _detransform(self.transformations, x, y)
+        return x, self._detransform(x, y)
     
     def get_all(self):
         """
@@ -572,7 +579,7 @@ class Data:
         """
         x = self.X
         y = self.Y
-        return x, _detransform(self.transformations, x, y)
+        return x, self._detransform(x, y)
 
     def get_deleted(self):
         """
@@ -584,7 +591,7 @@ class Data:
         """
         x = self.X[~self.mask,:]
         y = self.Y[~self.mask]
-        return x, _detransform(self.transformations, x, y)
+        return x, self._detransform(x, y)
 
     ################################################################
     
@@ -700,10 +707,9 @@ class Data:
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
-        mu = _detransform(self.transformations, self.X_pred, mu)
-        lower = _detransform(self.transformations, self.X_pred, lower)
-        upper = _detransform(self.transformations, self.X_pred, upper)
-
+        mu = self._detransform(self.X_pred, mu)
+        lower = self._detransform(self.X_pred, lower)
+        upper = self._detransform(self.X_pred, upper)
         return self.X_pred, mu, lower, upper
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
@@ -1051,6 +1057,16 @@ class Data:
 
         return axes[0, 0]
 
+    def _transform(self, x, y):
+        for t in self.transformations:
+            y = t._forward(x, y)
+        return y
+
+    def _detransform(self, x, y):
+        for t in self.transformations[::-1]:
+            y = t._backward(x, y)
+        return y
+
 def _check_function(f, input_dims):
     if not inspect.isfunction(f):
         raise ValueError("function must take X as a parameter")
@@ -1080,23 +1096,6 @@ def _normalize_input_dims(x, input_dims):
     if input_dims != None and len(x) != input_dims:
         raise ValueError("input must be a scalar for single-dimension input or a list of values for each input dimension")
     return x
-
-def _detransform(transformations, x, y):
-    """
-    Apply inverse transformations to a set of values.
-
-    Used to apply inverse tranformations of a channel stored
-    in a Data class to a set.
-
-    Args:
-        transformations(list): List of transformations(objects) in order of aplication.
-        x(ndarray): Array of n_points x n_dim of inputs.
-        y(ndarray): Array of n_points outputs.
-    """
-    if len(transformations) > 0:
-        for t in transformations[::-1]:
-            y = t._backward(x, y)
-    return y
     
 duration_regex = re.compile(
     r'^((?P<years>[\.\d]+?)y)?'

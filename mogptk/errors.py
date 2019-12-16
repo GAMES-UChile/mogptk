@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from sklearn import metrics
-from sklearn.utils import check_array
 
 def mean_absolute_percentage_error(y_true, y_pred):
     idx = np.nonzero(y_true)

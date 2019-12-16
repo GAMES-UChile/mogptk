@@ -4,6 +4,8 @@ from .dataset import DataSet
 from .sm import _estimate_from_sm
 from .kernels import MultiOutputSpectralMixture, Noise
 from .plot import plot_spectrum
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 class MOSM(model):
     """
@@ -128,20 +130,18 @@ class MOSM(model):
         """
 
         cross_params = self.get_cross_params()
+        m = self.dataset.get_output_dims()
 
-        m = self.get_output_dims()
-
-        f, axarr = plt.subplots(m, m, sharex=False, figsize=figsize)
-
+        fig, axes = plt.subplots(m, m, sharex=False, figsize=figsize, squeeze=False)
         for i in range(m):
             for j in range(i+1):
                 self._plot_power_cross_spectral_density(
-                    axarr[i, j],
+                    axes[i, j],
                     cross_params,
                     channels=(i, j))
 
         plt.tight_layout()
-        return f, axarr
+        return fig, axes
 
     def _plot_power_cross_spectral_density(self, ax, params, channels=(0, 0)):
         """
@@ -203,7 +203,7 @@ class MOSM(model):
         for al channels.
         """
 
-        m = self.get_output_dims()
+        m = self.dataset.get_output_dims()
 
         cross_params = self.get_cross_params()
         mean = cross_params['mean'][:, :, 0, :]
@@ -241,12 +241,12 @@ class MOSM(model):
         return fig, ax, corr_coef_matrix
 
     def info(self):
-        for channel in range(self.get_output_dims()):
+        for channel in range(self.dataset.get_output_dims()):
             for q in range(self.Q):
-                mean = self.params[q]["mean"][:,channel]
-                var = self.params[q]["variance"][:,channel]
+                mean = self.get_param(q, "mean")[:,channel]
+                var = self.get_param(q, "variance")[:,channel]
                 if np.linalg.norm(mean) < np.linalg.norm(var):
-                    print("‣ MOSM approaches RBF kernel for Q=%d in channel='%s'" % (q, self.data[channel].name))
+                    print("‣ MOSM approaches RBF kernel for q=%d in channel='%s'" % (q, self.dataset[channel].name))
 
     def get_cross_params(self):
         """
@@ -259,8 +259,8 @@ class MOSM(model):
             the cross parameters are a output_dim x output_dim x Q array.
             NOTE: this assumes the same input dimension for all channels.
         """
-        m = self.get_output_dims()
-        d = self.get_input_dims()
+        m = self.dataset.get_output_dims()
+        d = self.dataset.get_input_dims()[0]
         Q = self.Q
 
         cross_params = {}
@@ -274,12 +274,12 @@ class MOSM(model):
         for q in range(Q):
             for i in range(m):
                 for j in range(m):
-                    var_i = self.params[q]['variance'][:, i]
-                    var_j = self.params[q]['variance'][:, j]
-                    mu_i = self.params[q]['mean'][:, i]
-                    mu_j = self.params[q]['mean'][:, j]
-                    w_i = self.params[q]['magnitude'][i]
-                    w_j = self.params[q]['magnitude'][j]
+                    var_i = self.get_param(q, 'variance')[:, i]
+                    var_j = self.get_param(q, 'variance')[:, j]
+                    mu_i = self.get_param(q, 'mean')[:, i]
+                    mu_j = self.get_param(q, 'mean')[:, j]
+                    w_i = self.get_param(q, 'magnitude')[i]
+                    w_j = self.get_param(q, 'magnitude')[j]
                     sv = var_i + var_j
 
                     # cross covariance
@@ -291,11 +291,11 @@ class MOSM(model):
                     exp_term = -1/4 * ((mu_i - mu_j)**2 / sv).sum()
                     cross_params['magnitude'][i, j, q] = w_i * w_j * np.exp(exp_term)
             # cross phase
-            phase_q = self.params[q]['phase']
+            phase_q = self.get_param(q, 'phase')
             cross_params['phase'][:, :, q] = np.subtract.outer(phase_q, phase_q)
             for n in range(d):
                 # cross delay        
-                delay_n_q = self.params[q]['delay'][n, :]
+                delay_n_q = self.get_param(q, 'delay')[n, :]
                 cross_params['delay'][:, :, n, q] = np.subtract.outer(delay_n_q, delay_n_q)
 
         return cross_params

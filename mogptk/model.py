@@ -86,7 +86,7 @@ class model:
         """
         pd.set_option('display.max_colwidth', -1)
         df = pd.DataFrame(self.get_params())
-        df.index.name = 'Q'
+        df.index.name = 'q'
         display(df)
 
     def get_params(self):
