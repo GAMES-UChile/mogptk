@@ -76,7 +76,7 @@ class SM_LMC(model):
 
                 self.set_param(q, 'constant', constant)
                 self.set_param(q, 'mean', mean * 2 * np.pi)
-                self.set_param(q, 'scale', variance * 2)
+                self.set_param(q, 'variance', variance * 2)
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
