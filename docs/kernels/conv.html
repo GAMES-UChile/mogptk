@@ -34,56 +34,34 @@ from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
 class ConvolutionalGaussian(MultiKernel):
-    def __init__(self, input_dim, output_dim, constant=None, variance=None, latent_variance=None, active_dims=None):
+    def __init__(self, input_dim, output_dim, active_dims=None):
         &#34;&#34;&#34;
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - constant (np.ndarray) has shape (output_dim)
-        - variance (np.ndarray) has shape (input_dim, output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
         &#34;&#34;&#34;
 
-        if constant is None:
-            constant = np.random.random((output_dim))
-        if variance is None:
-            variance = np.random.random((input_dim, output_dim))
-        if latent_variance is None:
-            latent_variance = np.random.random((input_dim))
-
-        if constant.shape != (output_dim,):
-            raise Exception(&#34;bad constant shape %s&#34; % (constant.shape,))
-        if variance.shape != (input_dim, output_dim):
-            raise Exception(&#34;bad variance shape %s&#34; % (variance.shape,))
-        if latent_variance.shape != (input_dim,):
-            raise Exception(&#34;bad latent variance shape %s&#34; % (latent_variance.shape,))
+        constant = np.random.random((output_dim))
+        variance = np.zeros((input_dim, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(constant, transform=transforms.positive)
         self.variance = Parameter(variance, transform=transforms.positive)
-        self.latent_variance = Parameter(latent_variance, transform=transforms.positive)
 
     def subK(self, index, X, X2):
         i, j = index
         Tau = self.dist(X,X2)
-        # constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
-
-        # cross_var = self.variance[:,i] + self.variance[:,j]
-        # if i == j:
-        #    cross_var = self.variance[:,i] + 1e-8
-        #else:
-        #    cross_var = (self.variance[:,i] * self.variance[:,i]) / (self.variance[:,i] + self.variance[:,j])
-        cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
-
-        cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(1 / self.latent_variance) * tf.sqrt(cross_var)
+        constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
 
         if i == j:
-            cross_var = cross_var + 1e-8
+            complete_variance = self.variance[:,i]
+        else:
+            complete_variance = 2 * self.variance[:,i] * self.variance[:,j] / (self.variance[:,i] + self.variance[:,j])
 
-        # exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
-        # exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
-        # exp = tf.exp(exp_term)
-        # complete_expression = tf.reduce_sum(cross_magnitude*exp, axis=0, name=&#34;cov_function&#34;)
-        # return complete_expression
-        return cross_magnitude * tf.exp(-0.5 * self.sqdist(X, X2, cross_var))</code></pre>
+        exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(complete_variance,1),2)
+        exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+        exp = tf.exp(exp_term)
+        return tf.reduce_sum(constants*exp, axis=0)</code></pre>
 </details>
 </section>
 <section>
@@ -97,7 +75,7 @@ class ConvolutionalGaussian(MultiKernel):
 <dl>
 <dt id="mogptk.kernels.conv.ConvolutionalGaussian"><code class="flex name class">
 <span>class <span class="ident">ConvolutionalGaussian</span></span>
-<span>(</span><span>input_dim, output_dim, constant=None, variance=None, latent_variance=None, active_dims=None)</span>
+<span>(</span><span>input_dim, output_dim, active_dims=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Abstract class for MultiOutput Kernels.</p>
@@ -110,64 +88,41 @@ This abstract class implements the functionality necessary to split
 the observations into different cases and reorder the final kernel
 matrix appropriately.</p>
 <ul>
-<li>input_dim (int) is the input dimension</li>
-<li>output_dim (int) is the output dimension</li>
-<li>constant (np.ndarray) has shape (output_dim)</li>
-<li>variance (np.ndarray) has shape (input_dim, output_dim)</li>
+<li>input_dim (int): The number of input dimensions.</li>
+<li>output_dim (int): The number of output dimensions.</li>
+<li>active_dims (list of int): Apply kernel to specified dimensions only.</li>
 </ul></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class ConvolutionalGaussian(MultiKernel):
-    def __init__(self, input_dim, output_dim, constant=None, variance=None, latent_variance=None, active_dims=None):
+    def __init__(self, input_dim, output_dim, active_dims=None):
         &#34;&#34;&#34;
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - constant (np.ndarray) has shape (output_dim)
-        - variance (np.ndarray) has shape (input_dim, output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
         &#34;&#34;&#34;
 
-        if constant is None:
-            constant = np.random.random((output_dim))
-        if variance is None:
-            variance = np.random.random((input_dim, output_dim))
-        if latent_variance is None:
-            latent_variance = np.random.random((input_dim))
-
-        if constant.shape != (output_dim,):
-            raise Exception(&#34;bad constant shape %s&#34; % (constant.shape,))
-        if variance.shape != (input_dim, output_dim):
-            raise Exception(&#34;bad variance shape %s&#34; % (variance.shape,))
-        if latent_variance.shape != (input_dim,):
-            raise Exception(&#34;bad latent variance shape %s&#34; % (latent_variance.shape,))
+        constant = np.random.random((output_dim))
+        variance = np.zeros((input_dim, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(constant, transform=transforms.positive)
         self.variance = Parameter(variance, transform=transforms.positive)
-        self.latent_variance = Parameter(latent_variance, transform=transforms.positive)
 
     def subK(self, index, X, X2):
         i, j = index
         Tau = self.dist(X,X2)
-        # constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
-
-        # cross_var = self.variance[:,i] + self.variance[:,j]
-        # if i == j:
-        #    cross_var = self.variance[:,i] + 1e-8
-        #else:
-        #    cross_var = (self.variance[:,i] * self.variance[:,i]) / (self.variance[:,i] + self.variance[:,j])
-        cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
-
-        cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(1 / self.latent_variance) * tf.sqrt(cross_var)
+        constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
 
         if i == j:
-            cross_var = cross_var + 1e-8
+            complete_variance = self.variance[:,i]
+        else:
+            complete_variance = 2 * self.variance[:,i] * self.variance[:,j] / (self.variance[:,i] + self.variance[:,j])
 
-        # exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
-        # exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
-        # exp = tf.exp(exp_term)
-        # complete_expression = tf.reduce_sum(cross_magnitude*exp, axis=0, name=&#34;cov_function&#34;)
-        # return complete_expression
-        return cross_magnitude * tf.exp(-0.5 * self.sqdist(X, X2, cross_var))</code></pre>
+        exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(complete_variance,1),2)
+        exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+        exp = tf.exp(exp_term)
+        return tf.reduce_sum(constants*exp, axis=0)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -190,26 +145,17 @@ matrix appropriately.</p>
 <pre><code class="python">def subK(self, index, X, X2):
     i, j = index
     Tau = self.dist(X,X2)
-    # constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
-
-    # cross_var = self.variance[:,i] + self.variance[:,j]
-    # if i == j:
-    #    cross_var = self.variance[:,i] + 1e-8
-    #else:
-    #    cross_var = (self.variance[:,i] * self.variance[:,i]) / (self.variance[:,i] + self.variance[:,j])
-    cross_var = 1 / (1 / self.variance[:, i] + 1 / self.variance[:, j] + 1 / self.latent_variance)
-
-    cross_magnitude = self.constant[i] * self.constant[j] * tf.sqrt(1 / self.latent_variance) * tf.sqrt(cross_var)
+    constants = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.constant[i]*self.constant[j],0),1),2)
 
     if i == j:
-        cross_var = cross_var + 1e-8
+        complete_variance = self.variance[:,i]
+    else:
+        complete_variance = 2 * self.variance[:,i] * self.variance[:,j] / (self.variance[:,i] + self.variance[:,j])
 
-    # exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(cross_var,1),2)
-    # exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
-    # exp = tf.exp(exp_term)
-    # complete_expression = tf.reduce_sum(cross_magnitude*exp, axis=0, name=&#34;cov_function&#34;)
-    # return complete_expression
-    return cross_magnitude * tf.exp(-0.5 * self.sqdist(X, X2, cross_var))</code></pre>
+    exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(complete_variance,1),2)
+    exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+    exp = tf.exp(exp_term)
+    return tf.reduce_sum(constants*exp, axis=0)</code></pre>
 </details>
 </dd>
 </dl>

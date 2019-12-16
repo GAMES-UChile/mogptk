@@ -1,5 +1,6 @@
 import numpy as np
 from .data import Data
+import matplotlib.pyplot as plt
 
 class DataSet:
     def __init__(self, *args):
@@ -12,18 +13,7 @@ class DataSet:
 
         self.channels = []
         for arg in args:
-            if isinstance(arg, Data):
-                self.channels.append(arg)
-            elif isinstance(arg, DataSet):
-                for val in arg.channels:
-                    self.channels.append(val)
-            elif isinstance(arg, list) and all(isinstance(val, Data) for val in arg):
-                for val in arg:
-                    self.channels.append(val)
-            elif isinstance(arg, dict) and all(isinstance(val, Data) for val in arg.values()):
-                for key, val in arg.items():
-                    val.name = key
-                    self.channels.append(val)
+            self.append(arg)
 
     def __iter__(self):
         return self.channels.__iter__()
@@ -33,6 +23,29 @@ class DataSet:
 
     def __getitem__(self, key):
         return self.channels[key]
+
+    def append(self, arg):
+        """
+        Append channel(s) to DataSet.
+        
+        Args:
+            arg (Data,DataSet,list,dict): Argument can be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+        """
+        if isinstance(arg, Data):
+            self.channels.append(arg)
+        elif isinstance(arg, DataSet):
+            for val in arg.channels:
+                self.channels.append(val)
+        elif isinstance(arg, list) and all(isinstance(val, Data) for val in arg):
+            for val in arg:
+                self.channels.append(val)
+        elif isinstance(arg, dict) and all(isinstance(val, Data) for val in arg.values()):
+            for key, val in arg.items():
+                val.name = key
+                self.channels.append(val)
+        else:
+            raise Exception("unknown data type %s in append to DataSet" % (type(arg)))
+        return self
 
     def get_input_dims(self):
         """
@@ -216,3 +229,14 @@ class DataSet:
             DataSet: DataSet.
         """
         return copy.deepcopy(self)
+
+    def plot(self, title=None):
+        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title)
+
+        for channel in range(self.get_output_dims()):
+            self.channels[channel].plot(ax=axes[channel,0])
+
+        return fig, axes
+

@@ -23,64 +23,84 @@
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">import os
+import json
 import time
-import dill
 import numpy as np
-from pprint import pprint
 import gpflow
 import tensorflow as tf
 import pandas as pd
-from .data import _detransform
+from .dataset import DataSet
+import matplotlib
+import matplotlib.pyplot as plt
 
 import logging
 logging.getLogger(&#39;tensorflow&#39;).propagate = False
 
 class model:
-    &#34;&#34;&#34;
-    Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
-    &#34;&#34;&#34;
-
-    def __init__(self, name, data, Q):
-        if not isinstance(data, list):
-            data = [data]
-
-        names = set()
-        input_dims = data[0].get_input_dims()
-        for channel in data:
-            if channel.get_input_dims() != input_dims:
-                raise Exception(&#34;all data channels must have the same amount of input dimensions&#34;)
-            if channel.name != &#34;&#34;:
-                if channel.name in names:
-                    raise Exception(&#34;data channels must have different names&#34;)
-                names.add(channel.name)
+    def __init__(self, name, dataset):
+        &#34;&#34;&#34;
+        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+            
+        Args:
+            name (string): Name of the model.
+            dataset (DataSet): DataSet with Data objects for all the channels.
+        &#34;&#34;&#34;
+        
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
+        if dataset.get_output_dims() == 0:
+            raise Exception(&#34;dataset must have at least one channel&#34;)
+        if len(set(dataset.get_names())) != len(dataset.get_names()):
+            raise Exception(&#34;all data channels must have unique names&#34;)
+        if len(set(dataset.get_input_dims())) != 1:
+            raise Exception(&#34;all data channels must have the same amount of input dimensions&#34;)
 
         self.name = name
-        self.data = [channel.copy() for channel in data]
-        self.model = None
-        self.Q = Q
-        self.params = [] # TODO: remove and use GPflow?
-
-    # overridden by specific models
-    def _kernel(self):
-        raise Exception(&#34;kernel not specified&#34;)
+        self.dataset = dataset
+        self.graph = tf.Graph()
+        self.session = tf.Session(graph=self.graph)
     
-    # overridden by specific models
-    def _transform_data(self):
-        raise Exception(&#34;kernel not specified&#34;)
+    def _build(self, kernel, likelihood, variational, sparse, like_params):
+        &#34;&#34;&#34;
+        Args:
+            kernel (gpflow.Kernel): Kernel to use.
+            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
+                a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate
+                function values as Gaussian. If False it will use Monte carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
+            like_params (dict): Parameters to GPflow likelihood.
+        &#34;&#34;&#34;
 
-    # overridden by specific models
-    def info(self):
-        &#34;&#34;&#34;
-        Information about the model.
-        &#34;&#34;&#34;
-        print(&#34;info() not implemented for kernel&#34;)
-
-    # overridden by specific models
-    def plot(self):
-        &#34;&#34;&#34;
-        Plot the model.
-        &#34;&#34;&#34;
-        print(&#34;plot() not implemented for kernel&#34;)
+        x, y = self.dataset.to_kernel()
+        with self.graph.as_default():
+            with self.session.as_default():
+                # Gaussian likelihood
+                if likelihood == None:
+                    if not sparse:
+                        self.model = gpflow.models.GPR(x, y, kernel)
+                    else:
+                        # TODO: test if induction points are set
+                        self.name += &#39; (sparse)&#39;
+                        self.model = gpflow.models.SGPR(x, y, kernel)
+                # MCMC
+                elif not variational:
+                    self.likelihood = likelihood(**like_params)
+                    if not sparse:
+                        self.name += &#39; (MCMC)&#39;
+                        self.model = gpflow.models.GPMC(x, y, kernel, self.likelihood)
+                    else:
+                        self.name += &#39; (sparse MCMC)&#39;
+                        self.model = gpflow.models.SGPMC(x, y, kernel, self.likelihood)
+                # Variational
+                else:
+                    self.likelihood = likelihood(**like_params)
+                    if not sparse:
+                        self.name += &#39; (variational)&#39;
+                        self.model = gpflow.models.VGP(x, y, kernel, self.likelihood)
+                    else:
+                        self.name += &#39; (sparse variational)&#39;
+                        self.model = gpflow.models.SVGP(x, y, kernel, self.likelihood)
 
     ################################################################
 
@@ -90,91 +110,126 @@ class model:
         &#34;&#34;&#34;
         pd.set_option(&#39;display.max_colwidth&#39;, -1)
         df = pd.DataFrame(self.get_params())
-        df.index.name = &#39;Q&#39;
+        df.index.name = &#39;q&#39;
         display(df)
-
-    def _update_params(self, trainables):
-        for key, val in trainables.items():
-            names = key.split(&#34;/&#34;)
-            if len(names) == 5 and names[1] == &#39;kern&#39; and names[2] == &#39;kernels&#39;:
-                q = int(names[3])
-                name = names[4]
-                self.params[q][name] = val
-
-    def get_input_dims(self):
-        &#34;&#34;&#34;
-        Returns the number of input dimensions of the data.
-        &#34;&#34;&#34;
-        return self.data[0].get_input_dims()  # all channels have the same number of input dimensions
-
-    def get_output_dims(self):
-        &#34;&#34;&#34;
-        Returns the number of output dimensions of the data, i.e. the number of channels.
-        &#34;&#34;&#34;
-        return len(self.data)
-
-    def get_channel(self, channel):
-        &#34;&#34;&#34;
-        Return Data for a channel.
-
-        Args:
-            channel (int,string): Index or name of the channel.
-        &#34;&#34;&#34;
-        if isinstance(channel, int):
-            if channel &lt; len(self.data):
-                return self.data[channel]
-        elif isinstance(channel, str):
-            for data in self.data:
-                if data.name == channel:
-                    return data
-        raise ValueError(&#34;channel &#39;%d&#39; does not exist&#34; % (channel))
 
     def get_params(self):
         &#34;&#34;&#34;
         Returns all parameters set for the kernel per component.
         &#34;&#34;&#34;
-        return self.params
+        params = []
+        if hasattr(self.model.kern, &#39;kernels&#39;):
+            for kernel_i, kernel in enumerate(self.model.kern.kernels):
+                params.append({})
+                for param_name, param_val in kernel.__dict__.items():
+                    if isinstance(param_val, gpflow.params.parameter.Parameter):
+                        params[kernel_i][param_name] = param_val.read_value()
+        else:
+            params.append({})
+            for param_name, param_val in self.model.kern.__dict__.items():
+                if isinstance(param_val, gpflow.params.parameter.Parameter):
+                    params[0][param_name] = param_val.read_value()
+        return params
 
-    def get_x_pred(self):
+    def get_likelihood_params(self):
         &#34;&#34;&#34;
-        Returns the input used in the last prediction
+        Returns all parameters set for the likelihood.
         &#34;&#34;&#34;
-        return [channel.X_pred for channel in self.data]
+        params = {}
+        for param_name, param_val in self.model.likelihood.__dict__.items():
+            if isinstance(param_val, gpflow.params.parameter.Parameter):
+                params[param_name] = param_val.read_value()
+        return params
 
+    def get_param(self, q, key):
+        &#34;&#34;&#34;
+        Gets a kernel parameter for component &#39;q&#39; with key the parameter name.
+
+        Args:
+            q (int): Component of kernel.
+            key (str): Name of component.
+            
+        Returns:
+            val (numpy.ndarray): Value of parameter.
+        &#34;&#34;&#34;
+        if hasattr(self.model.kern, &#39;kernels&#39;):
+            if q &lt; 0 or len(self.model.kern.kernels) &lt;= q:
+                raise Exception(&#34;qth component %d does not exist&#34; % (q))
+            kern = self.model.kern.kernels[q].__dict__
+        else:
+            if q != 0:
+                raise Exception(&#34;qth component %d does not exist&#34; % (q))
+            kern = self.model.kern.__dict__
         
-    def _get_param_across(self, name=&#39;mixture_means&#39;):
-        &#34;&#34;&#34;
-        Get all the name parameters across all components.
-        &#34;&#34;&#34;
-        return np.array([self.params[q][name] for q in range(self.Q)])
+        if key not in kern or not isinstance(kern[key], gpflow.params.parameter.Parameter):
+            raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+    
+        return kern[key].read_value()
 
     def set_param(self, q, key, val):
         &#34;&#34;&#34;
-        Sets an initial kernel parameter prior to optimizations for component &#39;q&#39;
-        with key the parameter name.
+        Sets a kernel parameter for component &#39;q&#39; with key the parameter name.
 
         Args:
             q (int): Component of kernel.
             key (str): Name of component.
             val (float, ndarray): Value of parameter.
         &#34;&#34;&#34;
-        if q &lt; 0 or len(self.params) &lt;= q:
-            raise Exception(&#34;qth component %d does not exist&#34; % (q))
-        if key not in self.params[q]:
+        if isinstance(val, (int, float, list)):
+            val = np.array(val)
+        if not isinstance(val, np.ndarray):
+            raise Exception(&#34;value %s of type %s is not a number type or ndarray&#34; % (val, type(val)))
+
+        if hasattr(self.model.kern, &#39;kernels&#39;):
+            if q &lt; 0 or len(self.model.kern.kernels) &lt;= q:
+                raise Exception(&#34;qth component %d does not exist&#34; % (q))
+            kern = self.model.kern.kernels[q].__dict__
+        else:
+            if q != 0:
+                raise Exception(&#34;qth component %d does not exist&#34; % (q))
+            kern = self.model.kern.__dict__
+
+        if key not in kern or not isinstance(kern[key], gpflow.params.parameter.Parameter):
             raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
 
-        self.params[q][key] = val
+        if kern[key].shape != val.shape:
+            raise Exception(&#34;parameter name &#39;%s&#39; must have shape %s and not %s&#34; % (key, kern[key].shape, val.shape))
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                kern[key].assign(val)
+
+    def set_likelihood_param(self, key, val):
+        &#34;&#34;&#34;
+        Sets a likelihood parameter with key the parameter name.
+
+        Args:
+            key (str): Name of component.
+            val (float, ndarray): Value of parameter.
+        &#34;&#34;&#34;
+        if isinstance(val, (int, float, list)):
+            val = np.array(val)
+        if not isinstance(val, np.ndarray):
+            raise Exception(&#34;value %s of type %s is not a number type or ndarray&#34; % (val, type(val)))
+
+        likelihood = self.model.likelihood.__dict__
+        if key not in likelihood or not isinstance(likelihood[key], gpflow.params.parameter.Parameter):
+            raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+
+        if likelihood[key].shape != val.shape:
+            raise Exception(&#34;parameter name &#39;%s&#39; must have shape %s and not %s&#34; % (key, likelihood[key].shape, val.shape))
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                likelihood[key].assign(val)
 
     def fix_param(self, key):
         &#34;&#34;&#34;
-        Make parameter untrainable (undo with `train_param`).
+        Make parameter untrainable (undo with `unfix_param`).
 
         Args:
             key (string): Name of the parameter.
         &#34;&#34;&#34;
-        if self.model == None:
-            raise Exception(&#34;build the model before disabling training on parameter&#34;)
-
         if hasattr(self.model.kern, &#39;kernels&#39;):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
                 for param_name, param_val in kernel.__dict__.items():
@@ -185,16 +240,13 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.params.parameter.Parameter):
                     getattr(self.model.kern, param_name).trainable = False
 
-    def train_param(self, key):
+    def unfix_param(self, key):
         &#34;&#34;&#34;
         Make parameter trainable (that was previously fixed, see `fix_param`).
 
         Args:
             key (string): Name of the parameter.
         &#34;&#34;&#34;
-        if self.model == None:
-            raise Exception(&#34;build the model before enabling training on parameter&#34;)
-
         if hasattr(self.model.kern, &#39;kernels&#39;):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
                 for param_name, param_val in kernel.__dict__.items():
@@ -205,70 +257,58 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.params.parameter.Parameter):
                     getattr(self.model.kern, param_name).trainable = True
 
-    def save(self, filename):
-        if self.model == None:
-            raise Exception(&#34;build the model before saving&#34;)
-
-        if not filename.endswith(&#34;.mogptk&#34;):
-            filename += &#34;.mogptk&#34;
+    def save_params(self, filename):
+        &#34;&#34;&#34;
+        Save model parameters to a given file that can then be loaded with `load_params()`.
+        &#34;&#34;&#34;
+        filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
         try:
             os.remove(filename)
         except OSError:
             pass
+        
+        class NumpyEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                return json.JSONEncoder.default(self, obj)
 
-        self.model.mogptk_type = self.__class__.__name__
-        self.model.mogptk_name = self.name
-        self.model.mogptk_data = str(dill.dumps(self.data))
-        self.model.mogptk_Q = self.Q
-        self.model.mogptk_params = self.params
+        data = {
+            &#39;model&#39;: self.__class__.__name__,
+            &#39;likelihood&#39;: self.get_likelihood_params(),
+            &#39;params&#39;: self.get_params()
+        }
+        with open(filename, &#39;w&#39;) as w:
+            json.dump(data, w, cls=NumpyEncoder)
 
-        with self.graph.as_default():
-            with self.session.as_default():
-                gpflow.Saver().save(filename, self.model)
-
-    def build(self, likelihood=None, variational=False, sparse=False, like_params={}):
+    def load_params(self, filename):
         &#34;&#34;&#34;
-        Build the model.
-
-        Args:
-            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
-            sparse (bool): If True, will use sparse GP regression.
+        Load model parameters from a given file that was previously saved with `save_params()`.
         &#34;&#34;&#34;
+        filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
-        x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
+        with open(filename) as r:
+            data = json.load(r)
 
-        self.graph = tf.Graph()
-        self.session = tf.Session(graph=self.graph)
-        with self.graph.as_default():
-            with self.session.as_default():
-                # Gaussian likelihood
-                if likelihood == None:
-                    if not sparse:
-                        self.model = gpflow.models.GPR(x, y, self._kernel())
-                    else:
-                        # TODO: test if induction points are set
-                        self.name += &#39; (sparse)&#39;
-                        self.model = gpflow.models.SGPR(x, y, self._kernel())
-                # MCMC
-                elif not variational:
-                    self.likelihood = likelihood(**like_params)
-                    if not sparse:
-                        self.name += &#39; (MCMC)&#39;
-                        self.model = gpflow.models.GPMC(x, y, self._kernel(), self.likelihood)
-                    else:
-                        self.name += &#39; (sparse MCMC)&#39;
-                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), self.likelihood)
-                # Variational
-                else:
-                    self.likelihood = likelihood(**like_params)
-                    if not sparse:
-                        self.name += &#39; (variational)&#39;
-                        self.model = gpflow.models.VGP(x, y, self._kernel(), self.likelihood)
-                    else:
-                        self.name += &#39; (sparse variational)&#39;
-                        self.model = gpflow.models.SVGP(x, y, self._kernel(), self.likelihood)
+            if not isinstance(data, dict) or &#39;model&#39; not in data or &#39;likelihood&#39; not in data or &#39;params&#39; not in data:
+                raise Exception(&#39;parameter file has bad format&#39;)
+            if not isinstance(data[&#39;params&#39;], list) or not all(isinstance(param, dict) for param in data[&#39;params&#39;]):
+                raise Exception(&#39;parameter file has bad format&#39;)
+
+            if data[&#39;model&#39;] != self.__class__.__name__:
+                raise Exception(&#34;parameter file uses model &#39;%s&#39; which is different from current model &#39;%s&#39;&#34; % (data[&#39;model&#39;], self.__class__.__name__))
+
+            cur_params = self.get_params()
+            if len(data[&#39;params&#39;]) != len(cur_params):
+                raise Exception(&#34;parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model&#39;s Q different?&#34; % (len(data[&#39;params&#39;]), len(cur_params)))
+
+            for key, val in data[&#39;likelihood&#39;].items():
+                self.set_likelihood_param(key, val)
+
+            for q, param in enumerate(data[&#39;params&#39;]):
+                for key, val in param.items():
+                    self.set_param(q, key, val)
 
     def train(
         self,
@@ -303,9 +343,6 @@ class model:
                 for more details.
             export_graph (bool): Default to False.
         &#34;&#34;&#34;
-        if self.model == None:
-            raise Exception(&#34;build the model before training&#34;)
-
         start_time = time.time()
         with self.graph.as_default():
             with self.session.as_default():
@@ -329,15 +366,13 @@ class model:
                     opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
                     opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, disp=True, **params)
 
-                self._update_params(self.model.read_trainables())
-
-        print(&#34;Done in &#34;, (time.time() - start_time)/60, &#34; minutes&#34;)
+        print(&#34;Done in %.1f minutes&#34; % ((time.time() - start_time)/60))
 
     ################################################################################
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self, x_pred=None):
+    def predict(self, pred_x=None, plot=False):
         &#34;&#34;&#34;
         Predict with model.
 
@@ -353,56 +388,111 @@ class model:
             Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
 
         &#34;&#34;&#34;
-        if self.model == None:
-            raise Exception(&#34;build the model before doing predictions&#34;)
-
         # if user pass a prediction input
-        if x_pred is not None:
-            for i, x_channel in enumerate(x_pred):
-                self.data[i].set_pred(x_channel)
-
-        # check if there is some prediction seted
-        for channel in self.data:
-            if channel.X_pred.size == 0:
-                raise Exception(&#39;no prediction value set, use x_pred argument or set manually using data.set_pred().&#39;)
-
-        x = self._transform_data([channel.X_pred for channel in self.data])
+        if pred_x is not None:
+            self.dataset.set_pred(self.name, pred_x)
 
         # predict with model
+        x = self.dataset.to_kernel_pred()
+        if len(x) == 0:
+                raise Exception(&#39;no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()&#39;)
         with self.graph.as_default():
             with self.session.as_default():
                 mu, var = self.model.predict_f(x)
+        self.dataset.from_kernel_pred(self.name, mu, var)
+        
+        if plot:
+            self.plot_prediction()
 
-        # reshape for channels
-        i = 0
-        for channel in self.data:
-            n = channel.X_pred.shape[0]
-            if n != 0:
-                channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
-                channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
-                i += n
+        #return self.dataset.get_pred(self.name)
 
-        # inverse transformations
-        Y_mu_predicted = []
-        Y_upper_ci_predicted = []
-        Y_lower_ci_predicted = []
+    def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title=&#39;&#39;, ret_fig=False):
 
-        for channel in self.data:
-            # detransform mean
-            y_pred_detrans = _detransform(channel.transformations, channel.X_pred, channel.Y_mu_pred)
-            Y_mu_predicted.append(y_pred_detrans)
+        &#34;&#34;&#34;
+        Plot training points, all data and prediction for training range for all channels.
+
+        Args:
+            Model (mogptk.Model object): Model to use.
+            grid (tuple) : Tuple with the 2 dimensions of the grid.
+            figsize(tuple): Figure size, default to (12, 8).
+            ylims(list): List of tuples with limits for Y axis for
+                each channel.
+            Names(list): List of the names of each title.
+            title(str): Title of the plot.
+            ret_fig(bool): If true returns the matplotlib figure, 
+                array of axis and dictionary with all the points used.
+
+        TODO: Add case for single output SM kernel.
+        &#34;&#34;&#34;
+        # get data
+        x_train, y_train = self.dataset.get_data()
+        x_all, y_all = self.dataset.get_all()
+        x_pred, mu, lower, upper = self.dataset.get_pred(self.name)
+
+        n_dim = self.dataset.get_output_dims()
+        if n_dim == 1:
+            grid = (1, 1)
+        elif grid is None:
+            grid = (int(np.ceil(n_dim/2)), 2)
+
+        if (grid[0] * grid[1]) &lt; n_dim:
+            raise Exception(&#39;grid not big enough for all channels&#39;)
+
+        fig, axes = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
+        axes = np.array(axes).reshape(-1)
+
+        colors = list(matplotlib.colors.TABLEAU_COLORS)
+        for i in range(n_dim):
+            axes[i].plot(x_train[i, :, 0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
+            axes[i].plot(x_all[i, :, 0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;,lw=1.4, zorder=5)
             
-            # upper confidence interval
-            u_ci = channel.Y_mu_pred + 2 * np.sqrt(channel.Y_var_pred)
-            u_ci = _detransform(channel.transformations, channel.X_pred, u_ci)
-            Y_upper_ci_predicted.append(u_ci)
+            axes[i].plot(x_pred[i, :, 0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i], zorder=1)
+            axes[i].fill_between(x_pred[i, :, 0].reshape(-1),
+                lower[i],
+                upper[i],
+                label=&#39;95% c.i&#39;,
+                color=colors[i],
+                alpha=0.4)
+            
+            # axarr[i].legend(ncol=4, loc=&#39;upper center&#39;, fontsize=8)
 
-            # lower confidence interval
-            l_ci = channel.Y_mu_pred - 2 * np.sqrt(channel.Y_var_pred)
-            l_ci = _detransform(channel.transformations, channel.X_pred, l_ci)
-            Y_lower_ci_predicted.append(l_ci)
+            # axarr[i].locator_params(tight=True, nbins=6)
+            axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
-        return Y_mu_predicted, Y_lower_ci_predicted, Y_upper_ci_predicted</code></pre>
+            formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0]._format(x))
+            axes[i].xaxis.set_major_formatter(formatter)
+
+            # set channels name
+            if names is not None:
+                axes[i].set_title(names[i])
+            else:
+                channel_name = self.dataset.get_names()[i]
+                if channel_name != &#39;&#39;:
+                    axes[i].set_title(channel_name)
+                elif n_dim == 1:
+                    pass
+                else:
+                    axes[i].set_title(&#39;Channel &#39; + str(i))
+
+            # set y lims
+            if ylims is not None:
+                axes[i].set_ylim(ylims[i]) 
+            
+        plt.suptitle(title, y=1.02)
+        plt.tight_layout()
+
+        data_dict = {
+            &#39;x_train&#39;:x_train,
+            &#39;y_train&#39;:y_train,
+            &#39;x_all&#39;:x_all,
+            &#39;y_all&#39;:y_all,
+            &#39;y_pred&#39;:mu,
+            &#39;low_ci&#39;:lower,
+            &#39;hi_ci&#39;:upper,
+        }
+
+        if ret_fig:
+            return fig, axes, data_dict</code></pre>
 </details>
 </section>
 <section>
@@ -416,58 +506,84 @@ class model:
 <dl>
 <dt id="mogptk.model.model"><code class="flex name class">
 <span>class <span class="ident">model</span></span>
-<span>(</span><span>name, data, Q)</span>
+<span>(</span><span>name, dataset)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p></section>
+<section class="desc"><p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
+<dd>Name of the model.</dd>
+<dt><strong><code>dataset</code></strong> :&ensp;<code>DataSet</code></dt>
+<dd>DataSet with Data objects for all the channels.</dd>
+</dl></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class model:
-    &#34;&#34;&#34;
-    Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
-    &#34;&#34;&#34;
-
-    def __init__(self, name, data, Q):
-        if not isinstance(data, list):
-            data = [data]
-
-        names = set()
-        input_dims = data[0].get_input_dims()
-        for channel in data:
-            if channel.get_input_dims() != input_dims:
-                raise Exception(&#34;all data channels must have the same amount of input dimensions&#34;)
-            if channel.name != &#34;&#34;:
-                if channel.name in names:
-                    raise Exception(&#34;data channels must have different names&#34;)
-                names.add(channel.name)
+    def __init__(self, name, dataset):
+        &#34;&#34;&#34;
+        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+            
+        Args:
+            name (string): Name of the model.
+            dataset (DataSet): DataSet with Data objects for all the channels.
+        &#34;&#34;&#34;
+        
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
+        if dataset.get_output_dims() == 0:
+            raise Exception(&#34;dataset must have at least one channel&#34;)
+        if len(set(dataset.get_names())) != len(dataset.get_names()):
+            raise Exception(&#34;all data channels must have unique names&#34;)
+        if len(set(dataset.get_input_dims())) != 1:
+            raise Exception(&#34;all data channels must have the same amount of input dimensions&#34;)
 
         self.name = name
-        self.data = [channel.copy() for channel in data]
-        self.model = None
-        self.Q = Q
-        self.params = [] # TODO: remove and use GPflow?
-
-    # overridden by specific models
-    def _kernel(self):
-        raise Exception(&#34;kernel not specified&#34;)
+        self.dataset = dataset
+        self.graph = tf.Graph()
+        self.session = tf.Session(graph=self.graph)
     
-    # overridden by specific models
-    def _transform_data(self):
-        raise Exception(&#34;kernel not specified&#34;)
+    def _build(self, kernel, likelihood, variational, sparse, like_params):
+        &#34;&#34;&#34;
+        Args:
+            kernel (gpflow.Kernel): Kernel to use.
+            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
+                a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate
+                function values as Gaussian. If False it will use Monte carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
+            like_params (dict): Parameters to GPflow likelihood.
+        &#34;&#34;&#34;
 
-    # overridden by specific models
-    def info(self):
-        &#34;&#34;&#34;
-        Information about the model.
-        &#34;&#34;&#34;
-        print(&#34;info() not implemented for kernel&#34;)
-
-    # overridden by specific models
-    def plot(self):
-        &#34;&#34;&#34;
-        Plot the model.
-        &#34;&#34;&#34;
-        print(&#34;plot() not implemented for kernel&#34;)
+        x, y = self.dataset.to_kernel()
+        with self.graph.as_default():
+            with self.session.as_default():
+                # Gaussian likelihood
+                if likelihood == None:
+                    if not sparse:
+                        self.model = gpflow.models.GPR(x, y, kernel)
+                    else:
+                        # TODO: test if induction points are set
+                        self.name += &#39; (sparse)&#39;
+                        self.model = gpflow.models.SGPR(x, y, kernel)
+                # MCMC
+                elif not variational:
+                    self.likelihood = likelihood(**like_params)
+                    if not sparse:
+                        self.name += &#39; (MCMC)&#39;
+                        self.model = gpflow.models.GPMC(x, y, kernel, self.likelihood)
+                    else:
+                        self.name += &#39; (sparse MCMC)&#39;
+                        self.model = gpflow.models.SGPMC(x, y, kernel, self.likelihood)
+                # Variational
+                else:
+                    self.likelihood = likelihood(**like_params)
+                    if not sparse:
+                        self.name += &#39; (variational)&#39;
+                        self.model = gpflow.models.VGP(x, y, kernel, self.likelihood)
+                    else:
+                        self.name += &#39; (sparse variational)&#39;
+                        self.model = gpflow.models.SVGP(x, y, kernel, self.likelihood)
 
     ################################################################
 
@@ -477,91 +593,126 @@ class model:
         &#34;&#34;&#34;
         pd.set_option(&#39;display.max_colwidth&#39;, -1)
         df = pd.DataFrame(self.get_params())
-        df.index.name = &#39;Q&#39;
+        df.index.name = &#39;q&#39;
         display(df)
-
-    def _update_params(self, trainables):
-        for key, val in trainables.items():
-            names = key.split(&#34;/&#34;)
-            if len(names) == 5 and names[1] == &#39;kern&#39; and names[2] == &#39;kernels&#39;:
-                q = int(names[3])
-                name = names[4]
-                self.params[q][name] = val
-
-    def get_input_dims(self):
-        &#34;&#34;&#34;
-        Returns the number of input dimensions of the data.
-        &#34;&#34;&#34;
-        return self.data[0].get_input_dims()  # all channels have the same number of input dimensions
-
-    def get_output_dims(self):
-        &#34;&#34;&#34;
-        Returns the number of output dimensions of the data, i.e. the number of channels.
-        &#34;&#34;&#34;
-        return len(self.data)
-
-    def get_channel(self, channel):
-        &#34;&#34;&#34;
-        Return Data for a channel.
-
-        Args:
-            channel (int,string): Index or name of the channel.
-        &#34;&#34;&#34;
-        if isinstance(channel, int):
-            if channel &lt; len(self.data):
-                return self.data[channel]
-        elif isinstance(channel, str):
-            for data in self.data:
-                if data.name == channel:
-                    return data
-        raise ValueError(&#34;channel &#39;%d&#39; does not exist&#34; % (channel))
 
     def get_params(self):
         &#34;&#34;&#34;
         Returns all parameters set for the kernel per component.
         &#34;&#34;&#34;
-        return self.params
+        params = []
+        if hasattr(self.model.kern, &#39;kernels&#39;):
+            for kernel_i, kernel in enumerate(self.model.kern.kernels):
+                params.append({})
+                for param_name, param_val in kernel.__dict__.items():
+                    if isinstance(param_val, gpflow.params.parameter.Parameter):
+                        params[kernel_i][param_name] = param_val.read_value()
+        else:
+            params.append({})
+            for param_name, param_val in self.model.kern.__dict__.items():
+                if isinstance(param_val, gpflow.params.parameter.Parameter):
+                    params[0][param_name] = param_val.read_value()
+        return params
 
-    def get_x_pred(self):
+    def get_likelihood_params(self):
         &#34;&#34;&#34;
-        Returns the input used in the last prediction
+        Returns all parameters set for the likelihood.
         &#34;&#34;&#34;
-        return [channel.X_pred for channel in self.data]
+        params = {}
+        for param_name, param_val in self.model.likelihood.__dict__.items():
+            if isinstance(param_val, gpflow.params.parameter.Parameter):
+                params[param_name] = param_val.read_value()
+        return params
 
+    def get_param(self, q, key):
+        &#34;&#34;&#34;
+        Gets a kernel parameter for component &#39;q&#39; with key the parameter name.
+
+        Args:
+            q (int): Component of kernel.
+            key (str): Name of component.
+            
+        Returns:
+            val (numpy.ndarray): Value of parameter.
+        &#34;&#34;&#34;
+        if hasattr(self.model.kern, &#39;kernels&#39;):
+            if q &lt; 0 or len(self.model.kern.kernels) &lt;= q:
+                raise Exception(&#34;qth component %d does not exist&#34; % (q))
+            kern = self.model.kern.kernels[q].__dict__
+        else:
+            if q != 0:
+                raise Exception(&#34;qth component %d does not exist&#34; % (q))
+            kern = self.model.kern.__dict__
         
-    def _get_param_across(self, name=&#39;mixture_means&#39;):
-        &#34;&#34;&#34;
-        Get all the name parameters across all components.
-        &#34;&#34;&#34;
-        return np.array([self.params[q][name] for q in range(self.Q)])
+        if key not in kern or not isinstance(kern[key], gpflow.params.parameter.Parameter):
+            raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+    
+        return kern[key].read_value()
 
     def set_param(self, q, key, val):
         &#34;&#34;&#34;
-        Sets an initial kernel parameter prior to optimizations for component &#39;q&#39;
-        with key the parameter name.
+        Sets a kernel parameter for component &#39;q&#39; with key the parameter name.
 
         Args:
             q (int): Component of kernel.
             key (str): Name of component.
             val (float, ndarray): Value of parameter.
         &#34;&#34;&#34;
-        if q &lt; 0 or len(self.params) &lt;= q:
-            raise Exception(&#34;qth component %d does not exist&#34; % (q))
-        if key not in self.params[q]:
+        if isinstance(val, (int, float, list)):
+            val = np.array(val)
+        if not isinstance(val, np.ndarray):
+            raise Exception(&#34;value %s of type %s is not a number type or ndarray&#34; % (val, type(val)))
+
+        if hasattr(self.model.kern, &#39;kernels&#39;):
+            if q &lt; 0 or len(self.model.kern.kernels) &lt;= q:
+                raise Exception(&#34;qth component %d does not exist&#34; % (q))
+            kern = self.model.kern.kernels[q].__dict__
+        else:
+            if q != 0:
+                raise Exception(&#34;qth component %d does not exist&#34; % (q))
+            kern = self.model.kern.__dict__
+
+        if key not in kern or not isinstance(kern[key], gpflow.params.parameter.Parameter):
             raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
 
-        self.params[q][key] = val
+        if kern[key].shape != val.shape:
+            raise Exception(&#34;parameter name &#39;%s&#39; must have shape %s and not %s&#34; % (key, kern[key].shape, val.shape))
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                kern[key].assign(val)
+
+    def set_likelihood_param(self, key, val):
+        &#34;&#34;&#34;
+        Sets a likelihood parameter with key the parameter name.
+
+        Args:
+            key (str): Name of component.
+            val (float, ndarray): Value of parameter.
+        &#34;&#34;&#34;
+        if isinstance(val, (int, float, list)):
+            val = np.array(val)
+        if not isinstance(val, np.ndarray):
+            raise Exception(&#34;value %s of type %s is not a number type or ndarray&#34; % (val, type(val)))
+
+        likelihood = self.model.likelihood.__dict__
+        if key not in likelihood or not isinstance(likelihood[key], gpflow.params.parameter.Parameter):
+            raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+
+        if likelihood[key].shape != val.shape:
+            raise Exception(&#34;parameter name &#39;%s&#39; must have shape %s and not %s&#34; % (key, likelihood[key].shape, val.shape))
+
+        with self.graph.as_default():
+            with self.session.as_default():
+                likelihood[key].assign(val)
 
     def fix_param(self, key):
         &#34;&#34;&#34;
-        Make parameter untrainable (undo with `train_param`).
+        Make parameter untrainable (undo with `unfix_param`).
 
         Args:
             key (string): Name of the parameter.
         &#34;&#34;&#34;
-        if self.model == None:
-            raise Exception(&#34;build the model before disabling training on parameter&#34;)
-
         if hasattr(self.model.kern, &#39;kernels&#39;):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
                 for param_name, param_val in kernel.__dict__.items():
@@ -572,16 +723,13 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.params.parameter.Parameter):
                     getattr(self.model.kern, param_name).trainable = False
 
-    def train_param(self, key):
+    def unfix_param(self, key):
         &#34;&#34;&#34;
         Make parameter trainable (that was previously fixed, see `fix_param`).
 
         Args:
             key (string): Name of the parameter.
         &#34;&#34;&#34;
-        if self.model == None:
-            raise Exception(&#34;build the model before enabling training on parameter&#34;)
-
         if hasattr(self.model.kern, &#39;kernels&#39;):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
                 for param_name, param_val in kernel.__dict__.items():
@@ -592,70 +740,58 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.params.parameter.Parameter):
                     getattr(self.model.kern, param_name).trainable = True
 
-    def save(self, filename):
-        if self.model == None:
-            raise Exception(&#34;build the model before saving&#34;)
-
-        if not filename.endswith(&#34;.mogptk&#34;):
-            filename += &#34;.mogptk&#34;
+    def save_params(self, filename):
+        &#34;&#34;&#34;
+        Save model parameters to a given file that can then be loaded with `load_params()`.
+        &#34;&#34;&#34;
+        filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
         try:
             os.remove(filename)
         except OSError:
             pass
+        
+        class NumpyEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                return json.JSONEncoder.default(self, obj)
 
-        self.model.mogptk_type = self.__class__.__name__
-        self.model.mogptk_name = self.name
-        self.model.mogptk_data = str(dill.dumps(self.data))
-        self.model.mogptk_Q = self.Q
-        self.model.mogptk_params = self.params
+        data = {
+            &#39;model&#39;: self.__class__.__name__,
+            &#39;likelihood&#39;: self.get_likelihood_params(),
+            &#39;params&#39;: self.get_params()
+        }
+        with open(filename, &#39;w&#39;) as w:
+            json.dump(data, w, cls=NumpyEncoder)
 
-        with self.graph.as_default():
-            with self.session.as_default():
-                gpflow.Saver().save(filename, self.model)
-
-    def build(self, likelihood=None, variational=False, sparse=False, like_params={}):
+    def load_params(self, filename):
         &#34;&#34;&#34;
-        Build the model.
-
-        Args:
-            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
-            sparse (bool): If True, will use sparse GP regression.
+        Load model parameters from a given file that was previously saved with `save_params()`.
         &#34;&#34;&#34;
+        filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
-        x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
+        with open(filename) as r:
+            data = json.load(r)
 
-        self.graph = tf.Graph()
-        self.session = tf.Session(graph=self.graph)
-        with self.graph.as_default():
-            with self.session.as_default():
-                # Gaussian likelihood
-                if likelihood == None:
-                    if not sparse:
-                        self.model = gpflow.models.GPR(x, y, self._kernel())
-                    else:
-                        # TODO: test if induction points are set
-                        self.name += &#39; (sparse)&#39;
-                        self.model = gpflow.models.SGPR(x, y, self._kernel())
-                # MCMC
-                elif not variational:
-                    self.likelihood = likelihood(**like_params)
-                    if not sparse:
-                        self.name += &#39; (MCMC)&#39;
-                        self.model = gpflow.models.GPMC(x, y, self._kernel(), self.likelihood)
-                    else:
-                        self.name += &#39; (sparse MCMC)&#39;
-                        self.model = gpflow.models.SGPMC(x, y, self._kernel(), self.likelihood)
-                # Variational
-                else:
-                    self.likelihood = likelihood(**like_params)
-                    if not sparse:
-                        self.name += &#39; (variational)&#39;
-                        self.model = gpflow.models.VGP(x, y, self._kernel(), self.likelihood)
-                    else:
-                        self.name += &#39; (sparse variational)&#39;
-                        self.model = gpflow.models.SVGP(x, y, self._kernel(), self.likelihood)
+            if not isinstance(data, dict) or &#39;model&#39; not in data or &#39;likelihood&#39; not in data or &#39;params&#39; not in data:
+                raise Exception(&#39;parameter file has bad format&#39;)
+            if not isinstance(data[&#39;params&#39;], list) or not all(isinstance(param, dict) for param in data[&#39;params&#39;]):
+                raise Exception(&#39;parameter file has bad format&#39;)
+
+            if data[&#39;model&#39;] != self.__class__.__name__:
+                raise Exception(&#34;parameter file uses model &#39;%s&#39; which is different from current model &#39;%s&#39;&#34; % (data[&#39;model&#39;], self.__class__.__name__))
+
+            cur_params = self.get_params()
+            if len(data[&#39;params&#39;]) != len(cur_params):
+                raise Exception(&#34;parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model&#39;s Q different?&#34; % (len(data[&#39;params&#39;]), len(cur_params)))
+
+            for key, val in data[&#39;likelihood&#39;].items():
+                self.set_likelihood_param(key, val)
+
+            for q, param in enumerate(data[&#39;params&#39;]):
+                for key, val in param.items():
+                    self.set_param(q, key, val)
 
     def train(
         self,
@@ -690,9 +826,6 @@ class model:
                 for more details.
             export_graph (bool): Default to False.
         &#34;&#34;&#34;
-        if self.model == None:
-            raise Exception(&#34;build the model before training&#34;)
-
         start_time = time.time()
         with self.graph.as_default():
             with self.session.as_default():
@@ -716,15 +849,13 @@ class model:
                     opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
                     opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, disp=True, **params)
 
-                self._update_params(self.model.read_trainables())
-
-        print(&#34;Done in &#34;, (time.time() - start_time)/60, &#34; minutes&#34;)
+        print(&#34;Done in %.1f minutes&#34; % ((time.time() - start_time)/60))
 
     ################################################################################
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self, x_pred=None):
+    def predict(self, pred_x=None, plot=False):
         &#34;&#34;&#34;
         Predict with model.
 
@@ -740,132 +871,127 @@ class model:
             Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
 
         &#34;&#34;&#34;
-        if self.model == None:
-            raise Exception(&#34;build the model before doing predictions&#34;)
-
         # if user pass a prediction input
-        if x_pred is not None:
-            for i, x_channel in enumerate(x_pred):
-                self.data[i].set_pred(x_channel)
-
-        # check if there is some prediction seted
-        for channel in self.data:
-            if channel.X_pred.size == 0:
-                raise Exception(&#39;no prediction value set, use x_pred argument or set manually using data.set_pred().&#39;)
-
-        x = self._transform_data([channel.X_pred for channel in self.data])
+        if pred_x is not None:
+            self.dataset.set_pred(self.name, pred_x)
 
         # predict with model
+        x = self.dataset.to_kernel_pred()
+        if len(x) == 0:
+                raise Exception(&#39;no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()&#39;)
         with self.graph.as_default():
             with self.session.as_default():
                 mu, var = self.model.predict_f(x)
+        self.dataset.from_kernel_pred(self.name, mu, var)
+        
+        if plot:
+            self.plot_prediction()
 
-        # reshape for channels
-        i = 0
-        for channel in self.data:
-            n = channel.X_pred.shape[0]
-            if n != 0:
-                channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
-                channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
-                i += n
+        #return self.dataset.get_pred(self.name)
 
-        # inverse transformations
-        Y_mu_predicted = []
-        Y_upper_ci_predicted = []
-        Y_lower_ci_predicted = []
+    def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title=&#39;&#39;, ret_fig=False):
 
-        for channel in self.data:
-            # detransform mean
-            y_pred_detrans = _detransform(channel.transformations, channel.X_pred, channel.Y_mu_pred)
-            Y_mu_predicted.append(y_pred_detrans)
+        &#34;&#34;&#34;
+        Plot training points, all data and prediction for training range for all channels.
+
+        Args:
+            Model (mogptk.Model object): Model to use.
+            grid (tuple) : Tuple with the 2 dimensions of the grid.
+            figsize(tuple): Figure size, default to (12, 8).
+            ylims(list): List of tuples with limits for Y axis for
+                each channel.
+            Names(list): List of the names of each title.
+            title(str): Title of the plot.
+            ret_fig(bool): If true returns the matplotlib figure, 
+                array of axis and dictionary with all the points used.
+
+        TODO: Add case for single output SM kernel.
+        &#34;&#34;&#34;
+        # get data
+        x_train, y_train = self.dataset.get_data()
+        x_all, y_all = self.dataset.get_all()
+        x_pred, mu, lower, upper = self.dataset.get_pred(self.name)
+
+        n_dim = self.dataset.get_output_dims()
+        if n_dim == 1:
+            grid = (1, 1)
+        elif grid is None:
+            grid = (int(np.ceil(n_dim/2)), 2)
+
+        if (grid[0] * grid[1]) &lt; n_dim:
+            raise Exception(&#39;grid not big enough for all channels&#39;)
+
+        fig, axes = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
+        axes = np.array(axes).reshape(-1)
+
+        colors = list(matplotlib.colors.TABLEAU_COLORS)
+        for i in range(n_dim):
+            axes[i].plot(x_train[i, :, 0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
+            axes[i].plot(x_all[i, :, 0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;,lw=1.4, zorder=5)
             
-            # upper confidence interval
-            u_ci = channel.Y_mu_pred + 2 * np.sqrt(channel.Y_var_pred)
-            u_ci = _detransform(channel.transformations, channel.X_pred, u_ci)
-            Y_upper_ci_predicted.append(u_ci)
+            axes[i].plot(x_pred[i, :, 0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i], zorder=1)
+            axes[i].fill_between(x_pred[i, :, 0].reshape(-1),
+                lower[i],
+                upper[i],
+                label=&#39;95% c.i&#39;,
+                color=colors[i],
+                alpha=0.4)
+            
+            # axarr[i].legend(ncol=4, loc=&#39;upper center&#39;, fontsize=8)
 
-            # lower confidence interval
-            l_ci = channel.Y_mu_pred - 2 * np.sqrt(channel.Y_var_pred)
-            l_ci = _detransform(channel.transformations, channel.X_pred, l_ci)
-            Y_lower_ci_predicted.append(l_ci)
+            # axarr[i].locator_params(tight=True, nbins=6)
+            axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
-        return Y_mu_predicted, Y_lower_ci_predicted, Y_upper_ci_predicted</code></pre>
+            formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0]._format(x))
+            axes[i].xaxis.set_major_formatter(formatter)
+
+            # set channels name
+            if names is not None:
+                axes[i].set_title(names[i])
+            else:
+                channel_name = self.dataset.get_names()[i]
+                if channel_name != &#39;&#39;:
+                    axes[i].set_title(channel_name)
+                elif n_dim == 1:
+                    pass
+                else:
+                    axes[i].set_title(&#39;Channel &#39; + str(i))
+
+            # set y lims
+            if ylims is not None:
+                axes[i].set_ylim(ylims[i]) 
+            
+        plt.suptitle(title, y=1.02)
+        plt.tight_layout()
+
+        data_dict = {
+            &#39;x_train&#39;:x_train,
+            &#39;y_train&#39;:y_train,
+            &#39;x_all&#39;:x_all,
+            &#39;y_all&#39;:y_all,
+            &#39;y_pred&#39;:mu,
+            &#39;low_ci&#39;:lower,
+            &#39;hi_ci&#39;:upper,
+        }
+
+        if ret_fig:
+            return fig, axes, data_dict</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="mogptk.models.SM" href="models.html#mogptk.models.SM">SM</a></li>
-<li><a title="mogptk.models.MOSM" href="models.html#mogptk.models.MOSM">MOSM</a></li>
-<li><a title="mogptk.models.CSM" href="models.html#mogptk.models.CSM">CSM</a></li>
-<li><a title="mogptk.models.SM_LMC" href="models.html#mogptk.models.SM_LMC">SM_LMC</a></li>
-<li><a title="mogptk.models.CG" href="models.html#mogptk.models.CG">CG</a></li>
+<li><a title="mogptk.sm.SM" href="sm.html#mogptk.sm.SM">SM</a></li>
+<li><a title="mogptk.mosm.MOSM" href="mosm.html#mogptk.mosm.MOSM">MOSM</a></li>
+<li><a title="mogptk.csm.CSM" href="csm.html#mogptk.csm.CSM">CSM</a></li>
+<li><a title="mogptk.sm_lmc.SM_LMC" href="sm_lmc.html#mogptk.sm_lmc.SM_LMC">SM_LMC</a></li>
+<li><a title="mogptk.conv.CONV" href="conv.html#mogptk.conv.CONV">CONV</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.model.model.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>self, likelihood=None, variational=False, sparse=False, like_params={})</span>
-</code></dt>
-<dd>
-<section class="desc"><p>Build the model.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpflow.likelihoods</code></dt>
-<dd>Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.</dd>
-<dt><strong><code>variational</code></strong> :&ensp;<code>bool</code></dt>
-<dd>If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.</dd>
-<dt><strong><code>sparse</code></strong> :&ensp;<code>bool</code></dt>
-<dd>If True, will use sparse GP regression.</dd>
-</dl></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def build(self, likelihood=None, variational=False, sparse=False, like_params={}):
-    &#34;&#34;&#34;
-    Build the model.
-
-    Args:
-        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte carlo Markov Chain.
-        sparse (bool): If True, will use sparse GP regression.
-    &#34;&#34;&#34;
-
-    x, y = self._transform_data([channel.X[channel.mask] for channel in self.data], [channel.Y[channel.mask] for channel in self.data])
-
-    self.graph = tf.Graph()
-    self.session = tf.Session(graph=self.graph)
-    with self.graph.as_default():
-        with self.session.as_default():
-            # Gaussian likelihood
-            if likelihood == None:
-                if not sparse:
-                    self.model = gpflow.models.GPR(x, y, self._kernel())
-                else:
-                    # TODO: test if induction points are set
-                    self.name += &#39; (sparse)&#39;
-                    self.model = gpflow.models.SGPR(x, y, self._kernel())
-            # MCMC
-            elif not variational:
-                self.likelihood = likelihood(**like_params)
-                if not sparse:
-                    self.name += &#39; (MCMC)&#39;
-                    self.model = gpflow.models.GPMC(x, y, self._kernel(), self.likelihood)
-                else:
-                    self.name += &#39; (sparse MCMC)&#39;
-                    self.model = gpflow.models.SGPMC(x, y, self._kernel(), self.likelihood)
-            # Variational
-            else:
-                self.likelihood = likelihood(**like_params)
-                if not sparse:
-                    self.name += &#39; (variational)&#39;
-                    self.model = gpflow.models.VGP(x, y, self._kernel(), self.likelihood)
-                else:
-                    self.name += &#39; (sparse variational)&#39;
-                    self.model = gpflow.models.SVGP(x, y, self._kernel(), self.likelihood)</code></pre>
-</details>
-</dd>
 <dt id="mogptk.model.model.fix_param"><code class="name flex">
 <span>def <span class="ident">fix_param</span></span>(<span>self, key)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Make parameter untrainable (undo with <code>train_param</code>).</p>
+<section class="desc"><p>Make parameter untrainable (undo with <code>unfix_param</code>).</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
@@ -875,14 +1001,11 @@ class model:
 <summary>Source code</summary>
 <pre><code class="python">def fix_param(self, key):
     &#34;&#34;&#34;
-    Make parameter untrainable (undo with `train_param`).
+    Make parameter untrainable (undo with `unfix_param`).
 
     Args:
         key (string): Name of the parameter.
     &#34;&#34;&#34;
-    if self.model == None:
-        raise Exception(&#34;build the model before disabling training on parameter&#34;)
-
     if hasattr(self.model.kern, &#39;kernels&#39;):
         for kernel_i, kernel in enumerate(self.model.kern.kernels):
             for param_name, param_val in kernel.__dict__.items():
@@ -894,61 +1017,67 @@ class model:
                 getattr(self.model.kern, param_name).trainable = False</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.get_channel"><code class="name flex">
-<span>def <span class="ident">get_channel</span></span>(<span>self, channel)</span>
+<dt id="mogptk.model.model.get_likelihood_params"><code class="name flex">
+<span>def <span class="ident">get_likelihood_params</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Return Data for a channel.</p>
+<section class="desc"><p>Returns all parameters set for the likelihood.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_likelihood_params(self):
+    &#34;&#34;&#34;
+    Returns all parameters set for the likelihood.
+    &#34;&#34;&#34;
+    params = {}
+    for param_name, param_val in self.model.likelihood.__dict__.items():
+        if isinstance(param_val, gpflow.params.parameter.Parameter):
+            params[param_name] = param_val.read_value()
+    return params</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.get_param"><code class="name flex">
+<span>def <span class="ident">get_param</span></span>(<span>self, q, key)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Gets a kernel parameter for component 'q' with key the parameter name.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>channel</code></strong> :&ensp;<code>int</code>,<code>string</code></dt>
-<dd>Index or name of the channel.</dd>
+<dt><strong><code>q</code></strong> :&ensp;<code>int</code></dt>
+<dd>Component of kernel.</dd>
+<dt><strong><code>key</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of component.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>val</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Value of parameter.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def get_channel(self, channel):
+<pre><code class="python">def get_param(self, q, key):
     &#34;&#34;&#34;
-    Return Data for a channel.
+    Gets a kernel parameter for component &#39;q&#39; with key the parameter name.
 
     Args:
-        channel (int,string): Index or name of the channel.
+        q (int): Component of kernel.
+        key (str): Name of component.
+        
+    Returns:
+        val (numpy.ndarray): Value of parameter.
     &#34;&#34;&#34;
-    if isinstance(channel, int):
-        if channel &lt; len(self.data):
-            return self.data[channel]
-    elif isinstance(channel, str):
-        for data in self.data:
-            if data.name == channel:
-                return data
-    raise ValueError(&#34;channel &#39;%d&#39; does not exist&#34; % (channel))</code></pre>
-</details>
-</dd>
-<dt id="mogptk.model.model.get_input_dims"><code class="name flex">
-<span>def <span class="ident">get_input_dims</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<section class="desc"><p>Returns the number of input dimensions of the data.</p></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def get_input_dims(self):
-    &#34;&#34;&#34;
-    Returns the number of input dimensions of the data.
-    &#34;&#34;&#34;
-    return self.data[0].get_input_dims()  # all channels have the same number of input dimensions</code></pre>
-</details>
-</dd>
-<dt id="mogptk.model.model.get_output_dims"><code class="name flex">
-<span>def <span class="ident">get_output_dims</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<section class="desc"><p>Returns the number of output dimensions of the data, i.e. the number of channels.</p></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def get_output_dims(self):
-    &#34;&#34;&#34;
-    Returns the number of output dimensions of the data, i.e. the number of channels.
-    &#34;&#34;&#34;
-    return len(self.data)</code></pre>
+    if hasattr(self.model.kern, &#39;kernels&#39;):
+        if q &lt; 0 or len(self.model.kern.kernels) &lt;= q:
+            raise Exception(&#34;qth component %d does not exist&#34; % (q))
+        kern = self.model.kern.kernels[q].__dict__
+    else:
+        if q != 0:
+            raise Exception(&#34;qth component %d does not exist&#34; % (q))
+        kern = self.model.kern.__dict__
+    
+    if key not in kern or not isinstance(kern[key], gpflow.params.parameter.Parameter):
+        raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+
+    return kern[key].read_value()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.get_params"><code class="name flex">
@@ -962,53 +1091,169 @@ class model:
     &#34;&#34;&#34;
     Returns all parameters set for the kernel per component.
     &#34;&#34;&#34;
-    return self.params</code></pre>
+    params = []
+    if hasattr(self.model.kern, &#39;kernels&#39;):
+        for kernel_i, kernel in enumerate(self.model.kern.kernels):
+            params.append({})
+            for param_name, param_val in kernel.__dict__.items():
+                if isinstance(param_val, gpflow.params.parameter.Parameter):
+                    params[kernel_i][param_name] = param_val.read_value()
+    else:
+        params.append({})
+        for param_name, param_val in self.model.kern.__dict__.items():
+            if isinstance(param_val, gpflow.params.parameter.Parameter):
+                params[0][param_name] = param_val.read_value()
+    return params</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.get_x_pred"><code class="name flex">
-<span>def <span class="ident">get_x_pred</span></span>(<span>self)</span>
+<dt id="mogptk.model.model.load_params"><code class="name flex">
+<span>def <span class="ident">load_params</span></span>(<span>self, filename)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the input used in the last prediction</p></section>
+<section class="desc"><p>Load model parameters from a given file that was previously saved with <code>save_params()</code>.</p></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def get_x_pred(self):
+<pre><code class="python">def load_params(self, filename):
     &#34;&#34;&#34;
-    Returns the input used in the last prediction
+    Load model parameters from a given file that was previously saved with `save_params()`.
     &#34;&#34;&#34;
-    return [channel.X_pred for channel in self.data]</code></pre>
+    filename += &#34;.&#34; + self.name + &#34;.params&#34;
+
+    with open(filename) as r:
+        data = json.load(r)
+
+        if not isinstance(data, dict) or &#39;model&#39; not in data or &#39;likelihood&#39; not in data or &#39;params&#39; not in data:
+            raise Exception(&#39;parameter file has bad format&#39;)
+        if not isinstance(data[&#39;params&#39;], list) or not all(isinstance(param, dict) for param in data[&#39;params&#39;]):
+            raise Exception(&#39;parameter file has bad format&#39;)
+
+        if data[&#39;model&#39;] != self.__class__.__name__:
+            raise Exception(&#34;parameter file uses model &#39;%s&#39; which is different from current model &#39;%s&#39;&#34; % (data[&#39;model&#39;], self.__class__.__name__))
+
+        cur_params = self.get_params()
+        if len(data[&#39;params&#39;]) != len(cur_params):
+            raise Exception(&#34;parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model&#39;s Q different?&#34; % (len(data[&#39;params&#39;]), len(cur_params)))
+
+        for key, val in data[&#39;likelihood&#39;].items():
+            self.set_likelihood_param(key, val)
+
+        for q, param in enumerate(data[&#39;params&#39;]):
+            for key, val in param.items():
+                self.set_param(q, key, val)</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.info"><code class="name flex">
-<span>def <span class="ident">info</span></span>(<span>self)</span>
+<dt id="mogptk.model.model.plot_prediction"><code class="name flex">
+<span>def <span class="ident">plot_prediction</span></span>(<span>self, grid=None, figsize=(12, 8), ylims=None, names=None, title='', ret_fig=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Information about the model.</p></section>
+<section class="desc"><p>Plot training points, all data and prediction for training range for all channels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>Model</code></strong> :&ensp;<code>mogptk.Model</code> <code>object</code></dt>
+<dd>Model to use.</dd>
+</dl>
+<p>grid (tuple) : Tuple with the 2 dimensions of the grid.
+figsize(tuple): Figure size, default to (12, 8).
+ylims(list): List of tuples with limits for Y axis for
+each channel.
+Names(list): List of the names of each title.
+title(str): Title of the plot.
+ret_fig(bool): If true returns the matplotlib figure,
+array of axis and dictionary with all the points used.
+TODO: Add case for single output SM kernel.</p></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def info(self):
+<pre><code class="python">def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title=&#39;&#39;, ret_fig=False):
+
     &#34;&#34;&#34;
-    Information about the model.
+    Plot training points, all data and prediction for training range for all channels.
+
+    Args:
+        Model (mogptk.Model object): Model to use.
+        grid (tuple) : Tuple with the 2 dimensions of the grid.
+        figsize(tuple): Figure size, default to (12, 8).
+        ylims(list): List of tuples with limits for Y axis for
+            each channel.
+        Names(list): List of the names of each title.
+        title(str): Title of the plot.
+        ret_fig(bool): If true returns the matplotlib figure, 
+            array of axis and dictionary with all the points used.
+
+    TODO: Add case for single output SM kernel.
     &#34;&#34;&#34;
-    print(&#34;info() not implemented for kernel&#34;)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.model.model.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<section class="desc"><p>Plot the model.</p></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def plot(self):
-    &#34;&#34;&#34;
-    Plot the model.
-    &#34;&#34;&#34;
-    print(&#34;plot() not implemented for kernel&#34;)</code></pre>
+    # get data
+    x_train, y_train = self.dataset.get_data()
+    x_all, y_all = self.dataset.get_all()
+    x_pred, mu, lower, upper = self.dataset.get_pred(self.name)
+
+    n_dim = self.dataset.get_output_dims()
+    if n_dim == 1:
+        grid = (1, 1)
+    elif grid is None:
+        grid = (int(np.ceil(n_dim/2)), 2)
+
+    if (grid[0] * grid[1]) &lt; n_dim:
+        raise Exception(&#39;grid not big enough for all channels&#39;)
+
+    fig, axes = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
+    axes = np.array(axes).reshape(-1)
+
+    colors = list(matplotlib.colors.TABLEAU_COLORS)
+    for i in range(n_dim):
+        axes[i].plot(x_train[i, :, 0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
+        axes[i].plot(x_all[i, :, 0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;,lw=1.4, zorder=5)
+        
+        axes[i].plot(x_pred[i, :, 0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i], zorder=1)
+        axes[i].fill_between(x_pred[i, :, 0].reshape(-1),
+            lower[i],
+            upper[i],
+            label=&#39;95% c.i&#39;,
+            color=colors[i],
+            alpha=0.4)
+        
+        # axarr[i].legend(ncol=4, loc=&#39;upper center&#39;, fontsize=8)
+
+        # axarr[i].locator_params(tight=True, nbins=6)
+        axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
+
+        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0]._format(x))
+        axes[i].xaxis.set_major_formatter(formatter)
+
+        # set channels name
+        if names is not None:
+            axes[i].set_title(names[i])
+        else:
+            channel_name = self.dataset.get_names()[i]
+            if channel_name != &#39;&#39;:
+                axes[i].set_title(channel_name)
+            elif n_dim == 1:
+                pass
+            else:
+                axes[i].set_title(&#39;Channel &#39; + str(i))
+
+        # set y lims
+        if ylims is not None:
+            axes[i].set_ylim(ylims[i]) 
+        
+    plt.suptitle(title, y=1.02)
+    plt.tight_layout()
+
+    data_dict = {
+        &#39;x_train&#39;:x_train,
+        &#39;y_train&#39;:y_train,
+        &#39;x_all&#39;:x_all,
+        &#39;y_all&#39;:y_all,
+        &#39;y_pred&#39;:mu,
+        &#39;low_ci&#39;:lower,
+        &#39;hi_ci&#39;:upper,
+    }
+
+    if ret_fig:
+        return fig, axes, data_dict</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.predict"><code class="name flex">
-<span>def <span class="ident">predict</span></span>(<span>self, x_pred=None)</span>
+<span>def <span class="ident">predict</span></span>(<span>self, pred_x=None, plot=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Predict with model.</p>
@@ -1028,7 +1273,7 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <p>Prediction output and confidence interval of 95% of the model (Upper and lower bounds).</p></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def predict(self, x_pred=None):
+<pre><code class="python">def predict(self, pred_x=None, plot=False):
     &#34;&#34;&#34;
     Predict with model.
 
@@ -1044,56 +1289,21 @@ It returns the X, Y_mu, Y_var values per channel.</p>
         Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
 
     &#34;&#34;&#34;
-    if self.model == None:
-        raise Exception(&#34;build the model before doing predictions&#34;)
-
     # if user pass a prediction input
-    if x_pred is not None:
-        for i, x_channel in enumerate(x_pred):
-            self.data[i].set_pred(x_channel)
-
-    # check if there is some prediction seted
-    for channel in self.data:
-        if channel.X_pred.size == 0:
-            raise Exception(&#39;no prediction value set, use x_pred argument or set manually using data.set_pred().&#39;)
-
-    x = self._transform_data([channel.X_pred for channel in self.data])
+    if pred_x is not None:
+        self.dataset.set_pred(self.name, pred_x)
 
     # predict with model
+    x = self.dataset.to_kernel_pred()
+    if len(x) == 0:
+            raise Exception(&#39;no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()&#39;)
     with self.graph.as_default():
         with self.session.as_default():
             mu, var = self.model.predict_f(x)
-
-    # reshape for channels
-    i = 0
-    for channel in self.data:
-        n = channel.X_pred.shape[0]
-        if n != 0:
-            channel.Y_mu_pred = mu[i:i+n].reshape(1, -1)[0]
-            channel.Y_var_pred = var[i:i+n].reshape(1, -1)[0]
-            i += n
-
-    # inverse transformations
-    Y_mu_predicted = []
-    Y_upper_ci_predicted = []
-    Y_lower_ci_predicted = []
-
-    for channel in self.data:
-        # detransform mean
-        y_pred_detrans = _detransform(channel.transformations, channel.X_pred, channel.Y_mu_pred)
-        Y_mu_predicted.append(y_pred_detrans)
-        
-        # upper confidence interval
-        u_ci = channel.Y_mu_pred + 2 * np.sqrt(channel.Y_var_pred)
-        u_ci = _detransform(channel.transformations, channel.X_pred, u_ci)
-        Y_upper_ci_predicted.append(u_ci)
-
-        # lower confidence interval
-        l_ci = channel.Y_mu_pred - 2 * np.sqrt(channel.Y_var_pred)
-        l_ci = _detransform(channel.transformations, channel.X_pred, l_ci)
-        Y_lower_ci_predicted.append(l_ci)
-
-    return Y_mu_predicted, Y_lower_ci_predicted, Y_upper_ci_predicted</code></pre>
+    self.dataset.from_kernel_pred(self.name, mu, var)
+    
+    if plot:
+        self.plot_prediction()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.print_params"><code class="name flex">
@@ -1109,46 +1319,87 @@ It returns the X, Y_mu, Y_var values per channel.</p>
     &#34;&#34;&#34;
     pd.set_option(&#39;display.max_colwidth&#39;, -1)
     df = pd.DataFrame(self.get_params())
-    df.index.name = &#39;Q&#39;
+    df.index.name = &#39;q&#39;
     display(df)</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.save"><code class="name flex">
-<span>def <span class="ident">save</span></span>(<span>self, filename)</span>
+<dt id="mogptk.model.model.save_params"><code class="name flex">
+<span>def <span class="ident">save_params</span></span>(<span>self, filename)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Save model parameters to a given file that can then be loaded with <code>load_params()</code>.</p></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def save(self, filename):
-    if self.model == None:
-        raise Exception(&#34;build the model before saving&#34;)
-
-    if not filename.endswith(&#34;.mogptk&#34;):
-        filename += &#34;.mogptk&#34;
+<pre><code class="python">def save_params(self, filename):
+    &#34;&#34;&#34;
+    Save model parameters to a given file that can then be loaded with `load_params()`.
+    &#34;&#34;&#34;
+    filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
     try:
         os.remove(filename)
     except OSError:
         pass
+    
+    class NumpyEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return json.JSONEncoder.default(self, obj)
 
-    self.model.mogptk_type = self.__class__.__name__
-    self.model.mogptk_name = self.name
-    self.model.mogptk_data = str(dill.dumps(self.data))
-    self.model.mogptk_Q = self.Q
-    self.model.mogptk_params = self.params
+    data = {
+        &#39;model&#39;: self.__class__.__name__,
+        &#39;likelihood&#39;: self.get_likelihood_params(),
+        &#39;params&#39;: self.get_params()
+    }
+    with open(filename, &#39;w&#39;) as w:
+        json.dump(data, w, cls=NumpyEncoder)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.set_likelihood_param"><code class="name flex">
+<span>def <span class="ident">set_likelihood_param</span></span>(<span>self, key, val)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Sets a likelihood parameter with key the parameter name.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>key</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of component.</dd>
+<dt><strong><code>val</code></strong> :&ensp;<code>float</code>, <code>ndarray</code></dt>
+<dd>Value of parameter.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_likelihood_param(self, key, val):
+    &#34;&#34;&#34;
+    Sets a likelihood parameter with key the parameter name.
+
+    Args:
+        key (str): Name of component.
+        val (float, ndarray): Value of parameter.
+    &#34;&#34;&#34;
+    if isinstance(val, (int, float, list)):
+        val = np.array(val)
+    if not isinstance(val, np.ndarray):
+        raise Exception(&#34;value %s of type %s is not a number type or ndarray&#34; % (val, type(val)))
+
+    likelihood = self.model.likelihood.__dict__
+    if key not in likelihood or not isinstance(likelihood[key], gpflow.params.parameter.Parameter):
+        raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
+
+    if likelihood[key].shape != val.shape:
+        raise Exception(&#34;parameter name &#39;%s&#39; must have shape %s and not %s&#34; % (key, likelihood[key].shape, val.shape))
 
     with self.graph.as_default():
         with self.session.as_default():
-            gpflow.Saver().save(filename, self.model)</code></pre>
+            likelihood[key].assign(val)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.set_param"><code class="name flex">
 <span>def <span class="ident">set_param</span></span>(<span>self, q, key, val)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Sets an initial kernel parameter prior to optimizations for component 'q'
-with key the parameter name.</p>
+<section class="desc"><p>Sets a kernel parameter for component 'q' with key the parameter name.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>q</code></strong> :&ensp;<code>int</code></dt>
@@ -1162,20 +1413,36 @@ with key the parameter name.</p>
 <summary>Source code</summary>
 <pre><code class="python">def set_param(self, q, key, val):
     &#34;&#34;&#34;
-    Sets an initial kernel parameter prior to optimizations for component &#39;q&#39;
-    with key the parameter name.
+    Sets a kernel parameter for component &#39;q&#39; with key the parameter name.
 
     Args:
         q (int): Component of kernel.
         key (str): Name of component.
         val (float, ndarray): Value of parameter.
     &#34;&#34;&#34;
-    if q &lt; 0 or len(self.params) &lt;= q:
-        raise Exception(&#34;qth component %d does not exist&#34; % (q))
-    if key not in self.params[q]:
+    if isinstance(val, (int, float, list)):
+        val = np.array(val)
+    if not isinstance(val, np.ndarray):
+        raise Exception(&#34;value %s of type %s is not a number type or ndarray&#34; % (val, type(val)))
+
+    if hasattr(self.model.kern, &#39;kernels&#39;):
+        if q &lt; 0 or len(self.model.kern.kernels) &lt;= q:
+            raise Exception(&#34;qth component %d does not exist&#34; % (q))
+        kern = self.model.kern.kernels[q].__dict__
+    else:
+        if q != 0:
+            raise Exception(&#34;qth component %d does not exist&#34; % (q))
+        kern = self.model.kern.__dict__
+
+    if key not in kern or not isinstance(kern[key], gpflow.params.parameter.Parameter):
         raise Exception(&#34;parameter name &#39;%s&#39; does not exist&#34; % (key))
 
-    self.params[q][key] = val</code></pre>
+    if kern[key].shape != val.shape:
+        raise Exception(&#34;parameter name &#39;%s&#39; must have shape %s and not %s&#34; % (key, kern[key].shape, val.shape))
+
+    with self.graph.as_default():
+        with self.session.as_default():
+            kern[key].assign(val)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.train"><code class="name flex">
@@ -1246,9 +1513,6 @@ for more details.</dd>
             for more details.
         export_graph (bool): Default to False.
     &#34;&#34;&#34;
-    if self.model == None:
-        raise Exception(&#34;build the model before training&#34;)
-
     start_time = time.time()
     with self.graph.as_default():
         with self.session.as_default():
@@ -1272,13 +1536,11 @@ for more details.</dd>
                 opt = gpflow.train.ScipyOptimizer(method=method, tol=tol, **opt_params)
                 opt.minimize(self.model, anchor=True, step_callback=step, maxiter=maxiter, disp=True, **params)
 
-            self._update_params(self.model.read_trainables())
-
-    print(&#34;Done in &#34;, (time.time() - start_time)/60, &#34; minutes&#34;)</code></pre>
+    print(&#34;Done in %.1f minutes&#34; % ((time.time() - start_time)/60))</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.train_param"><code class="name flex">
-<span>def <span class="ident">train_param</span></span>(<span>self, key)</span>
+<dt id="mogptk.model.model.unfix_param"><code class="name flex">
+<span>def <span class="ident">unfix_param</span></span>(<span>self, key)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Make parameter trainable (that was previously fixed, see <code>fix_param</code>).</p>
@@ -1289,16 +1551,13 @@ for more details.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def train_param(self, key):
+<pre><code class="python">def unfix_param(self, key):
     &#34;&#34;&#34;
     Make parameter trainable (that was previously fixed, see `fix_param`).
 
     Args:
         key (string): Name of the parameter.
     &#34;&#34;&#34;
-    if self.model == None:
-        raise Exception(&#34;build the model before enabling training on parameter&#34;)
-
     if hasattr(self.model.kern, &#39;kernels&#39;):
         for kernel_i, kernel in enumerate(self.model.kern.kernels):
             for param_name, param_val in kernel.__dict__.items():
@@ -1330,22 +1589,20 @@ for more details.</dd>
 <ul>
 <li>
 <h4><code><a title="mogptk.model.model" href="#mogptk.model.model">model</a></code></h4>
-<ul class="two-column">
-<li><code><a title="mogptk.model.model.build" href="#mogptk.model.model.build">build</a></code></li>
+<ul class="">
 <li><code><a title="mogptk.model.model.fix_param" href="#mogptk.model.model.fix_param">fix_param</a></code></li>
-<li><code><a title="mogptk.model.model.get_channel" href="#mogptk.model.model.get_channel">get_channel</a></code></li>
-<li><code><a title="mogptk.model.model.get_input_dims" href="#mogptk.model.model.get_input_dims">get_input_dims</a></code></li>
-<li><code><a title="mogptk.model.model.get_output_dims" href="#mogptk.model.model.get_output_dims">get_output_dims</a></code></li>
+<li><code><a title="mogptk.model.model.get_likelihood_params" href="#mogptk.model.model.get_likelihood_params">get_likelihood_params</a></code></li>
+<li><code><a title="mogptk.model.model.get_param" href="#mogptk.model.model.get_param">get_param</a></code></li>
 <li><code><a title="mogptk.model.model.get_params" href="#mogptk.model.model.get_params">get_params</a></code></li>
-<li><code><a title="mogptk.model.model.get_x_pred" href="#mogptk.model.model.get_x_pred">get_x_pred</a></code></li>
-<li><code><a title="mogptk.model.model.info" href="#mogptk.model.model.info">info</a></code></li>
-<li><code><a title="mogptk.model.model.plot" href="#mogptk.model.model.plot">plot</a></code></li>
+<li><code><a title="mogptk.model.model.load_params" href="#mogptk.model.model.load_params">load_params</a></code></li>
+<li><code><a title="mogptk.model.model.plot_prediction" href="#mogptk.model.model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.model.predict" href="#mogptk.model.model.predict">predict</a></code></li>
 <li><code><a title="mogptk.model.model.print_params" href="#mogptk.model.model.print_params">print_params</a></code></li>
-<li><code><a title="mogptk.model.model.save" href="#mogptk.model.model.save">save</a></code></li>
+<li><code><a title="mogptk.model.model.save_params" href="#mogptk.model.model.save_params">save_params</a></code></li>
+<li><code><a title="mogptk.model.model.set_likelihood_param" href="#mogptk.model.model.set_likelihood_param">set_likelihood_param</a></code></li>
 <li><code><a title="mogptk.model.model.set_param" href="#mogptk.model.model.set_param">set_param</a></code></li>
 <li><code><a title="mogptk.model.model.train" href="#mogptk.model.model.train">train</a></code></li>
-<li><code><a title="mogptk.model.model.train_param" href="#mogptk.model.model.train_param">train_param</a></code></li>
+<li><code><a title="mogptk.model.model.unfix_param" href="#mogptk.model.model.unfix_param">unfix_param</a></code></li>
 </ul>
 </li>
 </ul>

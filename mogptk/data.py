@@ -660,8 +660,8 @@ class Data:
 
         x_min = np.min(self.X[:,0])
         x_max = np.max(self.X[:,0])
-        start = x_min + np.round(max(0.0, min(1.0, start)) * (x_max-x_min))
-        end = x_min + np.round(max(0.0, min(1.0, end)) * (x_max-x_min))
+        start = x_min + max(0.0, min(1.0, start)) * (x_max-x_min)
+        end = x_min + max(0.0, min(1.0, end)) * (x_max-x_min)
 
         idx = np.where(np.logical_and(self.X[:,0] >= start, self.X[:,0] <= end))
         self.mask[idx] = False
@@ -682,8 +682,10 @@ class Data:
         if self.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
+        print(duration)
         duration = self.formatters[0]._parse_duration(duration)
-        if n < 1 or duration < 1:
+        print(n, duration)
+        if n < 1:
             return
 
         # TODO: what if N != 1 and we have dates on the X-axis? Make sure that ranges do not overlap and are picked randomly
@@ -691,10 +693,13 @@ class Data:
         if m <= 0:
             raise Exception("no data left after removing ranges")
 
+        ## TODO: doesn't work
         locs = np.round(np.sort(np.random.rand(n)) * m)
+        print(locs)
         for i in range(len(locs)):
             loc = int(locs[i] + i * duration)
             idx = np.arange(int(loc), int(loc+duration))
+            print(idx)
             self.mask[idx] = False
     
     ################################################################
@@ -927,7 +932,7 @@ class Data:
     #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
     #    pass
 
-    def plot(self, title=None, filename=None, show=True):
+    def plot(self, ax=None):#filename=None, show=True):
         """
         Plot the data including removed observations, latent function, and predictions.
 
@@ -942,9 +947,10 @@ class Data:
         if self.get_input_dims() == 2:
             raise Exception("two dimensional input data not yet implemented") # TODO
 
-        fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
-        if title != None:
-            fig.suptitle(title, fontsize=36)
+        if ax == None:
+            ax = plt.gca()
+        
+        ax.set_title(self.name, fontsize=36)
         
         legend = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -952,10 +958,10 @@ class Data:
             if self.Y_mu_pred[name].size != 0:
                 lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
                 upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
-                axes[0,0].plot(self.X_pred[name][:,0], self.Y_mu_pred[name], ls='-', color=colors[i], lw=3)
-                axes[0,0].fill_between(self.X_pred[name][:,0], lower, upper, color=colors[i], alpha=0.1)
-                axes[0,0].plot(self.X_pred[name][:,0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
-                axes[0,0].plot(self.X_pred[name][:,0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
+                ax.plot(self.X_pred[name][:,0], self.Y_mu_pred[name], ls='-', color=colors[i], lw=3)
+                ax.fill_between(self.X_pred[name][:,0], lower, upper, color=colors[i], alpha=0.1)
+                ax.plot(self.X_pred[name][:,0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
+                ax.plot(self.X_pred[name][:,0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
                 legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=3, label='Prediction '+name))
 
         if self.F != None:
@@ -967,30 +973,31 @@ class Data:
             x[:,0] = np.linspace(x_min, x_max, n)
             y = self.F(x)
 
-            axes[0,0].plot(x[:,0], y, 'r--', lw=1)
+            ax.plot(x[:,0], y, 'r--', lw=1)
             legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent function'))
 
-        axes[0,0].plot(self.X[:,0], self.Y, 'k-')
+        ax.plot(self.X[:,0], self.Y, 'k-')
         legend.append(plt.Line2D([0], [0], ls='-', color='k', label='Data'))
 
         if self.has_removed_obs():
             X, Y = self.X[self.mask,:], self.Y[self.mask]
-            axes[0,0].plot(X[:,0], Y, 'k.', mew=2, ms=8)
+            ax.plot(X[:,0], Y, 'k.', mew=2, ms=5)
             legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))
 
-        axes[0,0].set_xlabel(self.input_label[0])
-        axes[0,0].set_ylabel(self.output_label)
-        axes[0,0].set_title(self.name, fontsize=30)
+        ax.set_xlabel(self.input_label[0])
+        ax.set_ylabel(self.output_label)
+        ax.set_title(self.name, fontsize=30)
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
-        axes[0,0].xaxis.set_major_formatter(formatter)
+        ax.xaxis.set_major_formatter(formatter)
 
         if 0 < len(legend):
             plt.legend(handles=legend, loc='best')
 
-        if filename != None:
-            plt.savefig(filename+'.pdf', dpi=300)
-        if show:
-            plt.show()
+        #if filename != None:
+        #    plt.savefig(filename+'.pdf', dpi=300)
+        #if show:
+        #    plt.show()
+        return ax
 
     def plot_spectrum(self, method='lombscargle', angularfreq=False, per=None, maxfreq=None, title=None, filename=None, show=True):
         """

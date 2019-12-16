@@ -36,48 +36,19 @@ from .multikernel import MultiKernel
 
 # TODO: dont use angular frequency
 class MultiOutputSpectralMixture(MultiKernel):
-    def __init__(
-        self,
-        input_dim,
-        output_dim,
-        magnitude=None,
-        mean=None,
-        variance=None,
-        delay=None,
-        phase=None,
-        active_dim=None,
-        magnitude_prior=None):
+    def __init__(self, input_dim, output_dim, active_dim=None, magnitude_prior=None):
         &#34;&#34;&#34;
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - magnitude (np.ndarray) has shape (output_dim)
-        - mean (np.ndarray) has shape (input_dim, output_dim)
-        - variance (np.ndarray) has shape (input_dim, output_dim)
-        - delay (np.ndarray) has shape (input_dim, output_dim)
-        - phase (np.ndarray) has shape (output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
+        - magnitude_prior (gpflow.Prior): Prior on the magnitude.
         &#34;&#34;&#34;
 
-        if magnitude is None:
-            magnitude = np.random.standard_normal((output_dim))
-        if mean is None:
-            mean = np.random.standard_normal((input_dim, output_dim))
-        if variance is None:
-            variance = np.random.random((input_dim, output_dim))
-        if delay is None:
-            delay = np.zeros((input_dim, output_dim))
-        if phase is None:
-            phase = np.zeros((output_dim))
-
-        if magnitude.shape != (output_dim,):
-            raise Exception(&#34;bad magnitude shape %s&#34; % (magnitude.shape,))
-        if mean.shape != (input_dim, output_dim):
-            raise Exception(&#34;bad mean shape %s&#34; % (mean.shape,))
-        if variance.shape != (input_dim, output_dim):
-            raise Exception(&#34;bad variance shape %s&#34; % (variance.shape,))
-        if delay.shape != (input_dim, output_dim):
-            raise Exception(&#34;bad delay shape %s&#34; % (delay.shape,))
-        if phase.shape != (output_dim,):
-            raise Exception(&#34;bad phase shape %s&#34; % (phase.shape,))
+        magnitude = np.random.standard_normal((output_dim))
+        mean = np.random.standard_normal((input_dim, output_dim))
+        variance = np.random.random((input_dim, output_dim))
+        delay = np.zeros((input_dim, output_dim))
+        phase = np.zeros((output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
         self.magnitude = Parameter(magnitude, prior=magnitude_prior)
@@ -93,8 +64,8 @@ class MultiOutputSpectralMixture(MultiKernel):
             temp = np.power(2 * np.pi, self.input_dim / 2) \
                     * tf.sqrt(rprod(self.variance[:, i])) \
                     * tf.square(self.magnitude[i])
-            K = temp * tf.exp(-0.5 * self.sqdist(X, X, self.variance[:, i])) \
-                    * tf.cos(rsum(mean * self.dist(X, X), 0))
+            K = temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
+                    * tf.cos(rsum(mean * self.dist(X, X2), 0))
         else:
             sv = self.variance[:, i] + self.variance[:, j]
             cross_delay = tf.reshape(
@@ -127,7 +98,7 @@ class MultiOutputSpectralMixture(MultiKernel):
 <dl>
 <dt id="mogptk.kernels.mosm.MultiOutputSpectralMixture"><code class="flex name class">
 <span>class <span class="ident">MultiOutputSpectralMixture</span></span>
-<span>(</span><span>input_dim, output_dim, magnitude=None, mean=None, variance=None, delay=None, phase=None, active_dim=None, magnitude_prior=None)</span>
+<span>(</span><span>input_dim, output_dim, active_dim=None, magnitude_prior=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Abstract class for MultiOutput Kernels.</p>
@@ -140,59 +111,27 @@ This abstract class implements the functionality necessary to split
 the observations into different cases and reorder the final kernel
 matrix appropriately.</p>
 <ul>
-<li>input_dim (int) is the input dimension</li>
-<li>output_dim (int) is the output dimension</li>
-<li>magnitude (np.ndarray) has shape (output_dim)</li>
-<li>mean (np.ndarray) has shape (input_dim, output_dim)</li>
-<li>variance (np.ndarray) has shape (input_dim, output_dim)</li>
-<li>delay (np.ndarray) has shape (input_dim, output_dim)</li>
-<li>phase (np.ndarray) has shape (output_dim)</li>
+<li>input_dim (int): The number of input dimensions.</li>
+<li>output_dim (int): The number of output dimensions.</li>
+<li>active_dims (list of int): Apply kernel to specified dimensions only.</li>
+<li>magnitude_prior (gpflow.Prior): Prior on the magnitude.</li>
 </ul></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class MultiOutputSpectralMixture(MultiKernel):
-    def __init__(
-        self,
-        input_dim,
-        output_dim,
-        magnitude=None,
-        mean=None,
-        variance=None,
-        delay=None,
-        phase=None,
-        active_dim=None,
-        magnitude_prior=None):
+    def __init__(self, input_dim, output_dim, active_dim=None, magnitude_prior=None):
         &#34;&#34;&#34;
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - magnitude (np.ndarray) has shape (output_dim)
-        - mean (np.ndarray) has shape (input_dim, output_dim)
-        - variance (np.ndarray) has shape (input_dim, output_dim)
-        - delay (np.ndarray) has shape (input_dim, output_dim)
-        - phase (np.ndarray) has shape (output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
+        - magnitude_prior (gpflow.Prior): Prior on the magnitude.
         &#34;&#34;&#34;
 
-        if magnitude is None:
-            magnitude = np.random.standard_normal((output_dim))
-        if mean is None:
-            mean = np.random.standard_normal((input_dim, output_dim))
-        if variance is None:
-            variance = np.random.random((input_dim, output_dim))
-        if delay is None:
-            delay = np.zeros((input_dim, output_dim))
-        if phase is None:
-            phase = np.zeros((output_dim))
-
-        if magnitude.shape != (output_dim,):
-            raise Exception(&#34;bad magnitude shape %s&#34; % (magnitude.shape,))
-        if mean.shape != (input_dim, output_dim):
-            raise Exception(&#34;bad mean shape %s&#34; % (mean.shape,))
-        if variance.shape != (input_dim, output_dim):
-            raise Exception(&#34;bad variance shape %s&#34; % (variance.shape,))
-        if delay.shape != (input_dim, output_dim):
-            raise Exception(&#34;bad delay shape %s&#34; % (delay.shape,))
-        if phase.shape != (output_dim,):
-            raise Exception(&#34;bad phase shape %s&#34; % (phase.shape,))
+        magnitude = np.random.standard_normal((output_dim))
+        mean = np.random.standard_normal((input_dim, output_dim))
+        variance = np.random.random((input_dim, output_dim))
+        delay = np.zeros((input_dim, output_dim))
+        phase = np.zeros((output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
         self.magnitude = Parameter(magnitude, prior=magnitude_prior)
@@ -208,8 +147,8 @@ matrix appropriately.</p>
             temp = np.power(2 * np.pi, self.input_dim / 2) \
                     * tf.sqrt(rprod(self.variance[:, i])) \
                     * tf.square(self.magnitude[i])
-            K = temp * tf.exp(-0.5 * self.sqdist(X, X, self.variance[:, i])) \
-                    * tf.cos(rsum(mean * self.dist(X, X), 0))
+            K = temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
+                    * tf.cos(rsum(mean * self.dist(X, X2), 0))
         else:
             sv = self.variance[:, i] + self.variance[:, j]
             cross_delay = tf.reshape(
@@ -255,8 +194,8 @@ matrix appropriately.</p>
         temp = np.power(2 * np.pi, self.input_dim / 2) \
                 * tf.sqrt(rprod(self.variance[:, i])) \
                 * tf.square(self.magnitude[i])
-        K = temp * tf.exp(-0.5 * self.sqdist(X, X, self.variance[:, i])) \
-                * tf.cos(rsum(mean * self.dist(X, X), 0))
+        K = temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
+                * tf.cos(rsum(mean * self.dist(X, X2), 0))
     else:
         sv = self.variance[:, i] + self.variance[:, j]
         cross_delay = tf.reshape(

@@ -35,33 +35,18 @@ from .multikernel import MultiKernel
 
 # uses angular freq
 class CrossSpectralMixture(MultiKernel):
-    def __init__(self, input_dim, output_dim, Rq, constant=None, mean=None, variance=None, phase=None, active_dims=None):
+    def __init__(self, input_dim, output_dim, Rq, active_dims=None):
         &#34;&#34;&#34;
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - constant (np.ndarray) has shape (Rq, output_dim)
-        - mean (np.ndarray) has shape (input_dim)
-        - variance (np.ndarray) has shape (input_dim)
-        - phase (np.ndarray) has shape (Rq, output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - Rq (int): The number of subcomponents.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
         &#34;&#34;&#34;
 
-        if constant is None:
-            constant = np.random.random((Rq, output_dim))
-        if mean is None:
-            mean = np.random.random(input_dim)
-        if variance is None:
-            variance = np.random.random(input_dim)
-        if phase is None:
-            phase = np.zeros((Rq, output_dim))
-
-        if constant.shape != (Rq, output_dim):
-            raise Exception(&#34;bad constant shape %s&#34; % (constant.shape,))
-        if mean.shape != (input_dim,):
-            raise Exception(&#34;bad mean shape %s&#34; % (mean.shape,))
-        if variance.shape != (input_dim,):
-            raise Exception(&#34;bad variance shape %s&#34; % (variance.shape,))
-        if phase.shape != (Rq, output_dim):
-            raise Exception(&#34;bad phase shape %s&#34; % (phase.shape,))
+        constant = np.random.random((Rq, output_dim))
+        mean = np.random.random(input_dim)
+        variance = np.random.random(input_dim)
+        phase = np.zeros((Rq, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(constant, transform=transforms.positive)
@@ -71,16 +56,15 @@ class CrossSpectralMixture(MultiKernel):
 
     def subK(self, index, X, X2):
         i, j = index
-        Tau = self.dist(X,X2)
-        constants = tf.sqrt(self.constant[:,i]*self.constant[:,j])
-        exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(self.variance,1),2)
-        exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+        Tau = self.dist(X, X2)
+        constants = tf.sqrt(self.constant[:,i] * self.constant[:,j])
+        exp_term = tf.square(Tau) * tf.expand_dims(tf.expand_dims(self.variance, 1), 2)
+        exp_term = (-1/2) * tf.reduce_sum(exp_term, axis=0)
         exp = tf.exp(exp_term)
-        constants_times_exp = tf.expand_dims(tf.expand_dims(constants,1),2)*exp
-        cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean,1),2)*Tau, axis=0) + tf.expand_dims(tf.expand_dims(self.phase[:,i] - self.phase[:,j],1),2)
+        constants_times_exp = tf.expand_dims(tf.expand_dims(constants, 1), 2) * exp
+        cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean, 1), 2) * Tau, axis=0) + tf.expand_dims(tf.expand_dims(self.phase[:,i] - self.phase[:,j], 1), 2)
         cos = tf.cos(cos_term)
-        complete_expression = tf.reduce_sum(constants_times_exp*cos, axis = 0)
-        return complete_expression</code></pre>
+        return tf.reduce_sum(constants_times_exp * cos, axis=0)</code></pre>
 </details>
 </section>
 <section>
@@ -94,7 +78,7 @@ class CrossSpectralMixture(MultiKernel):
 <dl>
 <dt id="mogptk.kernels.csm.CrossSpectralMixture"><code class="flex name class">
 <span>class <span class="ident">CrossSpectralMixture</span></span>
-<span>(</span><span>input_dim, output_dim, Rq, constant=None, mean=None, variance=None, phase=None, active_dims=None)</span>
+<span>(</span><span>input_dim, output_dim, Rq, active_dims=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Abstract class for MultiOutput Kernels.</p>
@@ -107,43 +91,26 @@ This abstract class implements the functionality necessary to split
 the observations into different cases and reorder the final kernel
 matrix appropriately.</p>
 <ul>
-<li>input_dim (int) is the input dimension</li>
-<li>output_dim (int) is the output dimension</li>
-<li>constant (np.ndarray) has shape (Rq, output_dim)</li>
-<li>mean (np.ndarray) has shape (input_dim)</li>
-<li>variance (np.ndarray) has shape (input_dim)</li>
-<li>phase (np.ndarray) has shape (Rq, output_dim)</li>
+<li>input_dim (int): The number of input dimensions.</li>
+<li>output_dim (int): The number of output dimensions.</li>
+<li>Rq (int): The number of subcomponents.</li>
+<li>active_dims (list of int): Apply kernel to specified dimensions only.</li>
 </ul></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class CrossSpectralMixture(MultiKernel):
-    def __init__(self, input_dim, output_dim, Rq, constant=None, mean=None, variance=None, phase=None, active_dims=None):
+    def __init__(self, input_dim, output_dim, Rq, active_dims=None):
         &#34;&#34;&#34;
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - constant (np.ndarray) has shape (Rq, output_dim)
-        - mean (np.ndarray) has shape (input_dim)
-        - variance (np.ndarray) has shape (input_dim)
-        - phase (np.ndarray) has shape (Rq, output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - Rq (int): The number of subcomponents.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
         &#34;&#34;&#34;
 
-        if constant is None:
-            constant = np.random.random((Rq, output_dim))
-        if mean is None:
-            mean = np.random.random(input_dim)
-        if variance is None:
-            variance = np.random.random(input_dim)
-        if phase is None:
-            phase = np.zeros((Rq, output_dim))
-
-        if constant.shape != (Rq, output_dim):
-            raise Exception(&#34;bad constant shape %s&#34; % (constant.shape,))
-        if mean.shape != (input_dim,):
-            raise Exception(&#34;bad mean shape %s&#34; % (mean.shape,))
-        if variance.shape != (input_dim,):
-            raise Exception(&#34;bad variance shape %s&#34; % (variance.shape,))
-        if phase.shape != (Rq, output_dim):
-            raise Exception(&#34;bad phase shape %s&#34; % (phase.shape,))
+        constant = np.random.random((Rq, output_dim))
+        mean = np.random.random(input_dim)
+        variance = np.random.random(input_dim)
+        phase = np.zeros((Rq, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = Parameter(constant, transform=transforms.positive)
@@ -153,16 +120,15 @@ matrix appropriately.</p>
 
     def subK(self, index, X, X2):
         i, j = index
-        Tau = self.dist(X,X2)
-        constants = tf.sqrt(self.constant[:,i]*self.constant[:,j])
-        exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(self.variance,1),2)
-        exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+        Tau = self.dist(X, X2)
+        constants = tf.sqrt(self.constant[:,i] * self.constant[:,j])
+        exp_term = tf.square(Tau) * tf.expand_dims(tf.expand_dims(self.variance, 1), 2)
+        exp_term = (-1/2) * tf.reduce_sum(exp_term, axis=0)
         exp = tf.exp(exp_term)
-        constants_times_exp = tf.expand_dims(tf.expand_dims(constants,1),2)*exp
-        cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean,1),2)*Tau, axis=0) + tf.expand_dims(tf.expand_dims(self.phase[:,i] - self.phase[:,j],1),2)
+        constants_times_exp = tf.expand_dims(tf.expand_dims(constants, 1), 2) * exp
+        cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean, 1), 2) * Tau, axis=0) + tf.expand_dims(tf.expand_dims(self.phase[:,i] - self.phase[:,j], 1), 2)
         cos = tf.cos(cos_term)
-        complete_expression = tf.reduce_sum(constants_times_exp*cos, axis = 0)
-        return complete_expression</code></pre>
+        return tf.reduce_sum(constants_times_exp * cos, axis=0)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -184,16 +150,15 @@ matrix appropriately.</p>
 <summary>Source code</summary>
 <pre><code class="python">def subK(self, index, X, X2):
     i, j = index
-    Tau = self.dist(X,X2)
-    constants = tf.sqrt(self.constant[:,i]*self.constant[:,j])
-    exp_term = tf.square(Tau)*tf.expand_dims(tf.expand_dims(self.variance,1),2)
-    exp_term = (-1/2)*tf.reduce_sum(exp_term, axis = 0)
+    Tau = self.dist(X, X2)
+    constants = tf.sqrt(self.constant[:,i] * self.constant[:,j])
+    exp_term = tf.square(Tau) * tf.expand_dims(tf.expand_dims(self.variance, 1), 2)
+    exp_term = (-1/2) * tf.reduce_sum(exp_term, axis=0)
     exp = tf.exp(exp_term)
-    constants_times_exp = tf.expand_dims(tf.expand_dims(constants,1),2)*exp
-    cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean,1),2)*Tau, axis=0) + tf.expand_dims(tf.expand_dims(self.phase[:,i] - self.phase[:,j],1),2)
+    constants_times_exp = tf.expand_dims(tf.expand_dims(constants, 1), 2) * exp
+    cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean, 1), 2) * Tau, axis=0) + tf.expand_dims(tf.expand_dims(self.phase[:,i] - self.phase[:,j], 1), 2)
     cos = tf.cos(cos_term)
-    complete_expression = tf.reduce_sum(constants_times_exp*cos, axis = 0)
-    return complete_expression</code></pre>
+    return tf.reduce_sum(constants_times_exp * cos, axis=0)</code></pre>
 </details>
 </dd>
 </dl>

@@ -32,58 +32,6 @@ import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
 import re
-import pandas as pd
-from sklearn.linear_model import Ridge
-    
-duration_regex = re.compile(
-    r&#39;^((?P&lt;years&gt;[\.\d]+?)y)?&#39;
-    r&#39;((?P&lt;months&gt;[\.\d]+?)M)?&#39;
-    r&#39;((?P&lt;weeks&gt;[\.\d]+?)w)?&#39;
-    r&#39;((?P&lt;days&gt;[\.\d]+?)d)?&#39;
-    r&#39;((?P&lt;hours&gt;[\.\d]+?)h)?&#39;
-    r&#39;((?P&lt;minutes&gt;[\.\d]+?)m)?&#39;
-    r&#39;((?P&lt;seconds&gt;[\.\d]+?)s)?$&#39;)
-
-
-def _detransform(transformations, x, y):
-    &#34;&#34;&#34;
-    Apply inverse transformations to a set of values.
-
-    Used to apply inverse tranformations of a channel stored
-    in a Data class to a set.
-
-    Args:
-        transformations(list): List of transformations(objects) in order of aplication.
-        x(ndarray): Array of n_points x n_dim of inputs.
-        y(ndarray): Array of n_points outputs.
-    &#34;&#34;&#34;
-    if len(transformations) &gt; 0:
-        for t in transformations[::-1]:
-            y = t._backward(x, y)
-    return y
-
-def _parse_duration_to_sec(s):
-    x = duration_regex.match(s)
-    if x == None:
-        raise ValueError(&#39;duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd&#39;)
-
-    sec = 0
-    matches = x.groups()[1::2]
-    if matches[0]:
-        sec += float(matches[0])*356.2425*24*3600
-    if matches[1]:
-        sec += float(matches[1])*30.4369*24*3600
-    if matches[2]:
-        sec += float(matches[2])*7*24*3600
-    if matches[3]:
-        sec += float(matches[3])*24*3600
-    if matches[4]:
-        sec += float(matches[4])*3600
-    if matches[5]:
-        sec += float(matches[5])*60
-    if matches[6]:
-        sec += float(matches[6])
-    return sec
 
 class FormatNumber:
     &#34;&#34;&#34;
@@ -181,6 +129,10 @@ class FormatDateTime:
         if maxfreq == None or maxfreq == &#39;second&#39;:
             return 1, &#39;second&#39;
 
+################################################################
+################################################################
+################################################################
+
 class TransformDetrend:
     &#34;&#34;&#34;
     TransformDetrend is a transformer that detrends the data. It uses NumPy `polyfit` to find an `n` degree polynomial that removes the trend.
@@ -189,7 +141,7 @@ class TransformDetrend:
         degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
     &#34;&#34;&#34;
     # TODO: add regression?
-    def __init__(self, degree=2):
+    def __init__(self, degree=1):
         self.degree = degree
 
     def _data(self, data):
@@ -235,13 +187,18 @@ class TransformLog:
         pass
 
     def _data(self, data):
-        self.shift = 1-np.amin(data.Y)
+        self.shift = 1 - np.amin(data.Y)
+        self.mean = np.log(data.Y + self.shift).mean()
 
     def _forward(self, x, y):
-        return np.log(y+self.shift)
+        return np.log(y + self.shift) - self.mean
     
     def _backward(self, x, y):
-        return np.exp(y)-self.shift
+        return np.exp(y + self.mean) - self.shift
+
+################################################################
+################################################################
+################################################################
 
 def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
     &#34;&#34;&#34;
@@ -377,6 +334,10 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
 def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
     pass # TODO: implement
 
+################################################################
+################################################################
+################################################################
+
 class Data:
     def __init__(self, X, Y, name=&#34;&#34;, format=None):
         &#34;&#34;&#34;
@@ -393,7 +354,7 @@ class Data:
             Y (list,ndarray): Dependent variable data of shape (n).
             name (str,optional): Name of dataset.
             format (list,optional): List of formatters (such as FormatNumber (default), FormatDate,
-                FormetDateTime, ...) for each input dimension.
+                FormatDateTime, ...) for each input dimension.
 
         Examples:
             &gt;&gt;&gt; Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -434,6 +395,13 @@ class Data:
             ind = np.argsort(X, axis=0)
             X = np.take_along_axis(X, ind, axis=0)
             Y = np.take_along_axis(Y, ind[:,0], axis=0)
+
+        for dim in range(X.shape[1]):
+            xran = np.max(X[:,dim]) - np.min(X[:,dim])
+            if xran &lt; 1e-3:
+                print(&#34;Warning: very small X range may give problems, it is suggested to scale up your X-axis&#34;)
+            elif 1e4 &lt; xran:
+                print(&#34;Warning: very large X range may give problems, it is suggested to scale down your X-axis&#34;)
         
         self.name = name
         self.X = X # shape (n, input_dims)
@@ -441,8 +409,8 @@ class Data:
         self.mask = np.array([True] * n)
         self.F = None
         self.X_pred = np.array([])
-        self.Y_mu_pred = np.array([])
-        self.Y_var_pred = np.array([])
+        self.Y_mu_pred = {}
+        self.Y_var_pred = {}
 
         self.input_label = [&#39;&#39;] * input_dims
         self.output_label = &#39;&#39;
@@ -501,7 +469,7 @@ class Data:
 
     def copy(self):
         &#34;&#34;&#34;
-        Make a deep copy of the dataset.
+        Make a deep copy of Data.
 
         Returns:
             Data: Data.
@@ -613,7 +581,7 @@ class Data:
         &#34;&#34;&#34;
         return self.X.shape[1]
 
-    def get_obs(self):
+    def get_data(self):
         &#34;&#34;&#34;
         Returns the observations.
 
@@ -621,9 +589,11 @@ class Data:
             ndarray: X data of shape (n,input_dims).
             ndarray: Y data of shape (n).
         &#34;&#34;&#34;
-        return self.X[self.mask,:], self.Y[self.mask]
+        x = self.X[self.mask,:]
+        y = self.Y[self.mask]
+        return x, self._detransform(x, y)
     
-    def get_all_obs(self):
+    def get_all(self):
         &#34;&#34;&#34;
         Returns all observations (including removed observations).
 
@@ -631,9 +601,11 @@ class Data:
             ndarray: X data of shape (n,input_dims).
             ndarray: Y data of shape (n).
         &#34;&#34;&#34;
-        return self.X, self.Y
+        x = self.X
+        y = self.Y
+        return x, self._detransform(x, y)
 
-    def get_del_obs(self):
+    def get_deleted(self):
         &#34;&#34;&#34;
         Returns the removed observations.
 
@@ -641,7 +613,9 @@ class Data:
             ndarray: X data of shape (n,input_dims).
             ndarray: Y data of shape (n).
         &#34;&#34;&#34;
-        return self.X[~self.mask,:], self.Y[~self.mask]
+        x = self.X[~self.mask,:]
+        y = self.Y[~self.mask]
+        return x, self._detransform(x, y)
 
     ################################################################
     
@@ -710,8 +684,8 @@ class Data:
 
         x_min = np.min(self.X[:,0])
         x_max = np.max(self.X[:,0])
-        start = x_min + np.round(max(0.0, min(1.0, start)) * (x_max-x_min))
-        end = x_min + np.round(max(0.0, min(1.0, end)) * (x_max-x_min))
+        start = x_min + max(0.0, min(1.0, start)) * (x_max-x_min)
+        end = x_min + max(0.0, min(1.0, end)) * (x_max-x_min)
 
         idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
         self.mask[idx] = False
@@ -732,8 +706,10 @@ class Data:
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
+        print(duration)
         duration = self.formatters[0]._parse_duration(duration)
-        if n &lt; 1 or duration &lt; 1:
+        print(n, duration)
+        if n &lt; 1:
             return
 
         # TODO: what if N != 1 and we have dates on the X-axis? Make sure that ranges do not overlap and are picked randomly
@@ -741,13 +717,29 @@ class Data:
         if m &lt;= 0:
             raise Exception(&#34;no data left after removing ranges&#34;)
 
+        ## TODO: doesn&#39;t work
         locs = np.round(np.sort(np.random.rand(n)) * m)
+        print(locs)
         for i in range(len(locs)):
             loc = int(locs[i] + i * duration)
             idx = np.arange(int(loc), int(loc+duration))
+            print(idx)
             self.mask[idx] = False
     
     ################################################################
+    
+    def get_pred(self, name, sigma=2):
+        if name not in self.Y_mu_pred:
+            raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
+
+        mu = self.Y_mu_pred[name]
+        lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
+        upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
+
+        mu = self._detransform(self.X_pred, mu)
+        lower = self._detransform(self.X_pred, lower)
+        upper = self._detransform(self.X_pred, upper)
+        return self.X_pred, mu, lower, upper
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
@@ -801,6 +793,7 @@ class Data:
             raise ValueError(&#34;start must be lower than end&#34;)
 
         # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
+        self.X_pred = np.array([])
         if step == None and n != None:
             self.X_pred = np.empty((n, self.get_input_dims()))
             for i in range(self.get_input_dims()):
@@ -828,7 +821,7 @@ class Data:
         if isinstance(x, list):
             x = np.array(x)
         elif not isinstance(x, np.ndarray):
-            raise ValueError(&#34;x expected to be a list or Numpy array&#34;)
+            raise ValueError(&#34;x expected to be a list or ndarray&#34;)
 
         x = x.astype(float)
 
@@ -868,8 +861,8 @@ class Data:
                 frequencies, defaults to 5000.
 
         Returns:
-            amplitudes: Amplitude array of shape (input_dims,Q).
-            positions: Frequency array of shape (input_dims,Q).
+            amplitudes: Amplitude array of shape (input_dims, Q).
+            positions: Frequency array of shape (input_dims, Q).
             variances: Variance array of shape (input_dims, Q).
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
@@ -963,7 +956,7 @@ class Data:
     #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
     #    pass
 
-    def plot(self, title=None, filename=None, show=True):
+    def plot(self, ax=None):#filename=None, show=True):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions.
 
@@ -978,64 +971,57 @@ class Data:
         if self.get_input_dims() == 2:
             raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-        fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
-        if title != None:
-            fig.suptitle(title, fontsize=36)
-
-        plotting_pred = False
-        plotting_F = False
-        plotting_obs = False
-
-        if self.Y_mu_pred.size != 0:
-            lower = self.Y_mu_pred - self.Y_var_pred
-            upper = self.Y_mu_pred + self.Y_var_pred
-            axes[0,0].plot(self.X_pred[:,0], self.Y_mu_pred, &#39;b-&#39;, lw=3)
-            axes[0,0].fill_between(self.X_pred[:,0], lower, upper, color=&#39;b&#39;, alpha=0.1)
-            axes[0,0].plot(self.X_pred[:,0], lower, &#39;b-&#39;, lw=1, alpha=0.5)
-            axes[0,0].plot(self.X_pred[:,0], upper, &#39;b-&#39;, lw=1, alpha=0.5)
-            plotting_pred = True
+        if ax == None:
+            ax = plt.gca()
+        
+        ax.set_title(self.name, fontsize=36)
+        
+        legend = []
+        colors = list(matplotlib.colors.TABLEAU_COLORS)
+        for i, name in enumerate(self.Y_mu_pred):
+            if self.Y_mu_pred[name].size != 0:
+                lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
+                upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
+                ax.plot(self.X_pred[name][:,0], self.Y_mu_pred[name], ls=&#39;-&#39;, color=colors[i], lw=3)
+                ax.fill_between(self.X_pred[name][:,0], lower, upper, color=colors[i], alpha=0.1)
+                ax.plot(self.X_pred[name][:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+                ax.plot(self.X_pred[name][:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+                legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=3, label=&#39;Prediction &#39;+name))
 
         if self.F != None:
             n = len(self.X[:,0])*10
-            x_min = np.min(self.X[:,0])
-            x_max = np.max(self.X[:,0])
+            x_min = min(np.min(self.X[:,0]), np.min(self.X_pred))
+            x_max = max(np.max(self.X[:,0]), np.max(self.X_pred))
 
             x = np.empty((n, 1))
             x[:,0] = np.linspace(x_min, x_max, n)
             y = self.F(x)
 
-            axes[0,0].plot(x[:,0], y, &#39;r--&#39;, lw=1)
-            plotting_F = True
+            ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
+            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
 
-        axes[0,0].plot(self.X[:,0], self.Y, &#39;k-&#39;)
+        ax.plot(self.X[:,0], self.Y, &#39;k-&#39;)
+        legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
 
         if self.has_removed_obs():
-            X, Y = self.get_obs()
-            axes[0,0].plot(X[:,0], Y, &#39;k.&#39;, mew=2, ms=8)
-            plotting_obs = True
+            X, Y = self.X[self.mask,:], self.Y[self.mask]
+            ax.plot(X[:,0], Y, &#39;k.&#39;, mew=2, ms=5)
+            legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
 
-        axes[0,0].set_xlabel(self.input_label[0])
-        axes[0,0].set_ylabel(self.output_label)
-        axes[0,0].set_title(self.name, fontsize=30)
+        ax.set_xlabel(self.input_label[0])
+        ax.set_ylabel(self.output_label)
+        ax.set_title(self.name, fontsize=30)
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
-        axes[0,0].xaxis.set_major_formatter(formatter)
+        ax.xaxis.set_major_formatter(formatter)
 
-        # build legend
-        if plotting_F or plotting_obs:
-            legend = []
-            legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
-            if plotting_F:
-                legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
-            if plotting_obs:
-                legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
-            if plotting_pred:
-                legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;b&#39;, lw=3, label=&#39;Prediction&#39;))
+        if 0 &lt; len(legend):
             plt.legend(handles=legend, loc=&#39;best&#39;)
 
-        if filename != None:
-            plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
-        if show:
-            plt.show()
+        #if filename != None:
+        #    plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+        #if show:
+        #    plt.show()
+        return ax
 
     def plot_spectrum(self, method=&#39;lombscargle&#39;, angularfreq=False, per=None, maxfreq=None, title=None, filename=None, show=True):
         &#34;&#34;&#34;
@@ -1102,6 +1088,16 @@ class Data:
 
         return axes[0, 0]
 
+    def _transform(self, x, y):
+        for t in self.transformations:
+            y = t._forward(x, y)
+        return y
+
+    def _detransform(self, x, y):
+        for t in self.transformations[::-1]:
+            y = t._backward(x, y)
+        return y
+
 def _check_function(f, input_dims):
     if not inspect.isfunction(f):
         raise ValueError(&#34;function must take X as a parameter&#34;)
@@ -1130,7 +1126,39 @@ def _normalize_input_dims(x, input_dims):
         raise ValueError(&#34;input should be a floating point, list or ndarray&#34;)
     if input_dims != None and len(x) != input_dims:
         raise ValueError(&#34;input must be a scalar for single-dimension input or a list of values for each input dimension&#34;)
-    return x</code></pre>
+    return x
+    
+duration_regex = re.compile(
+    r&#39;^((?P&lt;years&gt;[\.\d]+?)y)?&#39;
+    r&#39;((?P&lt;months&gt;[\.\d]+?)M)?&#39;
+    r&#39;((?P&lt;weeks&gt;[\.\d]+?)w)?&#39;
+    r&#39;((?P&lt;days&gt;[\.\d]+?)d)?&#39;
+    r&#39;((?P&lt;hours&gt;[\.\d]+?)h)?&#39;
+    r&#39;((?P&lt;minutes&gt;[\.\d]+?)m)?&#39;
+    r&#39;((?P&lt;seconds&gt;[\.\d]+?)s)?$&#39;)
+
+def _parse_duration_to_sec(s):
+    x = duration_regex.match(s)
+    if x == None:
+        raise ValueError(&#39;duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd&#39;)
+
+    sec = 0
+    matches = x.groups()[1::2]
+    if matches[0]:
+        sec += float(matches[0])*356.2425*24*3600
+    if matches[1]:
+        sec += float(matches[1])*30.4369*24*3600
+    if matches[2]:
+        sec += float(matches[2])*7*24*3600
+    if matches[3]:
+        sec += float(matches[3])*24*3600
+    if matches[4]:
+        sec += float(matches[4])*3600
+    if matches[5]:
+        sec += float(matches[5])*60
+    if matches[6]:
+        sec += float(matches[6])
+    return sec</code></pre>
 </details>
 </section>
 <section>
@@ -1380,7 +1408,7 @@ weekly data. Additionally, we also use this class to set the range we want to pr
 <dd>Name of dataset.</dd>
 <dt><strong><code>format</code></strong> :&ensp;<code>list</code>,optional</dt>
 <dd>List of formatters (such as FormatNumber (default), FormatDate,
-FormetDateTime, &hellip;) for each input dimension.</dd>
+FormatDateTime, &hellip;) for each input dimension.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -1404,7 +1432,7 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
             Y (list,ndarray): Dependent variable data of shape (n).
             name (str,optional): Name of dataset.
             format (list,optional): List of formatters (such as FormatNumber (default), FormatDate,
-                FormetDateTime, ...) for each input dimension.
+                FormatDateTime, ...) for each input dimension.
 
         Examples:
             &gt;&gt;&gt; Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -1445,6 +1473,13 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
             ind = np.argsort(X, axis=0)
             X = np.take_along_axis(X, ind, axis=0)
             Y = np.take_along_axis(Y, ind[:,0], axis=0)
+
+        for dim in range(X.shape[1]):
+            xran = np.max(X[:,dim]) - np.min(X[:,dim])
+            if xran &lt; 1e-3:
+                print(&#34;Warning: very small X range may give problems, it is suggested to scale up your X-axis&#34;)
+            elif 1e4 &lt; xran:
+                print(&#34;Warning: very large X range may give problems, it is suggested to scale down your X-axis&#34;)
         
         self.name = name
         self.X = X # shape (n, input_dims)
@@ -1452,8 +1487,8 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
         self.mask = np.array([True] * n)
         self.F = None
         self.X_pred = np.array([])
-        self.Y_mu_pred = np.array([])
-        self.Y_var_pred = np.array([])
+        self.Y_mu_pred = {}
+        self.Y_var_pred = {}
 
         self.input_label = [&#39;&#39;] * input_dims
         self.output_label = &#39;&#39;
@@ -1512,7 +1547,7 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
 
     def copy(self):
         &#34;&#34;&#34;
-        Make a deep copy of the dataset.
+        Make a deep copy of Data.
 
         Returns:
             Data: Data.
@@ -1624,7 +1659,7 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
         &#34;&#34;&#34;
         return self.X.shape[1]
 
-    def get_obs(self):
+    def get_data(self):
         &#34;&#34;&#34;
         Returns the observations.
 
@@ -1632,9 +1667,11 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
             ndarray: X data of shape (n,input_dims).
             ndarray: Y data of shape (n).
         &#34;&#34;&#34;
-        return self.X[self.mask,:], self.Y[self.mask]
+        x = self.X[self.mask,:]
+        y = self.Y[self.mask]
+        return x, self._detransform(x, y)
     
-    def get_all_obs(self):
+    def get_all(self):
         &#34;&#34;&#34;
         Returns all observations (including removed observations).
 
@@ -1642,9 +1679,11 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
             ndarray: X data of shape (n,input_dims).
             ndarray: Y data of shape (n).
         &#34;&#34;&#34;
-        return self.X, self.Y
+        x = self.X
+        y = self.Y
+        return x, self._detransform(x, y)
 
-    def get_del_obs(self):
+    def get_deleted(self):
         &#34;&#34;&#34;
         Returns the removed observations.
 
@@ -1652,7 +1691,9 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
             ndarray: X data of shape (n,input_dims).
             ndarray: Y data of shape (n).
         &#34;&#34;&#34;
-        return self.X[~self.mask,:], self.Y[~self.mask]
+        x = self.X[~self.mask,:]
+        y = self.Y[~self.mask]
+        return x, self._detransform(x, y)
 
     ################################################################
     
@@ -1721,8 +1762,8 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
 
         x_min = np.min(self.X[:,0])
         x_max = np.max(self.X[:,0])
-        start = x_min + np.round(max(0.0, min(1.0, start)) * (x_max-x_min))
-        end = x_min + np.round(max(0.0, min(1.0, end)) * (x_max-x_min))
+        start = x_min + max(0.0, min(1.0, start)) * (x_max-x_min)
+        end = x_min + max(0.0, min(1.0, end)) * (x_max-x_min)
 
         idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
         self.mask[idx] = False
@@ -1743,8 +1784,10 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
+        print(duration)
         duration = self.formatters[0]._parse_duration(duration)
-        if n &lt; 1 or duration &lt; 1:
+        print(n, duration)
+        if n &lt; 1:
             return
 
         # TODO: what if N != 1 and we have dates on the X-axis? Make sure that ranges do not overlap and are picked randomly
@@ -1752,13 +1795,29 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
         if m &lt;= 0:
             raise Exception(&#34;no data left after removing ranges&#34;)
 
+        ## TODO: doesn&#39;t work
         locs = np.round(np.sort(np.random.rand(n)) * m)
+        print(locs)
         for i in range(len(locs)):
             loc = int(locs[i] + i * duration)
             idx = np.arange(int(loc), int(loc+duration))
+            print(idx)
             self.mask[idx] = False
     
     ################################################################
+    
+    def get_pred(self, name, sigma=2):
+        if name not in self.Y_mu_pred:
+            raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
+
+        mu = self.Y_mu_pred[name]
+        lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
+        upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
+
+        mu = self._detransform(self.X_pred, mu)
+        lower = self._detransform(self.X_pred, lower)
+        upper = self._detransform(self.X_pred, upper)
+        return self.X_pred, mu, lower, upper
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
@@ -1812,6 +1871,7 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
             raise ValueError(&#34;start must be lower than end&#34;)
 
         # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
+        self.X_pred = np.array([])
         if step == None and n != None:
             self.X_pred = np.empty((n, self.get_input_dims()))
             for i in range(self.get_input_dims()):
@@ -1839,7 +1899,7 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
         if isinstance(x, list):
             x = np.array(x)
         elif not isinstance(x, np.ndarray):
-            raise ValueError(&#34;x expected to be a list or Numpy array&#34;)
+            raise ValueError(&#34;x expected to be a list or ndarray&#34;)
 
         x = x.astype(float)
 
@@ -1879,8 +1939,8 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
                 frequencies, defaults to 5000.
 
         Returns:
-            amplitudes: Amplitude array of shape (input_dims,Q).
-            positions: Frequency array of shape (input_dims,Q).
+            amplitudes: Amplitude array of shape (input_dims, Q).
+            positions: Frequency array of shape (input_dims, Q).
             variances: Variance array of shape (input_dims, Q).
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
@@ -1974,7 +2034,7 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
     #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
     #    pass
 
-    def plot(self, title=None, filename=None, show=True):
+    def plot(self, ax=None):#filename=None, show=True):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions.
 
@@ -1989,64 +2049,57 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
         if self.get_input_dims() == 2:
             raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-        fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
-        if title != None:
-            fig.suptitle(title, fontsize=36)
-
-        plotting_pred = False
-        plotting_F = False
-        plotting_obs = False
-
-        if self.Y_mu_pred.size != 0:
-            lower = self.Y_mu_pred - self.Y_var_pred
-            upper = self.Y_mu_pred + self.Y_var_pred
-            axes[0,0].plot(self.X_pred[:,0], self.Y_mu_pred, &#39;b-&#39;, lw=3)
-            axes[0,0].fill_between(self.X_pred[:,0], lower, upper, color=&#39;b&#39;, alpha=0.1)
-            axes[0,0].plot(self.X_pred[:,0], lower, &#39;b-&#39;, lw=1, alpha=0.5)
-            axes[0,0].plot(self.X_pred[:,0], upper, &#39;b-&#39;, lw=1, alpha=0.5)
-            plotting_pred = True
+        if ax == None:
+            ax = plt.gca()
+        
+        ax.set_title(self.name, fontsize=36)
+        
+        legend = []
+        colors = list(matplotlib.colors.TABLEAU_COLORS)
+        for i, name in enumerate(self.Y_mu_pred):
+            if self.Y_mu_pred[name].size != 0:
+                lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
+                upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
+                ax.plot(self.X_pred[name][:,0], self.Y_mu_pred[name], ls=&#39;-&#39;, color=colors[i], lw=3)
+                ax.fill_between(self.X_pred[name][:,0], lower, upper, color=colors[i], alpha=0.1)
+                ax.plot(self.X_pred[name][:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+                ax.plot(self.X_pred[name][:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+                legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=3, label=&#39;Prediction &#39;+name))
 
         if self.F != None:
             n = len(self.X[:,0])*10
-            x_min = np.min(self.X[:,0])
-            x_max = np.max(self.X[:,0])
+            x_min = min(np.min(self.X[:,0]), np.min(self.X_pred))
+            x_max = max(np.max(self.X[:,0]), np.max(self.X_pred))
 
             x = np.empty((n, 1))
             x[:,0] = np.linspace(x_min, x_max, n)
             y = self.F(x)
 
-            axes[0,0].plot(x[:,0], y, &#39;r--&#39;, lw=1)
-            plotting_F = True
+            ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
+            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
 
-        axes[0,0].plot(self.X[:,0], self.Y, &#39;k-&#39;)
+        ax.plot(self.X[:,0], self.Y, &#39;k-&#39;)
+        legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
 
         if self.has_removed_obs():
-            X, Y = self.get_obs()
-            axes[0,0].plot(X[:,0], Y, &#39;k.&#39;, mew=2, ms=8)
-            plotting_obs = True
+            X, Y = self.X[self.mask,:], self.Y[self.mask]
+            ax.plot(X[:,0], Y, &#39;k.&#39;, mew=2, ms=5)
+            legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
 
-        axes[0,0].set_xlabel(self.input_label[0])
-        axes[0,0].set_ylabel(self.output_label)
-        axes[0,0].set_title(self.name, fontsize=30)
+        ax.set_xlabel(self.input_label[0])
+        ax.set_ylabel(self.output_label)
+        ax.set_title(self.name, fontsize=30)
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
-        axes[0,0].xaxis.set_major_formatter(formatter)
+        ax.xaxis.set_major_formatter(formatter)
 
-        # build legend
-        if plotting_F or plotting_obs:
-            legend = []
-            legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
-            if plotting_F:
-                legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
-            if plotting_obs:
-                legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
-            if plotting_pred:
-                legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;b&#39;, lw=3, label=&#39;Prediction&#39;))
+        if 0 &lt; len(legend):
             plt.legend(handles=legend, loc=&#39;best&#39;)
 
-        if filename != None:
-            plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
-        if show:
-            plt.show()
+        #if filename != None:
+        #    plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+        #if show:
+        #    plt.show()
+        return ax
 
     def plot_spectrum(self, method=&#39;lombscargle&#39;, angularfreq=False, per=None, maxfreq=None, title=None, filename=None, show=True):
         &#34;&#34;&#34;
@@ -2111,12 +2164,22 @@ FormetDateTime, &hellip;) for each input dimension.</dd>
         if show:
             plt.show()
 
-        return axes[0, 0]</code></pre>
+        return axes[0, 0]
+
+    def _transform(self, x, y):
+        for t in self.transformations:
+            y = t._forward(x, y)
+        return y
+
+    def _detransform(self, x, y):
+        for t in self.transformations[::-1]:
+            y = t._backward(x, y)
+        return y</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.data.Data.aggregate"><code class="name flex">
-<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=<function mean at 0x7fc69d580950>)</span>
+<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=<function mean at 0x7f806e61af28>)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
@@ -2184,7 +2247,7 @@ while with FormatDateTime it is per second.</p>
 <span>def <span class="ident">copy</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Make a deep copy of the dataset.</p>
+<section class="desc"><p>Make a deep copy of Data.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></strong></dt>
@@ -2194,7 +2257,7 @@ while with FormatDateTime it is per second.</p>
 <summary>Source code</summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
-    Make a deep copy of the dataset.
+    Make a deep copy of Data.
 
     Returns:
         Data: Data.
@@ -2250,8 +2313,8 @@ while with FormatDateTime it is per second.</p>
     self.mask = self.mask[ind]</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.get_all_obs"><code class="name flex">
-<span>def <span class="ident">get_all_obs</span></span>(<span>self)</span>
+<dt id="mogptk.data.Data.get_all"><code class="name flex">
+<span>def <span class="ident">get_all</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Returns all observations (including removed observations).</p>
@@ -2264,7 +2327,7 @@ while with FormatDateTime it is per second.</p>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def get_all_obs(self):
+<pre><code class="python">def get_all(self):
     &#34;&#34;&#34;
     Returns all observations (including removed observations).
 
@@ -2272,7 +2335,9 @@ while with FormatDateTime it is per second.</p>
         ndarray: X data of shape (n,input_dims).
         ndarray: Y data of shape (n).
     &#34;&#34;&#34;
-    return self.X, self.Y</code></pre>
+    x = self.X
+    y = self.Y
+    return x, self._detransform(x, y)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_bnse_estimation"><code class="name flex">
@@ -2291,9 +2356,9 @@ frequencies, defaults to 5000.</dd>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>amplitudes</code></strong></dt>
-<dd>Amplitude array of shape (input_dims,Q).</dd>
+<dd>Amplitude array of shape (input_dims, Q).</dd>
 <dt><strong><code>positions</code></strong></dt>
-<dd>Frequency array of shape (input_dims,Q).</dd>
+<dd>Frequency array of shape (input_dims, Q).</dd>
 <dt><strong><code>variances</code></strong></dt>
 <dd>Variance array of shape (input_dims, Q).</dd>
 </dl></section>
@@ -2309,8 +2374,8 @@ frequencies, defaults to 5000.</dd>
             frequencies, defaults to 5000.
 
     Returns:
-        amplitudes: Amplitude array of shape (input_dims,Q).
-        positions: Frequency array of shape (input_dims,Q).
+        amplitudes: Amplitude array of shape (input_dims, Q).
+        positions: Frequency array of shape (input_dims, Q).
         variances: Variance array of shape (input_dims, Q).
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
@@ -2350,8 +2415,35 @@ frequencies, defaults to 5000.</dd>
     return A, B, C</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.get_del_obs"><code class="name flex">
-<span>def <span class="ident">get_del_obs</span></span>(<span>self)</span>
+<dt id="mogptk.data.Data.get_data"><code class="name flex">
+<span>def <span class="ident">get_data</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the observations.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>X data of shape (n,input_dims).</dd>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Y data of shape (n).</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_data(self):
+    &#34;&#34;&#34;
+    Returns the observations.
+
+    Returns:
+        ndarray: X data of shape (n,input_dims).
+        ndarray: Y data of shape (n).
+    &#34;&#34;&#34;
+    x = self.X[self.mask,:]
+    y = self.Y[self.mask]
+    return x, self._detransform(x, y)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.get_deleted"><code class="name flex">
+<span>def <span class="ident">get_deleted</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Returns the removed observations.</p>
@@ -2364,7 +2456,7 @@ frequencies, defaults to 5000.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def get_del_obs(self):
+<pre><code class="python">def get_deleted(self):
     &#34;&#34;&#34;
     Returns the removed observations.
 
@@ -2372,7 +2464,9 @@ frequencies, defaults to 5000.</dd>
         ndarray: X data of shape (n,input_dims).
         ndarray: Y data of shape (n).
     &#34;&#34;&#34;
-    return self.X[~self.mask,:], self.Y[~self.mask]</code></pre>
+    x = self.X[~self.mask,:]
+    y = self.Y[~self.mask]
+    return x, self._detransform(x, y)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_input_dims"><code class="name flex">
@@ -2500,29 +2594,25 @@ frequencies, defaults to 5000.</dd>
     return nyquist</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.get_obs"><code class="name flex">
-<span>def <span class="ident">get_obs</span></span>(<span>self)</span>
+<dt id="mogptk.data.Data.get_pred"><code class="name flex">
+<span>def <span class="ident">get_pred</span></span>(<span>self, name, sigma=2)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the observations.</p>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>X data of shape (n,input_dims).</dd>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Y data of shape (n).</dd>
-</dl></section>
+<section class="desc"></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def get_obs(self):
-    &#34;&#34;&#34;
-    Returns the observations.
+<pre><code class="python">def get_pred(self, name, sigma=2):
+    if name not in self.Y_mu_pred:
+        raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
 
-    Returns:
-        ndarray: X data of shape (n,input_dims).
-        ndarray: Y data of shape (n).
-    &#34;&#34;&#34;
-    return self.X[self.mask,:], self.Y[self.mask]</code></pre>
+    mu = self.Y_mu_pred[name]
+    lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
+    upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
+
+    mu = self._detransform(self.X_pred, mu)
+    lower = self._detransform(self.X_pred, lower)
+    upper = self._detransform(self.X_pred, upper)
+    return self.X_pred, mu, lower, upper</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.has_removed_obs"><code class="name flex">
@@ -2540,7 +2630,7 @@ frequencies, defaults to 5000.</dd>
 </details>
 </dd>
 <dt id="mogptk.data.Data.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>self, title=None, filename=None, show=True)</span>
+<span>def <span class="ident">plot</span></span>(<span>self, ax=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Plot the data including removed observations, latent function, and predictions.</p>
@@ -2555,7 +2645,7 @@ frequencies, defaults to 5000.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def plot(self, title=None, filename=None, show=True):
+<pre><code class="python">def plot(self, ax=None):#filename=None, show=True):
     &#34;&#34;&#34;
     Plot the data including removed observations, latent function, and predictions.
 
@@ -2570,64 +2660,57 @@ frequencies, defaults to 5000.</dd>
     if self.get_input_dims() == 2:
         raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-    fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
-    if title != None:
-        fig.suptitle(title, fontsize=36)
-
-    plotting_pred = False
-    plotting_F = False
-    plotting_obs = False
-
-    if self.Y_mu_pred.size != 0:
-        lower = self.Y_mu_pred - self.Y_var_pred
-        upper = self.Y_mu_pred + self.Y_var_pred
-        axes[0,0].plot(self.X_pred[:,0], self.Y_mu_pred, &#39;b-&#39;, lw=3)
-        axes[0,0].fill_between(self.X_pred[:,0], lower, upper, color=&#39;b&#39;, alpha=0.1)
-        axes[0,0].plot(self.X_pred[:,0], lower, &#39;b-&#39;, lw=1, alpha=0.5)
-        axes[0,0].plot(self.X_pred[:,0], upper, &#39;b-&#39;, lw=1, alpha=0.5)
-        plotting_pred = True
+    if ax == None:
+        ax = plt.gca()
+    
+    ax.set_title(self.name, fontsize=36)
+    
+    legend = []
+    colors = list(matplotlib.colors.TABLEAU_COLORS)
+    for i, name in enumerate(self.Y_mu_pred):
+        if self.Y_mu_pred[name].size != 0:
+            lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
+            upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
+            ax.plot(self.X_pred[name][:,0], self.Y_mu_pred[name], ls=&#39;-&#39;, color=colors[i], lw=3)
+            ax.fill_between(self.X_pred[name][:,0], lower, upper, color=colors[i], alpha=0.1)
+            ax.plot(self.X_pred[name][:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+            ax.plot(self.X_pred[name][:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+            legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=3, label=&#39;Prediction &#39;+name))
 
     if self.F != None:
         n = len(self.X[:,0])*10
-        x_min = np.min(self.X[:,0])
-        x_max = np.max(self.X[:,0])
+        x_min = min(np.min(self.X[:,0]), np.min(self.X_pred))
+        x_max = max(np.max(self.X[:,0]), np.max(self.X_pred))
 
         x = np.empty((n, 1))
         x[:,0] = np.linspace(x_min, x_max, n)
         y = self.F(x)
 
-        axes[0,0].plot(x[:,0], y, &#39;r--&#39;, lw=1)
-        plotting_F = True
+        ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
+        legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
 
-    axes[0,0].plot(self.X[:,0], self.Y, &#39;k-&#39;)
+    ax.plot(self.X[:,0], self.Y, &#39;k-&#39;)
+    legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
 
     if self.has_removed_obs():
-        X, Y = self.get_obs()
-        axes[0,0].plot(X[:,0], Y, &#39;k.&#39;, mew=2, ms=8)
-        plotting_obs = True
+        X, Y = self.X[self.mask,:], self.Y[self.mask]
+        ax.plot(X[:,0], Y, &#39;k.&#39;, mew=2, ms=5)
+        legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
 
-    axes[0,0].set_xlabel(self.input_label[0])
-    axes[0,0].set_ylabel(self.output_label)
-    axes[0,0].set_title(self.name, fontsize=30)
+    ax.set_xlabel(self.input_label[0])
+    ax.set_ylabel(self.output_label)
+    ax.set_title(self.name, fontsize=30)
     formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
-    axes[0,0].xaxis.set_major_formatter(formatter)
+    ax.xaxis.set_major_formatter(formatter)
 
-    # build legend
-    if plotting_F or plotting_obs:
-        legend = []
-        legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
-        if plotting_F:
-            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
-        if plotting_obs:
-            legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
-        if plotting_pred:
-            legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;b&#39;, lw=3, label=&#39;Prediction&#39;))
+    if 0 &lt; len(legend):
         plt.legend(handles=legend, loc=&#39;best&#39;)
 
-    if filename != None:
-        plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
-    if show:
-        plt.show()</code></pre>
+    #if filename != None:
+    #    plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+    #if show:
+    #    plt.show()
+    return ax</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.plot_spectrum"><code class="name flex">
@@ -2756,8 +2839,10 @@ frequencies, defaults to 5000.</dd>
     if self.get_input_dims() != 1:
         raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
+    print(duration)
     duration = self.formatters[0]._parse_duration(duration)
-    if n &lt; 1 or duration &lt; 1:
+    print(n, duration)
+    if n &lt; 1:
         return
 
     # TODO: what if N != 1 and we have dates on the X-axis? Make sure that ranges do not overlap and are picked randomly
@@ -2765,10 +2850,13 @@ frequencies, defaults to 5000.</dd>
     if m &lt;= 0:
         raise Exception(&#34;no data left after removing ranges&#34;)
 
+    ## TODO: doesn&#39;t work
     locs = np.round(np.sort(np.random.rand(n)) * m)
+    print(locs)
     for i in range(len(locs)):
         loc = int(locs[i] + i * duration)
         idx = np.arange(int(loc), int(loc+duration))
+        print(idx)
         self.mask[idx] = False</code></pre>
 </details>
 </dd>
@@ -2893,8 +2981,8 @@ frequencies, defaults to 5000.</dd>
 
     x_min = np.min(self.X[:,0])
     x_max = np.max(self.X[:,0])
-    start = x_min + np.round(max(0.0, min(1.0, start)) * (x_max-x_min))
-    end = x_min + np.round(max(0.0, min(1.0, end)) * (x_max-x_min))
+    start = x_min + max(0.0, min(1.0, start)) * (x_max-x_min)
+    end = x_min + max(0.0, min(1.0, end)) * (x_max-x_min)
 
     idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
     self.mask[idx] = False</code></pre>
@@ -3023,7 +3111,7 @@ frequencies, defaults to 5000.</dd>
     if isinstance(x, list):
         x = np.array(x)
     elif not isinstance(x, np.ndarray):
-        raise ValueError(&#34;x expected to be a list or Numpy array&#34;)
+        raise ValueError(&#34;x expected to be a list or ndarray&#34;)
 
     x = x.astype(float)
 
@@ -3116,6 +3204,7 @@ step in the duration string format if the proper formatter is set.</p>
         raise ValueError(&#34;start must be lower than end&#34;)
 
     # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
+    self.X_pred = np.array([])
     if step == None and n != None:
         self.X_pred = np.empty((n, self.get_input_dims()))
         for i in range(self.get_input_dims()):
@@ -3301,7 +3390,7 @@ step in the duration string format if the proper formatter is set.</p>
 </dd>
 <dt id="mogptk.data.TransformDetrend"><code class="flex name class">
 <span>class <span class="ident">TransformDetrend</span></span>
-<span>(</span><span>degree=2)</span>
+<span>(</span><span>degree=1)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>TransformDetrend is a transformer that detrends the data. It uses NumPy <code>polyfit</code> to find an <code>n</code> degree polynomial that removes the trend.</p>
@@ -3320,7 +3409,7 @@ step in the duration string format if the proper formatter is set.</p>
         degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
     &#34;&#34;&#34;
     # TODO: add regression?
-    def __init__(self, degree=2):
+    def __init__(self, degree=1):
         self.degree = degree
 
     def _data(self, data):
@@ -3355,13 +3444,14 @@ step in the duration string format if the proper formatter is set.</p>
         pass
 
     def _data(self, data):
-        self.shift = 1-np.amin(data.Y)
+        self.shift = 1 - np.amin(data.Y)
+        self.mean = np.log(data.Y + self.shift).mean()
 
     def _forward(self, x, y):
-        return np.log(y+self.shift)
+        return np.log(y + self.shift) - self.mean
     
     def _backward(self, x, y):
-        return np.exp(y)-self.shift</code></pre>
+        return np.exp(y + self.mean) - self.shift</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.TransformNormalize"><code class="flex name class">
@@ -3419,13 +3509,14 @@ step in the duration string format if the proper formatter is set.</p>
 <li><code><a title="mogptk.data.Data.aggregate" href="#mogptk.data.Data.aggregate">aggregate</a></code></li>
 <li><code><a title="mogptk.data.Data.copy" href="#mogptk.data.Data.copy">copy</a></code></li>
 <li><code><a title="mogptk.data.Data.filter" href="#mogptk.data.Data.filter">filter</a></code></li>
-<li><code><a title="mogptk.data.Data.get_all_obs" href="#mogptk.data.Data.get_all_obs">get_all_obs</a></code></li>
+<li><code><a title="mogptk.data.Data.get_all" href="#mogptk.data.Data.get_all">get_all</a></code></li>
 <li><code><a title="mogptk.data.Data.get_bnse_estimation" href="#mogptk.data.Data.get_bnse_estimation">get_bnse_estimation</a></code></li>
-<li><code><a title="mogptk.data.Data.get_del_obs" href="#mogptk.data.Data.get_del_obs">get_del_obs</a></code></li>
+<li><code><a title="mogptk.data.Data.get_data" href="#mogptk.data.Data.get_data">get_data</a></code></li>
+<li><code><a title="mogptk.data.Data.get_deleted" href="#mogptk.data.Data.get_deleted">get_deleted</a></code></li>
 <li><code><a title="mogptk.data.Data.get_input_dims" href="#mogptk.data.Data.get_input_dims">get_input_dims</a></code></li>
 <li><code><a title="mogptk.data.Data.get_ls_estimation" href="#mogptk.data.Data.get_ls_estimation">get_ls_estimation</a></code></li>
 <li><code><a title="mogptk.data.Data.get_nyquist_estimation" href="#mogptk.data.Data.get_nyquist_estimation">get_nyquist_estimation</a></code></li>
-<li><code><a title="mogptk.data.Data.get_obs" href="#mogptk.data.Data.get_obs">get_obs</a></code></li>
+<li><code><a title="mogptk.data.Data.get_pred" href="#mogptk.data.Data.get_pred">get_pred</a></code></li>
 <li><code><a title="mogptk.data.Data.has_removed_obs" href="#mogptk.data.Data.has_removed_obs">has_removed_obs</a></code></li>
 <li><code><a title="mogptk.data.Data.plot" href="#mogptk.data.Data.plot">plot</a></code></li>
 <li><code><a title="mogptk.data.Data.plot_spectrum" href="#mogptk.data.Data.plot_spectrum">plot_spectrum</a></code></li>

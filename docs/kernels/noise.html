@@ -30,28 +30,24 @@ import tensorflow as tf
 from .multikernel import MultiKernel
 
 class Noise(MultiKernel):
-    def __init__(self, input_dim, output_dim, noise=None, active_dim=None):
+    def __init__(self, input_dim, output_dim, active_dim=None):
         &#34;&#34;&#34;
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - noise (np.ndarray) has shape (output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
         &#34;&#34;&#34;
 
-        if noise is None:
-            noise = np.random.random((output_dim))
-
-        if noise.shape != (output_dim,):
-            raise Exception(&#34;bad noise shape %s&#34; % (noise.shape,))
+        noise = np.random.random((output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
         self.noise = Parameter(noise, transform=transforms.positive)
 
     def subK(self, index, X, X2):
         i, j = index
-        if i == j:
-            K = tf.matrix_diag(tf.fill(tf.shape(X)[:-1], self.noise[i]))
+        if i != j or X != X2:
+            K = tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
         else:
-            K = tf.zeroes([tf.shape(X)[:-1], tf.shape(X2)[:-1]])
+            K = tf.matrix_diag(tf.fill([tf.shape(X)[0]], self.noise[i]))
         return K</code></pre>
 </details>
 </section>
@@ -66,7 +62,7 @@ class Noise(MultiKernel):
 <dl>
 <dt id="mogptk.kernels.noise.Noise"><code class="flex name class">
 <span>class <span class="ident">Noise</span></span>
-<span>(</span><span>input_dim, output_dim, noise=None, active_dim=None)</span>
+<span>(</span><span>input_dim, output_dim, active_dim=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Abstract class for MultiOutput Kernels.</p>
@@ -79,35 +75,31 @@ This abstract class implements the functionality necessary to split
 the observations into different cases and reorder the final kernel
 matrix appropriately.</p>
 <ul>
-<li>input_dim (int) is the input dimension</li>
-<li>output_dim (int) is the output dimension</li>
-<li>noise (np.ndarray) has shape (output_dim)</li>
+<li>input_dim (int): The number of input dimensions.</li>
+<li>output_dim (int): The number of output dimensions.</li>
+<li>active_dims (list of int): Apply kernel to specified dimensions only.</li>
 </ul></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class Noise(MultiKernel):
-    def __init__(self, input_dim, output_dim, noise=None, active_dim=None):
+    def __init__(self, input_dim, output_dim, active_dim=None):
         &#34;&#34;&#34;
-        - input_dim (int) is the input dimension
-        - output_dim (int) is the output dimension
-        - noise (np.ndarray) has shape (output_dim)
+        - input_dim (int): The number of input dimensions.
+        - output_dim (int): The number of output dimensions.
+        - active_dims (list of int): Apply kernel to specified dimensions only.
         &#34;&#34;&#34;
 
-        if noise is None:
-            noise = np.random.random((output_dim))
-
-        if noise.shape != (output_dim,):
-            raise Exception(&#34;bad noise shape %s&#34; % (noise.shape,))
+        noise = np.random.random((output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
         self.noise = Parameter(noise, transform=transforms.positive)
 
     def subK(self, index, X, X2):
         i, j = index
-        if i == j:
-            K = tf.matrix_diag(tf.fill(tf.shape(X)[:-1], self.noise[i]))
+        if i != j or X != X2:
+            K = tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
         else:
-            K = tf.zeroes([tf.shape(X)[:-1], tf.shape(X2)[:-1]])
+            K = tf.matrix_diag(tf.fill([tf.shape(X)[0]], self.noise[i]))
         return K</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -130,10 +122,10 @@ matrix appropriately.</p>
 <summary>Source code</summary>
 <pre><code class="python">def subK(self, index, X, X2):
     i, j = index
-    if i == j:
-        K = tf.matrix_diag(tf.fill(tf.shape(X)[:-1], self.noise[i]))
+    if i != j or X != X2:
+        K = tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
     else:
-        K = tf.zeroes([tf.shape(X)[:-1], tf.shape(X2)[:-1]])
+        K = tf.matrix_diag(tf.fill([tf.shape(X)[0]], self.noise[i]))
     return K</code></pre>
 </details>
 </dd>

@@ -1,0 +1,1002 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.6.3" />
+<title>mogptk.dataset API documentation</title>
+<meta name="description" content="" />
+<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
+<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase;cursor:pointer}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>mogptk.dataset</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">import numpy as np
+from .data import Data
+import matplotlib.pyplot as plt
+
+class DataSet:
+    def __init__(self, *args):
+        &#34;&#34;&#34;
+        DataSet is a class that holds multiple Data objects as channels.
+
+        Args:
+            *args (Data,DataSet,list,dict): Accepts multiple arguments, each of which should be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+        &#34;&#34;&#34;
+
+        self.channels = []
+        for arg in args:
+            self.append(arg)
+
+    def __iter__(self):
+        return self.channels.__iter__()
+
+    def __len__(self):
+        return len(self.channels)
+
+    def __getitem__(self, key):
+        return self.channels[key]
+
+    def append(self, arg):
+        &#34;&#34;&#34;
+        Append channel(s) to DataSet.
+        
+        Args:
+            arg (Data,DataSet,list,dict): Argument can be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+        &#34;&#34;&#34;
+        if isinstance(arg, Data):
+            self.channels.append(arg)
+        elif isinstance(arg, DataSet):
+            for val in arg.channels:
+                self.channels.append(val)
+        elif isinstance(arg, list) and all(isinstance(val, Data) for val in arg):
+            for val in arg:
+                self.channels.append(val)
+        elif isinstance(arg, dict) and all(isinstance(val, Data) for val in arg.values()):
+            for key, val in arg.items():
+                val.name = key
+                self.channels.append(val)
+        else:
+            raise Exception(&#34;unknown data type %s in append to DataSet&#34; % (type(arg)))
+        return self
+
+    def get_input_dims(self):
+        &#34;&#34;&#34;
+        Return the input dimensions per channel.
+
+        Returns:
+            list: List of input dimensions per channel.
+        &#34;&#34;&#34;
+        return [channel.get_input_dims() for channel in self.channels]
+
+    def get_output_dims(self):
+        &#34;&#34;&#34;
+        Return the output dimensions of the dataset, i.e. the number of channels.
+
+        Returns:
+            int: Output dimensions.
+        &#34;&#34;&#34;
+        return len(self.channels)
+
+    def get_names(self):
+        &#34;&#34;&#34;
+        Return the names of the channels.
+
+        Returns:
+            list: List of names.
+        &#34;&#34;&#34;
+        return [channel.name for channel in self.channels]
+
+    def get(self, index):
+        &#34;&#34;&#34;
+        Return Data objects for a channel.
+
+        Args:
+            index (int,string): Index or name of the channel.
+
+        Returns:
+            Data: Channel data.
+        &#34;&#34;&#34;
+        if isinstance(index, int):
+            if index &lt; len(self.channels):
+                return self.channels[index]
+        elif isinstance(index, str):
+            for channel in self.channels:
+                if channel.name == index:
+                    return channel
+        raise ValueError(&#34;channel &#39;%d&#39; does not exist in DataSet&#34; % (index))
+    
+    def get_data(self):
+        &#34;&#34;&#34;
+        Returns the observations.
+
+        Returns:
+            ndarray: X data of shape (output_dims,n,input_dims).
+            ndarray: Y data of shape (output_dims,n).
+        &#34;&#34;&#34;
+        return np.array([channel.get_data()[0] for channel in self.channels]), np.array([channel.get_data()[1] for channel in self.channels])
+    
+    def get_all(self):
+        &#34;&#34;&#34;
+        Returns all observations (including removed observations).
+
+        Returns:
+            ndarray: X data of shape (output_dims,n,input_dims).
+            ndarray: Y data of shape (output_dims,n).
+        &#34;&#34;&#34;
+        return np.array([channel.get_all()[0] for channel in self.channels]), np.array([channel.get_all()[1] for channel in self.channels])
+
+    def get_deleted(self):
+        &#34;&#34;&#34;
+        Returns the removed observations.
+
+        Returns:
+            ndarray: X data of shape (output_dims,n,input_dims).
+            ndarray: Y data of shape (output_dims,n).
+        &#34;&#34;&#34;
+        return np.array([channel.get_deleted()[0] for channel in self.channels]), np.array([channel.get_deleted()[1] for channel in self.channels])
+    
+    def get_pred(self, name, sigma=2):
+        x = []
+        mu = []
+        lower = []
+        upper = []
+        for channel in self.channels:
+            channel_x, channel_mu, channel_lower, channel_upper = channel.get_pred(name, sigma)
+            x.append(channel_x)
+            mu.append(channel_mu)
+            lower.append(channel_lower)
+            upper.append(channel_upper)
+        return np.array(x), np.array(mu), np.array(lower), np.array(upper)
+
+    def set_pred(self, xs):
+        &#34;&#34;&#34;
+        Set the prediction range directly.
+
+        Args:
+            xs (list,np.ndarray,dict): Array of shape (n) or (n,input_dims) with input values to predict at.
+
+        Examples:
+            &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+        &#34;&#34;&#34;
+        if isinstance(xs, list) or isinstance(xs, np.ndarray):
+            if len(xs) != len(self.channels):
+                raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,)&#34;)
+
+            for i, channel in enumerate(self.channels):
+                channel.set_pred(xs[i])
+        elif isinstance(xs, dict):
+            for name in xs:
+                self.get(name).set_pred(xs[name])
+        else:
+            raise ValueError(&#34;prediction x expected to be a list, ndarray or dict&#34;)
+    
+    def get_nyquist_estimation(self):
+        return [channel.get_nyquist_estimation() for channel in self.channels]
+    
+    def get_bnse_estimation(self, Q):
+        amplitudes = []
+        means = []
+        variances = []
+        for channel in self.channels:
+            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q)
+            amplitudes.append(channel_amplitudes)
+            means.append(channel_means)
+            variances.append(channel_variances)
+        return np.array(amplitudes), np.array(means), np.array(variances)
+
+    def to_kernel(self):
+        &#34;&#34;&#34;
+        Return the data vectors in the format as used by the kernels.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+            numpy.ndarray: Y data.
+        &#34;&#34;&#34;
+        x = [channel.X[channel.mask] for channel in self.channels]
+        y = [channel.Y[channel.mask] for channel in self.channels]
+
+        chan = [i * np.ones(len(x[i])) for i in range(len(x))]
+        chan = np.concatenate(chan).reshape(-1, 1)
+        
+        x = np.concatenate(x)
+        x = np.concatenate((chan, x), axis=1)
+        if y == None:
+            return x
+
+        y = np.concatenate(y).reshape(-1, 1)
+        return x, y
+
+    def to_kernel_pred(self):
+        &#34;&#34;&#34;
+        Return the prediction vectors in the format as used by the kernels.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+        &#34;&#34;&#34;
+        x = [channel.X_pred for channel in self.channels]
+
+        chan = [i * np.ones(len(x[i])) for i in range(len(x))]
+        chan = np.concatenate(chan).reshape(-1, 1)
+
+        x = np.concatenate(x)
+        x = np.concatenate((chan, x), axis=1)
+        return x
+
+    def from_kernel_pred(self, name, mu, var):
+        N = [len(channel.X_pred) for channel in self.channels]
+        if len(mu) != len(var) or sum(N) != len(mu):
+            raise ValueError(&#34;prediction mu or var different length from prediction x&#34;)
+
+        i = 0
+        for idx in range(len(self.channels)):
+            self.channels[idx].Y_mu_pred[name] = mu[i:i+N[idx]].reshape(1, -1)[0]
+            self.channels[idx].Y_var_pred[name] = var[i:i+N[idx]].reshape(1, -1)[0]
+            i += N[idx]
+
+    def copy(self):
+        &#34;&#34;&#34;
+        Make a deep copy of DataSet.
+
+        Returns:
+            DataSet: DataSet.
+        &#34;&#34;&#34;
+        return copy.deepcopy(self)
+
+    def plot(self, title=None):
+        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title)
+
+        for channel in range(self.get_output_dims()):
+            self.channels[channel].plot(ax=axes[channel,0])
+
+        return fig, axes</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="mogptk.dataset.DataSet"><code class="flex name class">
+<span>class <span class="ident">DataSet</span></span>
+<span>(</span><span>*args)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>DataSet is a class that holds multiple Data objects as channels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*args</code></strong> :&ensp;<code>Data</code>,<a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>,<code>list</code>,<code>dict</code></dt>
+<dd>Accepts multiple arguments, each of which should be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">class DataSet:
+    def __init__(self, *args):
+        &#34;&#34;&#34;
+        DataSet is a class that holds multiple Data objects as channels.
+
+        Args:
+            *args (Data,DataSet,list,dict): Accepts multiple arguments, each of which should be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+        &#34;&#34;&#34;
+
+        self.channels = []
+        for arg in args:
+            self.append(arg)
+
+    def __iter__(self):
+        return self.channels.__iter__()
+
+    def __len__(self):
+        return len(self.channels)
+
+    def __getitem__(self, key):
+        return self.channels[key]
+
+    def append(self, arg):
+        &#34;&#34;&#34;
+        Append channel(s) to DataSet.
+        
+        Args:
+            arg (Data,DataSet,list,dict): Argument can be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+        &#34;&#34;&#34;
+        if isinstance(arg, Data):
+            self.channels.append(arg)
+        elif isinstance(arg, DataSet):
+            for val in arg.channels:
+                self.channels.append(val)
+        elif isinstance(arg, list) and all(isinstance(val, Data) for val in arg):
+            for val in arg:
+                self.channels.append(val)
+        elif isinstance(arg, dict) and all(isinstance(val, Data) for val in arg.values()):
+            for key, val in arg.items():
+                val.name = key
+                self.channels.append(val)
+        else:
+            raise Exception(&#34;unknown data type %s in append to DataSet&#34; % (type(arg)))
+        return self
+
+    def get_input_dims(self):
+        &#34;&#34;&#34;
+        Return the input dimensions per channel.
+
+        Returns:
+            list: List of input dimensions per channel.
+        &#34;&#34;&#34;
+        return [channel.get_input_dims() for channel in self.channels]
+
+    def get_output_dims(self):
+        &#34;&#34;&#34;
+        Return the output dimensions of the dataset, i.e. the number of channels.
+
+        Returns:
+            int: Output dimensions.
+        &#34;&#34;&#34;
+        return len(self.channels)
+
+    def get_names(self):
+        &#34;&#34;&#34;
+        Return the names of the channels.
+
+        Returns:
+            list: List of names.
+        &#34;&#34;&#34;
+        return [channel.name for channel in self.channels]
+
+    def get(self, index):
+        &#34;&#34;&#34;
+        Return Data objects for a channel.
+
+        Args:
+            index (int,string): Index or name of the channel.
+
+        Returns:
+            Data: Channel data.
+        &#34;&#34;&#34;
+        if isinstance(index, int):
+            if index &lt; len(self.channels):
+                return self.channels[index]
+        elif isinstance(index, str):
+            for channel in self.channels:
+                if channel.name == index:
+                    return channel
+        raise ValueError(&#34;channel &#39;%d&#39; does not exist in DataSet&#34; % (index))
+    
+    def get_data(self):
+        &#34;&#34;&#34;
+        Returns the observations.
+
+        Returns:
+            ndarray: X data of shape (output_dims,n,input_dims).
+            ndarray: Y data of shape (output_dims,n).
+        &#34;&#34;&#34;
+        return np.array([channel.get_data()[0] for channel in self.channels]), np.array([channel.get_data()[1] for channel in self.channels])
+    
+    def get_all(self):
+        &#34;&#34;&#34;
+        Returns all observations (including removed observations).
+
+        Returns:
+            ndarray: X data of shape (output_dims,n,input_dims).
+            ndarray: Y data of shape (output_dims,n).
+        &#34;&#34;&#34;
+        return np.array([channel.get_all()[0] for channel in self.channels]), np.array([channel.get_all()[1] for channel in self.channels])
+
+    def get_deleted(self):
+        &#34;&#34;&#34;
+        Returns the removed observations.
+
+        Returns:
+            ndarray: X data of shape (output_dims,n,input_dims).
+            ndarray: Y data of shape (output_dims,n).
+        &#34;&#34;&#34;
+        return np.array([channel.get_deleted()[0] for channel in self.channels]), np.array([channel.get_deleted()[1] for channel in self.channels])
+    
+    def get_pred(self, name, sigma=2):
+        x = []
+        mu = []
+        lower = []
+        upper = []
+        for channel in self.channels:
+            channel_x, channel_mu, channel_lower, channel_upper = channel.get_pred(name, sigma)
+            x.append(channel_x)
+            mu.append(channel_mu)
+            lower.append(channel_lower)
+            upper.append(channel_upper)
+        return np.array(x), np.array(mu), np.array(lower), np.array(upper)
+
+    def set_pred(self, xs):
+        &#34;&#34;&#34;
+        Set the prediction range directly.
+
+        Args:
+            xs (list,np.ndarray,dict): Array of shape (n) or (n,input_dims) with input values to predict at.
+
+        Examples:
+            &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+        &#34;&#34;&#34;
+        if isinstance(xs, list) or isinstance(xs, np.ndarray):
+            if len(xs) != len(self.channels):
+                raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,)&#34;)
+
+            for i, channel in enumerate(self.channels):
+                channel.set_pred(xs[i])
+        elif isinstance(xs, dict):
+            for name in xs:
+                self.get(name).set_pred(xs[name])
+        else:
+            raise ValueError(&#34;prediction x expected to be a list, ndarray or dict&#34;)
+    
+    def get_nyquist_estimation(self):
+        return [channel.get_nyquist_estimation() for channel in self.channels]
+    
+    def get_bnse_estimation(self, Q):
+        amplitudes = []
+        means = []
+        variances = []
+        for channel in self.channels:
+            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q)
+            amplitudes.append(channel_amplitudes)
+            means.append(channel_means)
+            variances.append(channel_variances)
+        return np.array(amplitudes), np.array(means), np.array(variances)
+
+    def to_kernel(self):
+        &#34;&#34;&#34;
+        Return the data vectors in the format as used by the kernels.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+            numpy.ndarray: Y data.
+        &#34;&#34;&#34;
+        x = [channel.X[channel.mask] for channel in self.channels]
+        y = [channel.Y[channel.mask] for channel in self.channels]
+
+        chan = [i * np.ones(len(x[i])) for i in range(len(x))]
+        chan = np.concatenate(chan).reshape(-1, 1)
+        
+        x = np.concatenate(x)
+        x = np.concatenate((chan, x), axis=1)
+        if y == None:
+            return x
+
+        y = np.concatenate(y).reshape(-1, 1)
+        return x, y
+
+    def to_kernel_pred(self):
+        &#34;&#34;&#34;
+        Return the prediction vectors in the format as used by the kernels.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+        &#34;&#34;&#34;
+        x = [channel.X_pred for channel in self.channels]
+
+        chan = [i * np.ones(len(x[i])) for i in range(len(x))]
+        chan = np.concatenate(chan).reshape(-1, 1)
+
+        x = np.concatenate(x)
+        x = np.concatenate((chan, x), axis=1)
+        return x
+
+    def from_kernel_pred(self, name, mu, var):
+        N = [len(channel.X_pred) for channel in self.channels]
+        if len(mu) != len(var) or sum(N) != len(mu):
+            raise ValueError(&#34;prediction mu or var different length from prediction x&#34;)
+
+        i = 0
+        for idx in range(len(self.channels)):
+            self.channels[idx].Y_mu_pred[name] = mu[i:i+N[idx]].reshape(1, -1)[0]
+            self.channels[idx].Y_var_pred[name] = var[i:i+N[idx]].reshape(1, -1)[0]
+            i += N[idx]
+
+    def copy(self):
+        &#34;&#34;&#34;
+        Make a deep copy of DataSet.
+
+        Returns:
+            DataSet: DataSet.
+        &#34;&#34;&#34;
+        return copy.deepcopy(self)
+
+    def plot(self, title=None):
+        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
+        if title != None:
+            fig.suptitle(title)
+
+        for channel in range(self.get_output_dims()):
+            self.channels[channel].plot(ax=axes[channel,0])
+
+        return fig, axes</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.dataset.DataSet.append"><code class="name flex">
+<span>def <span class="ident">append</span></span>(<span>self, arg)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Append channel(s) to DataSet.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>arg</code></strong> :&ensp;<code>Data</code>,<a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>,<code>list</code>,<code>dict</code></dt>
+<dd>Argument can be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def append(self, arg):
+    &#34;&#34;&#34;
+    Append channel(s) to DataSet.
+    
+    Args:
+        arg (Data,DataSet,list,dict): Argument can be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+    &#34;&#34;&#34;
+    if isinstance(arg, Data):
+        self.channels.append(arg)
+    elif isinstance(arg, DataSet):
+        for val in arg.channels:
+            self.channels.append(val)
+    elif isinstance(arg, list) and all(isinstance(val, Data) for val in arg):
+        for val in arg:
+            self.channels.append(val)
+    elif isinstance(arg, dict) and all(isinstance(val, Data) for val in arg.values()):
+        for key, val in arg.items():
+            val.name = key
+            self.channels.append(val)
+    else:
+        raise Exception(&#34;unknown data type %s in append to DataSet&#34; % (type(arg)))
+    return self</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.copy"><code class="name flex">
+<span>def <span class="ident">copy</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Make a deep copy of DataSet.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a></strong></dt>
+<dd>DataSet.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def copy(self):
+    &#34;&#34;&#34;
+    Make a deep copy of DataSet.
+
+    Returns:
+        DataSet: DataSet.
+    &#34;&#34;&#34;
+    return copy.deepcopy(self)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.from_kernel_pred"><code class="name flex">
+<span>def <span class="ident">from_kernel_pred</span></span>(<span>self, name, mu, var)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def from_kernel_pred(self, name, mu, var):
+    N = [len(channel.X_pred) for channel in self.channels]
+    if len(mu) != len(var) or sum(N) != len(mu):
+        raise ValueError(&#34;prediction mu or var different length from prediction x&#34;)
+
+    i = 0
+    for idx in range(len(self.channels)):
+        self.channels[idx].Y_mu_pred[name] = mu[i:i+N[idx]].reshape(1, -1)[0]
+        self.channels[idx].Y_var_pred[name] = var[i:i+N[idx]].reshape(1, -1)[0]
+        i += N[idx]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get"><code class="name flex">
+<span>def <span class="ident">get</span></span>(<span>self, index)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Return Data objects for a channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>index</code></strong> :&ensp;<code>int</code>,<code>string</code></dt>
+<dd>Index or name of the channel.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>Data</code></strong></dt>
+<dd>Channel data.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get(self, index):
+    &#34;&#34;&#34;
+    Return Data objects for a channel.
+
+    Args:
+        index (int,string): Index or name of the channel.
+
+    Returns:
+        Data: Channel data.
+    &#34;&#34;&#34;
+    if isinstance(index, int):
+        if index &lt; len(self.channels):
+            return self.channels[index]
+    elif isinstance(index, str):
+        for channel in self.channels:
+            if channel.name == index:
+                return channel
+    raise ValueError(&#34;channel &#39;%d&#39; does not exist in DataSet&#34; % (index))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_all"><code class="name flex">
+<span>def <span class="ident">get_all</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns all observations (including removed observations).</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>X data of shape (output_dims,n,input_dims).</dd>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Y data of shape (output_dims,n).</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_all(self):
+    &#34;&#34;&#34;
+    Returns all observations (including removed observations).
+
+    Returns:
+        ndarray: X data of shape (output_dims,n,input_dims).
+        ndarray: Y data of shape (output_dims,n).
+    &#34;&#34;&#34;
+    return np.array([channel.get_all()[0] for channel in self.channels]), np.array([channel.get_all()[1] for channel in self.channels])</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_bnse_estimation"><code class="name flex">
+<span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_bnse_estimation(self, Q):
+    amplitudes = []
+    means = []
+    variances = []
+    for channel in self.channels:
+        channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q)
+        amplitudes.append(channel_amplitudes)
+        means.append(channel_means)
+        variances.append(channel_variances)
+    return np.array(amplitudes), np.array(means), np.array(variances)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_data"><code class="name flex">
+<span>def <span class="ident">get_data</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the observations.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>X data of shape (output_dims,n,input_dims).</dd>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Y data of shape (output_dims,n).</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_data(self):
+    &#34;&#34;&#34;
+    Returns the observations.
+
+    Returns:
+        ndarray: X data of shape (output_dims,n,input_dims).
+        ndarray: Y data of shape (output_dims,n).
+    &#34;&#34;&#34;
+    return np.array([channel.get_data()[0] for channel in self.channels]), np.array([channel.get_data()[1] for channel in self.channels])</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_deleted"><code class="name flex">
+<span>def <span class="ident">get_deleted</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the removed observations.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>X data of shape (output_dims,n,input_dims).</dd>
+<dt><strong><code>ndarray</code></strong></dt>
+<dd>Y data of shape (output_dims,n).</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_deleted(self):
+    &#34;&#34;&#34;
+    Returns the removed observations.
+
+    Returns:
+        ndarray: X data of shape (output_dims,n,input_dims).
+        ndarray: Y data of shape (output_dims,n).
+    &#34;&#34;&#34;
+    return np.array([channel.get_deleted()[0] for channel in self.channels]), np.array([channel.get_deleted()[1] for channel in self.channels])</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_input_dims"><code class="name flex">
+<span>def <span class="ident">get_input_dims</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Return the input dimensions per channel.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>list</code></strong></dt>
+<dd>List of input dimensions per channel.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_input_dims(self):
+    &#34;&#34;&#34;
+    Return the input dimensions per channel.
+
+    Returns:
+        list: List of input dimensions per channel.
+    &#34;&#34;&#34;
+    return [channel.get_input_dims() for channel in self.channels]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_names"><code class="name flex">
+<span>def <span class="ident">get_names</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Return the names of the channels.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>list</code></strong></dt>
+<dd>List of names.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_names(self):
+    &#34;&#34;&#34;
+    Return the names of the channels.
+
+    Returns:
+        list: List of names.
+    &#34;&#34;&#34;
+    return [channel.name for channel in self.channels]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_nyquist_estimation"><code class="name flex">
+<span>def <span class="ident">get_nyquist_estimation</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_nyquist_estimation(self):
+    return [channel.get_nyquist_estimation() for channel in self.channels]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_output_dims"><code class="name flex">
+<span>def <span class="ident">get_output_dims</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Return the output dimensions of the dataset, i.e. the number of channels.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>int</code></strong></dt>
+<dd>Output dimensions.</dd>
+</dl></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_output_dims(self):
+    &#34;&#34;&#34;
+    Return the output dimensions of the dataset, i.e. the number of channels.
+
+    Returns:
+        int: Output dimensions.
+    &#34;&#34;&#34;
+    return len(self.channels)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_pred"><code class="name flex">
+<span>def <span class="ident">get_pred</span></span>(<span>self, name, sigma=2)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_pred(self, name, sigma=2):
+    x = []
+    mu = []
+    lower = []
+    upper = []
+    for channel in self.channels:
+        channel_x, channel_mu, channel_lower, channel_upper = channel.get_pred(name, sigma)
+        x.append(channel_x)
+        mu.append(channel_mu)
+        lower.append(channel_lower)
+        upper.append(channel_upper)
+    return np.array(x), np.array(mu), np.array(lower), np.array(upper)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>self, title=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def plot(self, title=None):
+    fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
+    if title != None:
+        fig.suptitle(title)
+
+    for channel in range(self.get_output_dims()):
+        self.channels[channel].plot(ax=axes[channel,0])
+
+    return fig, axes</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.set_pred"><code class="name flex">
+<span>def <span class="ident">set_pred</span></span>(<span>self, xs)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Set the prediction range directly.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>xs</code></strong> :&ensp;<code>list</code>,<code>np.ndarray</code>,<code>dict</code></dt>
+<dd>Array of shape (n) or (n,input_dims) with input values to predict at.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+</code></pre></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_pred(self, xs):
+    &#34;&#34;&#34;
+    Set the prediction range directly.
+
+    Args:
+        xs (list,np.ndarray,dict): Array of shape (n) or (n,input_dims) with input values to predict at.
+
+    Examples:
+        &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+    &#34;&#34;&#34;
+    if isinstance(xs, list) or isinstance(xs, np.ndarray):
+        if len(xs) != len(self.channels):
+            raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,)&#34;)
+
+        for i, channel in enumerate(self.channels):
+            channel.set_pred(xs[i])
+    elif isinstance(xs, dict):
+        for name in xs:
+            self.get(name).set_pred(xs[name])
+    else:
+        raise ValueError(&#34;prediction x expected to be a list, ndarray or dict&#34;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.to_kernel"><code class="name flex">
+<span>def <span class="ident">to_kernel</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Return the data vectors in the format as used by the kernels.</p>
+<h2 id="returns">Returns</h2>
+<p>numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+numpy.ndarray: Y data.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def to_kernel(self):
+    &#34;&#34;&#34;
+    Return the data vectors in the format as used by the kernels.
+
+    Returns:
+        numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+        numpy.ndarray: Y data.
+    &#34;&#34;&#34;
+    x = [channel.X[channel.mask] for channel in self.channels]
+    y = [channel.Y[channel.mask] for channel in self.channels]
+
+    chan = [i * np.ones(len(x[i])) for i in range(len(x))]
+    chan = np.concatenate(chan).reshape(-1, 1)
+    
+    x = np.concatenate(x)
+    x = np.concatenate((chan, x), axis=1)
+    if y == None:
+        return x
+
+    y = np.concatenate(y).reshape(-1, 1)
+    return x, y</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.to_kernel_pred"><code class="name flex">
+<span>def <span class="ident">to_kernel_pred</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Return the prediction vectors in the format as used by the kernels.</p>
+<h2 id="returns">Returns</h2>
+<p>numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.</p></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def to_kernel_pred(self):
+    &#34;&#34;&#34;
+    Return the prediction vectors in the format as used by the kernels.
+
+    Returns:
+        numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+    &#34;&#34;&#34;
+    x = [channel.X_pred for channel in self.channels]
+
+    chan = [i * np.ones(len(x[i])) for i in range(len(x))]
+    chan = np.concatenate(chan).reshape(-1, 1)
+
+    x = np.concatenate(x)
+    x = np.concatenate((chan, x), axis=1)
+    return x</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="mogptk" href="index.html">mogptk</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet">DataSet</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.dataset.DataSet.append" href="#mogptk.dataset.DataSet.append">append</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.copy" href="#mogptk.dataset.DataSet.copy">copy</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.from_kernel_pred" href="#mogptk.dataset.DataSet.from_kernel_pred">from_kernel_pred</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get" href="#mogptk.dataset.DataSet.get">get</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_all" href="#mogptk.dataset.DataSet.get_all">get_all</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_bnse_estimation" href="#mogptk.dataset.DataSet.get_bnse_estimation">get_bnse_estimation</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_data" href="#mogptk.dataset.DataSet.get_data">get_data</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_deleted" href="#mogptk.dataset.DataSet.get_deleted">get_deleted</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_input_dims" href="#mogptk.dataset.DataSet.get_input_dims">get_input_dims</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_names" href="#mogptk.dataset.DataSet.get_names">get_names</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_nyquist_estimation" href="#mogptk.dataset.DataSet.get_nyquist_estimation">get_nyquist_estimation</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_output_dims" href="#mogptk.dataset.DataSet.get_output_dims">get_output_dims</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_pred" href="#mogptk.dataset.DataSet.get_pred">get_pred</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.plot" href="#mogptk.dataset.DataSet.plot">plot</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.set_pred" href="#mogptk.dataset.DataSet.set_pred">set_pred</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.to_kernel" href="#mogptk.dataset.DataSet.to_kernel">to_kernel</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.to_kernel_pred" href="#mogptk.dataset.DataSet.to_kernel_pred">to_kernel_pred</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.6.3</a>.</p>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad()</script>
+</body>
+</html>
