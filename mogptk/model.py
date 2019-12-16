@@ -40,8 +40,10 @@ class model:
         """
         Args:
             kernel (gpflow.Kernel): Kernel to use.
-            likelihood (gpflow.Likelihood): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-            variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
+                a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate
+                function values as Gaussian. If False it will use Monte carlo Markov Chain.
             sparse (bool): If True, will use sparse GP regression.
             like_params (dict): Parameters to GPflow likelihood.
         """

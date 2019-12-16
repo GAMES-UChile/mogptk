@@ -10,7 +10,7 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
     Estimate kernel param with single ouput GP-SM
 
     Args:
-        dataset (mogptk.DataSet): Data class instance.
+        dataset (mogptk.DataSet): DataSet object of data with one channel.
         Q (int): Number of components.
         estimate (str): Method to estimate, 'BNSE', 'LS' or 'Random'
         method (str): Optimization method, either 'Adam' or any
@@ -62,15 +62,33 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
 class SM(model):
     """
     Single output GP with Spectral mixture kernel.
-        
+
+    A Gaussian process regression using Spectral mixture kernel [1]
+
     Args:
-        data (mogptk.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
-        Q (int): Number of components to use.
-        name (string): Name of the model.
+        dataset (mogptk.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
+        Q (int): Number of components.
+        name (str): Name of the model.
         likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
         variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
         sparse (bool): If True, will use sparse GP regression. Defaults to False.
         like_params (dict): Parameters to GPflow likelihood.
+
+    ----------
+    Examples:
+    >>> import numpy as np
+    >>> t = np.linspace(0, 10, 100)
+    >>> y = np.sin(0.5 * t)
+    >>> import mogptk
+    >>> data = mogptk.Data(t, y)
+    >>> model = mogptk.SM([data], Q=1)
+    >>> model.build()
+    >>> model.train()
+    >>> model.predict([np.linspace(1, 15, 150)])
+
+    References:
+    [1] A. Wilson and R. Adams, “Gaussian process kernels for pattern discovery and extrapolation,”
+    in International Conference on Machine Learning, 2013.
     """
     def __init__(self, dataset, Q=1, name="SM", likelihood=None, variational=False, sparse=False, like_params={}):
         model.__init__(self, name, dataset)

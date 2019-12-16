@@ -5,17 +5,34 @@ from .sm import _estimate_from_sm
 
 class CONV(model):
     """
-    CONV is the Convolutional Gaussian kernel with Q components.
-        
+    CONV is the Convolutional Gaussian kernel with Q components [1].
+
     Args:
         dataset (mogptk.DataSet): DataSet object of data for all channels.
-        Q (int): Number of components to use.
-        Rq (int): Number of subcomponents to use.
-        name (string): Name of the model.
+        Q (int): Number of components.
+        name (str): Name of the model.
         likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
         variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
         sparse (bool): If True, will use sparse GP regression. Defaults to False.
         like_params (dict): Parameters to GPflow likelihood.
+
+    ----------
+    Examples:
+    >>> import numpy as np
+    >>> t = np.linspace(0, 10, 100)
+    >>> y1 = np.sin(0.5 * t)
+    >>> y2 = 2 * np.sin(0.2 * t)
+    >>> import mogptk
+    >>> data_list = []
+    >>> mogptk.data_list.append(mogptk.Data(t, y1))
+    >>> mogptk.data_list.append(mogptk.Data(t, y2))
+    >>> model = mogptk.CG(data_list, Q=2)
+    >>> model.build()
+    >>> model.train()
+    >>> model.plot_prediction()
+
+    References:
+    [1] M. M. Alvarez and N. Lawrence, "Sparse convolved multiple output gaussian processes", 2009.
     """
     def __init__(self, dataset, Q=1, name="CG", likelihood=None, variational=False, sparse=False, like_params={}):
         model.__init__(self, name, dataset)
