@@ -16,8 +16,8 @@ import tensorflow as tf
 import numpy as np
 from gpflow.decors import params_as_tensors
 from gpflow.params import Parameter
-from gpflow.kernels import Kernel,RBF,Cosine
-from gpflow import transforms, autoflow,settings
+from gpflow.kernels import Kernel
+from gpflow import transforms
 
 # TODO: means are spatial freqs, optimize by using angular freq
 # TODO: split out the Q part and use kernel + kernel + ... Q times?
@@ -35,7 +35,7 @@ class SpectralMixture(Kernel):
         mixture_scales = np.random.standard_normal((input_dim, Q))
 
         super().__init__(input_dim, active_dims)
-        self.num_mixtures = Parameter(num_mixtures, trainable=False)
+        self.num_mixtures = Parameter(Q, trainable=False)
         self.mixture_weights = Parameter(mixture_weights, transform=transforms.positive)
         self.mixture_scales = Parameter(mixture_scales, transform=transforms.positive)
         self.mixture_means = Parameter(mixture_means, transform=transforms.positive)
@@ -49,6 +49,9 @@ class SpectralMixture(Kernel):
                 # initialization can only be done by user as it needs target data as well.
         if X2 is None:
             X2 = X1
+
+        X1 = tf.expand_dims(X1[:, 1], -1)
+        X2 = tf.expand_dims(X2[:, 1], -1)
 
         # get absolute distances
         X1 = tf.transpose(tf.expand_dims(X1, -1), perm=[1, 0, 2])  # D x N1 x 1
@@ -75,6 +78,7 @@ class SpectralMixture(Kernel):
 
     @params_as_tensors
     def Kdiag(self, X):
+        X = tf.expand_dims(X[:, 1], -1)
 
         # just the sum of weights. Weights represent the signal
         # variance.

@@ -942,7 +942,7 @@ class Data:
         
         legend = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
-        for i, name in enumerate(self.X_pred):
+        for i, name in enumerate(self.Y_mu_pred):
             if self.Y_mu_pred[name].size != 0:
                 lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
                 upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
@@ -954,8 +954,8 @@ class Data:
 
         if self.F != None:
             n = len(self.X[:,0])*10
-            x_min = np.min(self.X[:,0])
-            x_max = np.max(self.X[:,0])
+            x_min = min(np.min(self.X[:,0]), np.min(self.X_pred))
+            x_max = max(np.max(self.X[:,0]), np.max(self.X_pred))
 
             x = np.empty((n, 1))
             x[:,0] = np.linspace(x_min, x_max, n)

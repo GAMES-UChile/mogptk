@@ -164,8 +164,8 @@ class DataSet:
         Return the data vectors in the format as used by the kernels.
 
         Returns:
-            ndarray: X data of shape (n,. TODO
-            ndarray: Y data.
+            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+            numpy.ndarray: Y data.
         """
         x = [channel.X[channel.mask] for channel in self.channels]
         y = [channel.Y[channel.mask] for channel in self.channels]
@@ -186,7 +186,7 @@ class DataSet:
         Return the prediction vectors in the format as used by the kernels.
 
         Returns:
-            ndarray: X data of shape (n,. TODO
+            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
         """
         x = [channel.X_pred for channel in self.channels]
 

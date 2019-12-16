@@ -1,21 +1,24 @@
+import numpy as np
 from .model import model
 from .kernels import SpectralMixture, sm_init, Noise
+from scipy.stats import norm
+import matplotlib.pyplot as plt
 
-def _estimate_from_sm(dataset, Q, init='BNSE', method='BFGS', maxiter=2000, plot=False, fix_means=False):
+def _estimate_from_sm(dataset, Q, estimate='BNSE', method='BFGS', maxiter=2000, plot=False, fix_means=False):
     """
     Estimate kernel param with single ouput GP-SM
 
     Args:
         dataset (mogptk.DataSet): Data class instance.
         Q (int): Number of components.
-        init (str): Method to initialize, 'BNSE', 'LS' or 'Random'
+        estimate (str): Method to estimate, 'BNSE', 'LS' or 'Random'
         method (str): Optimization method, either 'Adam' or any
             scipy optimizer.
         maxiter (int): Maximum number of iteration.
         plot (bool): If true plot the kernel PSD of each channel.
         fix_means(bool): Fix spectral means to zero in trainning.
 
-    returns: 
+    Returns: 
         params[q][name][output dim][input dim]
     """
     input_dims = dataset.get_input_dims()[0]
@@ -32,31 +35,26 @@ def _estimate_from_sm(dataset, Q, init='BNSE', method='BFGS', maxiter=2000, plot
     for channel in range(output_dims):
         for i in range(input_dims):  # TODO one SM per channel
             sm = SM(data[channel], Q)
-            sm.init_params(init)
+            sm.estimate_params(estimate)
 
             if fix_means:
-                for q in range(sm.Q):
-                    sm.params[q]['mixture_means'] = np.zeros(input_dims)
-                    sm.params[q]['mixture_scales'] *= 100
-
-            sm.build()
-
-            if fix_means:
+                sm.set_param(0, 'mixture_means', np.zeros(Q, input_dims))
+                sm.set_param(0, 'mixture_scales', sm.get_param(0, 'mixture_scale') * 100.0)
                 sm.fix_param('mixture_means')
 
             sm.train(method=method, maxiter=maxiter, tol=1e-50)
 
             if plot:
-                nyquist = data[channel].get_nyquist_estimation()
+                nyquist = dataset[channel].get_nyquist_estimation()
                 means = sm._get_param_across('mixture_means')
                 weights = sm._get_param_across('mixture_weights')
                 scales = sm._get_param_across('mixture_scales')
                 plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=data[channel].name)
 
             for q in range(Q):
-                params[q]['weight'][i,channel] = sm.params[q]['mixture_weights']
-                params[q]['mean'][i,channel] = sm.params[q]['mixture_means'] * np.pi * 2
-                params[q]['scale'][i,channel] = sm.params[q]['mixture_scales']
+                params[q]['weight'][i,channel] = sm.get_param(0, 'mixture_weights')[q]
+                params[q]['mean'][i,channel] = sm.get_param(0, 'mixture_means')[q,:] * np.pi * 2
+                params[q]['scale'][i,channel] = sm.get_param(0, 'mixture_scales')[:,q]
 
     return params
 
@@ -74,29 +72,23 @@ class SM(model):
         like_params (dict): Parameters to GPflow likelihood.
     """
     def __init__(self, dataset, Q=1, name="SM", likelihood=None, variational=False, sparse=False, like_params={}):
-        input_dims = self.get_input_dims()
-        output_dims = self.get_output_dims()
-        if output_dims != 1:
+        model.__init__(self, name, dataset)
+        self.Q = Q
+
+        if self.dataset.get_output_dims() != 1:
             raise Exception("single output Spectral Mixture kernel can only take one output dimension in the data")
 
-        #weights = np.array([self.params[q]['mixture_weights'] for q in range(self.Q)])
-        #means = np.array([self.params[q]['mixture_means'] for q in range(self.Q)])
-        #scales = np.array([self.params[q]['mixture_scales'] for q in range(self.Q)]).T
-        kernel = SpectralMixture(
-            input_dims,
-            self.Q,
-        )
-        # TODO: get x, y from dataset => all kernels must accept data of the same format
-        model.__init__(self, data, name, kernel, likelihood, variational, sparse, like_params)
+        with self.graph.as_default():
+            with self.session.as_default():
+                kernel = SpectralMixture(
+                    self.dataset.get_input_dims()[0],
+                    self.Q,
+                )
+                self._build(kernel, likelihood, variational, sparse, like_params)
 
-    def _transform_data(self, x, y=None):
-        if y == None:
-            return x[0]
-        return x[0], np.expand_dims(y[0], 1)
-
-    def init_params(self, method='BNSE'):
+    def estimate_params(self, method='BNSE'):
         """
-        Initialize parameters of kernel from data using different methods.
+        Estimate parameters of kernel from data using different methods.
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
@@ -116,57 +108,45 @@ class SM(model):
         """
 
         if method not in ['random', 'LS', 'BNSE']:
-            raise Exception("posible methods are 'random', 'LS' and 'BNSE' (see documentation).")
+            raise Exception("possible methods are 'random', 'LS' and 'BNSE' (see documentation).")
 
-        if method=='random':
-            x, y = self.data[0].get_obs()
+        if method == 'random':
+            x, y = self.dataset[0].get_data()
             weights, means, scales = sm_init(x, y, self.Q)
             for q in range(self.Q):
-                self.params[q]['mixture_weights'] = weights[q]
-                self.params[q]['mixture_means'] = np.array(means[q])
-                self.params[q]['mixture_scales'] = np.array(scales[q])
+                self.set_param(0, 'mixture_weights', weights)
+                self.set_param(0, 'mixture_means', np.array(means))
+                self.set_param(0, 'mixture_scales', np.array(scales.T))
 
-        elif method=='LS':
-            amplitudes, means, variances = self.data[0].get_ls_estimation(self.Q)
+        elif method == 'LS':
+            amplitudes, means, variances = self.dataset[0].get_ls_estimation(self.Q)
             if len(amplitudes) == 0:
-                logging.warning('BNSE could not find peaks for SM')
+                logging.warning('LS could not find peaks for SM')
                 return
 
             for q in range(self.Q):
-                self.params[q]['mixture_weights'] = amplitudes[:, q].mean() / amplitudes.mean()
-                self.params[q]['mixture_means'] = means.T[q]
-                self.params[q]['mixture_scales'] = variances.T[q] * 2
+                self.set_param(q, 'mixture_weights', amplitudes.mean(axis=0) / amplitudes.mean())
+                self.set_param(q, 'mixture_means', means.T)
+                self.set_param(q, 'mixture_scales', variances * 2)
 
-        elif method=='BNSE':
-            amplitudes, means, variances = self.data[0].get_bnse_estimation(self.Q)
+        elif method == 'BNSE':
+            amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logging.warning('BNSE could not find peaks for SM')
                 return
 
             for q in range(self.Q):
-                self.params[q]['mixture_weights'] = amplitudes[:, q].mean() / amplitudes.mean()
-                self.params[q]['mixture_means'] = means.T[q]
-                self.params[q]['mixture_scales'] = variances.T[q] * 2
-
-    def _update_params(self, trainables):
-        for key, val in trainables.items():
-            names = key.split("/")
-            if len(names) == 3 and names[1] == 'kern':
-                name = names[2]
-                if name == 'mixture_scales':
-                    val = val.T
-                for q in range(len(val)):
-                    self.params[q][name] = val[q]
-
+                self.set_param(0, 'mixture_weights', amplitudes.mean(axis=0) / amplitudes.mean())
+                self.set_param(0, 'mixture_means', means.T)
+                self.set_param(0, 'mixture_scales', variances * 2)
 
     def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
         """
-        Plot power spectral density of 
-        single output GP-SM
+        Plot power spectral density of single output GP-SM.
         """
-        means = self._get_param_across('mixture_means').reshape(-1)
-        weights = self._get_param_across('mixture_weights').reshape(-1)
-        scales = self._get_param_across('mixture_scales').reshape(-1)
+        means = self.get_param(0, 'mixture_means')
+        weights = self.get_param(0, 'mixture_weights')
+        scales = self.get_param(0, 'mixture_scales').T
         
         # calculate bounds
         x_low = norm.ppf(0.001, loc=means, scale=scales).min()
@@ -175,23 +155,21 @@ class SM(model):
         x = np.linspace(x_low, x_high + 1, 1000)
         psd = np.zeros_like(x)
 
-        f, ax = plt.subplots(1, 1, figsize=figsize)
-        # fig, axes = plt.subplots(1, 1, figsize=(20, 5)
-        
+        fig, axes = plt.subplots(1, 1, figsize=figsize)
         for q in range(self.Q):
             single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
-            ax.plot(x, single_psd, '--', lw=1.2, c='xkcd:strawberry', zorder=2)
-            ax.axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color='grey')
+            axes.plot(x, single_psd, '--', lw=1.2, c='xkcd:strawberry', zorder=2)
+            axes.axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color='grey')
             psd = psd + single_psd
             
         # symmetrize PSD
         if psd[x<0].size != 0:
             psd = psd + np.r_[psd[x<0][::-1], np.zeros((x>=0).sum())]
             
-        ax.plot(x, psd, lw=2.5, c='r', alpha=0.7, zorder=1)
-        ax.set_xlim(0, x[-1] + 0.1)
+        axes.plot(x, psd, lw=2.5, c='r', alpha=0.7, zorder=1)
+        axes.set_xlim(0, x[-1] + 0.1)
         if log_scale:
-            ax.set_yscale('log')
-        ax.set_xlabel(r'$\omega$')
-        ax.set_ylabel('PSD')
-        ax.set_title(title)
+            axes.set_yscale('log')
+        axes.set_xlabel(r'$\omega$')
+        axes.set_ylabel('PSD')
+        axes.set_title(title)

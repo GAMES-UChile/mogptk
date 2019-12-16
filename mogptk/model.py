@@ -119,10 +119,34 @@ class model:
                     params[0][param_name] = param_val.read_value()
         return params
 
+    def get_param(self, q, key):
+        """
+        Gets a kernel parameter for component 'q' with key the parameter name.
+
+        Args:
+            q (int): Component of kernel.
+            key (str): Name of component.
+            
+        Returns:
+            val (numpy.ndarray): Value of parameter.
+        """
+        if hasattr(self.model.kern, 'kernels'):
+            if q < 0 or len(self.model.kern.kernels) <= q:
+                raise Exception("qth component %d does not exist" % (q))
+            kern = self.model.kern.kernels[q].__dict__
+        else:
+            if q != 0:
+                raise Exception("qth component %d does not exist" % (q))
+            kern = self.model.kern.__dict__
+        
+        if key not in kern or not isinstance(kern[key], gpflow.params.parameter.Parameter):
+            raise Exception("parameter name '%s' does not exist" % (key))
+    
+        return kern[key].read_value()
+
     def set_param(self, q, key, val):
         """
-        Sets an initial kernel parameter prior to optimizations for component 'q'
-        with key the parameter name.
+        Sets a kernel parameter for component 'q' with key the parameter name.
 
         Args:
             q (int): Component of kernel.
