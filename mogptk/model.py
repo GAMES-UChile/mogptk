@@ -458,7 +458,6 @@ class model:
         Plot training points, all data and prediction for training range for all channels.
 
         Args:
-            Model (mogptk.Model object): Model to use.
             grid (tuple) : Tuple with the 2 dimensions of the grid.
             figsize(tuple): Figure size, default to (12, 8).
             ylims(list): List of tuples with limits for Y axis for

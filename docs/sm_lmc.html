@@ -29,18 +29,17 @@ from .sm import _estimate_from_sm
 
 class SM_LMC(model):
     &#34;&#34;&#34;
-    Spectral Mixture - Linear Model of Coregionalization kernel
-    with Q components and Rq latent functions.
+    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
 
     Args:
-        dataset (mogptk.DataSet): DataSet object of data for all channels.
-        Q (int): Number of components.
-        Rq (int): Sub components por components.
-        name (str): Name of the model.
-        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
-        sparse (bool): If True, will use sparse GP regression. Defaults to False.
-        like_params (dict): Parameters to GPflow likelihood.
+        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
+        Q (int, optional): Number of components.
+        Rq (int, optional): Sub components por components.
+        name (str, optional): Name of the model.
+        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+        sparse (bool, optional): If True, will use sparse GP regression.
+        like_params (dict, optional): Parameters to GPflow likelihood.
 
     ----------
     Examples:
@@ -95,12 +94,11 @@ class SM_LMC(model):
         of each channel.
 
         Args:
-            method (str): Method of estimation, possible values are &#39;BNSE&#39; and SM.
-            sm_method (str): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
-            sm_opt (str): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
-            sm_maxiter (str): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
-            plt (bool): Show the PSD of the kernel after fitting SM kernels.
-                Only valid in &#39;SM&#39; mode. Default to false.
+            method (str, optional): Method of estimation, possible values are &#39;BNSE&#39; and &#39;SM&#39;.
+            sm_method (str, optional): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
+            sm_opt (str, optional): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
+            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
+            plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in &#39;SM&#39; mode.
         &#34;&#34;&#34;
         
         if method == &#39;BNSE&#39;:
@@ -108,11 +106,11 @@ class SM_LMC(model):
             for q in range(self.Q):
                 constant = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 for channel in range(len(self.dataset)):
-                    constant[:, channel] = amplitudes[channel, :, q].mean()
+                    constant[:,channel] = amplitudes[channel][:,q].mean()
             
                 constant = np.sqrt(constant / constant.mean())
-                mean = means[:, :, q].mean(axis=0)
-                variance = variances[:, :, q].mean(axis=0)
+                mean = np.array(means)[:,:,q].mean(axis=0)
+                variance = np.array(variances)[:,:,q].mean(axis=0)
 
                 self.set_param(q, &#39;constant&#39;, constant)
                 self.set_param(q, &#39;mean&#39;, mean * 2 * np.pi)
@@ -146,25 +144,24 @@ class SM_LMC(model):
 <span>(</span><span>dataset, Q=1, Rq=1, name='SM-LMC', likelihood=None, variational=False, sparse=False, like_params={})</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Spectral Mixture - Linear Model of Coregionalization kernel
-with Q components and Rq latent functions.</p>
+<section class="desc"><p>Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>dataset</code></strong> :&ensp;<code>mogptk.DataSet</code></dt>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
 <dd>DataSet object of data for all channels.</dd>
-<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
+<dt><strong><code>Q</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Number of components.</dd>
-<dt><strong><code>Rq</code></strong> :&ensp;<code>int</code></dt>
+<dt><strong><code>Rq</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Sub components por components.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpflow.likelihoods</code></dt>
+<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpflow.likelihoods</code>, optional</dt>
 <dd>Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.</dd>
-<dt><strong><code>variational</code></strong> :&ensp;<code>bool</code></dt>
-<dd>If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).</dd>
-<dt><strong><code>sparse</code></strong> :&ensp;<code>bool</code></dt>
-<dd>If True, will use sparse GP regression. Defaults to False.</dd>
-<dt><strong><code>like_params</code></strong> :&ensp;<code>dict</code></dt>
+<dt><strong><code>variational</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.</dd>
+<dt><strong><code>sparse</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>If True, will use sparse GP regression.</dd>
+<dt><strong><code>like_params</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>Parameters to GPflow likelihood.</dd>
 </dl>
 <hr>
@@ -185,27 +182,26 @@ with Q components and Rq latent functions.</p>
 <p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
 <h2 id="args_1">Args</h2>
 <dl>
-<dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>dataset</code></strong> :&ensp;<code>DataSet</code></dt>
-<dd>DataSet with Data objects for all the channels.</dd>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
+<dd>DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class SM_LMC(model):
     &#34;&#34;&#34;
-    Spectral Mixture - Linear Model of Coregionalization kernel
-    with Q components and Rq latent functions.
+    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
 
     Args:
-        dataset (mogptk.DataSet): DataSet object of data for all channels.
-        Q (int): Number of components.
-        Rq (int): Sub components por components.
-        name (str): Name of the model.
-        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
-        sparse (bool): If True, will use sparse GP regression. Defaults to False.
-        like_params (dict): Parameters to GPflow likelihood.
+        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
+        Q (int, optional): Number of components.
+        Rq (int, optional): Sub components por components.
+        name (str, optional): Name of the model.
+        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+        sparse (bool, optional): If True, will use sparse GP regression.
+        like_params (dict, optional): Parameters to GPflow likelihood.
 
     ----------
     Examples:
@@ -260,12 +256,11 @@ with Q components and Rq latent functions.</p>
         of each channel.
 
         Args:
-            method (str): Method of estimation, possible values are &#39;BNSE&#39; and SM.
-            sm_method (str): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
-            sm_opt (str): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
-            sm_maxiter (str): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
-            plt (bool): Show the PSD of the kernel after fitting SM kernels.
-                Only valid in &#39;SM&#39; mode. Default to false.
+            method (str, optional): Method of estimation, possible values are &#39;BNSE&#39; and &#39;SM&#39;.
+            sm_method (str, optional): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
+            sm_opt (str, optional): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
+            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
+            plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in &#39;SM&#39; mode.
         &#34;&#34;&#34;
         
         if method == &#39;BNSE&#39;:
@@ -273,11 +268,11 @@ with Q components and Rq latent functions.</p>
             for q in range(self.Q):
                 constant = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 for channel in range(len(self.dataset)):
-                    constant[:, channel] = amplitudes[channel, :, q].mean()
+                    constant[:,channel] = amplitudes[channel][:,q].mean()
             
                 constant = np.sqrt(constant / constant.mean())
-                mean = means[:, :, q].mean(axis=0)
-                variance = variances[:, :, q].mean(axis=0)
+                mean = np.array(means)[:,:,q].mean(axis=0)
+                variance = np.array(variances)[:,:,q].mean(axis=0)
 
                 self.set_param(q, &#39;constant&#39;, constant)
                 self.set_param(q, &#39;mean&#39;, mean * 2 * np.pi)
@@ -317,17 +312,16 @@ with SM kernel, using the fitted parameters for initial values of the multioutpu
 of each channel.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
-<dd>Method of estimation, possible values are 'BNSE' and SM.</dd>
-<dt><strong><code>sm_method</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Method of estimation, possible values are 'BNSE' and 'SM'.</dd>
+<dt><strong><code>sm_method</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Method of estimating SM kernels. Only valid in 'SM' mode.</dd>
-<dt><strong><code>sm_opt</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>sm_opt</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Optimization method for SM kernels. Only valid in 'SM' mode.</dd>
-<dt><strong><code>sm_maxiter</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>sm_maxiter</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Maximum iteration for SM kernels. Only valid in 'SM' mode.</dd>
-<dt><strong><code>plt</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Show the PSD of the kernel after fitting SM kernels.
-Only valid in 'SM' mode. Default to false.</dd>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>Show the PSD of the kernel after fitting SM kernels. Only valid in 'SM' mode.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
@@ -346,12 +340,11 @@ Only valid in 'SM' mode. Default to false.</dd>
     of each channel.
 
     Args:
-        method (str): Method of estimation, possible values are &#39;BNSE&#39; and SM.
-        sm_method (str): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
-        sm_opt (str): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
-        sm_maxiter (str): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
-        plt (bool): Show the PSD of the kernel after fitting SM kernels.
-            Only valid in &#39;SM&#39; mode. Default to false.
+        method (str, optional): Method of estimation, possible values are &#39;BNSE&#39; and &#39;SM&#39;.
+        sm_method (str, optional): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
+        sm_opt (str, optional): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
+        sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
+        plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in &#39;SM&#39; mode.
     &#34;&#34;&#34;
     
     if method == &#39;BNSE&#39;:
@@ -359,11 +352,11 @@ Only valid in 'SM' mode. Default to false.</dd>
         for q in range(self.Q):
             constant = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
             for channel in range(len(self.dataset)):
-                constant[:, channel] = amplitudes[channel, :, q].mean()
+                constant[:,channel] = amplitudes[channel][:,q].mean()
         
             constant = np.sqrt(constant / constant.mean())
-            mean = means[:, :, q].mean(axis=0)
-            variance = variances[:, :, q].mean(axis=0)
+            mean = np.array(means)[:,:,q].mean(axis=0)
+            variance = np.array(variances)[:,:,q].mean(axis=0)
 
             self.set_param(q, &#39;constant&#39;, constant)
             self.set_param(q, &#39;mean&#39;, mean * 2 * np.pi)

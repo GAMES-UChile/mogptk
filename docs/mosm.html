@@ -36,13 +36,13 @@ class MOSM(model):
     MOGP with Multi Output Spectral Mixture kernel, as proposed in [1].
 
     Args:
-        dataset (mogptk.DataSet): DataSet object of data for all channels.
-        Q (int): Number of components.
-        name (str): Name of the model.
-        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
-        sparse (bool): If True, will use sparse GP regression. Defaults to False.
-        like_params (dict): Parameters to GPflow likelihood.
+        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
+        Q (int, optional): Number of components.
+        name (str, optional): Name of the model.
+        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+        sparse (bool, optional): If True, will use sparse GP regression.
+        like_params (dict, optional): Parameters to GPflow likelihood.
 
     ----------
     Examples:
@@ -96,12 +96,11 @@ class MOSM(model):
         of each channel.
 
         Args:
-            method (str): Method of estimation, possible values are &#39;BNSE&#39; and SM.
-            sm_method (str): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
-            sm_opt (str): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
-            sm_maxiter (str): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
-            plt (bool): Show the PSD of the kernel after fitting SM kernels.
-                Only valid in &#39;SM&#39; mode. Default to false.
+            method (str, optional): Method of estimation, possible values are &#39;BNSE&#39; and &#39;SM&#39;.
+            sm_method (str, optional): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
+            sm_opt (str, optional): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
+            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
+            plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in &#39;SM&#39; mode.
         &#34;&#34;&#34;
 
         if method == &#39;BNSE&#39;:
@@ -111,9 +110,9 @@ class MOSM(model):
                 mean = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 variance = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 for channel in range(len(self.dataset)):
-                    magnitude[channel] = amplitudes[channel, :, q].mean()
-                    mean[:, channel] = means[channel, :, q] * 2 * np.pi
-                    variance[:, channel] = variances[channel, :, q] * 2
+                    magnitude[channel] = amplitudes[channel][:,q].mean()
+                    mean[:,channel] = means[channel][:,q] * 2 * np.pi
+                    variance[:,channel] = variances[channel][:,q] * 2
             
                 # normalize across channels
                 magnitude = np.sqrt(magnitude / magnitude.mean())
@@ -342,19 +341,19 @@ class MOSM(model):
 <section class="desc"><p>MOGP with Multi Output Spectral Mixture kernel, as proposed in [1].</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>dataset</code></strong> :&ensp;<code>mogptk.DataSet</code></dt>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
 <dd>DataSet object of data for all channels.</dd>
-<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
+<dt><strong><code>Q</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Number of components.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpflow.likelihoods</code></dt>
+<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpflow.likelihoods</code>, optional</dt>
 <dd>Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.</dd>
-<dt><strong><code>variational</code></strong> :&ensp;<code>bool</code></dt>
-<dd>If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).</dd>
-<dt><strong><code>sparse</code></strong> :&ensp;<code>bool</code></dt>
-<dd>If True, will use sparse GP regression. Defaults to False.</dd>
-<dt><strong><code>like_params</code></strong> :&ensp;<code>dict</code></dt>
+<dt><strong><code>variational</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.</dd>
+<dt><strong><code>sparse</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>If True, will use sparse GP regression.</dd>
+<dt><strong><code>like_params</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>Parameters to GPflow likelihood.</dd>
 </dl>
 <hr>
@@ -378,10 +377,10 @@ Advances in Neural Information Processing Systems, 2017.</p>
 <p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
 <h2 id="args_1">Args</h2>
 <dl>
-<dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>dataset</code></strong> :&ensp;<code>DataSet</code></dt>
-<dd>DataSet with Data objects for all the channels.</dd>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
+<dd>DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
@@ -390,13 +389,13 @@ Advances in Neural Information Processing Systems, 2017.</p>
     MOGP with Multi Output Spectral Mixture kernel, as proposed in [1].
 
     Args:
-        dataset (mogptk.DataSet): DataSet object of data for all channels.
-        Q (int): Number of components.
-        name (str): Name of the model.
-        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
-        sparse (bool): If True, will use sparse GP regression. Defaults to False.
-        like_params (dict): Parameters to GPflow likelihood.
+        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
+        Q (int, optional): Number of components.
+        name (str, optional): Name of the model.
+        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+        sparse (bool, optional): If True, will use sparse GP regression.
+        like_params (dict, optional): Parameters to GPflow likelihood.
 
     ----------
     Examples:
@@ -450,12 +449,11 @@ Advances in Neural Information Processing Systems, 2017.</p>
         of each channel.
 
         Args:
-            method (str): Method of estimation, possible values are &#39;BNSE&#39; and SM.
-            sm_method (str): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
-            sm_opt (str): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
-            sm_maxiter (str): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
-            plt (bool): Show the PSD of the kernel after fitting SM kernels.
-                Only valid in &#39;SM&#39; mode. Default to false.
+            method (str, optional): Method of estimation, possible values are &#39;BNSE&#39; and &#39;SM&#39;.
+            sm_method (str, optional): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
+            sm_opt (str, optional): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
+            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
+            plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in &#39;SM&#39; mode.
         &#34;&#34;&#34;
 
         if method == &#39;BNSE&#39;:
@@ -465,9 +463,9 @@ Advances in Neural Information Processing Systems, 2017.</p>
                 mean = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 variance = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 for channel in range(len(self.dataset)):
-                    magnitude[channel] = amplitudes[channel, :, q].mean()
-                    mean[:, channel] = means[channel, :, q] * 2 * np.pi
-                    variance[:, channel] = variances[channel, :, q] * 2
+                    magnitude[channel] = amplitudes[channel][:,q].mean()
+                    mean[:,channel] = means[channel][:,q] * 2 * np.pi
+                    variance[:,channel] = variances[channel][:,q] * 2
             
                 # normalize across channels
                 magnitude = np.sqrt(magnitude / magnitude.mean())
@@ -699,17 +697,16 @@ with SM kernel, using the fitted parameters for initial values of the multioutpu
 of each channel.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
-<dd>Method of estimation, possible values are 'BNSE' and SM.</dd>
-<dt><strong><code>sm_method</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Method of estimation, possible values are 'BNSE' and 'SM'.</dd>
+<dt><strong><code>sm_method</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Method of estimating SM kernels. Only valid in 'SM' mode.</dd>
-<dt><strong><code>sm_opt</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>sm_opt</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Optimization method for SM kernels. Only valid in 'SM' mode.</dd>
-<dt><strong><code>sm_maxiter</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>sm_maxiter</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Maximum iteration for SM kernels. Only valid in 'SM' mode.</dd>
-<dt><strong><code>plt</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Show the PSD of the kernel after fitting SM kernels.
-Only valid in 'SM' mode. Default to false.</dd>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>Show the PSD of the kernel after fitting SM kernels. Only valid in 'SM' mode.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
@@ -728,12 +725,11 @@ Only valid in 'SM' mode. Default to false.</dd>
     of each channel.
 
     Args:
-        method (str): Method of estimation, possible values are &#39;BNSE&#39; and SM.
-        sm_method (str): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
-        sm_opt (str): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
-        sm_maxiter (str): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
-        plt (bool): Show the PSD of the kernel after fitting SM kernels.
-            Only valid in &#39;SM&#39; mode. Default to false.
+        method (str, optional): Method of estimation, possible values are &#39;BNSE&#39; and &#39;SM&#39;.
+        sm_method (str, optional): Method of estimating SM kernels. Only valid in &#39;SM&#39; mode.
+        sm_opt (str, optional): Optimization method for SM kernels. Only valid in &#39;SM&#39; mode.
+        sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in &#39;SM&#39; mode.
+        plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in &#39;SM&#39; mode.
     &#34;&#34;&#34;
 
     if method == &#39;BNSE&#39;:
@@ -743,9 +739,9 @@ Only valid in 'SM' mode. Default to false.</dd>
             mean = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
             variance = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
             for channel in range(len(self.dataset)):
-                magnitude[channel] = amplitudes[channel, :, q].mean()
-                mean[:, channel] = means[channel, :, q] * 2 * np.pi
-                variance[:, channel] = variances[channel, :, q] * 2
+                magnitude[channel] = amplitudes[channel][:,q].mean()
+                mean[:,channel] = means[channel][:,q] * 2 * np.pi
+                variance[:,channel] = variances[channel][:,q] * 2
         
             # normalize across channels
             magnitude = np.sqrt(magnitude / magnitude.mean())

@@ -5,18 +5,17 @@ from .sm import _estimate_from_sm
 
 class SM_LMC(model):
     """
-    Spectral Mixture - Linear Model of Coregionalization kernel
-    with Q components and Rq latent functions.
+    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
 
     Args:
-        dataset (mogptk.DataSet): DataSet object of data for all channels.
-        Q (int): Number of components.
-        Rq (int): Sub components por components.
-        name (str): Name of the model.
-        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
-        sparse (bool): If True, will use sparse GP regression. Defaults to False.
-        like_params (dict): Parameters to GPflow likelihood.
+        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
+        Q (int, optional): Number of components.
+        Rq (int, optional): Sub components por components.
+        name (str, optional): Name of the model.
+        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+        sparse (bool, optional): If True, will use sparse GP regression.
+        like_params (dict, optional): Parameters to GPflow likelihood.
 
     ----------
     Examples:
@@ -71,12 +70,11 @@ class SM_LMC(model):
         of each channel.
 
         Args:
-            method (str): Method of estimation, possible values are 'BNSE' and SM.
-            sm_method (str): Method of estimating SM kernels. Only valid in 'SM' mode.
-            sm_opt (str): Optimization method for SM kernels. Only valid in 'SM' mode.
-            sm_maxiter (str): Maximum iteration for SM kernels. Only valid in 'SM' mode.
-            plt (bool): Show the PSD of the kernel after fitting SM kernels.
-                Only valid in 'SM' mode. Default to false.
+            method (str, optional): Method of estimation, possible values are 'BNSE' and 'SM'.
+            sm_method (str, optional): Method of estimating SM kernels. Only valid in 'SM' mode.
+            sm_opt (str, optional): Optimization method for SM kernels. Only valid in 'SM' mode.
+            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in 'SM' mode.
+            plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in 'SM' mode.
         """
         
         if method == 'BNSE':

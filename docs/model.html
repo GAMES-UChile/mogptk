@@ -28,13 +28,15 @@ import time
 import numpy as np
 import gpflow
 import tensorflow as tf
-import pandas as pd
 from .dataset import DataSet
 import matplotlib
 import matplotlib.pyplot as plt
 
+from IPython.core.display import HTML
+
 import logging
 logging.getLogger(&#39;tensorflow&#39;).propagate = False
+tf.logging.set_verbosity(tf.logging.WARN)
 
 class model:
     def __init__(self, name, dataset):
@@ -42,8 +44,8 @@ class model:
         Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
             
         Args:
-            name (string): Name of the model.
-            dataset (DataSet): DataSet with Data objects for all the channels.
+            name (str): Name of the model.
+            dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
         &#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
@@ -62,6 +64,8 @@ class model:
     
     def _build(self, kernel, likelihood, variational, sparse, like_params):
         &#34;&#34;&#34;
+        Build the model using the given kernel and likelihood. The variational and sparse booleans decide which GPflow model will be used.
+
         Args:
             kernel (gpflow.Kernel): Kernel to use.
             likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
@@ -107,15 +111,51 @@ class model:
     def print_params(self):
         &#34;&#34;&#34;
         Print the parameters of the model in a table.
+
+        Examples:
+            &gt;&gt;&gt; model.print_params()
         &#34;&#34;&#34;
-        pd.set_option(&#39;display.max_colwidth&#39;, -1)
-        df = pd.DataFrame(self.get_params())
-        df.index.name = &#39;q&#39;
-        display(df)
+        with np.printoptions(precision=3, floatmode=&#39;fixed&#39;):
+            table = &#39;&#39;
+            for q, params in enumerate(self.get_params()):
+                contents = []
+                output_dims = self.dataset.get_output_dims()
+                for j in range(output_dims):
+                    content = &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (self.dataset[j].get_name(),)
+
+                    values = []
+                    for key in params.keys():
+                        val = params[key]
+                        if val.ndim == 1 and val.shape[0] == output_dims:
+                            values.append(&#39;%.3f&#39; % (val[j],))
+                        elif val.ndim == 2 and val.shape[1] == output_dims:
+                            values.append(str(val[:,j]))
+                        else:
+                            values.append(str(val))
+                    content += &#39;&lt;td&gt;&#39; + &#39;&lt;/td&gt;&lt;td&gt;&#39;.join(values) + &#39;&lt;/td&gt;&#39;
+                    contents.append(content)
+
+                header = &#39;&lt;tr&gt;&lt;th&gt;Q=%d&lt;/th&gt;&lt;th&gt;&#39; % (q) + &#39;&lt;/th&gt;&lt;th&gt;&#39;.join(params.keys()) + &#39;&lt;/th&gt;&lt;/tr&gt;&#39;
+                contents = &#39;&lt;tr&gt;&#39; + &#39;&lt;/tr&gt;&lt;tr&gt;&#39;.join(contents) + &#39;&lt;/tr&gt;&#39;
+                table += header + contents
+            display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
+
+            likelihood = self.get_likelihood_params()
+            table = &#39;&lt;tr&gt;&lt;th&gt;Likelihood&lt;/th&gt;&#39;
+            for key in likelihood:
+                table += &#39;&lt;th&gt;%s&lt;/th&gt;&#39; % (key,)
+            table += &#39;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;/td&gt;&#39;
+            for key in likelihood:
+                table += &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (likelihood[key],)
+            table += &#39;&lt;/tr&gt;&#39;
+            display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
 
     def get_params(self):
         &#34;&#34;&#34;
         Returns all parameters set for the kernel per component.
+
+        Examples:
+            &gt;&gt;&gt; params = model.get_params()
         &#34;&#34;&#34;
         params = []
         if hasattr(self.model.kern, &#39;kernels&#39;):
@@ -134,6 +174,9 @@ class model:
     def get_likelihood_params(self):
         &#34;&#34;&#34;
         Returns all parameters set for the likelihood.
+
+        Examples:
+            &gt;&gt;&gt; params = model.get_likelihood_params()
         &#34;&#34;&#34;
         params = {}
         for param_name, param_val in self.model.likelihood.__dict__.items():
@@ -151,6 +194,9 @@ class model:
             
         Returns:
             val (numpy.ndarray): Value of parameter.
+
+        Examples:
+            &gt;&gt;&gt; val = model.get_param(0, &#39;variance&#39;) # for Q=0 get the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if hasattr(self.model.kern, &#39;kernels&#39;):
             if q &lt; 0 or len(self.model.kern.kernels) &lt;= q:
@@ -173,7 +219,10 @@ class model:
         Args:
             q (int): Component of kernel.
             key (str): Name of component.
-            val (float, ndarray): Value of parameter.
+            val (float, numpy.ndarray): Value of parameter.
+
+        Examples:
+            &gt;&gt;&gt; model.set_param(0, &#39;variance&#39;, np.array([5.0, 3.0])) # for Q=0 set the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -206,6 +255,9 @@ class model:
         Args:
             key (str): Name of component.
             val (float, ndarray): Value of parameter.
+
+        Examples:
+            &gt;&gt;&gt; model.set_likelihood_param(&#39;variance&#39;, np.array([5.0, 3.0])) # set the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -228,7 +280,10 @@ class model:
         Make parameter untrainable (undo with `unfix_param`).
 
         Args:
-            key (string): Name of the parameter.
+            key (str): Name of the parameter.
+
+        Examples:
+            &gt;&gt;&gt; model.fix_param(&#39;variance&#39;)
         &#34;&#34;&#34;
         if hasattr(self.model.kern, &#39;kernels&#39;):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
@@ -245,7 +300,10 @@ class model:
         Make parameter trainable (that was previously fixed, see `fix_param`).
 
         Args:
-            key (string): Name of the parameter.
+            key (str): Name of the parameter.
+
+        Examples:
+            &gt;&gt;&gt; model.unfix_param(&#39;variance&#39;)
         &#34;&#34;&#34;
         if hasattr(self.model.kern, &#39;kernels&#39;):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
@@ -260,6 +318,12 @@ class model:
     def save_params(self, filename):
         &#34;&#34;&#34;
         Save model parameters to a given file that can then be loaded with `load_params()`.
+
+        Args:
+            filename (str): Filename to save to, automatically appends &#39;.params&#39;.
+
+        Examples:
+            &gt;&gt;&gt; model.save_params(&#39;filename&#39;)
         &#34;&#34;&#34;
         filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -285,6 +349,12 @@ class model:
     def load_params(self, filename):
         &#34;&#34;&#34;
         Load model parameters from a given file that was previously saved with `save_params()`.
+
+        Args:
+            filename (str): Filename to load from, automatically appends &#39;.params&#39;.
+
+        Examples:
+            &gt;&gt;&gt; model.load_params(&#39;filename&#39;)
         &#34;&#34;&#34;
         filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -338,10 +408,15 @@ class model:
                 If method is in scipy-optimizer see:
                 https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
                 https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-            params (dict): Aditional dictionary with parameters to minimice. 
+            params (dict): Additional dictionary with parameters to minimize. 
                 See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
                 for more details.
             export_graph (bool): Default to False.
+
+        Examples:
+            &gt;&gt;&gt; model.train(tol=1e-6, maxiter=1e5)
+            
+            &gt;&gt;&gt; model.train(method=&#39;Adam&#39;, opt_params={...})
         &#34;&#34;&#34;
         start_time = time.time()
         with self.graph.as_default():
@@ -372,7 +447,7 @@ class model:
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self, pred_x=None, plot=False):
+    def predict(self, x=None, plot=False):
         &#34;&#34;&#34;
         Predict with model.
 
@@ -383,16 +458,12 @@ class model:
         Args:
             x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
-        Returns:
-            Y_mu_pred, Y_lower_ci_predicted, Y_upper_ci_predicted: 
-            Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
-
+        Examples:
+            &gt;&gt;&gt; model.predict(plot=True)
         &#34;&#34;&#34;
-        # if user pass a prediction input
-        if pred_x is not None:
-            self.dataset.set_pred(self.name, pred_x)
+        if x is not None:
+            self.dataset.set_pred(self.name, x)
 
-        # predict with model
         x = self.dataset.to_kernel_pred()
         if len(x) == 0:
                 raise Exception(&#39;no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()&#39;)
@@ -404,15 +475,13 @@ class model:
         if plot:
             self.plot_prediction()
 
-        #return self.dataset.get_pred(self.name)
-
+    # TODO
     def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title=&#39;&#39;, ret_fig=False):
 
         &#34;&#34;&#34;
         Plot training points, all data and prediction for training range for all channels.
 
         Args:
-            Model (mogptk.Model object): Model to use.
             grid (tuple) : Tuple with the 2 dimensions of the grid.
             figsize(tuple): Figure size, default to (12, 8).
             ylims(list): List of tuples with limits for Y axis for
@@ -443,20 +512,17 @@ class model:
 
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i in range(n_dim):
-            axes[i].plot(x_train[i, :, 0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
-            axes[i].plot(x_all[i, :, 0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;,lw=1.4, zorder=5)
+            axes[i].plot(x_train[i][:,0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
+            axes[i].plot(x_all[i][:,0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;,lw=1.4, zorder=5)
             
-            axes[i].plot(x_pred[i, :, 0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i], zorder=1)
-            axes[i].fill_between(x_pred[i, :, 0].reshape(-1),
+            axes[i].plot(x_pred[i][:,0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i], zorder=1)
+            axes[i].fill_between(x_pred[i][:,0].reshape(-1),
                 lower[i],
                 upper[i],
                 label=&#39;95% c.i&#39;,
                 color=colors[i],
                 alpha=0.4)
             
-            # axarr[i].legend(ncol=4, loc=&#39;upper center&#39;, fontsize=8)
-
-            # axarr[i].locator_params(tight=True, nbins=6)
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
             formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0]._format(x))
@@ -512,10 +578,10 @@ class model:
 <section class="desc"><p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>dataset</code></strong> :&ensp;<code>DataSet</code></dt>
-<dd>DataSet with Data objects for all the channels.</dd>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
+<dd>DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
@@ -525,8 +591,8 @@ class model:
         Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
             
         Args:
-            name (string): Name of the model.
-            dataset (DataSet): DataSet with Data objects for all the channels.
+            name (str): Name of the model.
+            dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
         &#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
@@ -545,6 +611,8 @@ class model:
     
     def _build(self, kernel, likelihood, variational, sparse, like_params):
         &#34;&#34;&#34;
+        Build the model using the given kernel and likelihood. The variational and sparse booleans decide which GPflow model will be used.
+
         Args:
             kernel (gpflow.Kernel): Kernel to use.
             likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
@@ -590,15 +658,51 @@ class model:
     def print_params(self):
         &#34;&#34;&#34;
         Print the parameters of the model in a table.
+
+        Examples:
+            &gt;&gt;&gt; model.print_params()
         &#34;&#34;&#34;
-        pd.set_option(&#39;display.max_colwidth&#39;, -1)
-        df = pd.DataFrame(self.get_params())
-        df.index.name = &#39;q&#39;
-        display(df)
+        with np.printoptions(precision=3, floatmode=&#39;fixed&#39;):
+            table = &#39;&#39;
+            for q, params in enumerate(self.get_params()):
+                contents = []
+                output_dims = self.dataset.get_output_dims()
+                for j in range(output_dims):
+                    content = &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (self.dataset[j].get_name(),)
+
+                    values = []
+                    for key in params.keys():
+                        val = params[key]
+                        if val.ndim == 1 and val.shape[0] == output_dims:
+                            values.append(&#39;%.3f&#39; % (val[j],))
+                        elif val.ndim == 2 and val.shape[1] == output_dims:
+                            values.append(str(val[:,j]))
+                        else:
+                            values.append(str(val))
+                    content += &#39;&lt;td&gt;&#39; + &#39;&lt;/td&gt;&lt;td&gt;&#39;.join(values) + &#39;&lt;/td&gt;&#39;
+                    contents.append(content)
+
+                header = &#39;&lt;tr&gt;&lt;th&gt;Q=%d&lt;/th&gt;&lt;th&gt;&#39; % (q) + &#39;&lt;/th&gt;&lt;th&gt;&#39;.join(params.keys()) + &#39;&lt;/th&gt;&lt;/tr&gt;&#39;
+                contents = &#39;&lt;tr&gt;&#39; + &#39;&lt;/tr&gt;&lt;tr&gt;&#39;.join(contents) + &#39;&lt;/tr&gt;&#39;
+                table += header + contents
+            display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
+
+            likelihood = self.get_likelihood_params()
+            table = &#39;&lt;tr&gt;&lt;th&gt;Likelihood&lt;/th&gt;&#39;
+            for key in likelihood:
+                table += &#39;&lt;th&gt;%s&lt;/th&gt;&#39; % (key,)
+            table += &#39;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;/td&gt;&#39;
+            for key in likelihood:
+                table += &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (likelihood[key],)
+            table += &#39;&lt;/tr&gt;&#39;
+            display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
 
     def get_params(self):
         &#34;&#34;&#34;
         Returns all parameters set for the kernel per component.
+
+        Examples:
+            &gt;&gt;&gt; params = model.get_params()
         &#34;&#34;&#34;
         params = []
         if hasattr(self.model.kern, &#39;kernels&#39;):
@@ -617,6 +721,9 @@ class model:
     def get_likelihood_params(self):
         &#34;&#34;&#34;
         Returns all parameters set for the likelihood.
+
+        Examples:
+            &gt;&gt;&gt; params = model.get_likelihood_params()
         &#34;&#34;&#34;
         params = {}
         for param_name, param_val in self.model.likelihood.__dict__.items():
@@ -634,6 +741,9 @@ class model:
             
         Returns:
             val (numpy.ndarray): Value of parameter.
+
+        Examples:
+            &gt;&gt;&gt; val = model.get_param(0, &#39;variance&#39;) # for Q=0 get the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if hasattr(self.model.kern, &#39;kernels&#39;):
             if q &lt; 0 or len(self.model.kern.kernels) &lt;= q:
@@ -656,7 +766,10 @@ class model:
         Args:
             q (int): Component of kernel.
             key (str): Name of component.
-            val (float, ndarray): Value of parameter.
+            val (float, numpy.ndarray): Value of parameter.
+
+        Examples:
+            &gt;&gt;&gt; model.set_param(0, &#39;variance&#39;, np.array([5.0, 3.0])) # for Q=0 set the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -689,6 +802,9 @@ class model:
         Args:
             key (str): Name of component.
             val (float, ndarray): Value of parameter.
+
+        Examples:
+            &gt;&gt;&gt; model.set_likelihood_param(&#39;variance&#39;, np.array([5.0, 3.0])) # set the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -711,7 +827,10 @@ class model:
         Make parameter untrainable (undo with `unfix_param`).
 
         Args:
-            key (string): Name of the parameter.
+            key (str): Name of the parameter.
+
+        Examples:
+            &gt;&gt;&gt; model.fix_param(&#39;variance&#39;)
         &#34;&#34;&#34;
         if hasattr(self.model.kern, &#39;kernels&#39;):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
@@ -728,7 +847,10 @@ class model:
         Make parameter trainable (that was previously fixed, see `fix_param`).
 
         Args:
-            key (string): Name of the parameter.
+            key (str): Name of the parameter.
+
+        Examples:
+            &gt;&gt;&gt; model.unfix_param(&#39;variance&#39;)
         &#34;&#34;&#34;
         if hasattr(self.model.kern, &#39;kernels&#39;):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
@@ -743,6 +865,12 @@ class model:
     def save_params(self, filename):
         &#34;&#34;&#34;
         Save model parameters to a given file that can then be loaded with `load_params()`.
+
+        Args:
+            filename (str): Filename to save to, automatically appends &#39;.params&#39;.
+
+        Examples:
+            &gt;&gt;&gt; model.save_params(&#39;filename&#39;)
         &#34;&#34;&#34;
         filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -768,6 +896,12 @@ class model:
     def load_params(self, filename):
         &#34;&#34;&#34;
         Load model parameters from a given file that was previously saved with `save_params()`.
+
+        Args:
+            filename (str): Filename to load from, automatically appends &#39;.params&#39;.
+
+        Examples:
+            &gt;&gt;&gt; model.load_params(&#39;filename&#39;)
         &#34;&#34;&#34;
         filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -821,10 +955,15 @@ class model:
                 If method is in scipy-optimizer see:
                 https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
                 https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-            params (dict): Aditional dictionary with parameters to minimice. 
+            params (dict): Additional dictionary with parameters to minimize. 
                 See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
                 for more details.
             export_graph (bool): Default to False.
+
+        Examples:
+            &gt;&gt;&gt; model.train(tol=1e-6, maxiter=1e5)
+            
+            &gt;&gt;&gt; model.train(method=&#39;Adam&#39;, opt_params={...})
         &#34;&#34;&#34;
         start_time = time.time()
         with self.graph.as_default():
@@ -855,7 +994,7 @@ class model:
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self, pred_x=None, plot=False):
+    def predict(self, x=None, plot=False):
         &#34;&#34;&#34;
         Predict with model.
 
@@ -866,16 +1005,12 @@ class model:
         Args:
             x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
-        Returns:
-            Y_mu_pred, Y_lower_ci_predicted, Y_upper_ci_predicted: 
-            Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
-
+        Examples:
+            &gt;&gt;&gt; model.predict(plot=True)
         &#34;&#34;&#34;
-        # if user pass a prediction input
-        if pred_x is not None:
-            self.dataset.set_pred(self.name, pred_x)
+        if x is not None:
+            self.dataset.set_pred(self.name, x)
 
-        # predict with model
         x = self.dataset.to_kernel_pred()
         if len(x) == 0:
                 raise Exception(&#39;no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()&#39;)
@@ -887,15 +1022,13 @@ class model:
         if plot:
             self.plot_prediction()
 
-        #return self.dataset.get_pred(self.name)
-
+    # TODO
     def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title=&#39;&#39;, ret_fig=False):
 
         &#34;&#34;&#34;
         Plot training points, all data and prediction for training range for all channels.
 
         Args:
-            Model (mogptk.Model object): Model to use.
             grid (tuple) : Tuple with the 2 dimensions of the grid.
             figsize(tuple): Figure size, default to (12, 8).
             ylims(list): List of tuples with limits for Y axis for
@@ -926,20 +1059,17 @@ class model:
 
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i in range(n_dim):
-            axes[i].plot(x_train[i, :, 0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
-            axes[i].plot(x_all[i, :, 0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;,lw=1.4, zorder=5)
+            axes[i].plot(x_train[i][:,0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
+            axes[i].plot(x_all[i][:,0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;,lw=1.4, zorder=5)
             
-            axes[i].plot(x_pred[i, :, 0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i], zorder=1)
-            axes[i].fill_between(x_pred[i, :, 0].reshape(-1),
+            axes[i].plot(x_pred[i][:,0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i], zorder=1)
+            axes[i].fill_between(x_pred[i][:,0].reshape(-1),
                 lower[i],
                 upper[i],
                 label=&#39;95% c.i&#39;,
                 color=colors[i],
                 alpha=0.4)
             
-            # axarr[i].legend(ncol=4, loc=&#39;upper center&#39;, fontsize=8)
-
-            # axarr[i].locator_params(tight=True, nbins=6)
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
             formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0]._format(x))
@@ -994,9 +1124,12 @@ class model:
 <section class="desc"><p>Make parameter untrainable (undo with <code>unfix_param</code>).</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>key</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the parameter.</dd>
-</dl></section>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.fix_param('variance')
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def fix_param(self, key):
@@ -1004,7 +1137,10 @@ class model:
     Make parameter untrainable (undo with `unfix_param`).
 
     Args:
-        key (string): Name of the parameter.
+        key (str): Name of the parameter.
+
+    Examples:
+        &gt;&gt;&gt; model.fix_param(&#39;variance&#39;)
     &#34;&#34;&#34;
     if hasattr(self.model.kern, &#39;kernels&#39;):
         for kernel_i, kernel in enumerate(self.model.kern.kernels):
@@ -1021,12 +1157,18 @@ class model:
 <span>def <span class="ident">get_likelihood_params</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns all parameters set for the likelihood.</p></section>
+<section class="desc"><p>Returns all parameters set for the likelihood.</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; params = model.get_likelihood_params()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_likelihood_params(self):
     &#34;&#34;&#34;
     Returns all parameters set for the likelihood.
+
+    Examples:
+        &gt;&gt;&gt; params = model.get_likelihood_params()
     &#34;&#34;&#34;
     params = {}
     for param_name, param_val in self.model.likelihood.__dict__.items():
@@ -1051,7 +1193,10 @@ class model:
 <dl>
 <dt><strong><code>val</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
 <dd>Value of parameter.</dd>
-</dl></section>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; val = model.get_param(0, 'variance') # for Q=0 get the parameter called 'variance'
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_param(self, q, key):
@@ -1064,6 +1209,9 @@ class model:
         
     Returns:
         val (numpy.ndarray): Value of parameter.
+
+    Examples:
+        &gt;&gt;&gt; val = model.get_param(0, &#39;variance&#39;) # for Q=0 get the parameter called &#39;variance&#39;
     &#34;&#34;&#34;
     if hasattr(self.model.kern, &#39;kernels&#39;):
         if q &lt; 0 or len(self.model.kern.kernels) &lt;= q:
@@ -1084,12 +1232,18 @@ class model:
 <span>def <span class="ident">get_params</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns all parameters set for the kernel per component.</p></section>
+<section class="desc"><p>Returns all parameters set for the kernel per component.</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; params = model.get_params()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_params(self):
     &#34;&#34;&#34;
     Returns all parameters set for the kernel per component.
+
+    Examples:
+        &gt;&gt;&gt; params = model.get_params()
     &#34;&#34;&#34;
     params = []
     if hasattr(self.model.kern, &#39;kernels&#39;):
@@ -1110,12 +1264,26 @@ class model:
 <span>def <span class="ident">load_params</span></span>(<span>self, filename)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Load model parameters from a given file that was previously saved with <code>save_params()</code>.</p></section>
+<section class="desc"><p>Load model parameters from a given file that was previously saved with <code>save_params()</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
+<dd>Filename to load from, automatically appends '.params'.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.load_params('filename')
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def load_params(self, filename):
     &#34;&#34;&#34;
     Load model parameters from a given file that was previously saved with `save_params()`.
+
+    Args:
+        filename (str): Filename to load from, automatically appends &#39;.params&#39;.
+
+    Examples:
+        &gt;&gt;&gt; model.load_params(&#39;filename&#39;)
     &#34;&#34;&#34;
     filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -1148,10 +1316,6 @@ class model:
 <dd>
 <section class="desc"><p>Plot training points, all data and prediction for training range for all channels.</p>
 <h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>Model</code></strong> :&ensp;<code>mogptk.Model</code> <code>object</code></dt>
-<dd>Model to use.</dd>
-</dl>
 <p>grid (tuple) : Tuple with the 2 dimensions of the grid.
 figsize(tuple): Figure size, default to (12, 8).
 ylims(list): List of tuples with limits for Y axis for
@@ -1169,7 +1333,6 @@ TODO: Add case for single output SM kernel.</p></section>
     Plot training points, all data and prediction for training range for all channels.
 
     Args:
-        Model (mogptk.Model object): Model to use.
         grid (tuple) : Tuple with the 2 dimensions of the grid.
         figsize(tuple): Figure size, default to (12, 8).
         ylims(list): List of tuples with limits for Y axis for
@@ -1200,20 +1363,17 @@ TODO: Add case for single output SM kernel.</p></section>
 
     colors = list(matplotlib.colors.TABLEAU_COLORS)
     for i in range(n_dim):
-        axes[i].plot(x_train[i, :, 0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
-        axes[i].plot(x_all[i, :, 0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;,lw=1.4, zorder=5)
+        axes[i].plot(x_train[i][:,0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
+        axes[i].plot(x_all[i][:,0], y_all[i], &#39;--&#39;, label=&#39;Test&#39;, c=&#39;gray&#39;,lw=1.4, zorder=5)
         
-        axes[i].plot(x_pred[i, :, 0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i], zorder=1)
-        axes[i].fill_between(x_pred[i, :, 0].reshape(-1),
+        axes[i].plot(x_pred[i][:,0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i], zorder=1)
+        axes[i].fill_between(x_pred[i][:,0].reshape(-1),
             lower[i],
             upper[i],
             label=&#39;95% c.i&#39;,
             color=colors[i],
             alpha=0.4)
         
-        # axarr[i].legend(ncol=4, loc=&#39;upper center&#39;, fontsize=8)
-
-        # axarr[i].locator_params(tight=True, nbins=6)
         axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0]._format(x))
@@ -1253,7 +1413,7 @@ TODO: Add case for single output SM kernel.</p></section>
 </details>
 </dd>
 <dt id="mogptk.model.model.predict"><code class="name flex">
-<span>def <span class="ident">predict</span></span>(<span>self, pred_x=None, plot=False)</span>
+<span>def <span class="ident">predict</span></span>(<span>self, x=None, plot=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Predict with model.</p>
@@ -1265,15 +1425,12 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <dt><strong><code>x_pred</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
 <dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs.</dd>
 </dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>Y_mu_pred</code></strong>, <strong><code>Y_lower_ci_predicted</code></strong>, <strong><code>Y_upper_ci_predicted</code></strong></dt>
-<dd>&nbsp;</dd>
-</dl>
-<p>Prediction output and confidence interval of 95% of the model (Upper and lower bounds).</p></section>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.predict(plot=True)
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def predict(self, pred_x=None, plot=False):
+<pre><code class="python">def predict(self, x=None, plot=False):
     &#34;&#34;&#34;
     Predict with model.
 
@@ -1284,16 +1441,12 @@ It returns the X, Y_mu, Y_var values per channel.</p>
     Args:
         x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
-    Returns:
-        Y_mu_pred, Y_lower_ci_predicted, Y_upper_ci_predicted: 
-        Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
-
+    Examples:
+        &gt;&gt;&gt; model.predict(plot=True)
     &#34;&#34;&#34;
-    # if user pass a prediction input
-    if pred_x is not None:
-        self.dataset.set_pred(self.name, pred_x)
+    if x is not None:
+        self.dataset.set_pred(self.name, x)
 
-    # predict with model
     x = self.dataset.to_kernel_pred()
     if len(x) == 0:
             raise Exception(&#39;no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()&#39;)
@@ -1310,29 +1463,79 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <span>def <span class="ident">print_params</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Print the parameters of the model in a table.</p></section>
+<section class="desc"><p>Print the parameters of the model in a table.</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.print_params()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def print_params(self):
     &#34;&#34;&#34;
     Print the parameters of the model in a table.
+
+    Examples:
+        &gt;&gt;&gt; model.print_params()
     &#34;&#34;&#34;
-    pd.set_option(&#39;display.max_colwidth&#39;, -1)
-    df = pd.DataFrame(self.get_params())
-    df.index.name = &#39;q&#39;
-    display(df)</code></pre>
+    with np.printoptions(precision=3, floatmode=&#39;fixed&#39;):
+        table = &#39;&#39;
+        for q, params in enumerate(self.get_params()):
+            contents = []
+            output_dims = self.dataset.get_output_dims()
+            for j in range(output_dims):
+                content = &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (self.dataset[j].get_name(),)
+
+                values = []
+                for key in params.keys():
+                    val = params[key]
+                    if val.ndim == 1 and val.shape[0] == output_dims:
+                        values.append(&#39;%.3f&#39; % (val[j],))
+                    elif val.ndim == 2 and val.shape[1] == output_dims:
+                        values.append(str(val[:,j]))
+                    else:
+                        values.append(str(val))
+                content += &#39;&lt;td&gt;&#39; + &#39;&lt;/td&gt;&lt;td&gt;&#39;.join(values) + &#39;&lt;/td&gt;&#39;
+                contents.append(content)
+
+            header = &#39;&lt;tr&gt;&lt;th&gt;Q=%d&lt;/th&gt;&lt;th&gt;&#39; % (q) + &#39;&lt;/th&gt;&lt;th&gt;&#39;.join(params.keys()) + &#39;&lt;/th&gt;&lt;/tr&gt;&#39;
+            contents = &#39;&lt;tr&gt;&#39; + &#39;&lt;/tr&gt;&lt;tr&gt;&#39;.join(contents) + &#39;&lt;/tr&gt;&#39;
+            table += header + contents
+        display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
+
+        likelihood = self.get_likelihood_params()
+        table = &#39;&lt;tr&gt;&lt;th&gt;Likelihood&lt;/th&gt;&#39;
+        for key in likelihood:
+            table += &#39;&lt;th&gt;%s&lt;/th&gt;&#39; % (key,)
+        table += &#39;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;/td&gt;&#39;
+        for key in likelihood:
+            table += &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (likelihood[key],)
+        table += &#39;&lt;/tr&gt;&#39;
+        display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.save_params"><code class="name flex">
 <span>def <span class="ident">save_params</span></span>(<span>self, filename)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Save model parameters to a given file that can then be loaded with <code>load_params()</code>.</p></section>
+<section class="desc"><p>Save model parameters to a given file that can then be loaded with <code>load_params()</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
+<dd>Filename to save to, automatically appends '.params'.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.save_params('filename')
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def save_params(self, filename):
     &#34;&#34;&#34;
     Save model parameters to a given file that can then be loaded with `load_params()`.
+
+    Args:
+        filename (str): Filename to save to, automatically appends &#39;.params&#39;.
+
+    Examples:
+        &gt;&gt;&gt; model.save_params(&#39;filename&#39;)
     &#34;&#34;&#34;
     filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -1367,7 +1570,10 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <dd>Name of component.</dd>
 <dt><strong><code>val</code></strong> :&ensp;<code>float</code>, <code>ndarray</code></dt>
 <dd>Value of parameter.</dd>
-</dl></section>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.set_likelihood_param('variance', np.array([5.0, 3.0])) # set the parameter called 'variance'
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def set_likelihood_param(self, key, val):
@@ -1377,6 +1583,9 @@ It returns the X, Y_mu, Y_var values per channel.</p>
     Args:
         key (str): Name of component.
         val (float, ndarray): Value of parameter.
+
+    Examples:
+        &gt;&gt;&gt; model.set_likelihood_param(&#39;variance&#39;, np.array([5.0, 3.0])) # set the parameter called &#39;variance&#39;
     &#34;&#34;&#34;
     if isinstance(val, (int, float, list)):
         val = np.array(val)
@@ -1406,9 +1615,12 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <dd>Component of kernel.</dd>
 <dt><strong><code>key</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of component.</dd>
-<dt><strong><code>val</code></strong> :&ensp;<code>float</code>, <code>ndarray</code></dt>
+<dt><strong><code>val</code></strong> :&ensp;<code>float</code>, <code>numpy.ndarray</code></dt>
 <dd>Value of parameter.</dd>
-</dl></section>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.set_param(0, 'variance', np.array([5.0, 3.0])) # for Q=0 set the parameter called 'variance'
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def set_param(self, q, key, val):
@@ -1418,7 +1630,10 @@ It returns the X, Y_mu, Y_var values per channel.</p>
     Args:
         q (int): Component of kernel.
         key (str): Name of component.
-        val (float, ndarray): Value of parameter.
+        val (float, numpy.ndarray): Value of parameter.
+
+    Examples:
+        &gt;&gt;&gt; model.set_param(0, &#39;variance&#39;, np.array([5.0, 3.0])) # for Q=0 set the parameter called &#39;variance&#39;
     &#34;&#34;&#34;
     if isinstance(val, (int, float, list)):
         val = np.array(val)
@@ -1472,12 +1687,17 @@ If method is in scipy-optimizer see:
 <a href="https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py">https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py</a>
 <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a></dd>
 <dt><strong><code>params</code></strong> :&ensp;<code>dict</code></dt>
-<dd>Aditional dictionary with parameters to minimice.
+<dd>Additional dictionary with parameters to minimize.
 See <a href="https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py">https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py</a>
 for more details.</dd>
 <dt><strong><code>export_graph</code></strong> :&ensp;<code>bool</code></dt>
 <dd>Default to False.</dd>
-</dl></section>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.train(tol=1e-6, maxiter=1e5)
+
+&gt;&gt;&gt; model.train(method='Adam', opt_params={...})
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def train(
@@ -1508,10 +1728,15 @@ for more details.</dd>
             If method is in scipy-optimizer see:
             https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
             https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-        params (dict): Aditional dictionary with parameters to minimice. 
+        params (dict): Additional dictionary with parameters to minimize. 
             See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
             for more details.
         export_graph (bool): Default to False.
+
+    Examples:
+        &gt;&gt;&gt; model.train(tol=1e-6, maxiter=1e5)
+        
+        &gt;&gt;&gt; model.train(method=&#39;Adam&#39;, opt_params={...})
     &#34;&#34;&#34;
     start_time = time.time()
     with self.graph.as_default():
@@ -1546,9 +1771,12 @@ for more details.</dd>
 <section class="desc"><p>Make parameter trainable (that was previously fixed, see <code>fix_param</code>).</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>key</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>key</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the parameter.</dd>
-</dl></section>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.unfix_param('variance')
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def unfix_param(self, key):
@@ -1556,7 +1784,10 @@ for more details.</dd>
     Make parameter trainable (that was previously fixed, see `fix_param`).
 
     Args:
-        key (string): Name of the parameter.
+        key (str): Name of the parameter.
+
+    Examples:
+        &gt;&gt;&gt; model.unfix_param(&#39;variance&#39;)
     &#34;&#34;&#34;
     if hasattr(self.model.kern, &#39;kernels&#39;):
         for kernel_i, kernel in enumerate(self.model.kern.kernels):

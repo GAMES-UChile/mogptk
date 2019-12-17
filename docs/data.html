@@ -169,7 +169,6 @@ class TransformNormalize:
         pass
 
     def _data(self, data):
-        # TODO: use data.mask?
         self.ymin = np.amin(data.Y)
         self.ymax = np.amax(data.Y)
 
@@ -209,14 +208,14 @@ def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
     Args:
         f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
         n (int): Number of data points to pick between start and end.
-        start (float,list): Define start of interval.
-        end (float,list): Define end of interval.
-        var (float,optional): Variance added to the output.
-        name (str,optional): Name of dataset.
+        start (float, list): Define start of interval.
+        end (float, list): Define end of interval.
+        var (float, optional): Variance added to the output.
+        name (str, optional): Name of data.
         random (boolean): Select points randomly between start and end (defaults to False).
 
     Returns:
-        Data: The dataset.
+        mogptk.data.Data
 
     Examples:
         &gt;&gt;&gt; LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
@@ -262,13 +261,13 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         filename (str): CSV filename.
         x_cols (str, list): Name or names of X column(s) in CSV.
         y_col (str): Name of Y column in CSV.
-        name (str,optional): Name of dataset.
-        format (dict,optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
-        filter (function,optional): Function that takes row as argument, and returns True to keep the record.
+        name (str, optional): Name of data.
+        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
-        Data: The dataset.
+        mogptk.data.Data
 
     Examples:
         &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, name=&#39;Gold&#39;, format={&#39;Date&#39;: FormatDate}, filter=lambda row: row[&#39;Region&#39;] == &#39;Europe&#39;)
@@ -328,11 +327,51 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
                 fmts.append(FormatNumber)
 
         data = Data(X, Y, name=name, format=fmts)
-        data.set_labels(x_col, y_col)
+        data.set_labels(x_cols, y_col)
         return data
 
 def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
-    pass # TODO: implement
+    &#34;&#34;&#34;
+    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_col the name of the output column. Setting a formatter for a column will enable parsing for example date fields such as &#39;2019-03-01&#39;. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+
+    Args:
+        df (pandas.DataFrame): The Pandas DataFrame.
+        x_cols (str, list): Name or names of X column(s) in DataFrame.
+        y_col (str): Name of Y column in DataFrame.
+        name (str, optional): Name of data.
+        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
+        **kwargs: Additional keyword arguments for csv.DictReader.
+
+    Returns:
+        mogptk.data.Data
+
+    Examples:
+        &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, name=&#39;Gold&#39;, format={&#39;Date&#39;: FormatDate}, filter=lambda row: row[&#39;Region&#39;] == &#39;Europe&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+
+        &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, delimiter=&#39; &#39;, quotechar=&#39;|&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+    &#34;&#34;&#34;
+    input_dims = 1
+    if isinstance(x_cols, list):
+        input_dims = len(x_cols)
+    else:
+        x_cols = [x_cols]
+
+    x_data = df[x_cols]
+    y_data = df[y_col]
+
+    fmts = []
+    for x_col in x_cols:
+        if x_col in format:
+            fmts.append(format[x_col])
+        else:
+            fmts.append(FormatNumber)
+
+    data = Data(x_data.values, y_data.values, name=name, format=fmts)
+    data.set_labels(x_data.columns.values.tolist(), y_data.name)
+    return data
 
 ################################################################
 ################################################################
@@ -350,15 +389,14 @@ class Data:
         weekly data. Additionally, we also use this class to set the range we want to predict.
 
         Args:
-            X (list,ndarray): Independent variable data of shape (n) or (n,input_dims).
-            Y (list,ndarray): Dependent variable data of shape (n).
-            name (str,optional): Name of dataset.
-            format (list,optional): List of formatters (such as FormatNumber (default), FormatDate,
+            X (list, numpy.ndarray): Independent variable data of shape (n) or (n,input_dims).
+            Y (list, numpy.ndarray): Dependent variable data of shape (n).
+            name (str, optional): Name of data.
+            format (list, optional): List of formatters (such as FormatNumber (default), FormatDate,
                 FormatDateTime, ...) for each input dimension.
 
         Examples:
-            &gt;&gt;&gt; Data([0, 1, 2, 3], [4, 3, 5, 6])
-            &lt;mogptk.data.Data at ...&gt;
+            &gt;&gt;&gt; channel = mogptk.Data([0, 1, 2, 3], [4, 3, 5, 6])
         &#34;&#34;&#34;
 
         if isinstance(X, list):
@@ -422,10 +460,13 @@ class Data:
 
     def set_name(self, name):
         &#34;&#34;&#34;
-        Set name for dataset.
+        Set name for data.
 
         Args:
-            name (str): Name of dataset.
+            name (str): Name of data.
+
+        Examples:
+            &gt;&gt;&gt; data.set_name(&#39;Channel A&#39;)
         &#34;&#34;&#34;
         self.name = name
 
@@ -434,8 +475,8 @@ class Data:
         Set axes labels for plots.
 
         Args:
-            input (list,str): Independent variable name for each input dimension.
-            output (str): Dependent variable name for output dimension.
+            input (str, list of str): X data names for each input dimension.
+            output (str): Y data name for output dimension.
 
         Examples:
             &gt;&gt;&gt; data.set_labels([&#39;X&#39;, &#39;Y&#39;], &#39;Cd&#39;)
@@ -472,7 +513,10 @@ class Data:
         Make a deep copy of Data.
 
         Returns:
-            Data: Data.
+            mogptk.data.Data
+
+        Examples:
+            &gt;&gt;&gt; other = data.copy()
         &#34;&#34;&#34;
         return copy.deepcopy(self)
 
@@ -484,10 +528,7 @@ class Data:
             transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
 
         Examples:
-            &gt;&gt;&gt; import mogptk
-            &gt;&gt;&gt; from mogptk import TransformDetrend
-            &gt;&gt;&gt; data = mogptk.Data(x, y)
-            &gt;&gt;&gt; data.transform(TransformDetrend)
+            &gt;&gt;&gt; data.transform(mogptk.TransformDetrend)
         &#34;&#34;&#34;
         t = transformer
         if isinstance(t, type):
@@ -505,14 +546,14 @@ class Data:
         Filter the data range to be between start and end. Start and end can be strings if a proper formatter is set for the independent variable.
 
         Args:
-            start (float,str): Start of interval.
-            end (float,str): End of interval.
+            start (float, str): Start of interval.
+            end (float, str): End of interval.
 
         Examples:
-            &gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+            &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
             &gt;&gt;&gt; data.filter(3, 8)
         
-            &gt;&gt;&gt; data = LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: FormatDate})
+            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
             &gt;&gt;&gt; data.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
@@ -539,8 +580,8 @@ class Data:
         while with FormatDateTime it is per second.
 
         Args:
-            duration (float,str): Duration along the X axis or as a string in the duration format.
-            f (function,optional): Function to use to reduce data, by default uses np.mean.
+            duration (float, str): Duration along the X axis or as a string in the duration format.
+            f (function, optional): Function to use to reduce data, by default uses np.mean.
 
         Examples:
             &gt;&gt;&gt; data.aggregate(5)
@@ -566,9 +607,29 @@ class Data:
 
     ################################################################
 
+    def get_name(self):
+        &#34;&#34;&#34;
+        Return the name.
+
+        Returns:
+            str.
+
+        Examples:
+            &gt;&gt;&gt; data.get_name()
+            &#39;A&#39;
+        &#34;&#34;&#34;
+        return self.name
+
     def has_removed_obs(self):
         &#34;&#34;&#34;
         Returns True if observations have been removed using the remove_* methods.
+
+        Returns:
+            boolean
+
+        Examples:
+            &gt;&gt;&gt; data.has_removed_obs()
+            True
         &#34;&#34;&#34;
         return False in self.mask
 
@@ -578,6 +639,10 @@ class Data:
 
         Returns:
             int: Input dimensions.
+
+        Examples:
+            &gt;&gt;&gt; data.get_input_dims()
+            2
         &#34;&#34;&#34;
         return self.X.shape[1]
 
@@ -586,8 +651,11 @@ class Data:
         Returns the observations.
 
         Returns:
-            ndarray: X data of shape (n,input_dims).
-            ndarray: Y data of shape (n).
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            &gt;&gt;&gt; x, y = data.get_data()
         &#34;&#34;&#34;
         x = self.X[self.mask,:]
         y = self.Y[self.mask]
@@ -598,20 +666,26 @@ class Data:
         Returns all observations (including removed observations).
 
         Returns:
-            ndarray: X data of shape (n,input_dims).
-            ndarray: Y data of shape (n).
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            &gt;&gt;&gt; x, y = data.get_all()
         &#34;&#34;&#34;
         x = self.X
         y = self.Y
         return x, self._detransform(x, y)
 
-    def get_deleted(self):
+    def get_removed(self):
         &#34;&#34;&#34;
         Returns the removed observations.
 
         Returns:
-            ndarray: X data of shape (n,input_dims).
-            ndarray: Y data of shape (n).
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            &gt;&gt;&gt; x, y = data.get_removed()
         &#34;&#34;&#34;
         x = self.X[~self.mask,:]
         y = self.Y[~self.mask]
@@ -624,8 +698,8 @@ class Data:
         Removes observations randomly on the whole range. Either &#39;n&#39; observations are removed, or a percentage of the observations.
 
         Args:
-            n (int,optional): Number of observations to remove randomly.
-            pct (float[0,1],optional): Percentage of observations to remove randomly.
+            n (int, optional): Number of observations to remove randomly.
+            pct (float, optional): Percentage in interval [0,1] of observations to remove randomly.
 
         Examples:
             &gt;&gt;&gt; data.remove_randomly(50) # remove 50 observations
@@ -646,14 +720,14 @@ class Data:
         Removes observations in the interval [start,end]. Start and end can be strings if a proper formatter is set for the independent variable.
         
         Args:
-            start (float,str,optional): Start of interval. Defaults to first value in observations.
-            end (float,str,optional): End of interval. Defaults to last value in observations.
+            start (float, str, optional): Start of interval. Defaults to first value in observations.
+            end (float, str, optional): End of interval. Defaults to last value in observations.
 
         Examples:
-            &gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+            &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
             &gt;&gt;&gt; data.remove_range(3, 8)
         
-            &gt;&gt;&gt; data = LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: FormatDate})
+            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
             &gt;&gt;&gt; data.remove_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
@@ -676,8 +750,8 @@ class Data:
         Removes observations between start and end as a percentage of the number of observations. So &#39;0&#39; is the first observation, &#39;0.5&#39; is the middle observation, and &#39;1&#39; is the last observation.
 
         Args:
-            start (float[0,1]): Start percentage of interval.
-            end (float[0,1]): End percentage of interval.
+            start (float): Start percentage in interval [0,1].
+            end (float): End percentage in interval [0,1].
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
@@ -690,13 +764,14 @@ class Data:
         idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
         self.mask[idx] = False
 
+    # TODO
     def remove_random_ranges(self, n, duration):
         &#34;&#34;&#34;
         Removes a number of ranges to simulate sensor failure.
 
         Args:
             n (int): Number of ranges to remove.
-            duration (float,str): Width of ranges to remove, can use a number or the duration format syntax (see aggregate()).
+            duration (float, str): Width of ranges to remove, can use a number or the duration format syntax (see aggregate()).
 
         Examples:
             &gt;&gt;&gt; data.remove_random_ranges(2, 5) # remove two ranges that are 5 wide in input space
@@ -729,6 +804,22 @@ class Data:
     ################################################################
     
     def get_pred(self, name, sigma=2):
+        &#34;&#34;&#34;
+        Returns the prediction of a given name with a normal variance of sigma.
+
+        Args:
+            name (str): Name of the prediction, equals the name of the model that made the prediction.
+            sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2,
+
+        Returns:
+            numpy.ndarray: X prediction of shape (n,input_dims).
+            numpy.ndarray: Y mean prediction of shape (n,).
+            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
+            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
+
+        Examples:
+            &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_pred(&#39;MOSM&#39;, sigma=1)
+        &#34;&#34;&#34;
         if name not in self.Y_mu_pred:
             raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
 
@@ -743,53 +834,51 @@ class Data:
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
-        Sets the prediction range
+        Sets the prediction range.
 
         The interval is set with [start,end], with either &#39;n&#39; points or a
         given &#39;step&#39; between the points. Start and end can be set as strings and
         step in the duration string format if the proper formatter is set.
 
         Args:
-            start (float,str,optional): Start of interval, defaults to the first observation.
-            end (float,str,optional): End of interval, defaults to the last observation.
-            n (int,optional): Number of points to generate in the interval.
-            step (float,str,optional): Spacing between points in the interval.
+            start (float, str, optional): Start of interval, defaults to the first observation.
+            end (float, str, optional): End of interval, defaults to the last observation.
+            n (int, optional): Number of points to generate in the interval.
+            step (float, str, optional): Spacing between points in the interval.
 
             If neither &#39;step&#39; or &#39;n&#39; is passed, default number of points is 100.
 
         Examples:
-            &gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+            &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
             &gt;&gt;&gt; data.set_pred_range(3, 8, 200)
         
-            &gt;&gt;&gt; data = LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: FormatDate})
+            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
             &gt;&gt;&gt; data.set_pred_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only set prediction range on one dimensional input data&#34;)
 
-        cstart = start
-        if cstart == None:
-            cstart = self.X[0,:]
-        elif isinstance(cstart, list):
+        if start == None:
+            start = self.X[0,:]
+        elif isinstance(start, list):
             for i in range(self.get_input_dims()):
-                cstart[i] = self.formatters[i]._parse(cstart[i])
+                start[i] = self.formatters[i]._parse(start[i])
         else:
-            cstart = self.formatters[0]._parse(cstart)
+            start = self.formatters[0]._parse(start)
 
-        cend = end
-        if cend == None:
-            cend = self.X[-1,:]
-        elif isinstance(cend, list):
+        if end == None:
+            end = self.X[-1,:]
+        elif isinstance(end, list):
             for i in range(self.get_input_dims()):
-                cend[i] = self.formatters[i]._parse(cend[i])
+                end[i] = self.formatters[i]._parse(end[i])
         else:
-            cend = self.formatters[0]._parse(cend)
+            end = self.formatters[0]._parse(end)
         
-        cstart = _normalize_input_dims(cstart, self.get_input_dims())
-        cend = _normalize_input_dims(cend, self.get_input_dims())
+        start = _normalize_input_dims(start, self.get_input_dims())
+        end = _normalize_input_dims(end, self.get_input_dims())
 
         # TODO: works for multi input dims?
-        if cend &lt;= cstart:
+        if end &lt;= start:
             raise ValueError(&#34;start must be lower than end&#34;)
 
         # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
@@ -797,23 +886,22 @@ class Data:
         if step == None and n != None:
             self.X_pred = np.empty((n, self.get_input_dims()))
             for i in range(self.get_input_dims()):
-                self.X_pred[:,i] = np.linspace(cstart[i], cend[i], n)
+                self.X_pred[:,i] = np.linspace(start[i], end[i], n)
         else:
             if self.get_input_dims() != 1:
                 raise ValueError(&#34;cannot use step for multi dimensional input, use n&#34;)
-            cstep = step
-            if cstep == None:
-                cstep = (cend[0]-cstart[0])/100
+            if step == None:
+                step = (end[0]-start[0])/100
             else:
-                cstep = self.formatters[0]._parse_duration(cstep)
-            self.X_pred = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)
+                step = self.formatters[0]._parse_duration(step)
+            self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
     
     def set_pred(self, x):
         &#34;&#34;&#34;
         Set the prediction range directly.
 
         Args:
-            x (list,np.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+            x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
 
         Examples:
             &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
@@ -821,7 +909,7 @@ class Data:
         if isinstance(x, list):
             x = np.array(x)
         elif not isinstance(x, np.ndarray):
-            raise ValueError(&#34;x expected to be a list or ndarray&#34;)
+            raise ValueError(&#34;x expected to be a list or numpy.ndarray&#34;)
 
         x = x.astype(float)
 
@@ -839,7 +927,10 @@ class Data:
         Estimate nyquist frequency by taking 0.5/(minimum distance of points).
 
         Returns:
-            ndarray: Nyquist frequency array of shape (input_dims).
+            numpy.ndarray: Nyquist frequency array of shape (input_dims,).
+
+        Examples:
+            &gt;&gt;&gt; freqs = data.get_nyquist_estimation()
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -857,13 +948,15 @@ class Data:
 
         Args:
             Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate 
-                frequencies, defaults to 5000.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 5000.
 
         Returns:
-            amplitudes: Amplitude array of shape (input_dims, Q).
-            positions: Frequency array of shape (input_dims, Q).
-            variances: Variance array of shape (input_dims, Q).
+            numpy.ndarray: Amplitude array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q).
+            numpy.ndarray: Variance array of shape (input_dims,Q).
+
+        Examples:
+            &gt;&gt;&gt; amplitudes, means, variances = data.get_bnse_estimation()
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -910,8 +1003,12 @@ class Data:
             n (int): Number of points to use for Lomb Scargle, defaults to 50000.
 
         Returns:
-            ndarray: Frequency array of shape (input_dims,Q).
-            ndarray: Amplitude array of shape (input_dims,Q).
+            numpy.ndarray: Amplitude array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q).
+            numpy.ndarray: Variance array of shape (input_dims,Q).
+
+        Examples:
+            &gt;&gt;&gt; amplitudes, means, variances = data.get_ls_estimation()
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -956,14 +1053,15 @@ class Data:
     #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
     #    pass
 
-    def plot(self, ax=None):#filename=None, show=True):
+    def plot(self, ax=None):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
-            title (str,optional): Set the title for the plot.
-            filename (str,optional): If set, export figure to file.
-            show (bool,optional): If True, show the plot immediately.
+            ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
+
+        Returns:
+            matplotlib.axes.Axes
         &#34;&#34;&#34;
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() &gt; 2:
@@ -1016,27 +1114,19 @@ class Data:
 
         if 0 &lt; len(legend):
             plt.legend(handles=legend, loc=&#39;best&#39;)
-
-        #if filename != None:
-        #    plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
-        #if show:
-        #    plt.show()
         return ax
 
-    def plot_spectrum(self, method=&#39;lombscargle&#39;, angularfreq=False, per=None, maxfreq=None, title=None, filename=None, show=True):
+    def plot_spectrum(self, method=&#39;lombscargle&#39;, ax=None, per=None, maxfreq=None):
         &#34;&#34;&#34;
         Plot the spectrum of the data.
 
         TODO: Add BNSE as spectrum estimate option.
 
         Args:
-            method (str,optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
-            angularfreq (bool,optional): Use angular frequencies.
-            per (float,str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per=&#39;3d&#39; for three days.
-            maxfreq (float,optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-            title (str,optional): Set the title for the plot.
-            filename (str,optional): If set, export figure to file.
-            show (bool,optional): If True, show the plot immediately.
+            method (str, optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
+            ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
+            per (float, str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per=&#39;3d&#39; for three days.
+            maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
         &#34;&#34;&#34;
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() &gt; 2:
@@ -1044,25 +1134,20 @@ class Data:
         if self.get_input_dims() == 2:
             raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-        # sns.set(font_scale=2)
-        # sns.axes_style(&#34;darkgrid&#34;)
-        # sns.set_style(&#34;whitegrid&#34;)
-
-        fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
-        if title != None:
-            fig.suptitle(title, fontsize=36)
+        if ax == None:
+            ax = plt.gca()
+        
+        ax.set_title(self.name, fontsize=36)
 
         X_space = self.X[:,0].copy()
 
         formatter = self.formatters[0]
         factor, name = formatter._scale(per)
         if name != None:
-            axes[0,0].set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
+            ax.set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
         else:
-            axes[0,0].set_xlabel(&#39;Frequency&#39;)
+            ax.set_xlabel(&#39;Frequency&#39;)
 
-        if not angularfreq:
-            X_space *= 2 * np.pi
         X_space /= factor
 
         freq = maxfreq
@@ -1076,17 +1161,12 @@ class Data:
         else:
             raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
-        axes[0,0].plot(X, Y, &#39;k-&#39;)
-        axes[0,0].set_title(self.name + &#39; spectrum&#39;, fontsize=30)
-        axes[0,0].set_yticks([])
-        axes[0,0].set_ylim(0, None)
+        ax.plot(X, Y, &#39;k-&#39;)
+        ax.set_title(self.name + &#39; spectrum&#39;, fontsize=30)
+        ax.set_yticks([])
+        ax.set_ylim(0, None)
 
-        if filename != None:
-            plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
-        if show:
-            plt.show()
-
-        return axes[0, 0]
+        return ax
 
     def _transform(self, x, y):
         for t in self.transformations:
@@ -1181,19 +1261,19 @@ def _parse_duration_to_sec(s):
 <dd>Name or names of X column(s) in CSV.</dd>
 <dt><strong><code>y_col</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of Y column in CSV.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code>,optional</dt>
-<dd>Name of dataset.</dd>
-<dt><strong><code>format</code></strong> :&ensp;<code>dict</code>,optional</dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Name of data.</dd>
+<dt><strong><code>format</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, &hellip;</dd>
-<dt><strong><code>filter</code></strong> :&ensp;<code>function</code>,optional</dt>
+<dt><strong><code>filter</code></strong> :&ensp;<code>function</code>, optional</dt>
 <dd>Function that takes row as argument, and returns True to keep the record.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments for csv.DictReader.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></strong></dt>
-<dd>The dataset.</dd>
+<dt><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></dt>
+<dd>&nbsp;</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; LoadCSV('gold.csv', 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
@@ -1212,13 +1292,13 @@ def _parse_duration_to_sec(s):
         filename (str): CSV filename.
         x_cols (str, list): Name or names of X column(s) in CSV.
         y_col (str): Name of Y column in CSV.
-        name (str,optional): Name of dataset.
-        format (dict,optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
-        filter (function,optional): Function that takes row as argument, and returns True to keep the record.
+        name (str, optional): Name of data.
+        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
-        Data: The dataset.
+        mogptk.data.Data
 
     Examples:
         &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, name=&#39;Gold&#39;, format={&#39;Date&#39;: FormatDate}, filter=lambda row: row[&#39;Region&#39;] == &#39;Europe&#39;)
@@ -1278,7 +1358,7 @@ def _parse_duration_to_sec(s):
                 fmts.append(FormatNumber)
 
         data = Data(X, Y, name=name, format=fmts)
-        data.set_labels(x_col, y_col)
+        data.set_labels(x_cols, y_col)
         return data</code></pre>
 </details>
 </dd>
@@ -1286,11 +1366,80 @@ def _parse_duration_to_sec(s):
 <span>def <span class="ident">LoadDataFrame</span></span>(<span>df, x_cols, y_col, name=None, format={}, filter=None, **kwargs)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_col the name of the output column. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>df</code></strong> :&ensp;<code>pandas.DataFrame</code></dt>
+<dd>The Pandas DataFrame.</dd>
+<dt><strong><code>x_cols</code></strong> :&ensp;<code>str</code>, <code>list</code></dt>
+<dd>Name or names of X column(s) in DataFrame.</dd>
+<dt><strong><code>y_col</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of Y column in DataFrame.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Name of data.</dd>
+<dt><strong><code>format</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, &hellip;</dd>
+<dt><strong><code>filter</code></strong> :&ensp;<code>function</code>, optional</dt>
+<dd>Function that takes row as argument, and returns True to keep the record.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Additional keyword arguments for csv.DictReader.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></dt>
+<dd>&nbsp;</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; LoadCSV('gold.csv', 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
+&lt;mogptk.data.Data at ...&gt;
+
+&gt;&gt;&gt; LoadCSV('gold.csv', 'Date', 'Price', delimiter=' ', quotechar='|')
+&lt;mogptk.data.Data at ...&gt;
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
-    pass # TODO: implement</code></pre>
+    &#34;&#34;&#34;
+    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_col the name of the output column. Setting a formatter for a column will enable parsing for example date fields such as &#39;2019-03-01&#39;. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+
+    Args:
+        df (pandas.DataFrame): The Pandas DataFrame.
+        x_cols (str, list): Name or names of X column(s) in DataFrame.
+        y_col (str): Name of Y column in DataFrame.
+        name (str, optional): Name of data.
+        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
+        **kwargs: Additional keyword arguments for csv.DictReader.
+
+    Returns:
+        mogptk.data.Data
+
+    Examples:
+        &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, name=&#39;Gold&#39;, format={&#39;Date&#39;: FormatDate}, filter=lambda row: row[&#39;Region&#39;] == &#39;Europe&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+
+        &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, delimiter=&#39; &#39;, quotechar=&#39;|&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+    &#34;&#34;&#34;
+    input_dims = 1
+    if isinstance(x_cols, list):
+        input_dims = len(x_cols)
+    else:
+        x_cols = [x_cols]
+
+    x_data = df[x_cols]
+    y_data = df[y_col]
+
+    fmts = []
+    for x_col in x_cols:
+        if x_col in format:
+            fmts.append(format[x_col])
+        else:
+            fmts.append(FormatNumber)
+
+    data = Data(x_data.values, y_data.values, name=name, format=fmts)
+    data.set_labels(x_data.columns.values.tolist(), y_data.name)
+    return data</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.LoadFunction"><code class="name flex">
@@ -1305,21 +1454,21 @@ def _parse_duration_to_sec(s):
 <dd>Function taking x with shape (n,input_dims) and returning shape (n) as y.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of data points to pick between start and end.</dd>
-<dt><strong><code>start</code></strong> :&ensp;<code>float</code>,<code>list</code></dt>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>list</code></dt>
 <dd>Define start of interval.</dd>
-<dt><strong><code>end</code></strong> :&ensp;<code>float</code>,<code>list</code></dt>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>list</code></dt>
 <dd>Define end of interval.</dd>
-<dt><strong><code>var</code></strong> :&ensp;<code>float</code>,optional</dt>
+<dt><strong><code>var</code></strong> :&ensp;<code>float</code>, optional</dt>
 <dd>Variance added to the output.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code>,optional</dt>
-<dd>Name of dataset.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Name of data.</dd>
 <dt><strong><code>random</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Select points randomly between start and end (defaults to False).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></strong></dt>
-<dd>The dataset.</dd>
+<dt><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></dt>
+<dd>&nbsp;</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -1336,14 +1485,14 @@ def _parse_duration_to_sec(s):
     Args:
         f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
         n (int): Number of data points to pick between start and end.
-        start (float,list): Define start of interval.
-        end (float,list): Define end of interval.
-        var (float,optional): Variance added to the output.
-        name (str,optional): Name of dataset.
+        start (float, list): Define start of interval.
+        end (float, list): Define end of interval.
+        var (float, optional): Variance added to the output.
+        name (str, optional): Name of data.
         random (boolean): Select points randomly between start and end (defaults to False).
 
     Returns:
-        Data: The dataset.
+        mogptk.data.Data
 
     Examples:
         &gt;&gt;&gt; LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
@@ -1400,19 +1549,18 @@ and aggregating data for given spans on X, such as aggregating daily data into
 weekly data. Additionally, we also use this class to set the range we want to predict.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>X</code></strong> :&ensp;<code>list</code>,<code>ndarray</code></dt>
+<dt><strong><code>X</code></strong> :&ensp;<code>list</code>, <code>numpy.ndarray</code></dt>
 <dd>Independent variable data of shape (n) or (n,input_dims).</dd>
-<dt><strong><code>Y</code></strong> :&ensp;<code>list</code>,<code>ndarray</code></dt>
+<dt><strong><code>Y</code></strong> :&ensp;<code>list</code>, <code>numpy.ndarray</code></dt>
 <dd>Dependent variable data of shape (n).</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code>,optional</dt>
-<dd>Name of dataset.</dd>
-<dt><strong><code>format</code></strong> :&ensp;<code>list</code>,optional</dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Name of data.</dd>
+<dt><strong><code>format</code></strong> :&ensp;<code>list</code>, optional</dt>
 <dd>List of formatters (such as FormatNumber (default), FormatDate,
 FormatDateTime, &hellip;) for each input dimension.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; Data([0, 1, 2, 3], [4, 3, 5, 6])
-&lt;mogptk.data.Data at ...&gt;
+<pre><code>&gt;&gt;&gt; channel = mogptk.Data([0, 1, 2, 3], [4, 3, 5, 6])
 </code></pre></section>
 <details class="source">
 <summary>Source code</summary>
@@ -1428,15 +1576,14 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         weekly data. Additionally, we also use this class to set the range we want to predict.
 
         Args:
-            X (list,ndarray): Independent variable data of shape (n) or (n,input_dims).
-            Y (list,ndarray): Dependent variable data of shape (n).
-            name (str,optional): Name of dataset.
-            format (list,optional): List of formatters (such as FormatNumber (default), FormatDate,
+            X (list, numpy.ndarray): Independent variable data of shape (n) or (n,input_dims).
+            Y (list, numpy.ndarray): Dependent variable data of shape (n).
+            name (str, optional): Name of data.
+            format (list, optional): List of formatters (such as FormatNumber (default), FormatDate,
                 FormatDateTime, ...) for each input dimension.
 
         Examples:
-            &gt;&gt;&gt; Data([0, 1, 2, 3], [4, 3, 5, 6])
-            &lt;mogptk.data.Data at ...&gt;
+            &gt;&gt;&gt; channel = mogptk.Data([0, 1, 2, 3], [4, 3, 5, 6])
         &#34;&#34;&#34;
 
         if isinstance(X, list):
@@ -1500,10 +1647,13 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
     def set_name(self, name):
         &#34;&#34;&#34;
-        Set name for dataset.
+        Set name for data.
 
         Args:
-            name (str): Name of dataset.
+            name (str): Name of data.
+
+        Examples:
+            &gt;&gt;&gt; data.set_name(&#39;Channel A&#39;)
         &#34;&#34;&#34;
         self.name = name
 
@@ -1512,8 +1662,8 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Set axes labels for plots.
 
         Args:
-            input (list,str): Independent variable name for each input dimension.
-            output (str): Dependent variable name for output dimension.
+            input (str, list of str): X data names for each input dimension.
+            output (str): Y data name for output dimension.
 
         Examples:
             &gt;&gt;&gt; data.set_labels([&#39;X&#39;, &#39;Y&#39;], &#39;Cd&#39;)
@@ -1550,7 +1700,10 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Make a deep copy of Data.
 
         Returns:
-            Data: Data.
+            mogptk.data.Data
+
+        Examples:
+            &gt;&gt;&gt; other = data.copy()
         &#34;&#34;&#34;
         return copy.deepcopy(self)
 
@@ -1562,10 +1715,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
 
         Examples:
-            &gt;&gt;&gt; import mogptk
-            &gt;&gt;&gt; from mogptk import TransformDetrend
-            &gt;&gt;&gt; data = mogptk.Data(x, y)
-            &gt;&gt;&gt; data.transform(TransformDetrend)
+            &gt;&gt;&gt; data.transform(mogptk.TransformDetrend)
         &#34;&#34;&#34;
         t = transformer
         if isinstance(t, type):
@@ -1583,14 +1733,14 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Filter the data range to be between start and end. Start and end can be strings if a proper formatter is set for the independent variable.
 
         Args:
-            start (float,str): Start of interval.
-            end (float,str): End of interval.
+            start (float, str): Start of interval.
+            end (float, str): End of interval.
 
         Examples:
-            &gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+            &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
             &gt;&gt;&gt; data.filter(3, 8)
         
-            &gt;&gt;&gt; data = LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: FormatDate})
+            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
             &gt;&gt;&gt; data.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
@@ -1617,8 +1767,8 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         while with FormatDateTime it is per second.
 
         Args:
-            duration (float,str): Duration along the X axis or as a string in the duration format.
-            f (function,optional): Function to use to reduce data, by default uses np.mean.
+            duration (float, str): Duration along the X axis or as a string in the duration format.
+            f (function, optional): Function to use to reduce data, by default uses np.mean.
 
         Examples:
             &gt;&gt;&gt; data.aggregate(5)
@@ -1644,9 +1794,29 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
     ################################################################
 
+    def get_name(self):
+        &#34;&#34;&#34;
+        Return the name.
+
+        Returns:
+            str.
+
+        Examples:
+            &gt;&gt;&gt; data.get_name()
+            &#39;A&#39;
+        &#34;&#34;&#34;
+        return self.name
+
     def has_removed_obs(self):
         &#34;&#34;&#34;
         Returns True if observations have been removed using the remove_* methods.
+
+        Returns:
+            boolean
+
+        Examples:
+            &gt;&gt;&gt; data.has_removed_obs()
+            True
         &#34;&#34;&#34;
         return False in self.mask
 
@@ -1656,6 +1826,10 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
         Returns:
             int: Input dimensions.
+
+        Examples:
+            &gt;&gt;&gt; data.get_input_dims()
+            2
         &#34;&#34;&#34;
         return self.X.shape[1]
 
@@ -1664,8 +1838,11 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Returns the observations.
 
         Returns:
-            ndarray: X data of shape (n,input_dims).
-            ndarray: Y data of shape (n).
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            &gt;&gt;&gt; x, y = data.get_data()
         &#34;&#34;&#34;
         x = self.X[self.mask,:]
         y = self.Y[self.mask]
@@ -1676,20 +1853,26 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Returns all observations (including removed observations).
 
         Returns:
-            ndarray: X data of shape (n,input_dims).
-            ndarray: Y data of shape (n).
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            &gt;&gt;&gt; x, y = data.get_all()
         &#34;&#34;&#34;
         x = self.X
         y = self.Y
         return x, self._detransform(x, y)
 
-    def get_deleted(self):
+    def get_removed(self):
         &#34;&#34;&#34;
         Returns the removed observations.
 
         Returns:
-            ndarray: X data of shape (n,input_dims).
-            ndarray: Y data of shape (n).
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            &gt;&gt;&gt; x, y = data.get_removed()
         &#34;&#34;&#34;
         x = self.X[~self.mask,:]
         y = self.Y[~self.mask]
@@ -1702,8 +1885,8 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Removes observations randomly on the whole range. Either &#39;n&#39; observations are removed, or a percentage of the observations.
 
         Args:
-            n (int,optional): Number of observations to remove randomly.
-            pct (float[0,1],optional): Percentage of observations to remove randomly.
+            n (int, optional): Number of observations to remove randomly.
+            pct (float, optional): Percentage in interval [0,1] of observations to remove randomly.
 
         Examples:
             &gt;&gt;&gt; data.remove_randomly(50) # remove 50 observations
@@ -1724,14 +1907,14 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Removes observations in the interval [start,end]. Start and end can be strings if a proper formatter is set for the independent variable.
         
         Args:
-            start (float,str,optional): Start of interval. Defaults to first value in observations.
-            end (float,str,optional): End of interval. Defaults to last value in observations.
+            start (float, str, optional): Start of interval. Defaults to first value in observations.
+            end (float, str, optional): End of interval. Defaults to last value in observations.
 
         Examples:
-            &gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+            &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
             &gt;&gt;&gt; data.remove_range(3, 8)
         
-            &gt;&gt;&gt; data = LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: FormatDate})
+            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
             &gt;&gt;&gt; data.remove_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
@@ -1754,8 +1937,8 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Removes observations between start and end as a percentage of the number of observations. So &#39;0&#39; is the first observation, &#39;0.5&#39; is the middle observation, and &#39;1&#39; is the last observation.
 
         Args:
-            start (float[0,1]): Start percentage of interval.
-            end (float[0,1]): End percentage of interval.
+            start (float): Start percentage in interval [0,1].
+            end (float): End percentage in interval [0,1].
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
@@ -1768,13 +1951,14 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
         self.mask[idx] = False
 
+    # TODO
     def remove_random_ranges(self, n, duration):
         &#34;&#34;&#34;
         Removes a number of ranges to simulate sensor failure.
 
         Args:
             n (int): Number of ranges to remove.
-            duration (float,str): Width of ranges to remove, can use a number or the duration format syntax (see aggregate()).
+            duration (float, str): Width of ranges to remove, can use a number or the duration format syntax (see aggregate()).
 
         Examples:
             &gt;&gt;&gt; data.remove_random_ranges(2, 5) # remove two ranges that are 5 wide in input space
@@ -1807,6 +1991,22 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
     ################################################################
     
     def get_pred(self, name, sigma=2):
+        &#34;&#34;&#34;
+        Returns the prediction of a given name with a normal variance of sigma.
+
+        Args:
+            name (str): Name of the prediction, equals the name of the model that made the prediction.
+            sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2,
+
+        Returns:
+            numpy.ndarray: X prediction of shape (n,input_dims).
+            numpy.ndarray: Y mean prediction of shape (n,).
+            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
+            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
+
+        Examples:
+            &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_pred(&#39;MOSM&#39;, sigma=1)
+        &#34;&#34;&#34;
         if name not in self.Y_mu_pred:
             raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
 
@@ -1821,53 +2021,51 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
-        Sets the prediction range
+        Sets the prediction range.
 
         The interval is set with [start,end], with either &#39;n&#39; points or a
         given &#39;step&#39; between the points. Start and end can be set as strings and
         step in the duration string format if the proper formatter is set.
 
         Args:
-            start (float,str,optional): Start of interval, defaults to the first observation.
-            end (float,str,optional): End of interval, defaults to the last observation.
-            n (int,optional): Number of points to generate in the interval.
-            step (float,str,optional): Spacing between points in the interval.
+            start (float, str, optional): Start of interval, defaults to the first observation.
+            end (float, str, optional): End of interval, defaults to the last observation.
+            n (int, optional): Number of points to generate in the interval.
+            step (float, str, optional): Spacing between points in the interval.
 
             If neither &#39;step&#39; or &#39;n&#39; is passed, default number of points is 100.
 
         Examples:
-            &gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+            &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
             &gt;&gt;&gt; data.set_pred_range(3, 8, 200)
         
-            &gt;&gt;&gt; data = LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: FormatDate})
+            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
             &gt;&gt;&gt; data.set_pred_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only set prediction range on one dimensional input data&#34;)
 
-        cstart = start
-        if cstart == None:
-            cstart = self.X[0,:]
-        elif isinstance(cstart, list):
+        if start == None:
+            start = self.X[0,:]
+        elif isinstance(start, list):
             for i in range(self.get_input_dims()):
-                cstart[i] = self.formatters[i]._parse(cstart[i])
+                start[i] = self.formatters[i]._parse(start[i])
         else:
-            cstart = self.formatters[0]._parse(cstart)
+            start = self.formatters[0]._parse(start)
 
-        cend = end
-        if cend == None:
-            cend = self.X[-1,:]
-        elif isinstance(cend, list):
+        if end == None:
+            end = self.X[-1,:]
+        elif isinstance(end, list):
             for i in range(self.get_input_dims()):
-                cend[i] = self.formatters[i]._parse(cend[i])
+                end[i] = self.formatters[i]._parse(end[i])
         else:
-            cend = self.formatters[0]._parse(cend)
+            end = self.formatters[0]._parse(end)
         
-        cstart = _normalize_input_dims(cstart, self.get_input_dims())
-        cend = _normalize_input_dims(cend, self.get_input_dims())
+        start = _normalize_input_dims(start, self.get_input_dims())
+        end = _normalize_input_dims(end, self.get_input_dims())
 
         # TODO: works for multi input dims?
-        if cend &lt;= cstart:
+        if end &lt;= start:
             raise ValueError(&#34;start must be lower than end&#34;)
 
         # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
@@ -1875,23 +2073,22 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if step == None and n != None:
             self.X_pred = np.empty((n, self.get_input_dims()))
             for i in range(self.get_input_dims()):
-                self.X_pred[:,i] = np.linspace(cstart[i], cend[i], n)
+                self.X_pred[:,i] = np.linspace(start[i], end[i], n)
         else:
             if self.get_input_dims() != 1:
                 raise ValueError(&#34;cannot use step for multi dimensional input, use n&#34;)
-            cstep = step
-            if cstep == None:
-                cstep = (cend[0]-cstart[0])/100
+            if step == None:
+                step = (end[0]-start[0])/100
             else:
-                cstep = self.formatters[0]._parse_duration(cstep)
-            self.X_pred = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)
+                step = self.formatters[0]._parse_duration(step)
+            self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
     
     def set_pred(self, x):
         &#34;&#34;&#34;
         Set the prediction range directly.
 
         Args:
-            x (list,np.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+            x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
 
         Examples:
             &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
@@ -1899,7 +2096,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if isinstance(x, list):
             x = np.array(x)
         elif not isinstance(x, np.ndarray):
-            raise ValueError(&#34;x expected to be a list or ndarray&#34;)
+            raise ValueError(&#34;x expected to be a list or numpy.ndarray&#34;)
 
         x = x.astype(float)
 
@@ -1917,7 +2114,10 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Estimate nyquist frequency by taking 0.5/(minimum distance of points).
 
         Returns:
-            ndarray: Nyquist frequency array of shape (input_dims).
+            numpy.ndarray: Nyquist frequency array of shape (input_dims,).
+
+        Examples:
+            &gt;&gt;&gt; freqs = data.get_nyquist_estimation()
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -1935,13 +2135,15 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
         Args:
             Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate 
-                frequencies, defaults to 5000.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 5000.
 
         Returns:
-            amplitudes: Amplitude array of shape (input_dims, Q).
-            positions: Frequency array of shape (input_dims, Q).
-            variances: Variance array of shape (input_dims, Q).
+            numpy.ndarray: Amplitude array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q).
+            numpy.ndarray: Variance array of shape (input_dims,Q).
+
+        Examples:
+            &gt;&gt;&gt; amplitudes, means, variances = data.get_bnse_estimation()
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -1988,8 +2190,12 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             n (int): Number of points to use for Lomb Scargle, defaults to 50000.
 
         Returns:
-            ndarray: Frequency array of shape (input_dims,Q).
-            ndarray: Amplitude array of shape (input_dims,Q).
+            numpy.ndarray: Amplitude array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q).
+            numpy.ndarray: Variance array of shape (input_dims,Q).
+
+        Examples:
+            &gt;&gt;&gt; amplitudes, means, variances = data.get_ls_estimation()
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -2034,14 +2240,15 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
     #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
     #    pass
 
-    def plot(self, ax=None):#filename=None, show=True):
+    def plot(self, ax=None):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
-            title (str,optional): Set the title for the plot.
-            filename (str,optional): If set, export figure to file.
-            show (bool,optional): If True, show the plot immediately.
+            ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
+
+        Returns:
+            matplotlib.axes.Axes
         &#34;&#34;&#34;
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() &gt; 2:
@@ -2094,27 +2301,19 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
         if 0 &lt; len(legend):
             plt.legend(handles=legend, loc=&#39;best&#39;)
-
-        #if filename != None:
-        #    plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
-        #if show:
-        #    plt.show()
         return ax
 
-    def plot_spectrum(self, method=&#39;lombscargle&#39;, angularfreq=False, per=None, maxfreq=None, title=None, filename=None, show=True):
+    def plot_spectrum(self, method=&#39;lombscargle&#39;, ax=None, per=None, maxfreq=None):
         &#34;&#34;&#34;
         Plot the spectrum of the data.
 
         TODO: Add BNSE as spectrum estimate option.
 
         Args:
-            method (str,optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
-            angularfreq (bool,optional): Use angular frequencies.
-            per (float,str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per=&#39;3d&#39; for three days.
-            maxfreq (float,optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-            title (str,optional): Set the title for the plot.
-            filename (str,optional): If set, export figure to file.
-            show (bool,optional): If True, show the plot immediately.
+            method (str, optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
+            ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
+            per (float, str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per=&#39;3d&#39; for three days.
+            maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
         &#34;&#34;&#34;
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() &gt; 2:
@@ -2122,25 +2321,20 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if self.get_input_dims() == 2:
             raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-        # sns.set(font_scale=2)
-        # sns.axes_style(&#34;darkgrid&#34;)
-        # sns.set_style(&#34;whitegrid&#34;)
-
-        fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
-        if title != None:
-            fig.suptitle(title, fontsize=36)
+        if ax == None:
+            ax = plt.gca()
+        
+        ax.set_title(self.name, fontsize=36)
 
         X_space = self.X[:,0].copy()
 
         formatter = self.formatters[0]
         factor, name = formatter._scale(per)
         if name != None:
-            axes[0,0].set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
+            ax.set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
         else:
-            axes[0,0].set_xlabel(&#39;Frequency&#39;)
+            ax.set_xlabel(&#39;Frequency&#39;)
 
-        if not angularfreq:
-            X_space *= 2 * np.pi
         X_space /= factor
 
         freq = maxfreq
@@ -2154,17 +2348,12 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         else:
             raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
-        axes[0,0].plot(X, Y, &#39;k-&#39;)
-        axes[0,0].set_title(self.name + &#39; spectrum&#39;, fontsize=30)
-        axes[0,0].set_yticks([])
-        axes[0,0].set_ylim(0, None)
+        ax.plot(X, Y, &#39;k-&#39;)
+        ax.set_title(self.name + &#39; spectrum&#39;, fontsize=30)
+        ax.set_yticks([])
+        ax.set_ylim(0, None)
 
-        if filename != None:
-            plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
-        if show:
-            plt.show()
-
-        return axes[0, 0]
+        return ax
 
     def _transform(self, x, y):
         for t in self.transformations:
@@ -2179,7 +2368,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.data.Data.aggregate"><code class="name flex">
-<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=<function mean at 0x7f806e61af28>)</span>
+<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=<function mean at 0x7f26f63b5f28>)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
@@ -2192,9 +2381,9 @@ If using a number, be aware that when using FormatDate your X data is denoted pe
 while with FormatDateTime it is per second.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>duration</code></strong> :&ensp;<code>float</code>,<code>str</code></dt>
+<dt><strong><code>duration</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
 <dd>Duration along the X axis or as a string in the duration format.</dd>
-<dt><strong><code>f</code></strong> :&ensp;<code>function</code>,optional</dt>
+<dt><strong><code>f</code></strong> :&ensp;<code>function</code>, optional</dt>
 <dd>Function to use to reduce data, by default uses np.mean.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
@@ -2217,8 +2406,8 @@ while with FormatDateTime it is per second.</p>
     while with FormatDateTime it is per second.
 
     Args:
-        duration (float,str): Duration along the X axis or as a string in the duration format.
-        f (function,optional): Function to use to reduce data, by default uses np.mean.
+        duration (float, str): Duration along the X axis or as a string in the duration format.
+        f (function, optional): Function to use to reduce data, by default uses np.mean.
 
     Examples:
         &gt;&gt;&gt; data.aggregate(5)
@@ -2250,9 +2439,12 @@ while with FormatDateTime it is per second.</p>
 <section class="desc"><p>Make a deep copy of Data.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></strong></dt>
-<dd>Data.</dd>
-</dl></section>
+<dt><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></dt>
+<dd>&nbsp;</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; other = data.copy()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def copy(self):
@@ -2260,7 +2452,10 @@ while with FormatDateTime it is per second.</p>
     Make a deep copy of Data.
 
     Returns:
-        Data: Data.
+        mogptk.data.Data
+
+    Examples:
+        &gt;&gt;&gt; other = data.copy()
     &#34;&#34;&#34;
     return copy.deepcopy(self)</code></pre>
 </details>
@@ -2272,16 +2467,16 @@ while with FormatDateTime it is per second.</p>
 <section class="desc"><p>Filter the data range to be between start and end. Start and end can be strings if a proper formatter is set for the independent variable.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>start</code></strong> :&ensp;<code>float</code>,<code>str</code></dt>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
 <dd>Start of interval.</dd>
-<dt><strong><code>end</code></strong> :&ensp;<code>float</code>,<code>str</code></dt>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
 <dd>End of interval.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
+<pre><code>&gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
 &gt;&gt;&gt; data.filter(3, 8)
 
-&gt;&gt;&gt; data = LoadCSV('gold.csv', 'Date', 'Price', format={'Date': FormatDate})
+&gt;&gt;&gt; data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', format={'Date': mogptk.FormatDate})
 &gt;&gt;&gt; data.filter('2016-01-15', '2016-06-15')
 </code></pre></section>
 <details class="source">
@@ -2291,14 +2486,14 @@ while with FormatDateTime it is per second.</p>
     Filter the data range to be between start and end. Start and end can be strings if a proper formatter is set for the independent variable.
 
     Args:
-        start (float,str): Start of interval.
-        end (float,str): End of interval.
+        start (float, str): Start of interval.
+        end (float, str): End of interval.
 
     Examples:
-        &gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+        &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
         &gt;&gt;&gt; data.filter(3, 8)
     
-        &gt;&gt;&gt; data = LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: FormatDate})
+        &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
         &gt;&gt;&gt; data.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
@@ -2319,12 +2514,11 @@ while with FormatDateTime it is per second.</p>
 <dd>
 <section class="desc"><p>Returns all observations (including removed observations).</p>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>X data of shape (n,input_dims).</dd>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Y data of shape (n).</dd>
-</dl></section>
+<p>numpy.ndarray: X data of shape (n,input_dims).
+numpy.ndarray: Y data of shape (n).</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x, y = data.get_all()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_all(self):
@@ -2332,8 +2526,11 @@ while with FormatDateTime it is per second.</p>
     Returns all observations (including removed observations).
 
     Returns:
-        ndarray: X data of shape (n,input_dims).
-        ndarray: Y data of shape (n).
+        numpy.ndarray: X data of shape (n,input_dims).
+        numpy.ndarray: Y data of shape (n).
+
+    Examples:
+        &gt;&gt;&gt; x, y = data.get_all()
     &#34;&#34;&#34;
     x = self.X
     y = self.Y
@@ -2350,18 +2547,15 @@ while with FormatDateTime it is per second.</p>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of peaks to find, defaults to 1.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of points of the grid to evaluate
-frequencies, defaults to 5000.</dd>
+<dd>Number of points of the grid to evaluate frequencies, defaults to 5000.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>amplitudes</code></strong></dt>
-<dd>Amplitude array of shape (input_dims, Q).</dd>
-<dt><strong><code>positions</code></strong></dt>
-<dd>Frequency array of shape (input_dims, Q).</dd>
-<dt><strong><code>variances</code></strong></dt>
-<dd>Variance array of shape (input_dims, Q).</dd>
-</dl></section>
+<p>numpy.ndarray: Amplitude array of shape (input_dims,Q).
+numpy.ndarray: Frequency array of shape (input_dims,Q).
+numpy.ndarray: Variance array of shape (input_dims,Q).</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; amplitudes, means, variances = data.get_bnse_estimation()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=5000):
@@ -2370,13 +2564,15 @@ frequencies, defaults to 5000.</dd>
 
     Args:
         Q (int): Number of peaks to find, defaults to 1.
-        n (int): Number of points of the grid to evaluate 
-            frequencies, defaults to 5000.
+        n (int): Number of points of the grid to evaluate frequencies, defaults to 5000.
 
     Returns:
-        amplitudes: Amplitude array of shape (input_dims, Q).
-        positions: Frequency array of shape (input_dims, Q).
-        variances: Variance array of shape (input_dims, Q).
+        numpy.ndarray: Amplitude array of shape (input_dims,Q).
+        numpy.ndarray: Frequency array of shape (input_dims,Q).
+        numpy.ndarray: Variance array of shape (input_dims,Q).
+
+    Examples:
+        &gt;&gt;&gt; amplitudes, means, variances = data.get_bnse_estimation()
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
 
@@ -2421,12 +2617,11 @@ frequencies, defaults to 5000.</dd>
 <dd>
 <section class="desc"><p>Returns the observations.</p>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>X data of shape (n,input_dims).</dd>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Y data of shape (n).</dd>
-</dl></section>
+<p>numpy.ndarray: X data of shape (n,input_dims).
+numpy.ndarray: Y data of shape (n).</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x, y = data.get_data()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_data(self):
@@ -2434,38 +2629,14 @@ frequencies, defaults to 5000.</dd>
     Returns the observations.
 
     Returns:
-        ndarray: X data of shape (n,input_dims).
-        ndarray: Y data of shape (n).
+        numpy.ndarray: X data of shape (n,input_dims).
+        numpy.ndarray: Y data of shape (n).
+
+    Examples:
+        &gt;&gt;&gt; x, y = data.get_data()
     &#34;&#34;&#34;
     x = self.X[self.mask,:]
     y = self.Y[self.mask]
-    return x, self._detransform(x, y)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.data.Data.get_deleted"><code class="name flex">
-<span>def <span class="ident">get_deleted</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<section class="desc"><p>Returns the removed observations.</p>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>X data of shape (n,input_dims).</dd>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Y data of shape (n).</dd>
-</dl></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def get_deleted(self):
-    &#34;&#34;&#34;
-    Returns the removed observations.
-
-    Returns:
-        ndarray: X data of shape (n,input_dims).
-        ndarray: Y data of shape (n).
-    &#34;&#34;&#34;
-    x = self.X[~self.mask,:]
-    y = self.Y[~self.mask]
     return x, self._detransform(x, y)</code></pre>
 </details>
 </dd>
@@ -2478,6 +2649,13 @@ frequencies, defaults to 5000.</dd>
 <dl>
 <dt><strong><code>int</code></strong></dt>
 <dd>Input dimensions.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; data.get_input_dims()
+**`2`**
+</code></pre>
+<dl>
+<dd>&nbsp;</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
@@ -2487,6 +2665,10 @@ frequencies, defaults to 5000.</dd>
 
     Returns:
         int: Input dimensions.
+
+    Examples:
+        &gt;&gt;&gt; data.get_input_dims()
+        2
     &#34;&#34;&#34;
     return self.X.shape[1]</code></pre>
 </details>
@@ -2504,12 +2686,12 @@ frequencies, defaults to 5000.</dd>
 <dd>Number of points to use for Lomb Scargle, defaults to 50000.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Frequency array of shape (input_dims,Q).</dd>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Amplitude array of shape (input_dims,Q).</dd>
-</dl></section>
+<p>numpy.ndarray: Amplitude array of shape (input_dims,Q).
+numpy.ndarray: Frequency array of shape (input_dims,Q).
+numpy.ndarray: Variance array of shape (input_dims,Q).</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; amplitudes, means, variances = data.get_ls_estimation()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_ls_estimation(self, Q=1, n=50000):
@@ -2521,8 +2703,12 @@ frequencies, defaults to 5000.</dd>
         n (int): Number of points to use for Lomb Scargle, defaults to 50000.
 
     Returns:
-        ndarray: Frequency array of shape (input_dims,Q).
-        ndarray: Amplitude array of shape (input_dims,Q).
+        numpy.ndarray: Amplitude array of shape (input_dims,Q).
+        numpy.ndarray: Frequency array of shape (input_dims,Q).
+        numpy.ndarray: Variance array of shape (input_dims,Q).
+
+    Examples:
+        &gt;&gt;&gt; amplitudes, means, variances = data.get_ls_estimation()
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
 
@@ -2564,16 +2750,43 @@ frequencies, defaults to 5000.</dd>
     return A, B, C</code></pre>
 </details>
 </dd>
+<dt id="mogptk.data.Data.get_name"><code class="name flex">
+<span>def <span class="ident">get_name</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Return the name.</p>
+<h2 id="returns">Returns</h2>
+<p>str.</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; data.get_name()
+'A'
+</code></pre></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_name(self):
+    &#34;&#34;&#34;
+    Return the name.
+
+    Returns:
+        str.
+
+    Examples:
+        &gt;&gt;&gt; data.get_name()
+        &#39;A&#39;
+    &#34;&#34;&#34;
+    return self.name</code></pre>
+</details>
+</dd>
 <dt id="mogptk.data.Data.get_nyquist_estimation"><code class="name flex">
 <span>def <span class="ident">get_nyquist_estimation</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Estimate nyquist frequency by taking 0.5/(minimum distance of points).</p>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Nyquist frequency array of shape (input_dims).</dd>
-</dl></section>
+<p>numpy.ndarray: Nyquist frequency array of shape (input_dims,).</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; freqs = data.get_nyquist_estimation()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_nyquist_estimation(self):
@@ -2581,7 +2794,10 @@ frequencies, defaults to 5000.</dd>
     Estimate nyquist frequency by taking 0.5/(minimum distance of points).
 
     Returns:
-        ndarray: Nyquist frequency array of shape (input_dims).
+        numpy.ndarray: Nyquist frequency array of shape (input_dims,).
+
+    Examples:
+        &gt;&gt;&gt; freqs = data.get_nyquist_estimation()
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
 
@@ -2598,10 +2814,41 @@ frequencies, defaults to 5000.</dd>
 <span>def <span class="ident">get_pred</span></span>(<span>self, name, sigma=2)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Returns the prediction of a given name with a normal variance of sigma.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the prediction, equals the name of the model that made the prediction.</dd>
+<dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
+<dd>The uncertainty interval calculated at mean-sigma<em>var and mean+sigma</em>var. Defaults to 2,</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>numpy.ndarray: X prediction of shape (n,input_dims).
+numpy.ndarray: Y mean prediction of shape (n,).
+numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
+numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_pred('MOSM', sigma=1)
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_pred(self, name, sigma=2):
+    &#34;&#34;&#34;
+    Returns the prediction of a given name with a normal variance of sigma.
+
+    Args:
+        name (str): Name of the prediction, equals the name of the model that made the prediction.
+        sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2,
+
+    Returns:
+        numpy.ndarray: X prediction of shape (n,input_dims).
+        numpy.ndarray: Y mean prediction of shape (n,).
+        numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
+        numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
+
+    Examples:
+        &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_pred(&#39;MOSM&#39;, sigma=1)
+    &#34;&#34;&#34;
     if name not in self.Y_mu_pred:
         raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
 
@@ -2615,16 +2862,64 @@ frequencies, defaults to 5000.</dd>
     return self.X_pred, mu, lower, upper</code></pre>
 </details>
 </dd>
+<dt id="mogptk.data.Data.get_removed"><code class="name flex">
+<span>def <span class="ident">get_removed</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the removed observations.</p>
+<h2 id="returns">Returns</h2>
+<p>numpy.ndarray: X data of shape (n,input_dims).
+numpy.ndarray: Y data of shape (n).</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x, y = data.get_removed()
+</code></pre></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_removed(self):
+    &#34;&#34;&#34;
+    Returns the removed observations.
+
+    Returns:
+        numpy.ndarray: X data of shape (n,input_dims).
+        numpy.ndarray: Y data of shape (n).
+
+    Examples:
+        &gt;&gt;&gt; x, y = data.get_removed()
+    &#34;&#34;&#34;
+    x = self.X[~self.mask,:]
+    y = self.Y[~self.mask]
+    return x, self._detransform(x, y)</code></pre>
+</details>
+</dd>
 <dt id="mogptk.data.Data.has_removed_obs"><code class="name flex">
 <span>def <span class="ident">has_removed_obs</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns True if observations have been removed using the remove_* methods.</p></section>
+<section class="desc"><p>Returns True if observations have been removed using the remove_* methods.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>boolean</code></dt>
+<dd>&nbsp;</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; data.has_removed_obs()
+**`True`**
+</code></pre>
+<dl>
+<dd>&nbsp;</dd>
+</dl></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def has_removed_obs(self):
     &#34;&#34;&#34;
     Returns True if observations have been removed using the remove_* methods.
+
+    Returns:
+        boolean
+
+    Examples:
+        &gt;&gt;&gt; data.has_removed_obs()
+        True
     &#34;&#34;&#34;
     return False in self.mask</code></pre>
 </details>
@@ -2636,23 +2931,25 @@ frequencies, defaults to 5000.</dd>
 <section class="desc"><p>Plot the data including removed observations, latent function, and predictions.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>title</code></strong> :&ensp;<code>str</code>,optional</dt>
-<dd>Set the title for the plot.</dd>
-<dt><strong><code>filename</code></strong> :&ensp;<code>str</code>,optional</dt>
-<dd>If set, export figure to file.</dd>
-<dt><strong><code>show</code></strong> :&ensp;<code>bool</code>,optional</dt>
-<dd>If True, show the plot immediately.</dd>
+<dt><strong><code>ax</code></strong> :&ensp;<code>matplotlib.axes.Axes</code>, optional</dt>
+<dd>Draw to this axes, otherwise draw to the current axes.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>matplotlib.axes.Axes</code></dt>
+<dd>&nbsp;</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def plot(self, ax=None):#filename=None, show=True):
+<pre><code class="python">def plot(self, ax=None):
     &#34;&#34;&#34;
     Plot the data including removed observations, latent function, and predictions.
 
     Args:
-        title (str,optional): Set the title for the plot.
-        filename (str,optional): If set, export figure to file.
-        show (bool,optional): If True, show the plot immediately.
+        ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
+
+    Returns:
+        matplotlib.axes.Axes
     &#34;&#34;&#34;
     # TODO: ability to plot conditional or marginal distribution to reduce input dims
     if self.get_input_dims() &gt; 2:
@@ -2705,53 +3002,39 @@ frequencies, defaults to 5000.</dd>
 
     if 0 &lt; len(legend):
         plt.legend(handles=legend, loc=&#39;best&#39;)
-
-    #if filename != None:
-    #    plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
-    #if show:
-    #    plt.show()
     return ax</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.plot_spectrum"><code class="name flex">
-<span>def <span class="ident">plot_spectrum</span></span>(<span>self, method='lombscargle', angularfreq=False, per=None, maxfreq=None, title=None, filename=None, show=True)</span>
+<span>def <span class="ident">plot_spectrum</span></span>(<span>self, method='lombscargle', ax=None, per=None, maxfreq=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Plot the spectrum of the data.</p>
 <p>TODO: Add BNSE as spectrum estimate option.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>method</code></strong> :&ensp;<code>str</code>,optional</dt>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Set the method to get the spectrum such as 'lombscargle'.</dd>
-<dt><strong><code>angularfreq</code></strong> :&ensp;<code>bool</code>,optional</dt>
-<dd>Use angular frequencies.</dd>
-<dt><strong><code>per</code></strong> :&ensp;<code>float</code>,<code>str</code></dt>
+<dt><strong><code>ax</code></strong> :&ensp;<code>matplotlib.axes.Axes</code>, optional</dt>
+<dd>Draw to this axes, otherwise draw to the current axes.</dd>
+<dt><strong><code>per</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
 <dd>Set the scale of the X axis depending on the formatter used, eg. per=5 or per='3d' for three days.</dd>
-<dt><strong><code>maxfreq</code></strong> :&ensp;<code>float</code>,optional</dt>
+<dt><strong><code>maxfreq</code></strong> :&ensp;<code>float</code>, optional</dt>
 <dd>Maximum frequency to plot, otherwise the Nyquist frequency is used.</dd>
-<dt><strong><code>title</code></strong> :&ensp;<code>str</code>,optional</dt>
-<dd>Set the title for the plot.</dd>
-<dt><strong><code>filename</code></strong> :&ensp;<code>str</code>,optional</dt>
-<dd>If set, export figure to file.</dd>
-<dt><strong><code>show</code></strong> :&ensp;<code>bool</code>,optional</dt>
-<dd>If True, show the plot immediately.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def plot_spectrum(self, method=&#39;lombscargle&#39;, angularfreq=False, per=None, maxfreq=None, title=None, filename=None, show=True):
+<pre><code class="python">def plot_spectrum(self, method=&#39;lombscargle&#39;, ax=None, per=None, maxfreq=None):
     &#34;&#34;&#34;
     Plot the spectrum of the data.
 
     TODO: Add BNSE as spectrum estimate option.
 
     Args:
-        method (str,optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
-        angularfreq (bool,optional): Use angular frequencies.
-        per (float,str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per=&#39;3d&#39; for three days.
-        maxfreq (float,optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-        title (str,optional): Set the title for the plot.
-        filename (str,optional): If set, export figure to file.
-        show (bool,optional): If True, show the plot immediately.
+        method (str, optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
+        ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
+        per (float, str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per=&#39;3d&#39; for three days.
+        maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
     &#34;&#34;&#34;
     # TODO: ability to plot conditional or marginal distribution to reduce input dims
     if self.get_input_dims() &gt; 2:
@@ -2759,25 +3042,20 @@ frequencies, defaults to 5000.</dd>
     if self.get_input_dims() == 2:
         raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-    # sns.set(font_scale=2)
-    # sns.axes_style(&#34;darkgrid&#34;)
-    # sns.set_style(&#34;whitegrid&#34;)
-
-    fig, axes = plt.subplots(1, 1, figsize=(20, 5), constrained_layout=True, squeeze=False)
-    if title != None:
-        fig.suptitle(title, fontsize=36)
+    if ax == None:
+        ax = plt.gca()
+    
+    ax.set_title(self.name, fontsize=36)
 
     X_space = self.X[:,0].copy()
 
     formatter = self.formatters[0]
     factor, name = formatter._scale(per)
     if name != None:
-        axes[0,0].set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
+        ax.set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
     else:
-        axes[0,0].set_xlabel(&#39;Frequency&#39;)
+        ax.set_xlabel(&#39;Frequency&#39;)
 
-    if not angularfreq:
-        X_space *= 2 * np.pi
     X_space /= factor
 
     freq = maxfreq
@@ -2791,17 +3069,12 @@ frequencies, defaults to 5000.</dd>
     else:
         raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
-    axes[0,0].plot(X, Y, &#39;k-&#39;)
-    axes[0,0].set_title(self.name + &#39; spectrum&#39;, fontsize=30)
-    axes[0,0].set_yticks([])
-    axes[0,0].set_ylim(0, None)
+    ax.plot(X, Y, &#39;k-&#39;)
+    ax.set_title(self.name + &#39; spectrum&#39;, fontsize=30)
+    ax.set_yticks([])
+    ax.set_ylim(0, None)
 
-    if filename != None:
-        plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
-    if show:
-        plt.show()
-
-    return axes[0, 0]</code></pre>
+    return ax</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.remove_random_ranges"><code class="name flex">
@@ -2813,7 +3086,7 @@ frequencies, defaults to 5000.</dd>
 <dl>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of ranges to remove.</dd>
-<dt><strong><code>duration</code></strong> :&ensp;<code>float</code>,<code>str</code></dt>
+<dt><strong><code>duration</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
 <dd>Width of ranges to remove, can use a number or the duration format syntax (see aggregate()).</dd>
 </dl>
 <h2 id="examples">Examples</h2>
@@ -2829,7 +3102,7 @@ frequencies, defaults to 5000.</dd>
 
     Args:
         n (int): Number of ranges to remove.
-        duration (float,str): Width of ranges to remove, can use a number or the duration format syntax (see aggregate()).
+        duration (float, str): Width of ranges to remove, can use a number or the duration format syntax (see aggregate()).
 
     Examples:
         &gt;&gt;&gt; data.remove_random_ranges(2, 5) # remove two ranges that are 5 wide in input space
@@ -2867,10 +3140,10 @@ frequencies, defaults to 5000.</dd>
 <section class="desc"><p>Removes observations randomly on the whole range. Either 'n' observations are removed, or a percentage of the observations.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>n</code></strong> :&ensp;<code>int</code>,optional</dt>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Number of observations to remove randomly.</dd>
-<dt><strong><code>pct</code></strong> :&ensp;<code>float</code>[<code>0</code>,<code>1</code>],optional</dt>
-<dd>Percentage of observations to remove randomly.</dd>
+<dt><strong><code>pct</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>Percentage in interval [0,1] of observations to remove randomly.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data.remove_randomly(50) # remove 50 observations
@@ -2884,8 +3157,8 @@ frequencies, defaults to 5000.</dd>
     Removes observations randomly on the whole range. Either &#39;n&#39; observations are removed, or a percentage of the observations.
 
     Args:
-        n (int,optional): Number of observations to remove randomly.
-        pct (float[0,1],optional): Percentage of observations to remove randomly.
+        n (int, optional): Number of observations to remove randomly.
+        pct (float, optional): Percentage in interval [0,1] of observations to remove randomly.
 
     Examples:
         &gt;&gt;&gt; data.remove_randomly(50) # remove 50 observations
@@ -2909,16 +3182,16 @@ frequencies, defaults to 5000.</dd>
 <section class="desc"><p>Removes observations in the interval [start,end]. Start and end can be strings if a proper formatter is set for the independent variable.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>start</code></strong> :&ensp;<code>float</code>,<code>str</code>,optional</dt>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code>, optional</dt>
 <dd>Start of interval. Defaults to first value in observations.</dd>
-<dt><strong><code>end</code></strong> :&ensp;<code>float</code>,<code>str</code>,optional</dt>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>str</code>, optional</dt>
 <dd>End of interval. Defaults to last value in observations.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
+<pre><code>&gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
 &gt;&gt;&gt; data.remove_range(3, 8)
 
-&gt;&gt;&gt; data = LoadCSV('gold.csv', 'Date', 'Price', format={'Date': FormatDate})
+&gt;&gt;&gt; data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', format={'Date': mogptk.FormatDate})
 &gt;&gt;&gt; data.remove_range('2016-01-15', '2016-06-15')
 </code></pre></section>
 <details class="source">
@@ -2928,14 +3201,14 @@ frequencies, defaults to 5000.</dd>
     Removes observations in the interval [start,end]. Start and end can be strings if a proper formatter is set for the independent variable.
     
     Args:
-        start (float,str,optional): Start of interval. Defaults to first value in observations.
-        end (float,str,optional): End of interval. Defaults to last value in observations.
+        start (float, str, optional): Start of interval. Defaults to first value in observations.
+        end (float, str, optional): End of interval. Defaults to last value in observations.
 
     Examples:
-        &gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+        &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
         &gt;&gt;&gt; data.remove_range(3, 8)
     
-        &gt;&gt;&gt; data = LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: FormatDate})
+        &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
         &gt;&gt;&gt; data.remove_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
@@ -2961,10 +3234,10 @@ frequencies, defaults to 5000.</dd>
 <section class="desc"><p>Removes observations between start and end as a percentage of the number of observations. So '0' is the first observation, '0.5' is the middle observation, and '1' is the last observation.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>start</code></strong> :&ensp;<code>float</code>[<code>0</code>,<code>1</code>]</dt>
-<dd>Start percentage of interval.</dd>
-<dt><strong><code>end</code></strong> :&ensp;<code>float</code>[<code>0</code>,<code>1</code>]</dt>
-<dd>End percentage of interval.</dd>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code></dt>
+<dd>Start percentage in interval [0,1].</dd>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code></dt>
+<dd>End percentage in interval [0,1].</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
@@ -2973,8 +3246,8 @@ frequencies, defaults to 5000.</dd>
     Removes observations between start and end as a percentage of the number of observations. So &#39;0&#39; is the first observation, &#39;0.5&#39; is the middle observation, and &#39;1&#39; is the last observation.
 
     Args:
-        start (float[0,1]): Start percentage of interval.
-        end (float[0,1]): End percentage of interval.
+        start (float): Start percentage in interval [0,1].
+        end (float): End percentage in interval [0,1].
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
         raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
@@ -3027,10 +3300,10 @@ frequencies, defaults to 5000.</dd>
 <section class="desc"><p>Set axes labels for plots.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>input</code></strong> :&ensp;<code>list</code>,<code>str</code></dt>
-<dd>Independent variable name for each input dimension.</dd>
+<dt><strong><code>input</code></strong> :&ensp;<code>str</code>, <code>list</code> of <code>str</code></dt>
+<dd>X data names for each input dimension.</dd>
 <dt><strong><code>output</code></strong> :&ensp;<code>str</code></dt>
-<dd>Dependent variable name for output dimension.</dd>
+<dd>Y data name for output dimension.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data.set_labels(['X', 'Y'], 'Cd')
@@ -3042,8 +3315,8 @@ frequencies, defaults to 5000.</dd>
     Set axes labels for plots.
 
     Args:
-        input (list,str): Independent variable name for each input dimension.
-        output (str): Dependent variable name for output dimension.
+        input (str, list of str): X data names for each input dimension.
+        output (str): Y data name for output dimension.
 
     Examples:
         &gt;&gt;&gt; data.set_labels([&#39;X&#39;, &#39;Y&#39;], &#39;Cd&#39;)
@@ -3065,20 +3338,26 @@ frequencies, defaults to 5000.</dd>
 <span>def <span class="ident">set_name</span></span>(<span>self, name)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Set name for dataset.</p>
+<section class="desc"><p>Set name for data.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
-<dd>Name of dataset.</dd>
-</dl></section>
+<dd>Name of data.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; data.set_name('Channel A')
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def set_name(self, name):
     &#34;&#34;&#34;
-    Set name for dataset.
+    Set name for data.
 
     Args:
-        name (str): Name of dataset.
+        name (str): Name of data.
+
+    Examples:
+        &gt;&gt;&gt; data.set_name(&#39;Channel A&#39;)
     &#34;&#34;&#34;
     self.name = name</code></pre>
 </details>
@@ -3090,7 +3369,7 @@ frequencies, defaults to 5000.</dd>
 <section class="desc"><p>Set the prediction range directly.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>x</code></strong> :&ensp;<code>list</code>,<code>np.ndarray</code></dt>
+<dt><strong><code>x</code></strong> :&ensp;<code>list</code>, <code>numpy.ndarray</code></dt>
 <dd>Array of shape (n) or (n,input_dims) with input values to predict at.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
@@ -3103,7 +3382,7 @@ frequencies, defaults to 5000.</dd>
     Set the prediction range directly.
 
     Args:
-        x (list,np.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+        x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
 
     Examples:
         &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
@@ -3111,7 +3390,7 @@ frequencies, defaults to 5000.</dd>
     if isinstance(x, list):
         x = np.array(x)
     elif not isinstance(x, np.ndarray):
-        raise ValueError(&#34;x expected to be a list or ndarray&#34;)
+        raise ValueError(&#34;x expected to be a list or numpy.ndarray&#34;)
 
     x = x.astype(float)
 
@@ -3127,80 +3406,78 @@ frequencies, defaults to 5000.</dd>
 <span>def <span class="ident">set_pred_range</span></span>(<span>self, start=None, end=None, n=None, step=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Sets the prediction range</p>
+<section class="desc"><p>Sets the prediction range.</p>
 <p>The interval is set with [start,end], with either 'n' points or a
 given 'step' between the points. Start and end can be set as strings and
 step in the duration string format if the proper formatter is set.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>start</code></strong> :&ensp;<code>float</code>,<code>str</code>,optional</dt>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code>, optional</dt>
 <dd>Start of interval, defaults to the first observation.</dd>
-<dt><strong><code>end</code></strong> :&ensp;<code>float</code>,<code>str</code>,optional</dt>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>str</code>, optional</dt>
 <dd>End of interval, defaults to the last observation.</dd>
-<dt><strong><code>n</code></strong> :&ensp;<code>int</code>,optional</dt>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Number of points to generate in the interval.</dd>
-<dt><strong><code>step</code></strong> :&ensp;<code>float</code>,<code>str</code>,optional</dt>
+<dt><strong><code>step</code></strong> :&ensp;<code>float</code>, <code>str</code>, optional</dt>
 <dd>Spacing between points in the interval.</dd>
 </dl>
 <p>If neither 'step' or 'n' is passed, default number of points is 100.</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
+<pre><code>&gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
 &gt;&gt;&gt; data.set_pred_range(3, 8, 200)
 
-&gt;&gt;&gt; data = LoadCSV('gold.csv', 'Date', 'Price', format={'Date': FormatDate})
+&gt;&gt;&gt; data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', format={'Date': mogptk.FormatDate})
 &gt;&gt;&gt; data.set_pred_range('2016-01-15', '2016-06-15', step='1d')
 </code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def set_pred_range(self, start=None, end=None, n=None, step=None):
     &#34;&#34;&#34;
-    Sets the prediction range
+    Sets the prediction range.
 
     The interval is set with [start,end], with either &#39;n&#39; points or a
     given &#39;step&#39; between the points. Start and end can be set as strings and
     step in the duration string format if the proper formatter is set.
 
     Args:
-        start (float,str,optional): Start of interval, defaults to the first observation.
-        end (float,str,optional): End of interval, defaults to the last observation.
-        n (int,optional): Number of points to generate in the interval.
-        step (float,str,optional): Spacing between points in the interval.
+        start (float, str, optional): Start of interval, defaults to the first observation.
+        end (float, str, optional): End of interval, defaults to the last observation.
+        n (int, optional): Number of points to generate in the interval.
+        step (float, str, optional): Spacing between points in the interval.
 
         If neither &#39;step&#39; or &#39;n&#39; is passed, default number of points is 100.
 
     Examples:
-        &gt;&gt;&gt; data = LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+        &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
         &gt;&gt;&gt; data.set_pred_range(3, 8, 200)
     
-        &gt;&gt;&gt; data = LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: FormatDate})
+        &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
         &gt;&gt;&gt; data.set_pred_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
         raise Exception(&#34;can only set prediction range on one dimensional input data&#34;)
 
-    cstart = start
-    if cstart == None:
-        cstart = self.X[0,:]
-    elif isinstance(cstart, list):
+    if start == None:
+        start = self.X[0,:]
+    elif isinstance(start, list):
         for i in range(self.get_input_dims()):
-            cstart[i] = self.formatters[i]._parse(cstart[i])
+            start[i] = self.formatters[i]._parse(start[i])
     else:
-        cstart = self.formatters[0]._parse(cstart)
+        start = self.formatters[0]._parse(start)
 
-    cend = end
-    if cend == None:
-        cend = self.X[-1,:]
-    elif isinstance(cend, list):
+    if end == None:
+        end = self.X[-1,:]
+    elif isinstance(end, list):
         for i in range(self.get_input_dims()):
-            cend[i] = self.formatters[i]._parse(cend[i])
+            end[i] = self.formatters[i]._parse(end[i])
     else:
-        cend = self.formatters[0]._parse(cend)
+        end = self.formatters[0]._parse(end)
     
-    cstart = _normalize_input_dims(cstart, self.get_input_dims())
-    cend = _normalize_input_dims(cend, self.get_input_dims())
+    start = _normalize_input_dims(start, self.get_input_dims())
+    end = _normalize_input_dims(end, self.get_input_dims())
 
     # TODO: works for multi input dims?
-    if cend &lt;= cstart:
+    if end &lt;= start:
         raise ValueError(&#34;start must be lower than end&#34;)
 
     # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
@@ -3208,16 +3485,15 @@ step in the duration string format if the proper formatter is set.</p>
     if step == None and n != None:
         self.X_pred = np.empty((n, self.get_input_dims()))
         for i in range(self.get_input_dims()):
-            self.X_pred[:,i] = np.linspace(cstart[i], cend[i], n)
+            self.X_pred[:,i] = np.linspace(start[i], end[i], n)
     else:
         if self.get_input_dims() != 1:
             raise ValueError(&#34;cannot use step for multi dimensional input, use n&#34;)
-        cstep = step
-        if cstep == None:
-            cstep = (cend[0]-cstart[0])/100
+        if step == None:
+            step = (end[0]-start[0])/100
         else:
-            cstep = self.formatters[0]._parse_duration(cstep)
-        self.X_pred = np.arange(cstart[0], cend[0]+cstep, cstep).reshape(-1, 1)</code></pre>
+            step = self.formatters[0]._parse_duration(step)
+        self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.transform"><code class="name flex">
@@ -3231,10 +3507,7 @@ step in the duration string format if the proper formatter is set.</p>
 <dd>Transformer object with _forward(x, y) and _backward(x, y) methods.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; import mogptk
-&gt;&gt;&gt; from mogptk import TransformDetrend
-&gt;&gt;&gt; data = mogptk.Data(x, y)
-&gt;&gt;&gt; data.transform(TransformDetrend)
+<pre><code>&gt;&gt;&gt; data.transform(mogptk.TransformDetrend)
 </code></pre></section>
 <details class="source">
 <summary>Source code</summary>
@@ -3246,10 +3519,7 @@ step in the duration string format if the proper formatter is set.</p>
         transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
 
     Examples:
-        &gt;&gt;&gt; import mogptk
-        &gt;&gt;&gt; from mogptk import TransformDetrend
-        &gt;&gt;&gt; data = mogptk.Data(x, y)
-        &gt;&gt;&gt; data.transform(TransformDetrend)
+        &gt;&gt;&gt; data.transform(mogptk.TransformDetrend)
     &#34;&#34;&#34;
     t = transformer
     if isinstance(t, type):
@@ -3469,7 +3739,6 @@ step in the duration string format if the proper formatter is set.</p>
         pass
 
     def _data(self, data):
-        # TODO: use data.mask?
         self.ymin = np.amin(data.Y)
         self.ymax = np.amax(data.Y)
 
@@ -3512,11 +3781,12 @@ step in the duration string format if the proper formatter is set.</p>
 <li><code><a title="mogptk.data.Data.get_all" href="#mogptk.data.Data.get_all">get_all</a></code></li>
 <li><code><a title="mogptk.data.Data.get_bnse_estimation" href="#mogptk.data.Data.get_bnse_estimation">get_bnse_estimation</a></code></li>
 <li><code><a title="mogptk.data.Data.get_data" href="#mogptk.data.Data.get_data">get_data</a></code></li>
-<li><code><a title="mogptk.data.Data.get_deleted" href="#mogptk.data.Data.get_deleted">get_deleted</a></code></li>
 <li><code><a title="mogptk.data.Data.get_input_dims" href="#mogptk.data.Data.get_input_dims">get_input_dims</a></code></li>
 <li><code><a title="mogptk.data.Data.get_ls_estimation" href="#mogptk.data.Data.get_ls_estimation">get_ls_estimation</a></code></li>
+<li><code><a title="mogptk.data.Data.get_name" href="#mogptk.data.Data.get_name">get_name</a></code></li>
 <li><code><a title="mogptk.data.Data.get_nyquist_estimation" href="#mogptk.data.Data.get_nyquist_estimation">get_nyquist_estimation</a></code></li>
 <li><code><a title="mogptk.data.Data.get_pred" href="#mogptk.data.Data.get_pred">get_pred</a></code></li>
+<li><code><a title="mogptk.data.Data.get_removed" href="#mogptk.data.Data.get_removed">get_removed</a></code></li>
 <li><code><a title="mogptk.data.Data.has_removed_obs" href="#mogptk.data.Data.has_removed_obs">has_removed_obs</a></code></li>
 <li><code><a title="mogptk.data.Data.plot" href="#mogptk.data.Data.plot">plot</a></code></li>
 <li><code><a title="mogptk.data.Data.plot_spectrum" href="#mogptk.data.Data.plot_spectrum">plot_spectrum</a></code></li>

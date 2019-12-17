@@ -32,7 +32,10 @@ class DataSet:
         DataSet is a class that holds multiple Data objects as channels.
 
         Args:
-            *args (Data,DataSet,list,dict): Accepts multiple arguments, each of which should be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+            *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Accepts multiple arguments, each of which should be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+
+        Examples:
+            &gt;&gt;&gt; dataset = mogptk.DataSet(channel_a, channel_b, channel_c)
         &#34;&#34;&#34;
 
         self.channels = []
@@ -53,7 +56,10 @@ class DataSet:
         Append channel(s) to DataSet.
         
         Args:
-            arg (Data,DataSet,list,dict): Argument can be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+            arg (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Argument can be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+
+        Examples:
+            &gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name=&#39;A&#39;))
         &#34;&#34;&#34;
         if isinstance(arg, Data):
             self.channels.append(arg)
@@ -77,6 +83,10 @@ class DataSet:
 
         Returns:
             list: List of input dimensions per channel.
+
+        Examples:
+            &gt;&gt;&gt; dataset.get_input_dims()
+            [2, 1]
         &#34;&#34;&#34;
         return [channel.get_input_dims() for channel in self.channels]
 
@@ -86,6 +96,10 @@ class DataSet:
 
         Returns:
             int: Output dimensions.
+
+        Examples:
+            &gt;&gt;&gt; dataset.get_output_dims()
+            4
         &#34;&#34;&#34;
         return len(self.channels)
 
@@ -95,18 +109,25 @@ class DataSet:
 
         Returns:
             list: List of names.
+
+        Examples:
+            &gt;&gt;&gt; dataset.get_names()
+            [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;]
         &#34;&#34;&#34;
-        return [channel.name for channel in self.channels]
+        return [channel.get_name() for channel in self.channels]
 
     def get(self, index):
         &#34;&#34;&#34;
-        Return Data objects for a channel.
+        Return Data object given a channel index or name.
 
         Args:
-            index (int,string): Index or name of the channel.
+            index (int, str): Index or name of the channel.
 
         Returns:
-            Data: Channel data.
+            mogptk.data.Data: Channel data.
+
+        Examples:
+            &gt;&gt;&gt; channel = dataset.get(&#39;A&#39;)
         &#34;&#34;&#34;
         if isinstance(index, int):
             if index &lt; len(self.channels):
@@ -119,35 +140,60 @@ class DataSet:
     
     def get_data(self):
         &#34;&#34;&#34;
-        Returns the observations.
+        Returns observations.
 
         Returns:
-            ndarray: X data of shape (output_dims,n,input_dims).
-            ndarray: Y data of shape (output_dims,n).
+            list: X data of shape (n,input_dims) per channel.
+            list: Y data of shape (n,) per channel.
+
+        Examples:
+            &gt;&gt;&gt; x, y = dataset.get_data()
         &#34;&#34;&#34;
-        return np.array([channel.get_data()[0] for channel in self.channels]), np.array([channel.get_data()[1] for channel in self.channels])
+        return [channel.get_data()[0] for channel in self.channels], [channel.get_data()[1] for channel in self.channels]
     
     def get_all(self):
         &#34;&#34;&#34;
         Returns all observations (including removed observations).
 
         Returns:
-            ndarray: X data of shape (output_dims,n,input_dims).
-            ndarray: Y data of shape (output_dims,n).
-        &#34;&#34;&#34;
-        return np.array([channel.get_all()[0] for channel in self.channels]), np.array([channel.get_all()[1] for channel in self.channels])
+            list: X data of shape (n,input_dims) per channel.
+            list: Y data of shape (n,) per channel.
 
-    def get_deleted(self):
+        Examples:
+            &gt;&gt;&gt; x, y = dataset.get_all()
+        &#34;&#34;&#34;
+        return [channel.get_all()[0] for channel in self.channels], [channel.get_all()[1] for channel in self.channels]
+
+    def get_removed(self):
         &#34;&#34;&#34;
         Returns the removed observations.
 
         Returns:
-            ndarray: X data of shape (output_dims,n,input_dims).
-            ndarray: Y data of shape (output_dims,n).
+            list: X data of shape (n,input_dims) per channel.
+            list: Y data of shape (n,) per channel.
+
+        Examples:
+            &gt;&gt;&gt; x, y = dataset.get_removed()
         &#34;&#34;&#34;
-        return np.array([channel.get_deleted()[0] for channel in self.channels]), np.array([channel.get_deleted()[1] for channel in self.channels])
+        return [channel.get_removed()[0] for channel in self.channels], [channel.get_removed()[1] for channel in self.channels]
     
     def get_pred(self, name, sigma=2):
+        &#34;&#34;&#34;
+        Returns the prediction of a given name with a normal variance of sigma.
+
+        Args:
+            name (str): Name of the prediction, equals the name of the model that made the prediction.
+            sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2,
+
+        Returns:
+            list: X prediction of shape (n,input_dims) per channel.
+            list: Y mean prediction of shape (n,) per channel.
+            list: Y lower prediction of uncertainty interval of shape (n,) per channel.
+            list: Y upper prediction of uncertainty interval of shape (n,) per channel.
+
+        Examples:
+            &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = dataset.get_pred(&#39;MOSM&#39;, sigma=1)
+        &#34;&#34;&#34;
         x = []
         mu = []
         lower = []
@@ -158,43 +204,94 @@ class DataSet:
             mu.append(channel_mu)
             lower.append(channel_lower)
             upper.append(channel_upper)
-        return np.array(x), np.array(mu), np.array(lower), np.array(upper)
+        return x, mu, lower, upper
 
-    def set_pred(self, xs):
+    def set_pred(self, x):
         &#34;&#34;&#34;
         Set the prediction range directly.
 
         Args:
-            xs (list,np.ndarray,dict): Array of shape (n) or (n,input_dims) with input values to predict at.
+            x (list, numpy.ndarray, dict): Array of shape (n) or (n,input_dims) with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
-            &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+            &gt;&gt;&gt; dataset.set_pred([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
+            &gt;&gt;&gt; dataset.set_pred({&#39;A&#39;: [5.0, 5.5, 6.0, 6.5, 7.0], &#39;B&#39;: [0.1, 0.2, 0.3]})
         &#34;&#34;&#34;
-        if isinstance(xs, list) or isinstance(xs, np.ndarray):
-            if len(xs) != len(self.channels):
-                raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,)&#34;)
+        if isinstance(x, list) or isinstance(x, np.ndarray):
+            if len(x) != len(self.channels):
+                raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,n)&#34;)
 
             for i, channel in enumerate(self.channels):
-                channel.set_pred(xs[i])
-        elif isinstance(xs, dict):
-            for name in xs:
-                self.get(name).set_pred(xs[name])
+                channel.set_pred(x[i])
+        elif isinstance(x, dict):
+            for name in x:
+                self.get(name).set_pred(x[name])
         else:
-            raise ValueError(&#34;prediction x expected to be a list, ndarray or dict&#34;)
+            raise ValueError(&#34;prediction x expected to be a list, numpy.ndarray or dict&#34;)
     
     def get_nyquist_estimation(self):
+        &#34;&#34;&#34;
+        Estimate nyquist frequency by taking 0.5/(minimum distance of points).
+
+        Returns:
+            list: Nyquist frequency array of shape (input_dims) per channel.
+
+        Examples:
+            &gt;&gt;&gt; freqs = dataset.get_nyquist_estimation()
+        &#34;&#34;&#34;
         return [channel.get_nyquist_estimation() for channel in self.channels]
     
-    def get_bnse_estimation(self, Q):
+    def get_bnse_estimation(self, Q, n=5000):
+        &#34;&#34;&#34;
+        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+
+        Args:
+            Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 5000.
+
+        Returns:
+            list: Amplitude array of shape (input_dims,Q) per channel.
+            list: Frequency array of shape (input_dims,Q) per channel.
+            list: Variance array of shape (input_dims,Q) per channel.
+
+        Examples:
+            &gt;&gt;&gt; amplitudes, means, variances = dataset.get_bnse_estimation()
+        &#34;&#34;&#34;
         amplitudes = []
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q)
+            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
-        return np.array(amplitudes), np.array(means), np.array(variances)
+        return amplitudes, means, variances
+    
+    def get_ls_estimation(self, Q, n=50000):
+        &#34;&#34;&#34;
+        Peaks estimation using Lomb Scargle.
+
+        Args:
+            Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 50000.
+
+        Returns:
+            list: Amplitude array of shape (input_dims,Q) per channel.
+            list: Frequency array of shape (input_dims,Q) per channel.
+            list: Variance array of shape (input_dims,Q) per channel.
+
+        Examples:
+            &gt;&gt;&gt; amplitudes, means, variances = dataset.get_ls_estimation()
+        &#34;&#34;&#34;
+        amplitudes = []
+        means = []
+        variances = []
+        for channel in self.channels:
+            channel_amplitudes, channel_means, channel_variances = channel.get_ls_estimation(Q, n)
+            amplitudes.append(channel_amplitudes)
+            means.append(channel_means)
+            variances.append(channel_variances)
+        return amplitudes, means, variances
 
     def to_kernel(self):
         &#34;&#34;&#34;
@@ -203,6 +300,9 @@ class DataSet:
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
             numpy.ndarray: Y data.
+
+        Examples:
+            &gt;&gt;&gt; x, y = dataset.to_kernel()
         &#34;&#34;&#34;
         x = [channel.X[channel.mask] for channel in self.channels]
         y = [channel.Y[channel.mask] for channel in self.channels]
@@ -224,6 +324,9 @@ class DataSet:
 
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+
+        Examples:
+            &gt;&gt;&gt; x = dataset.to_kernel_pred()
         &#34;&#34;&#34;
         x = [channel.X_pred for channel in self.channels]
 
@@ -235,14 +338,27 @@ class DataSet:
         return x
 
     def from_kernel_pred(self, name, mu, var):
+        &#34;&#34;&#34;
+        Returns the predictions from the format as used by the kernels. The prediction is stored in the Data class by the given name.
+
+        Args:
+            name (str): Name to store the prediction under.
+            mu (numpy.ndarray): Y mean prediction of shape (m*n(m)), i.e. a flat array of n(m) data points per channel m.
+            var (numpy.ndarray): Y variance prediction of shape (m*n(m)), i.e. a flat array of n(m) data points per channel m.
+
+        Examples:
+            &gt;&gt;&gt; x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+            &gt;&gt;&gt; mu, var = model.model.predict_f(x)
+            &gt;&gt;&gt; dataset.from_kernel_pred(&#39;MOSM&#39;, mu, var)
+        &#34;&#34;&#34;
         N = [len(channel.X_pred) for channel in self.channels]
         if len(mu) != len(var) or sum(N) != len(mu):
             raise ValueError(&#34;prediction mu or var different length from prediction x&#34;)
 
         i = 0
         for idx in range(len(self.channels)):
-            self.channels[idx].Y_mu_pred[name] = mu[i:i+N[idx]].reshape(1, -1)[0]
-            self.channels[idx].Y_var_pred[name] = var[i:i+N[idx]].reshape(1, -1)[0]
+            self.channels[idx].Y_mu_pred[name] = np.squeeze(mu[i:i+N[idx]])
+            self.channels[idx].Y_var_pred[name] = np.squeeze(var[i:i+N[idx]])
             i += N[idx]
 
     def copy(self):
@@ -250,11 +366,27 @@ class DataSet:
         Make a deep copy of DataSet.
 
         Returns:
-            DataSet: DataSet.
+            mogptk.dataset.DataSet
+
+        Examples:
+            &gt;&gt;&gt; other = dataset.copy()
         &#34;&#34;&#34;
         return copy.deepcopy(self)
 
     def plot(self, title=None):
+        &#34;&#34;&#34;
+        Plot each Data channel.
+
+        Args:
+            title (str, optional): Set the title of the plot.
+
+        Returns:
+            matplotlib.figure.Figure: The figure.
+            list of matplotlib.axes.Axes: List of axes.
+
+        Examples:
+            &gt;&gt;&gt; fig, axes = dataset.plot(&#39;Title&#39;)
+        &#34;&#34;&#34;
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
         if title != None:
             fig.suptitle(title)
@@ -282,9 +414,12 @@ class DataSet:
 <section class="desc"><p>DataSet is a class that holds multiple Data objects as channels.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>*args</code></strong> :&ensp;<code>Data</code>,<a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>,<code>list</code>,<code>dict</code></dt>
-<dd>Accepts multiple arguments, each of which should be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.</dd>
-</dl></section>
+<dt><strong><code>*args</code></strong> :&ensp;<a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a>, <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>, <code>list</code>, <code>dict</code></dt>
+<dd>Accepts multiple arguments, each of which should be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; dataset = mogptk.DataSet(channel_a, channel_b, channel_c)
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class DataSet:
@@ -293,7 +428,10 @@ class DataSet:
         DataSet is a class that holds multiple Data objects as channels.
 
         Args:
-            *args (Data,DataSet,list,dict): Accepts multiple arguments, each of which should be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+            *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Accepts multiple arguments, each of which should be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+
+        Examples:
+            &gt;&gt;&gt; dataset = mogptk.DataSet(channel_a, channel_b, channel_c)
         &#34;&#34;&#34;
 
         self.channels = []
@@ -314,7 +452,10 @@ class DataSet:
         Append channel(s) to DataSet.
         
         Args:
-            arg (Data,DataSet,list,dict): Argument can be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+            arg (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Argument can be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+
+        Examples:
+            &gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name=&#39;A&#39;))
         &#34;&#34;&#34;
         if isinstance(arg, Data):
             self.channels.append(arg)
@@ -338,6 +479,10 @@ class DataSet:
 
         Returns:
             list: List of input dimensions per channel.
+
+        Examples:
+            &gt;&gt;&gt; dataset.get_input_dims()
+            [2, 1]
         &#34;&#34;&#34;
         return [channel.get_input_dims() for channel in self.channels]
 
@@ -347,6 +492,10 @@ class DataSet:
 
         Returns:
             int: Output dimensions.
+
+        Examples:
+            &gt;&gt;&gt; dataset.get_output_dims()
+            4
         &#34;&#34;&#34;
         return len(self.channels)
 
@@ -356,18 +505,25 @@ class DataSet:
 
         Returns:
             list: List of names.
+
+        Examples:
+            &gt;&gt;&gt; dataset.get_names()
+            [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;]
         &#34;&#34;&#34;
-        return [channel.name for channel in self.channels]
+        return [channel.get_name() for channel in self.channels]
 
     def get(self, index):
         &#34;&#34;&#34;
-        Return Data objects for a channel.
+        Return Data object given a channel index or name.
 
         Args:
-            index (int,string): Index or name of the channel.
+            index (int, str): Index or name of the channel.
 
         Returns:
-            Data: Channel data.
+            mogptk.data.Data: Channel data.
+
+        Examples:
+            &gt;&gt;&gt; channel = dataset.get(&#39;A&#39;)
         &#34;&#34;&#34;
         if isinstance(index, int):
             if index &lt; len(self.channels):
@@ -380,35 +536,60 @@ class DataSet:
     
     def get_data(self):
         &#34;&#34;&#34;
-        Returns the observations.
+        Returns observations.
 
         Returns:
-            ndarray: X data of shape (output_dims,n,input_dims).
-            ndarray: Y data of shape (output_dims,n).
+            list: X data of shape (n,input_dims) per channel.
+            list: Y data of shape (n,) per channel.
+
+        Examples:
+            &gt;&gt;&gt; x, y = dataset.get_data()
         &#34;&#34;&#34;
-        return np.array([channel.get_data()[0] for channel in self.channels]), np.array([channel.get_data()[1] for channel in self.channels])
+        return [channel.get_data()[0] for channel in self.channels], [channel.get_data()[1] for channel in self.channels]
     
     def get_all(self):
         &#34;&#34;&#34;
         Returns all observations (including removed observations).
 
         Returns:
-            ndarray: X data of shape (output_dims,n,input_dims).
-            ndarray: Y data of shape (output_dims,n).
-        &#34;&#34;&#34;
-        return np.array([channel.get_all()[0] for channel in self.channels]), np.array([channel.get_all()[1] for channel in self.channels])
+            list: X data of shape (n,input_dims) per channel.
+            list: Y data of shape (n,) per channel.
 
-    def get_deleted(self):
+        Examples:
+            &gt;&gt;&gt; x, y = dataset.get_all()
+        &#34;&#34;&#34;
+        return [channel.get_all()[0] for channel in self.channels], [channel.get_all()[1] for channel in self.channels]
+
+    def get_removed(self):
         &#34;&#34;&#34;
         Returns the removed observations.
 
         Returns:
-            ndarray: X data of shape (output_dims,n,input_dims).
-            ndarray: Y data of shape (output_dims,n).
+            list: X data of shape (n,input_dims) per channel.
+            list: Y data of shape (n,) per channel.
+
+        Examples:
+            &gt;&gt;&gt; x, y = dataset.get_removed()
         &#34;&#34;&#34;
-        return np.array([channel.get_deleted()[0] for channel in self.channels]), np.array([channel.get_deleted()[1] for channel in self.channels])
+        return [channel.get_removed()[0] for channel in self.channels], [channel.get_removed()[1] for channel in self.channels]
     
     def get_pred(self, name, sigma=2):
+        &#34;&#34;&#34;
+        Returns the prediction of a given name with a normal variance of sigma.
+
+        Args:
+            name (str): Name of the prediction, equals the name of the model that made the prediction.
+            sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2,
+
+        Returns:
+            list: X prediction of shape (n,input_dims) per channel.
+            list: Y mean prediction of shape (n,) per channel.
+            list: Y lower prediction of uncertainty interval of shape (n,) per channel.
+            list: Y upper prediction of uncertainty interval of shape (n,) per channel.
+
+        Examples:
+            &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = dataset.get_pred(&#39;MOSM&#39;, sigma=1)
+        &#34;&#34;&#34;
         x = []
         mu = []
         lower = []
@@ -419,43 +600,94 @@ class DataSet:
             mu.append(channel_mu)
             lower.append(channel_lower)
             upper.append(channel_upper)
-        return np.array(x), np.array(mu), np.array(lower), np.array(upper)
+        return x, mu, lower, upper
 
-    def set_pred(self, xs):
+    def set_pred(self, x):
         &#34;&#34;&#34;
         Set the prediction range directly.
 
         Args:
-            xs (list,np.ndarray,dict): Array of shape (n) or (n,input_dims) with input values to predict at.
+            x (list, numpy.ndarray, dict): Array of shape (n) or (n,input_dims) with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
-            &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+            &gt;&gt;&gt; dataset.set_pred([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
+            &gt;&gt;&gt; dataset.set_pred({&#39;A&#39;: [5.0, 5.5, 6.0, 6.5, 7.0], &#39;B&#39;: [0.1, 0.2, 0.3]})
         &#34;&#34;&#34;
-        if isinstance(xs, list) or isinstance(xs, np.ndarray):
-            if len(xs) != len(self.channels):
-                raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,)&#34;)
+        if isinstance(x, list) or isinstance(x, np.ndarray):
+            if len(x) != len(self.channels):
+                raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,n)&#34;)
 
             for i, channel in enumerate(self.channels):
-                channel.set_pred(xs[i])
-        elif isinstance(xs, dict):
-            for name in xs:
-                self.get(name).set_pred(xs[name])
+                channel.set_pred(x[i])
+        elif isinstance(x, dict):
+            for name in x:
+                self.get(name).set_pred(x[name])
         else:
-            raise ValueError(&#34;prediction x expected to be a list, ndarray or dict&#34;)
+            raise ValueError(&#34;prediction x expected to be a list, numpy.ndarray or dict&#34;)
     
     def get_nyquist_estimation(self):
+        &#34;&#34;&#34;
+        Estimate nyquist frequency by taking 0.5/(minimum distance of points).
+
+        Returns:
+            list: Nyquist frequency array of shape (input_dims) per channel.
+
+        Examples:
+            &gt;&gt;&gt; freqs = dataset.get_nyquist_estimation()
+        &#34;&#34;&#34;
         return [channel.get_nyquist_estimation() for channel in self.channels]
     
-    def get_bnse_estimation(self, Q):
+    def get_bnse_estimation(self, Q, n=5000):
+        &#34;&#34;&#34;
+        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+
+        Args:
+            Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 5000.
+
+        Returns:
+            list: Amplitude array of shape (input_dims,Q) per channel.
+            list: Frequency array of shape (input_dims,Q) per channel.
+            list: Variance array of shape (input_dims,Q) per channel.
+
+        Examples:
+            &gt;&gt;&gt; amplitudes, means, variances = dataset.get_bnse_estimation()
+        &#34;&#34;&#34;
         amplitudes = []
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q)
+            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
-        return np.array(amplitudes), np.array(means), np.array(variances)
+        return amplitudes, means, variances
+    
+    def get_ls_estimation(self, Q, n=50000):
+        &#34;&#34;&#34;
+        Peaks estimation using Lomb Scargle.
+
+        Args:
+            Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 50000.
+
+        Returns:
+            list: Amplitude array of shape (input_dims,Q) per channel.
+            list: Frequency array of shape (input_dims,Q) per channel.
+            list: Variance array of shape (input_dims,Q) per channel.
+
+        Examples:
+            &gt;&gt;&gt; amplitudes, means, variances = dataset.get_ls_estimation()
+        &#34;&#34;&#34;
+        amplitudes = []
+        means = []
+        variances = []
+        for channel in self.channels:
+            channel_amplitudes, channel_means, channel_variances = channel.get_ls_estimation(Q, n)
+            amplitudes.append(channel_amplitudes)
+            means.append(channel_means)
+            variances.append(channel_variances)
+        return amplitudes, means, variances
 
     def to_kernel(self):
         &#34;&#34;&#34;
@@ -464,6 +696,9 @@ class DataSet:
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
             numpy.ndarray: Y data.
+
+        Examples:
+            &gt;&gt;&gt; x, y = dataset.to_kernel()
         &#34;&#34;&#34;
         x = [channel.X[channel.mask] for channel in self.channels]
         y = [channel.Y[channel.mask] for channel in self.channels]
@@ -485,6 +720,9 @@ class DataSet:
 
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+
+        Examples:
+            &gt;&gt;&gt; x = dataset.to_kernel_pred()
         &#34;&#34;&#34;
         x = [channel.X_pred for channel in self.channels]
 
@@ -496,14 +734,27 @@ class DataSet:
         return x
 
     def from_kernel_pred(self, name, mu, var):
+        &#34;&#34;&#34;
+        Returns the predictions from the format as used by the kernels. The prediction is stored in the Data class by the given name.
+
+        Args:
+            name (str): Name to store the prediction under.
+            mu (numpy.ndarray): Y mean prediction of shape (m*n(m)), i.e. a flat array of n(m) data points per channel m.
+            var (numpy.ndarray): Y variance prediction of shape (m*n(m)), i.e. a flat array of n(m) data points per channel m.
+
+        Examples:
+            &gt;&gt;&gt; x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+            &gt;&gt;&gt; mu, var = model.model.predict_f(x)
+            &gt;&gt;&gt; dataset.from_kernel_pred(&#39;MOSM&#39;, mu, var)
+        &#34;&#34;&#34;
         N = [len(channel.X_pred) for channel in self.channels]
         if len(mu) != len(var) or sum(N) != len(mu):
             raise ValueError(&#34;prediction mu or var different length from prediction x&#34;)
 
         i = 0
         for idx in range(len(self.channels)):
-            self.channels[idx].Y_mu_pred[name] = mu[i:i+N[idx]].reshape(1, -1)[0]
-            self.channels[idx].Y_var_pred[name] = var[i:i+N[idx]].reshape(1, -1)[0]
+            self.channels[idx].Y_mu_pred[name] = np.squeeze(mu[i:i+N[idx]])
+            self.channels[idx].Y_var_pred[name] = np.squeeze(var[i:i+N[idx]])
             i += N[idx]
 
     def copy(self):
@@ -511,11 +762,27 @@ class DataSet:
         Make a deep copy of DataSet.
 
         Returns:
-            DataSet: DataSet.
+            mogptk.dataset.DataSet
+
+        Examples:
+            &gt;&gt;&gt; other = dataset.copy()
         &#34;&#34;&#34;
         return copy.deepcopy(self)
 
     def plot(self, title=None):
+        &#34;&#34;&#34;
+        Plot each Data channel.
+
+        Args:
+            title (str, optional): Set the title of the plot.
+
+        Returns:
+            matplotlib.figure.Figure: The figure.
+            list of matplotlib.axes.Axes: List of axes.
+
+        Examples:
+            &gt;&gt;&gt; fig, axes = dataset.plot(&#39;Title&#39;)
+        &#34;&#34;&#34;
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
         if title != None:
             fig.suptitle(title)
@@ -534,9 +801,12 @@ class DataSet:
 <section class="desc"><p>Append channel(s) to DataSet.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>arg</code></strong> :&ensp;<code>Data</code>,<a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>,<code>list</code>,<code>dict</code></dt>
-<dd>Argument can be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.</dd>
-</dl></section>
+<dt><strong><code>arg</code></strong> :&ensp;<a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a>, <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>, <code>list</code>, <code>dict</code></dt>
+<dd>Argument can be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='A'))
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def append(self, arg):
@@ -544,7 +814,10 @@ class DataSet:
     Append channel(s) to DataSet.
     
     Args:
-        arg (Data,DataSet,list,dict): Argument can be either a Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+        arg (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Argument can be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+
+    Examples:
+        &gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name=&#39;A&#39;))
     &#34;&#34;&#34;
     if isinstance(arg, Data):
         self.channels.append(arg)
@@ -570,9 +843,12 @@ class DataSet:
 <section class="desc"><p>Make a deep copy of DataSet.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a></strong></dt>
-<dd>DataSet.</dd>
-</dl></section>
+<dt><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
+<dd>&nbsp;</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; other = dataset.copy()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def copy(self):
@@ -580,7 +856,10 @@ class DataSet:
     Make a deep copy of DataSet.
 
     Returns:
-        DataSet: DataSet.
+        mogptk.dataset.DataSet
+
+    Examples:
+        &gt;&gt;&gt; other = dataset.copy()
     &#34;&#34;&#34;
     return copy.deepcopy(self)</code></pre>
 </details>
@@ -589,18 +868,45 @@ class DataSet:
 <span>def <span class="ident">from_kernel_pred</span></span>(<span>self, name, mu, var)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Returns the predictions from the format as used by the kernels. The prediction is stored in the Data class by the given name.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name to store the prediction under.</dd>
+<dt><strong><code>mu</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Y mean prediction of shape (m*n(m)), i.e. a flat array of n(m) data points per channel m.</dd>
+<dt><strong><code>var</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Y variance prediction of shape (m*n(m)), i.e. a flat array of n(m) data points per channel m.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+&gt;&gt;&gt; mu, var = model.model.predict_f(x)
+&gt;&gt;&gt; dataset.from_kernel_pred('MOSM', mu, var)
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def from_kernel_pred(self, name, mu, var):
+    &#34;&#34;&#34;
+    Returns the predictions from the format as used by the kernels. The prediction is stored in the Data class by the given name.
+
+    Args:
+        name (str): Name to store the prediction under.
+        mu (numpy.ndarray): Y mean prediction of shape (m*n(m)), i.e. a flat array of n(m) data points per channel m.
+        var (numpy.ndarray): Y variance prediction of shape (m*n(m)), i.e. a flat array of n(m) data points per channel m.
+
+    Examples:
+        &gt;&gt;&gt; x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+        &gt;&gt;&gt; mu, var = model.model.predict_f(x)
+        &gt;&gt;&gt; dataset.from_kernel_pred(&#39;MOSM&#39;, mu, var)
+    &#34;&#34;&#34;
     N = [len(channel.X_pred) for channel in self.channels]
     if len(mu) != len(var) or sum(N) != len(mu):
         raise ValueError(&#34;prediction mu or var different length from prediction x&#34;)
 
     i = 0
     for idx in range(len(self.channels)):
-        self.channels[idx].Y_mu_pred[name] = mu[i:i+N[idx]].reshape(1, -1)[0]
-        self.channels[idx].Y_var_pred[name] = var[i:i+N[idx]].reshape(1, -1)[0]
+        self.channels[idx].Y_mu_pred[name] = np.squeeze(mu[i:i+N[idx]])
+        self.channels[idx].Y_var_pred[name] = np.squeeze(var[i:i+N[idx]])
         i += N[idx]</code></pre>
 </details>
 </dd>
@@ -608,28 +914,31 @@ class DataSet:
 <span>def <span class="ident">get</span></span>(<span>self, index)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Return Data objects for a channel.</p>
+<section class="desc"><p>Return Data object given a channel index or name.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>index</code></strong> :&ensp;<code>int</code>,<code>string</code></dt>
+<dt><strong><code>index</code></strong> :&ensp;<code>int</code>, <code>str</code></dt>
 <dd>Index or name of the channel.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>Data</code></strong></dt>
-<dd>Channel data.</dd>
-</dl></section>
+<p>mogptk.data.Data: Channel data.</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; channel = dataset.get('A')
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get(self, index):
     &#34;&#34;&#34;
-    Return Data objects for a channel.
+    Return Data object given a channel index or name.
 
     Args:
-        index (int,string): Index or name of the channel.
+        index (int, str): Index or name of the channel.
 
     Returns:
-        Data: Channel data.
+        mogptk.data.Data: Channel data.
+
+    Examples:
+        &gt;&gt;&gt; channel = dataset.get(&#39;A&#39;)
     &#34;&#34;&#34;
     if isinstance(index, int):
         if index &lt; len(self.channels):
@@ -648,11 +957,14 @@ class DataSet:
 <section class="desc"><p>Returns all observations (including removed observations).</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>X data of shape (output_dims,n,input_dims).</dd>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Y data of shape (output_dims,n).</dd>
-</dl></section>
+<dt><strong><code>list</code></strong></dt>
+<dd>X data of shape (n,input_dims) per channel.</dd>
+<dt><strong><code>list</code></strong></dt>
+<dd>Y data of shape (n,) per channel.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x, y = dataset.get_all()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_all(self):
@@ -660,79 +972,97 @@ class DataSet:
     Returns all observations (including removed observations).
 
     Returns:
-        ndarray: X data of shape (output_dims,n,input_dims).
-        ndarray: Y data of shape (output_dims,n).
+        list: X data of shape (n,input_dims) per channel.
+        list: Y data of shape (n,) per channel.
+
+    Examples:
+        &gt;&gt;&gt; x, y = dataset.get_all()
     &#34;&#34;&#34;
-    return np.array([channel.get_all()[0] for channel in self.channels]), np.array([channel.get_all()[1] for channel in self.channels])</code></pre>
+    return [channel.get_all()[0] for channel in self.channels], [channel.get_all()[1] for channel in self.channels]</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_bnse_estimation"><code class="name flex">
-<span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q)</span>
+<span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q, n=5000)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of peaks to find, defaults to 1.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of points of the grid to evaluate frequencies, defaults to 5000.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>list</code></strong></dt>
+<dd>Amplitude array of shape (input_dims,Q) per channel.</dd>
+<dt><strong><code>list</code></strong></dt>
+<dd>Frequency array of shape (input_dims,Q) per channel.</dd>
+<dt><strong><code>list</code></strong></dt>
+<dd>Variance array of shape (input_dims,Q) per channel.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; amplitudes, means, variances = dataset.get_bnse_estimation()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def get_bnse_estimation(self, Q):
+<pre><code class="python">def get_bnse_estimation(self, Q, n=5000):
+    &#34;&#34;&#34;
+    Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+
+    Args:
+        Q (int): Number of peaks to find, defaults to 1.
+        n (int): Number of points of the grid to evaluate frequencies, defaults to 5000.
+
+    Returns:
+        list: Amplitude array of shape (input_dims,Q) per channel.
+        list: Frequency array of shape (input_dims,Q) per channel.
+        list: Variance array of shape (input_dims,Q) per channel.
+
+    Examples:
+        &gt;&gt;&gt; amplitudes, means, variances = dataset.get_bnse_estimation()
+    &#34;&#34;&#34;
     amplitudes = []
     means = []
     variances = []
     for channel in self.channels:
-        channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q)
+        channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n)
         amplitudes.append(channel_amplitudes)
         means.append(channel_means)
         variances.append(channel_variances)
-    return np.array(amplitudes), np.array(means), np.array(variances)</code></pre>
+    return amplitudes, means, variances</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_data"><code class="name flex">
 <span>def <span class="ident">get_data</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the observations.</p>
+<section class="desc"><p>Returns observations.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>X data of shape (output_dims,n,input_dims).</dd>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Y data of shape (output_dims,n).</dd>
-</dl></section>
+<dt><strong><code>list</code></strong></dt>
+<dd>X data of shape (n,input_dims) per channel.</dd>
+<dt><strong><code>list</code></strong></dt>
+<dd>Y data of shape (n,) per channel.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x, y = dataset.get_data()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_data(self):
     &#34;&#34;&#34;
-    Returns the observations.
+    Returns observations.
 
     Returns:
-        ndarray: X data of shape (output_dims,n,input_dims).
-        ndarray: Y data of shape (output_dims,n).
-    &#34;&#34;&#34;
-    return np.array([channel.get_data()[0] for channel in self.channels]), np.array([channel.get_data()[1] for channel in self.channels])</code></pre>
-</details>
-</dd>
-<dt id="mogptk.dataset.DataSet.get_deleted"><code class="name flex">
-<span>def <span class="ident">get_deleted</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<section class="desc"><p>Returns the removed observations.</p>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>X data of shape (output_dims,n,input_dims).</dd>
-<dt><strong><code>ndarray</code></strong></dt>
-<dd>Y data of shape (output_dims,n).</dd>
-</dl></section>
-<details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def get_deleted(self):
-    &#34;&#34;&#34;
-    Returns the removed observations.
+        list: X data of shape (n,input_dims) per channel.
+        list: Y data of shape (n,) per channel.
 
-    Returns:
-        ndarray: X data of shape (output_dims,n,input_dims).
-        ndarray: Y data of shape (output_dims,n).
+    Examples:
+        &gt;&gt;&gt; x, y = dataset.get_data()
     &#34;&#34;&#34;
-    return np.array([channel.get_deleted()[0] for channel in self.channels]), np.array([channel.get_deleted()[1] for channel in self.channels])</code></pre>
+    return [channel.get_data()[0] for channel in self.channels], [channel.get_data()[1] for channel in self.channels]</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_input_dims"><code class="name flex">
@@ -744,7 +1074,11 @@ class DataSet:
 <dl>
 <dt><strong><code>list</code></strong></dt>
 <dd>List of input dimensions per channel.</dd>
-</dl></section>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; dataset.get_input_dims()
+[2, 1]
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_input_dims(self):
@@ -753,8 +1087,65 @@ class DataSet:
 
     Returns:
         list: List of input dimensions per channel.
+
+    Examples:
+        &gt;&gt;&gt; dataset.get_input_dims()
+        [2, 1]
     &#34;&#34;&#34;
     return [channel.get_input_dims() for channel in self.channels]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_ls_estimation"><code class="name flex">
+<span>def <span class="ident">get_ls_estimation</span></span>(<span>self, Q, n=50000)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Peaks estimation using Lomb Scargle.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of peaks to find, defaults to 1.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of points of the grid to evaluate frequencies, defaults to 50000.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>list</code></strong></dt>
+<dd>Amplitude array of shape (input_dims,Q) per channel.</dd>
+<dt><strong><code>list</code></strong></dt>
+<dd>Frequency array of shape (input_dims,Q) per channel.</dd>
+<dt><strong><code>list</code></strong></dt>
+<dd>Variance array of shape (input_dims,Q) per channel.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; amplitudes, means, variances = dataset.get_ls_estimation()
+</code></pre></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_ls_estimation(self, Q, n=50000):
+    &#34;&#34;&#34;
+    Peaks estimation using Lomb Scargle.
+
+    Args:
+        Q (int): Number of peaks to find, defaults to 1.
+        n (int): Number of points of the grid to evaluate frequencies, defaults to 50000.
+
+    Returns:
+        list: Amplitude array of shape (input_dims,Q) per channel.
+        list: Frequency array of shape (input_dims,Q) per channel.
+        list: Variance array of shape (input_dims,Q) per channel.
+
+    Examples:
+        &gt;&gt;&gt; amplitudes, means, variances = dataset.get_ls_estimation()
+    &#34;&#34;&#34;
+    amplitudes = []
+    means = []
+    variances = []
+    for channel in self.channels:
+        channel_amplitudes, channel_means, channel_variances = channel.get_ls_estimation(Q, n)
+        amplitudes.append(channel_amplitudes)
+        means.append(channel_means)
+        variances.append(channel_variances)
+    return amplitudes, means, variances</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_names"><code class="name flex">
@@ -766,7 +1157,11 @@ class DataSet:
 <dl>
 <dt><strong><code>list</code></strong></dt>
 <dd>List of names.</dd>
-</dl></section>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; dataset.get_names()
+['A', 'B', 'C']
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_names(self):
@@ -775,18 +1170,39 @@ class DataSet:
 
     Returns:
         list: List of names.
+
+    Examples:
+        &gt;&gt;&gt; dataset.get_names()
+        [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;]
     &#34;&#34;&#34;
-    return [channel.name for channel in self.channels]</code></pre>
+    return [channel.get_name() for channel in self.channels]</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_nyquist_estimation"><code class="name flex">
 <span>def <span class="ident">get_nyquist_estimation</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Estimate nyquist frequency by taking 0.5/(minimum distance of points).</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>list</code></strong></dt>
+<dd>Nyquist frequency array of shape (input_dims) per channel.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; freqs = dataset.get_nyquist_estimation()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_nyquist_estimation(self):
+    &#34;&#34;&#34;
+    Estimate nyquist frequency by taking 0.5/(minimum distance of points).
+
+    Returns:
+        list: Nyquist frequency array of shape (input_dims) per channel.
+
+    Examples:
+        &gt;&gt;&gt; freqs = dataset.get_nyquist_estimation()
+    &#34;&#34;&#34;
     return [channel.get_nyquist_estimation() for channel in self.channels]</code></pre>
 </details>
 </dd>
@@ -799,6 +1215,13 @@ class DataSet:
 <dl>
 <dt><strong><code>int</code></strong></dt>
 <dd>Output dimensions.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; dataset.get_output_dims()
+**`4`**
+</code></pre>
+<dl>
+<dd>&nbsp;</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
@@ -808,6 +1231,10 @@ class DataSet:
 
     Returns:
         int: Output dimensions.
+
+    Examples:
+        &gt;&gt;&gt; dataset.get_output_dims()
+        4
     &#34;&#34;&#34;
     return len(self.channels)</code></pre>
 </details>
@@ -816,10 +1243,47 @@ class DataSet:
 <span>def <span class="ident">get_pred</span></span>(<span>self, name, sigma=2)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Returns the prediction of a given name with a normal variance of sigma.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the prediction, equals the name of the model that made the prediction.</dd>
+<dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
+<dd>The uncertainty interval calculated at mean-sigma<em>var and mean+sigma</em>var. Defaults to 2,</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>list</code></strong></dt>
+<dd>X prediction of shape (n,input_dims) per channel.</dd>
+<dt><strong><code>list</code></strong></dt>
+<dd>Y mean prediction of shape (n,) per channel.</dd>
+<dt><strong><code>list</code></strong></dt>
+<dd>Y lower prediction of uncertainty interval of shape (n,) per channel.</dd>
+<dt><strong><code>list</code></strong></dt>
+<dd>Y upper prediction of uncertainty interval of shape (n,) per channel.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = dataset.get_pred('MOSM', sigma=1)
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def get_pred(self, name, sigma=2):
+    &#34;&#34;&#34;
+    Returns the prediction of a given name with a normal variance of sigma.
+
+    Args:
+        name (str): Name of the prediction, equals the name of the model that made the prediction.
+        sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2,
+
+    Returns:
+        list: X prediction of shape (n,input_dims) per channel.
+        list: Y mean prediction of shape (n,) per channel.
+        list: Y lower prediction of uncertainty interval of shape (n,) per channel.
+        list: Y upper prediction of uncertainty interval of shape (n,) per channel.
+
+    Examples:
+        &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = dataset.get_pred(&#39;MOSM&#39;, sigma=1)
+    &#34;&#34;&#34;
     x = []
     mu = []
     lower = []
@@ -830,17 +1294,72 @@ class DataSet:
         mu.append(channel_mu)
         lower.append(channel_lower)
         upper.append(channel_upper)
-    return np.array(x), np.array(mu), np.array(lower), np.array(upper)</code></pre>
+    return x, mu, lower, upper</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.get_removed"><code class="name flex">
+<span>def <span class="ident">get_removed</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the removed observations.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>list</code></strong></dt>
+<dd>X data of shape (n,input_dims) per channel.</dd>
+<dt><strong><code>list</code></strong></dt>
+<dd>Y data of shape (n,) per channel.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x, y = dataset.get_removed()
+</code></pre></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def get_removed(self):
+    &#34;&#34;&#34;
+    Returns the removed observations.
+
+    Returns:
+        list: X data of shape (n,input_dims) per channel.
+        list: Y data of shape (n,) per channel.
+
+    Examples:
+        &gt;&gt;&gt; x, y = dataset.get_removed()
+    &#34;&#34;&#34;
+    return [channel.get_removed()[0] for channel in self.channels], [channel.get_removed()[1] for channel in self.channels]</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.plot"><code class="name flex">
 <span>def <span class="ident">plot</span></span>(<span>self, title=None)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Plot each Data channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Set the title of the plot.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>matplotlib.figure.Figure: The figure.
+list of matplotlib.axes.Axes: List of axes.</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; fig, axes = dataset.plot('Title')
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def plot(self, title=None):
+    &#34;&#34;&#34;
+    Plot each Data channel.
+
+    Args:
+        title (str, optional): Set the title of the plot.
+
+    Returns:
+        matplotlib.figure.Figure: The figure.
+        list of matplotlib.axes.Axes: List of axes.
+
+    Examples:
+        &gt;&gt;&gt; fig, axes = dataset.plot(&#39;Title&#39;)
+    &#34;&#34;&#34;
     fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
     if title != None:
         fig.suptitle(title)
@@ -852,41 +1371,43 @@ class DataSet:
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.set_pred"><code class="name flex">
-<span>def <span class="ident">set_pred</span></span>(<span>self, xs)</span>
+<span>def <span class="ident">set_pred</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Set the prediction range directly.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>xs</code></strong> :&ensp;<code>list</code>,<code>np.ndarray</code>,<code>dict</code></dt>
-<dd>Array of shape (n) or (n,input_dims) with input values to predict at.</dd>
+<dt><strong><code>x</code></strong> :&ensp;<code>list</code>, <code>numpy.ndarray</code>, <code>dict</code></dt>
+<dd>Array of shape (n) or (n,input_dims) with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+<pre><code>&gt;&gt;&gt; dataset.set_pred([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
+&gt;&gt;&gt; dataset.set_pred({'A': [5.0, 5.5, 6.0, 6.5, 7.0], 'B': [0.1, 0.2, 0.3]})
 </code></pre></section>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">def set_pred(self, xs):
+<pre><code class="python">def set_pred(self, x):
     &#34;&#34;&#34;
     Set the prediction range directly.
 
     Args:
-        xs (list,np.ndarray,dict): Array of shape (n) or (n,input_dims) with input values to predict at.
+        x (list, numpy.ndarray, dict): Array of shape (n) or (n,input_dims) with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
     Examples:
-        &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+        &gt;&gt;&gt; dataset.set_pred([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
+        &gt;&gt;&gt; dataset.set_pred({&#39;A&#39;: [5.0, 5.5, 6.0, 6.5, 7.0], &#39;B&#39;: [0.1, 0.2, 0.3]})
     &#34;&#34;&#34;
-    if isinstance(xs, list) or isinstance(xs, np.ndarray):
-        if len(xs) != len(self.channels):
-            raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,)&#34;)
+    if isinstance(x, list) or isinstance(x, np.ndarray):
+        if len(x) != len(self.channels):
+            raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,n)&#34;)
 
         for i, channel in enumerate(self.channels):
-            channel.set_pred(xs[i])
-    elif isinstance(xs, dict):
-        for name in xs:
-            self.get(name).set_pred(xs[name])
+            channel.set_pred(x[i])
+    elif isinstance(x, dict):
+        for name in x:
+            self.get(name).set_pred(x[name])
     else:
-        raise ValueError(&#34;prediction x expected to be a list, ndarray or dict&#34;)</code></pre>
+        raise ValueError(&#34;prediction x expected to be a list, numpy.ndarray or dict&#34;)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.to_kernel"><code class="name flex">
@@ -896,7 +1417,10 @@ class DataSet:
 <section class="desc"><p>Return the data vectors in the format as used by the kernels.</p>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
-numpy.ndarray: Y data.</p></section>
+numpy.ndarray: Y data.</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x, y = dataset.to_kernel()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def to_kernel(self):
@@ -906,6 +1430,9 @@ numpy.ndarray: Y data.</p></section>
     Returns:
         numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
         numpy.ndarray: Y data.
+
+    Examples:
+        &gt;&gt;&gt; x, y = dataset.to_kernel()
     &#34;&#34;&#34;
     x = [channel.X[channel.mask] for channel in self.channels]
     y = [channel.Y[channel.mask] for channel in self.channels]
@@ -928,7 +1455,10 @@ numpy.ndarray: Y data.</p></section>
 <dd>
 <section class="desc"><p>Return the prediction vectors in the format as used by the kernels.</p>
 <h2 id="returns">Returns</h2>
-<p>numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.</p></section>
+<p>numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x = dataset.to_kernel_pred()
+</code></pre></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">def to_kernel_pred(self):
@@ -937,6 +1467,9 @@ numpy.ndarray: Y data.</p></section>
 
     Returns:
         numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+
+    Examples:
+        &gt;&gt;&gt; x = dataset.to_kernel_pred()
     &#34;&#34;&#34;
     x = [channel.X_pred for channel in self.channels]
 
@@ -976,12 +1509,13 @@ numpy.ndarray: Y data.</p></section>
 <li><code><a title="mogptk.dataset.DataSet.get_all" href="#mogptk.dataset.DataSet.get_all">get_all</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_bnse_estimation" href="#mogptk.dataset.DataSet.get_bnse_estimation">get_bnse_estimation</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_data" href="#mogptk.dataset.DataSet.get_data">get_data</a></code></li>
-<li><code><a title="mogptk.dataset.DataSet.get_deleted" href="#mogptk.dataset.DataSet.get_deleted">get_deleted</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_input_dims" href="#mogptk.dataset.DataSet.get_input_dims">get_input_dims</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_ls_estimation" href="#mogptk.dataset.DataSet.get_ls_estimation">get_ls_estimation</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_names" href="#mogptk.dataset.DataSet.get_names">get_names</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_nyquist_estimation" href="#mogptk.dataset.DataSet.get_nyquist_estimation">get_nyquist_estimation</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_output_dims" href="#mogptk.dataset.DataSet.get_output_dims">get_output_dims</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_pred" href="#mogptk.dataset.DataSet.get_pred">get_pred</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_removed" href="#mogptk.dataset.DataSet.get_removed">get_removed</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.plot" href="#mogptk.dataset.DataSet.plot">plot</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.set_pred" href="#mogptk.dataset.DataSet.set_pred">set_pred</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.to_kernel" href="#mogptk.dataset.DataSet.to_kernel">to_kernel</a></code></li>

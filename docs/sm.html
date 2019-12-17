@@ -90,13 +90,13 @@ class SM(model):
     A Gaussian process regression using Spectral mixture kernel [1]
 
     Args:
-        dataset (mogptk.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
-        Q (int): Number of components.
-        name (str): Name of the model.
-        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
-        sparse (bool): If True, will use sparse GP regression. Defaults to False.
-        like_params (dict): Parameters to GPflow likelihood.
+        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
+        Q (int, optional): Number of components.
+        name (str, optional): Name of the model.
+        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+        sparse (bool, optional): If True, will use sparse GP regression.
+        like_params (dict, optional): Parameters to GPflow likelihood.
 
     ----------
     Examples:
@@ -236,19 +236,19 @@ class SM(model):
 <p>A Gaussian process regression using Spectral mixture kernel [1]</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>dataset</code></strong> :&ensp;<code>mogptk.DataSet</code></dt>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
 <dd>DataSet object of data for all channels. Only one channel allowed for SM.</dd>
-<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
+<dt><strong><code>Q</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Number of components.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpflow.likelihoods</code></dt>
+<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpflow.likelihoods</code>, optional</dt>
 <dd>Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.</dd>
-<dt><strong><code>variational</code></strong> :&ensp;<code>bool</code></dt>
-<dd>If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).</dd>
-<dt><strong><code>sparse</code></strong> :&ensp;<code>bool</code></dt>
-<dd>If True, will use sparse GP regression. Defaults to False.</dd>
-<dt><strong><code>like_params</code></strong> :&ensp;<code>dict</code></dt>
+<dt><strong><code>variational</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.</dd>
+<dt><strong><code>sparse</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>If True, will use sparse GP regression.</dd>
+<dt><strong><code>like_params</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>Parameters to GPflow likelihood.</dd>
 </dl>
 <hr>
@@ -269,10 +269,10 @@ in International Conference on Machine Learning, 2013.</p>
 <p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
 <h2 id="args_1">Args</h2>
 <dl>
-<dt><strong><code>name</code></strong> :&ensp;<code>string</code></dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>dataset</code></strong> :&ensp;<code>DataSet</code></dt>
-<dd>DataSet with Data objects for all the channels.</dd>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
+<dd>DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</dd>
 </dl></section>
 <details class="source">
 <summary>Source code</summary>
@@ -283,13 +283,13 @@ in International Conference on Machine Learning, 2013.</p>
     A Gaussian process regression using Spectral mixture kernel [1]
 
     Args:
-        dataset (mogptk.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
-        Q (int): Number of components.
-        name (str): Name of the model.
-        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain (default).
-        sparse (bool): If True, will use sparse GP regression. Defaults to False.
-        like_params (dict): Parameters to GPflow likelihood.
+        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
+        Q (int, optional): Number of components.
+        name (str, optional): Name of the model.
+        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
+        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
+        sparse (bool, optional): If True, will use sparse GP regression.
+        like_params (dict, optional): Parameters to GPflow likelihood.
 
     ----------
     Examples:
