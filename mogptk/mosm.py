@@ -87,9 +87,9 @@ class MOSM(model):
                 mean = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 variance = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 for channel in range(len(self.dataset)):
-                    magnitude[channel] = amplitudes[channel, :, q].mean()
-                    mean[:, channel] = means[channel, :, q] * 2 * np.pi
-                    variance[:, channel] = variances[channel, :, q] * 2
+                    magnitude[channel] = amplitudes[channel][:,q].mean()
+                    mean[:,channel] = means[channel][:,q] * 2 * np.pi
+                    variance[:,channel] = variances[channel][:,q] * 2
             
                 # normalize across channels
                 magnitude = np.sqrt(magnitude / magnitude.mean())

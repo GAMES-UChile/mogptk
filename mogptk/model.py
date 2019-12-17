@@ -4,13 +4,15 @@ import time
 import numpy as np
 import gpflow
 import tensorflow as tf
-import pandas as pd
 from .dataset import DataSet
 import matplotlib
 import matplotlib.pyplot as plt
 
+from IPython.core.display import HTML
+
 import logging
 logging.getLogger('tensorflow').propagate = False
+tf.logging.set_verbosity(tf.logging.WARN)
 
 class model:
     def __init__(self, name, dataset):
@@ -18,8 +20,8 @@ class model:
         Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
             
         Args:
-            name (string): Name of the model.
-            dataset (DataSet): DataSet with Data objects for all the channels.
+            name (str): Name of the model.
+            dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
         """
         
         if not isinstance(dataset, DataSet):
@@ -38,6 +40,8 @@ class model:
     
     def _build(self, kernel, likelihood, variational, sparse, like_params):
         """
+        Build the model using the given kernel and likelihood. The variational and sparse booleans decide which GPflow model will be used.
+
         Args:
             kernel (gpflow.Kernel): Kernel to use.
             likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
@@ -83,15 +87,51 @@ class model:
     def print_params(self):
         """
         Print the parameters of the model in a table.
+
+        Examples:
+            >>> model.print_params()
         """
-        pd.set_option('display.max_colwidth', -1)
-        df = pd.DataFrame(self.get_params())
-        df.index.name = 'q'
-        display(df)
+        with np.printoptions(precision=3, floatmode='fixed'):
+            table = ''
+            for q, params in enumerate(self.get_params()):
+                contents = []
+                output_dims = self.dataset.get_output_dims()
+                for j in range(output_dims):
+                    content = '<td>%s</td>' % (self.dataset[j].get_name(),)
+
+                    values = []
+                    for key in params.keys():
+                        val = params[key]
+                        if val.ndim == 1 and val.shape[0] == output_dims:
+                            values.append('%.3f' % (val[j],))
+                        elif val.ndim == 2 and val.shape[1] == output_dims:
+                            values.append(str(val[:,j]))
+                        else:
+                            values.append(str(val))
+                    content += '<td>' + '</td><td>'.join(values) + '</td>'
+                    contents.append(content)
+
+                header = '<tr><th>Q=%d</th><th>' % (q) + '</th><th>'.join(params.keys()) + '</th></tr>'
+                contents = '<tr>' + '</tr><tr>'.join(contents) + '</tr>'
+                table += header + contents
+            display(HTML('<table>%s</table>' % (table)))
+
+            likelihood = self.get_likelihood_params()
+            table = '<tr><th>Likelihood</th>'
+            for key in likelihood:
+                table += '<th>%s</th>' % (key,)
+            table += '</tr><tr><td></td>'
+            for key in likelihood:
+                table += '<td>%s</td>' % (likelihood[key],)
+            table += '</tr>'
+            display(HTML('<table>%s</table>' % (table)))
 
     def get_params(self):
         """
         Returns all parameters set for the kernel per component.
+
+        Examples:
+            >>> params = model.get_params()
         """
         params = []
         if hasattr(self.model.kern, 'kernels'):
@@ -110,6 +150,9 @@ class model:
     def get_likelihood_params(self):
         """
         Returns all parameters set for the likelihood.
+
+        Examples:
+            >>> params = model.get_likelihood_params()
         """
         params = {}
         for param_name, param_val in self.model.likelihood.__dict__.items():
@@ -127,6 +170,9 @@ class model:
             
         Returns:
             val (numpy.ndarray): Value of parameter.
+
+        Examples:
+            >>> val = model.get_param(0, 'variance') # for Q=0 get the parameter called 'variance'
         """
         if hasattr(self.model.kern, 'kernels'):
             if q < 0 or len(self.model.kern.kernels) <= q:
@@ -149,7 +195,10 @@ class model:
         Args:
             q (int): Component of kernel.
             key (str): Name of component.
-            val (float, ndarray): Value of parameter.
+            val (float, numpy.ndarray): Value of parameter.
+
+        Examples:
+            >>> model.set_param(0, 'variance', np.array([5.0, 3.0])) # for Q=0 set the parameter called 'variance'
         """
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -182,6 +231,9 @@ class model:
         Args:
             key (str): Name of component.
             val (float, ndarray): Value of parameter.
+
+        Examples:
+            >>> model.set_likelihood_param('variance', np.array([5.0, 3.0])) # set the parameter called 'variance'
         """
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -204,7 +256,10 @@ class model:
         Make parameter untrainable (undo with `unfix_param`).
 
         Args:
-            key (string): Name of the parameter.
+            key (str): Name of the parameter.
+
+        Examples:
+            >>> model.fix_param('variance')
         """
         if hasattr(self.model.kern, 'kernels'):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
@@ -221,7 +276,10 @@ class model:
         Make parameter trainable (that was previously fixed, see `fix_param`).
 
         Args:
-            key (string): Name of the parameter.
+            key (str): Name of the parameter.
+
+        Examples:
+            >>> model.unfix_param('variance')
         """
         if hasattr(self.model.kern, 'kernels'):
             for kernel_i, kernel in enumerate(self.model.kern.kernels):
@@ -236,6 +294,12 @@ class model:
     def save_params(self, filename):
         """
         Save model parameters to a given file that can then be loaded with `load_params()`.
+
+        Args:
+            filename (str): Filename to save to, automatically appends '.params'.
+
+        Examples:
+            >>> model.save_params('filename')
         """
         filename += "." + self.name + ".params"
 
@@ -261,6 +325,12 @@ class model:
     def load_params(self, filename):
         """
         Load model parameters from a given file that was previously saved with `save_params()`.
+
+        Args:
+            filename (str): Filename to load from, automatically appends '.params'.
+
+        Examples:
+            >>> model.load_params('filename')
         """
         filename += "." + self.name + ".params"
 
@@ -314,10 +384,15 @@ class model:
                 If method is in scipy-optimizer see:
                 https://github.com/GPflow/GPflow/blob/develop/gpflow/training/scipy_optimizer.py
                 https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-            params (dict): Aditional dictionary with parameters to minimice. 
+            params (dict): Additional dictionary with parameters to minimize. 
                 See https://github.com/GPflow/GPflow/blob/develop/gpflow/training/optimizer.py
                 for more details.
             export_graph (bool): Default to False.
+
+        Examples:
+            >>> model.train(tol=1e-6, maxiter=1e5)
+            
+            >>> model.train(method='Adam', opt_params={...})
         """
         start_time = time.time()
         with self.graph.as_default():
@@ -348,7 +423,7 @@ class model:
     # Predictions ##################################################################
     ################################################################################
 
-    def predict(self, pred_x=None, plot=False):
+    def predict(self, x=None, plot=False):
         """
         Predict with model.
 
@@ -359,16 +434,12 @@ class model:
         Args:
             x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
-        Returns:
-            Y_mu_pred, Y_lower_ci_predicted, Y_upper_ci_predicted: 
-            Prediction output and confidence interval of 95% of the model (Upper and lower bounds).
-
+        Examples:
+            >>> model.predict(plot=True)
         """
-        # if user pass a prediction input
-        if pred_x is not None:
-            self.dataset.set_pred(self.name, pred_x)
+        if x is not None:
+            self.dataset.set_pred(self.name, x)
 
-        # predict with model
         x = self.dataset.to_kernel_pred()
         if len(x) == 0:
                 raise Exception('no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()')
@@ -380,8 +451,7 @@ class model:
         if plot:
             self.plot_prediction()
 
-        #return self.dataset.get_pred(self.name)
-
+    # TODO
     def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title='', ret_fig=False):
 
         """
@@ -419,20 +489,17 @@ class model:
 
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i in range(n_dim):
-            axes[i].plot(x_train[i, :, 0], y_train[i], '.k', label='Train', ms=5)
-            axes[i].plot(x_all[i, :, 0], y_all[i], '--', label='Test', c='gray',lw=1.4, zorder=5)
+            axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=5)
+            axes[i].plot(x_all[i][:,0], y_all[i], '--', label='Test', c='gray',lw=1.4, zorder=5)
             
-            axes[i].plot(x_pred[i, :, 0], mu[i], label='Post.Mean', c=colors[i], zorder=1)
-            axes[i].fill_between(x_pred[i, :, 0].reshape(-1),
+            axes[i].plot(x_pred[i][:,0], mu[i], label='Post.Mean', c=colors[i], zorder=1)
+            axes[i].fill_between(x_pred[i][:,0].reshape(-1),
                 lower[i],
                 upper[i],
                 label='95% c.i',
                 color=colors[i],
                 alpha=0.4)
             
-            # axarr[i].legend(ncol=4, loc='upper center', fontsize=8)
-
-            # axarr[i].locator_params(tight=True, nbins=6)
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
             formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0]._format(x))

@@ -87,11 +87,11 @@ class CSM(model):
             for q in range(self.Q):
                 constant = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 for channel in range(len(self.dataset)):
-                    constant[:, channel] = amplitudes[channel, :, q].mean()
+                    constant[:,channel] = amplitudes[channel][:,q].mean()
             
                 constant = constant / constant.max()
-                mean = means[:, :, q].mean(axis=0)
-                variance = variances[:, :, q].mean(axis=0)
+                mean = np.array(means)[:,:,q].mean(axis=0)
+                variance = np.array(variances)[:,:,q].mean(axis=0)
 
                 self.set_param(q, 'constant', constant)
                 self.set_param(q, 'mean', mean * 2 * np.pi)
