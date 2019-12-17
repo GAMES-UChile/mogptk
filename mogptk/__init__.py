@@ -1,3 +1,6 @@
+"""
+.. include:: ./documentation.md
+"""
 from .model import *
 from .sm import *
 from .mosm import *

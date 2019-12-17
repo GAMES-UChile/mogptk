@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.6.3" />
 <title>mogptk API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="&#34;&#34;&#34;
+MOGPTK - a Python toolkit for multi output Gaussian processes …" />
 <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
 <link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
@@ -20,9 +21,34 @@
 <h1 class="title">Module <code>mogptk</code></h1>
 </header>
 <section id="section-intro">
+<p>"""
+MOGPTK - a Python toolkit for multi output Gaussian processes</p>
+<h2 id="example">Example</h2>
+<pre><code>&gt;&gt;&gt; import mogptk
+...
+&gt;&gt;&gt; x, y = get_your_data()
+...
+&gt;&gt;&gt; data = mogptk.DataSet()
+&gt;&gt;&gt; data.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='A'))
+&gt;&gt;&gt; data.append(mogptk.LoadFunction(lambda x: np.sin(6*x[:,0])+2, n=200, start=0.0, end=4.0, var=0.03, name='B'))
+&gt;&gt;&gt; data.append(mogptk.LoadFunction(lambda x: np.sin(6*x[:,0])+2 - np.sin(4*x[:,0]), n=20, start=0.0, end=4.0, var=0.03, name='C'))
+...
+&gt;&gt;&gt; data.set_pred_range(0.0, 5.0, n=200)
+...
+&gt;&gt;&gt; mosm = mogptk.MOSM(data, Q=3)
+&gt;&gt;&gt; mosm.estimate_params()
+&gt;&gt;&gt; mosm.train()
+&gt;&gt;&gt; mosm.predict()
+...
+&gt;&gt;&gt; data.plot()
+"""
+</code></pre>
 <details class="source">
 <summary>Source code</summary>
-<pre><code class="python">from .model import *
+<pre><code class="python">&#34;&#34;&#34;
+.. include:: ./documentation.md
+&#34;&#34;&#34;
+from .model import *
 from .sm import *
 from .mosm import *
 from .csm import *
@@ -56,10 +82,6 @@ from .errors import *</code></pre>
 <dt><code class="name"><a title="mogptk.dataset" href="dataset.html">mogptk.dataset</a></code></dt>
 <dd>
 <section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.doc" href="doc.html">mogptk.doc</a></code></dt>
-<dd>
-<section class="desc"><p>MOGPTK - a Python toolkit for multi output Gaussian processes …</p></section>
 </dd>
 <dt><code class="name"><a title="mogptk.errors" href="errors.html">mogptk.errors</a></code></dt>
 <dd>
@@ -111,7 +133,6 @@ from .errors import *</code></pre>
 <li><code><a title="mogptk.csm" href="csm.html">mogptk.csm</a></code></li>
 <li><code><a title="mogptk.data" href="data.html">mogptk.data</a></code></li>
 <li><code><a title="mogptk.dataset" href="dataset.html">mogptk.dataset</a></code></li>
-<li><code><a title="mogptk.doc" href="doc.html">mogptk.doc</a></code></li>
 <li><code><a title="mogptk.errors" href="errors.html">mogptk.errors</a></code></li>
 <li><code><a title="mogptk.kernels" href="kernels/index.html">mogptk.kernels</a></code></li>
 <li><code><a title="mogptk.model" href="model.html">mogptk.model</a></code></li>
