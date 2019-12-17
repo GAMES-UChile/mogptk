@@ -49,6 +49,8 @@ class DataSet:
         return len(self.channels)
 
     def __getitem__(self, key):
+        if isinstance(key, str):
+            return self.channels[self.get_names().index(key)]
         return self.channels[key]
 
     def append(self, arg):
@@ -208,16 +210,16 @@ class DataSet:
 
     def set_pred(self, x):
         &#34;&#34;&#34;
-        Set the prediction range directly.
+        Set the prediction range per channel.
 
         Args:
-            x (list, numpy.ndarray, dict): Array of shape (n) or (n,input_dims) with prediction X values. If a dictionary is passed, the index is the channel index or name.
+            x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
             &gt;&gt;&gt; dataset.set_pred([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
             &gt;&gt;&gt; dataset.set_pred({&#39;A&#39;: [5.0, 5.5, 6.0, 6.5, 7.0], &#39;B&#39;: [0.1, 0.2, 0.3]})
         &#34;&#34;&#34;
-        if isinstance(x, list) or isinstance(x, np.ndarray):
+        if isinstance(x, list):
             if len(x) != len(self.channels):
                 raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,n)&#34;)
 
@@ -227,7 +229,49 @@ class DataSet:
             for name in x:
                 self.get(name).set_pred(x[name])
         else:
-            raise ValueError(&#34;prediction x expected to be a list, numpy.ndarray or dict&#34;)
+            for i, channel in enumerate(self.channels):
+                channel.set_pred(x)
+
+    def set_pred_range(self, start, end, n=None, step=None):
+        &#34;&#34;&#34;
+        Set the prediction range per channel. Inputs should be lists of shape (input_dims,) for each channel or dicts where the keys are the channel indices.
+
+        Args:
+            start (list, dict): Start values for prediction range per channel.
+            end (list, dict): End values for prediction range per channel.
+            n (list, dict, optional): Number of points for prediction range per channel.
+            step (list, dict, optional): Step size for prediction range per channel.
+
+        Examples:
+            &gt;&gt;&gt; dataset.set_pred_range([2, 3], [5, 6], [4, None], [None, 0.5])
+            &gt;&gt;&gt; dataset.set_pred_range(0.0, 5.0, n=200) # the same for each channel
+        &#34;&#34;&#34;
+        if not isinstance(start, (list, dict)):
+            start = [start] * self.get_output_dims()
+        elif isinstance(start, dict):
+            start = [start[name] for name in self.get_names()]
+        if not isinstance(end, (list, dict)):
+            end = [end] * self.get_output_dims()
+        elif isinstance(end, dict):
+            end = [end[name] for name in self.get_names()]
+        if n == None:
+            n = [None] * self.get_output_dims()
+        elif not isinstance(n, (list, dict)):
+            n = [n] * self.get_output_dims()
+        elif isinstance(n, dict):
+            n = [n[name] for name in self.get_names()]
+        if step == None:
+            step = [None] * self.get_output_dims()
+        elif not isinstance(step, (list, dict)):
+            step = [step] * self.get_output_dims()
+        elif isinstance(step, dict):
+            step = [step[name] for name in self.get_names()]
+
+        if len(start) != len(self.channels) or len(end) != len(self.channels) or len(n) != len(self.channels) or len(step) != len(self.channels):
+            raise ValueError(&#34;start, end, n, and/or step must be lists of shape (output_dims,n)&#34;)
+
+        for i, channel in enumerate(self.channels):
+            channel.set_pred_range(start[i], end[i], n[i], step[i])
     
     def get_nyquist_estimation(self):
         &#34;&#34;&#34;
@@ -445,6 +489,8 @@ class DataSet:
         return len(self.channels)
 
     def __getitem__(self, key):
+        if isinstance(key, str):
+            return self.channels[self.get_names().index(key)]
         return self.channels[key]
 
     def append(self, arg):
@@ -604,16 +650,16 @@ class DataSet:
 
     def set_pred(self, x):
         &#34;&#34;&#34;
-        Set the prediction range directly.
+        Set the prediction range per channel.
 
         Args:
-            x (list, numpy.ndarray, dict): Array of shape (n) or (n,input_dims) with prediction X values. If a dictionary is passed, the index is the channel index or name.
+            x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
             &gt;&gt;&gt; dataset.set_pred([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
             &gt;&gt;&gt; dataset.set_pred({&#39;A&#39;: [5.0, 5.5, 6.0, 6.5, 7.0], &#39;B&#39;: [0.1, 0.2, 0.3]})
         &#34;&#34;&#34;
-        if isinstance(x, list) or isinstance(x, np.ndarray):
+        if isinstance(x, list):
             if len(x) != len(self.channels):
                 raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,n)&#34;)
 
@@ -623,7 +669,49 @@ class DataSet:
             for name in x:
                 self.get(name).set_pred(x[name])
         else:
-            raise ValueError(&#34;prediction x expected to be a list, numpy.ndarray or dict&#34;)
+            for i, channel in enumerate(self.channels):
+                channel.set_pred(x)
+
+    def set_pred_range(self, start, end, n=None, step=None):
+        &#34;&#34;&#34;
+        Set the prediction range per channel. Inputs should be lists of shape (input_dims,) for each channel or dicts where the keys are the channel indices.
+
+        Args:
+            start (list, dict): Start values for prediction range per channel.
+            end (list, dict): End values for prediction range per channel.
+            n (list, dict, optional): Number of points for prediction range per channel.
+            step (list, dict, optional): Step size for prediction range per channel.
+
+        Examples:
+            &gt;&gt;&gt; dataset.set_pred_range([2, 3], [5, 6], [4, None], [None, 0.5])
+            &gt;&gt;&gt; dataset.set_pred_range(0.0, 5.0, n=200) # the same for each channel
+        &#34;&#34;&#34;
+        if not isinstance(start, (list, dict)):
+            start = [start] * self.get_output_dims()
+        elif isinstance(start, dict):
+            start = [start[name] for name in self.get_names()]
+        if not isinstance(end, (list, dict)):
+            end = [end] * self.get_output_dims()
+        elif isinstance(end, dict):
+            end = [end[name] for name in self.get_names()]
+        if n == None:
+            n = [None] * self.get_output_dims()
+        elif not isinstance(n, (list, dict)):
+            n = [n] * self.get_output_dims()
+        elif isinstance(n, dict):
+            n = [n[name] for name in self.get_names()]
+        if step == None:
+            step = [None] * self.get_output_dims()
+        elif not isinstance(step, (list, dict)):
+            step = [step] * self.get_output_dims()
+        elif isinstance(step, dict):
+            step = [step[name] for name in self.get_names()]
+
+        if len(start) != len(self.channels) or len(end) != len(self.channels) or len(n) != len(self.channels) or len(step) != len(self.channels):
+            raise ValueError(&#34;start, end, n, and/or step must be lists of shape (output_dims,n)&#34;)
+
+        for i, channel in enumerate(self.channels):
+            channel.set_pred_range(start[i], end[i], n[i], step[i])
     
     def get_nyquist_estimation(self):
         &#34;&#34;&#34;
@@ -1374,11 +1462,11 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <span>def <span class="ident">set_pred</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Set the prediction range directly.</p>
+<section class="desc"><p>Set the prediction range per channel.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>x</code></strong> :&ensp;<code>list</code>, <code>numpy.ndarray</code>, <code>dict</code></dt>
-<dd>Array of shape (n) or (n,input_dims) with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
+<dt><strong><code>x</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
+<dd>Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; dataset.set_pred([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
@@ -1388,16 +1476,16 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <summary>Source code</summary>
 <pre><code class="python">def set_pred(self, x):
     &#34;&#34;&#34;
-    Set the prediction range directly.
+    Set the prediction range per channel.
 
     Args:
-        x (list, numpy.ndarray, dict): Array of shape (n) or (n,input_dims) with prediction X values. If a dictionary is passed, the index is the channel index or name.
+        x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
     Examples:
         &gt;&gt;&gt; dataset.set_pred([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
         &gt;&gt;&gt; dataset.set_pred({&#39;A&#39;: [5.0, 5.5, 6.0, 6.5, 7.0], &#39;B&#39;: [0.1, 0.2, 0.3]})
     &#34;&#34;&#34;
-    if isinstance(x, list) or isinstance(x, np.ndarray):
+    if isinstance(x, list):
         if len(x) != len(self.channels):
             raise ValueError(&#34;prediction x expected to be a list of shape (output_dims,n)&#34;)
 
@@ -1407,7 +1495,72 @@ list of matplotlib.axes.Axes: List of axes.</p>
         for name in x:
             self.get(name).set_pred(x[name])
     else:
-        raise ValueError(&#34;prediction x expected to be a list, numpy.ndarray or dict&#34;)</code></pre>
+        for i, channel in enumerate(self.channels):
+            channel.set_pred(x)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.set_pred_range"><code class="name flex">
+<span>def <span class="ident">set_pred_range</span></span>(<span>self, start, end, n=None, step=None)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Set the prediction range per channel. Inputs should be lists of shape (input_dims,) for each channel or dicts where the keys are the channel indices.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>start</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
+<dd>Start values for prediction range per channel.</dd>
+<dt><strong><code>end</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
+<dd>End values for prediction range per channel.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>list</code>, <code>dict</code>, optional</dt>
+<dd>Number of points for prediction range per channel.</dd>
+<dt><strong><code>step</code></strong> :&ensp;<code>list</code>, <code>dict</code>, optional</dt>
+<dd>Step size for prediction range per channel.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; dataset.set_pred_range([2, 3], [5, 6], [4, None], [None, 0.5])
+&gt;&gt;&gt; dataset.set_pred_range(0.0, 5.0, n=200) # the same for each channel
+</code></pre></section>
+<details class="source">
+<summary>Source code</summary>
+<pre><code class="python">def set_pred_range(self, start, end, n=None, step=None):
+    &#34;&#34;&#34;
+    Set the prediction range per channel. Inputs should be lists of shape (input_dims,) for each channel or dicts where the keys are the channel indices.
+
+    Args:
+        start (list, dict): Start values for prediction range per channel.
+        end (list, dict): End values for prediction range per channel.
+        n (list, dict, optional): Number of points for prediction range per channel.
+        step (list, dict, optional): Step size for prediction range per channel.
+
+    Examples:
+        &gt;&gt;&gt; dataset.set_pred_range([2, 3], [5, 6], [4, None], [None, 0.5])
+        &gt;&gt;&gt; dataset.set_pred_range(0.0, 5.0, n=200) # the same for each channel
+    &#34;&#34;&#34;
+    if not isinstance(start, (list, dict)):
+        start = [start] * self.get_output_dims()
+    elif isinstance(start, dict):
+        start = [start[name] for name in self.get_names()]
+    if not isinstance(end, (list, dict)):
+        end = [end] * self.get_output_dims()
+    elif isinstance(end, dict):
+        end = [end[name] for name in self.get_names()]
+    if n == None:
+        n = [None] * self.get_output_dims()
+    elif not isinstance(n, (list, dict)):
+        n = [n] * self.get_output_dims()
+    elif isinstance(n, dict):
+        n = [n[name] for name in self.get_names()]
+    if step == None:
+        step = [None] * self.get_output_dims()
+    elif not isinstance(step, (list, dict)):
+        step = [step] * self.get_output_dims()
+    elif isinstance(step, dict):
+        step = [step[name] for name in self.get_names()]
+
+    if len(start) != len(self.channels) or len(end) != len(self.channels) or len(n) != len(self.channels) or len(step) != len(self.channels):
+        raise ValueError(&#34;start, end, n, and/or step must be lists of shape (output_dims,n)&#34;)
+
+    for i, channel in enumerate(self.channels):
+        channel.set_pred_range(start[i], end[i], n[i], step[i])</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.to_kernel"><code class="name flex">
@@ -1518,6 +1671,7 @@ numpy.ndarray: Y data.</p>
 <li><code><a title="mogptk.dataset.DataSet.get_removed" href="#mogptk.dataset.DataSet.get_removed">get_removed</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.plot" href="#mogptk.dataset.DataSet.plot">plot</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.set_pred" href="#mogptk.dataset.DataSet.set_pred">set_pred</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.set_pred_range" href="#mogptk.dataset.DataSet.set_pred_range">set_pred_range</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.to_kernel" href="#mogptk.dataset.DataSet.to_kernel">to_kernel</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.to_kernel_pred" href="#mogptk.dataset.DataSet.to_kernel_pred">to_kernel_pred</a></code></li>
 </ul>

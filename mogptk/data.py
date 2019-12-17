@@ -323,10 +323,12 @@ def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         mogptk.data.Data
 
     Examples:
-        >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
+        >>> df = pd.DataFrame(...)
+        >>> LoadDataFrame(df, 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
         <mogptk.data.Data at ...>
 
-        >>> LoadCSV('gold.csv', 'Date', 'Price', delimiter=' ', quotechar='|')
+        >>> df = pd.DataFrame(...)
+        >>> LoadDataFrame(df, 'Date', 'Price', delimiter=' ', quotechar='|')
         <mogptk.data.Data at ...>
     """
     input_dims = 1
