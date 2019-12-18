@@ -13,48 +13,36 @@ class FormatNumber:
     """
     FormatNumber is the default formatter and takes regular floating point values as input.
     """
-    def _format(val):
+    def _parse(self, val):
+        return float(val)
+
+    def _parse_duration(self, val):
+        return self._parse(val)
+
+    def _format(self, val):
         return val
 
-    def _parse(val, loc=None):
-        try:
-            return float(val)
-        except ValueError:
-            if loc == None:
-                raise ValueError("could not convert input to number")
-            else:
-                raise ValueError("could not convert input to number at %s" % (loc))
-
-    def _parse_duration(val, loc=None):
-        return FormatNumber._parse(val, loc)
-
-    def _scale(maxfreq=None):
+    def _scale(self, maxfreq=None):
         return 1, None
 
 class FormatDate:
     """
     FormatDate is a formatter that takes date values as input, such as '2019-03-01', and stores values internally as days since 1970-01-01.
     """
-    def _format(val):
-        return datetime.datetime.utcfromtimestamp(val*3600*24).strftime('%Y-%m-%d')
+    def _parse(self, val):
+        return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()/3600/24
 
-    def _parse(val, loc=None):
-        try:
-            return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()/3600/24
-        except ValueError:
-            if loc == None:
-                raise ValueError("could not convert input to date")
-            else:
-                raise ValueError("could not convert input to date at %s" % (loc))
-
-    def _parse_duration(val):
+    def _parse_duration(self, val):
         if isinstance(val, int):
             return val
         if isinstance(val, str):
             return _parse_duration_to_sec(val)/24/3600
         raise ValueError("could not convert input to duration")
+    
+    def _format(self, val):
+        return datetime.datetime.utcfromtimestamp(val*3600*24).strftime('%Y-%m-%d')
 
-    def _scale(maxfreq=None):
+    def _scale(self, maxfreq=None):
         if maxfreq == 'year':
             return 356.2425, 'year'
         if maxfreq == 'month':
@@ -72,26 +60,20 @@ class FormatDateTime:
     """
     FormatDateTime is a formatter that takes date and time values as input, such as '2019-03-01 12:30', and stores values internally as seconds since 1970-01-01.
     """
-    def _format(val):
-        return datetime.datetime.utcfromtimestamp(val).strftime('%Y-%m-%d %H:%M')
+    def _parse(self, val):
+        return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()
 
-    def _parse(val, loc=None):
-        try:
-            return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()
-        except ValueError:
-            if loc == None:
-                raise ValueError("could not convert input to datetime")
-            else:
-                raise ValueError("could not convert input to datetime at %s" % (loc))
-
-    def _parse_duration(val):
+    def _parse_duration(self, val):
         if isinstance(val, int):
             return val
         if isinstance(val, str):
             return _parse_duration_to_sec(val)
         raise ValueError("could not convert input to duration")
 
-    def _scale(maxfreq=None):
+    def _format(self, val):
+        return datetime.datetime.utcfromtimestamp(val).strftime('%Y-%m-%d %H:%M')
+
+    def _scale(self, maxfreq=None):
         if maxfreq == 'year':
             return 3600*24*356.2425, 'year'
         if maxfreq == 'month':
@@ -253,58 +235,27 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         <mogptk.data.Data at ...>
     """
 
-    input_dims = 1
-    if isinstance(x_cols, list) and all(isinstance(item, str) for item in x_cols):
-        input_dims = len(x_cols)
-    elif isinstance(x_cols, str):
-        x_cols = [x_cols]
-    else:
+    if (not isinstance(x_cols, list) or not all(isinstance(item, str) for item in x_cols)) and not isinstance(xcols, str):
         raise ValueError("x_cols must be string or list of strings")
     if not isinstance(y_col, str):
         raise ValueError("y_col must be string")
 
     with open(filename, mode='r') as csv_file:
         rows = list(csv.DictReader(csv_file, **kwargs))
-
-        def _to_number(val, row, col):
-            try:
-                if col in format:
-                    return format[col]._parse(val, loc="row %d column %s" % (row+1, col)), True
-                else:
-                    return FormatNumber._parse(val, loc="row %d column %s" % (row+1, col)), True
-            except:
-                return np.nan, False
         
-        X = np.empty((len(rows), input_dims))
-        Y = np.empty((len(rows)))
-        remove = []
+        X = []
+        Y = []
         for j, row in enumerate(rows):
             if filter != None and not filter(row):
-                remove.append(j)
                 continue
 
+            xs = []
             for i, x_col in enumerate(x_cols):
-                X[j,i], ok = _to_number(row[x_col], j+1, x_col)
-                if not ok:
-                    remove.append(j)
+                xs.append(row[x_col])
+            X.append(xs)
+            Y.append(row[y_col])
 
-            Y[j], ok = _to_number(row[y_col], j+1, y_col)
-            if not ok:
-                remove.append(j)
-
-        X = np.delete(X, remove, 0)
-        Y = np.delete(Y, remove, 0)
-
-        fmts = []
-        for x_col in x_cols:
-            if x_col in format:
-                fmts.append(format[x_col])
-            else:
-                fmts.append(FormatNumber)
-
-        data = Data(X, Y, name=name, format=fmts)
-        data.set_labels(x_cols, y_col)
-        return data
+        return Data(X, Y, name=name, format=fmts, x_labels=xcols, y_label=y_col)
 
 def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
     """
@@ -340,23 +291,14 @@ def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs
     x_data = df[x_cols]
     y_data = df[y_col]
 
-    fmts = []
-    for x_col in x_cols:
-        if x_col in format:
-            fmts.append(format[x_col])
-        else:
-            fmts.append(FormatNumber)
-
-    data = Data(x_data.values, y_data.values, name=name, format=fmts)
-    data.set_labels(x_data.columns.values.tolist(), y_data.name)
-    return data
+    return Data(x_data.values, y_data.values, name=name, format=fmts, x_labels=x_data.columns.values.tolist(), y_label=y_data.name)
 
 ################################################################
 ################################################################
 ################################################################
 
 class Data:
-    def __init__(self, X, Y, name="", format=None):
+    def __init__(self, X, Y, name="", formats=None, x_labels=None, y_label=None):
         """
         Data class holds all the observations, latent functions and prediction data.
 
@@ -367,23 +309,117 @@ class Data:
         weekly data. Additionally, we also use this class to set the range we want to predict.
 
         Args:
-            X (list, numpy.ndarray): Independent variable data of shape (n) or (n,input_dims).
+            X (list, numpy.ndarray, dict): Independent variable data of shape (n) or (n,input_dims).
             Y (list, numpy.ndarray): Dependent variable data of shape (n).
             name (str, optional): Name of data.
-            format (list, optional): List of formatters (such as FormatNumber (default), FormatDate,
+            formats (list, dict, optional): List or dict of formatters (such as FormatNumber (default), FormatDate,
                 FormatDateTime, ...) for each input dimension.
+            x_labels (str, list of str, optional): Name or names of input dimensions.
+            y_label (str, optional): Name of output dimension.
 
         Examples:
             >>> channel = mogptk.Data([0, 1, 2, 3], [4, 3, 5, 6])
         """
+        
+        # find out number of data rows (n) and number of input dimensions (input_dims)
+        n = 0
+        input_dims = 0
+        x_nested_lists = False
+        if isinstance(X, (list, np.ndarray, dict)) and 0 < len(X):
+            n = len(X)
+            input_dims = 1
 
+            if isinstance(X, dict):
+                it1 = iter(X.values())
+                it2 = iter(X.values())
+            else:
+                it1 = iter(X)
+                it2 = iter(X)
+
+            first = len(next(it2))
+            x_nested_lists = all(isinstance(val, (list, np.ndarray)) for val in it1) and all(len(val) == first for val in it2)
+            if x_nested_lists: 
+                input_dims = first
+
+        # convert dicts to lists
+        if x_labels != None:
+            if n != 0:
+                if isinstance(x_labels, str) and input_dims == 1:
+                    x_labels = [x_labels] 
+                if not isinstance(x_labels, list) or not all(isinstance(label, str) for label in x_labels):
+                    raise ValueError("x_labels must be a string or list of strings for each input dimension")
+
+                if isinstance(X, dict):
+                    it = iter(X.values())
+                    first = len(next(it))
+                    if not all(isinstance(x, (list, np.ndarray)) for x in X.values()) or not all(len(x) == first for x in it):
+                        raise ValueError("X dict should contain all lists or np.ndarrays where each has the same length")
+                    if not all(key in X for key in x_labels):
+                        raise ValueError("X dict must contain all keys listed in x_labels")
+                    X = list(map(list, zip(*[X[key] for key in x_labels])))
+
+                if formats != None and isinstance(formats, dict):
+                    it = iter(formats.values())
+                    first = len(next(it))
+                    if not all(isinstance(fmt, (list, np.ndarray)) for fmt in formats.values()) or not all(len(fmt) == first for fmt in it):
+                        raise ValueError("formats dict should contain all lists or np.ndarrays where each has the same length")
+                    if not all(key in formats for key in x_labels):
+                        raise ValueError("formats dict must contain all keys listed in x_labels")
+                    formats = list(map(list, zip(*[formats[key] for key in x_labels])))
+
+        # format X columns
+        if formats != None:
+            if not isinstance(formats, list):
+                raise ValueError("formats should be list or dict for each input dimension, when a dict is passed than x_labels must also be set")
+
+            if n != 0:
+                if not isinstance(format, list):
+                    format = [format]
+                for col in range(input_dims):
+                    if len(format) <= col:
+                        format.append(FormatNumber())
+                    elif isinstance(format[col], type):
+                        format[col] = format[col]()
+                
+                X_raw = X
+                X = np.empty((n,input_dims))
+                for row, val in enumerate(X_raw):
+                    if x_nested_lists:
+                        for col in range(input_dims):
+                            try:
+                                X[row,col] = format[col]._parse(val[col])
+                            except ValueError:
+                                print("Warning: could not parse X format at row %d column %s" % (row+1, col))
+                    else:
+                        try:
+                            X[row,0] = format[col]._parse(val)
+                        except ValueError:
+                            print("Warning: could not parse X format at row %d" % (row+1,))
+            else:
+                # error handled below
+                pass
+
+        # check if X and Y are correct inputs
         if isinstance(X, list):
+            if all(isinstance(x, list) for x in X):
+                m = len(X[0])
+                if not all(len(x) == m for x in X[1:]):
+                    raise ValueError("X list items must all be lists of the same length")
+                if not all(all(isinstance(val, (int, float)) for val in x) for x in X):
+                    raise ValueError("X list items must all be lists of numbers")
+            elif all(isinstance(x, np.ndarray) for x in X):
+                m = len(X[0])
+                if not all(len(x) == m for x in X[1:]):
+                    raise ValueError("X list items must all be numpy.ndarrays of the same length")
+            elif not all(isinstance(x, (int, float)) for x in X):
+                raise ValueError("X list items must be all lists, all numpy.ndarrays, or all numbers")
             X = np.array(X)
         if isinstance(Y, list):
+            if not all(isinstance(y, (int, float)) for y in Y):
+                raise ValueError("Y list items must all be numbers")
             Y = np.array(Y)
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
-            raise ValueError("X and Y must be lists or numpy arrays")
-
+            raise ValueError("X and Y must be lists or numpy arrays, if dicts are passed then x_labels and/or y_label must also be set")
         X = X.astype(float)
         Y = Y.astype(float)
 
@@ -396,16 +432,6 @@ class Data:
         if X.shape[0] != Y.shape[0]:
             raise ValueError("X and Y must be of the same length")
         
-        n = X.shape[0]
-        input_dims = X.shape[1]
-
-        if format == None:
-            format = [FormatNumber] * input_dims
-        if not isinstance(format, list):
-            format = [format]
-        if len(format) != input_dims:
-            raise ValueError("format must be defined for all input dimensions")
-
         # sort on X for single input dimensions
         if input_dims == 1:
             ind = np.argsort(X, axis=0)
@@ -428,9 +454,20 @@ class Data:
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-        self.input_label = [''] * input_dims
-        self.output_label = ''
-        self.formatters = format
+        if x_labels != None and isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
+            self.x_labels = x_labels
+        else:
+            self.x_labels = [''] * input_dims
+
+        if y_label != None and isinstance(y_label, str):
+            self.y_label = y_label
+        else:
+            self.y_label = ''
+
+        if formats != None and isinstance(formats, list):
+            self.formatters = formats
+        else:
+            self.formatters = [FormatNumber()] * input_dims
         self.transformations = []
 
     def __str__(self):
@@ -448,28 +485,28 @@ class Data:
         """
         self.name = name
 
-    def set_labels(self, input, output):
+    def set_labels(self, x_labels, y_label):
         """
         Set axes labels for plots.
 
         Args:
-            input (str, list of str): X data names for each input dimension.
-            output (str): Y data name for output dimension.
+            x_labels (str, list of str): X data names for each input dimension.
+            y_label (str): Y data name for output dimension.
 
         Examples:
             >>> data.set_labels(['X', 'Y'], 'Cd')
         """
-        if isinstance(input, str):
-            input = [input]
-        elif not isinstance(input, list) or not all(isinstance(item, str) for item in input):
-            raise ValueError("input labels must be list of strings")
-        if not isinstance(output, str):
-            raise ValueError("output label must be string")
-        if len(input) != self.get_input_dims():
-            raise ValueError("input labels must have the same input dimensions as the data")
+        if isinstance(x_labels, str):
+            x_labels = [x_labels]
+        elif not isinstance(x_labels, list) or not all(isinstance(item, str) for item in x_labels):
+            raise ValueError("x_labels must be list of strings")
+        if not isinstance(y_label, str):
+            raise ValueError("y_label must be string")
+        if len(x_labels) != self.get_input_dims():
+            raise ValueError("x_labels must have the same input dimensions as the data")
 
-        self.input_label = input
-        self.output_label = output
+        self.x_labels = x_labels
+        self.y_label = y_label
 
     def set_function(self, f):
         """
@@ -537,9 +574,9 @@ class Data:
         if self.get_input_dims() != 1:
             raise ValueError("can only filter on one dimensional input data")
         
-        cstart = self.formatters[0]._parse(start)
-        cend = self.formatters[0]._parse(end)
-        ind = (self.X[:,0] >= cstart) & (self.X[:,0] < cend)
+        start = self.formatters[0]._parse(start)
+        end = self.formatters[0]._parse(end)
+        ind = (self.X[:,0] >= start) & (self.X[:,0] < end)
 
         self.X = np.expand_dims(self.X[ind,0], 1)
         self.Y = self.Y[ind]
@@ -1084,8 +1121,8 @@ class Data:
             ax.plot(X[:,0], Y, 'k.', mew=2, ms=5)
             legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))
 
-        ax.set_xlabel(self.input_label[0])
-        ax.set_ylabel(self.output_label)
+        ax.set_xlabel(self.x_labels[0])
+        ax.set_ylabel(self.y_label)
         ax.set_title(self.name, fontsize=30)
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
         ax.xaxis.set_major_formatter(formatter)
