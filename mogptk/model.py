@@ -16,13 +16,13 @@ tf.logging.set_verbosity(tf.logging.WARN)
 
 class model:
     def __init__(self, name, dataset):
-        """
-        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
-            
-        Args:
-            name (str): Name of the model.
-            dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
-        """
+        #"""
+        #Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+        #    
+        #Args:
+        #    name (str): Name of the model.
+        #    dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+        #"""
         
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)

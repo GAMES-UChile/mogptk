@@ -5,7 +5,7 @@ from .sm import _estimate_from_sm
 
 class SM_LMC(model):
     """
-    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
+    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2].
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
@@ -17,20 +17,22 @@ class SM_LMC(model):
         sparse (bool, optional): If True, will use sparse GP regression.
         like_params (dict, optional): Parameters to GPflow likelihood.
 
-    ----------
     Examples:
-    >>> import numpy as np
-    >>> t = np.linspace(0, 10, 100)
-    >>> y1 = np.sin(0.5 * t)
-    >>> y2 = 2 * np.sin(0.2 * t)
-    >>> import mogptk
-    >>> data_list = []
-    >>> mogptk.data_list.append(mogptk.Data(t, y1))
-    >>> mogptk.data_list.append(mogptk.Data(t, y2))
-    >>> model = mogptk.SM_LMC(data_list, Q=2)
-    >>> model.build()
-    >>> model.train()
-    >>> model.plot_prediction()
+        >>> import numpy as np
+        >>> t = np.linspace(0, 10, 100)
+        >>> y1 = np.sin(0.5 * t)
+        >>> y2 = 2 * np.sin(0.2 * t)
+        >>> import mogptk
+        >>> data_list = []
+        >>> mogptk.data_list.append(mogptk.Data(t, y1))
+        >>> mogptk.data_list.append(mogptk.Data(t, y2))
+        >>> model = mogptk.SM_LMC(data_list, Q=2)
+        >>> model.build()
+        >>> model.train()
+        >>> model.plot_prediction()
+
+    [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
+    [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
     def __init__(self, dataset, Q=1, Rq=1, name="SM-LMC", likelihood=None, variational=False, sparse=False, like_params={}):
         if Rq != 1:

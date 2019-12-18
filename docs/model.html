@@ -40,13 +40,13 @@ tf.logging.set_verbosity(tf.logging.WARN)
 
 class model:
     def __init__(self, name, dataset):
-        &#34;&#34;&#34;
-        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
-            
-        Args:
-            name (str): Name of the model.
-            dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
-        &#34;&#34;&#34;
+        #&#34;&#34;&#34;
+        #Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+        #    
+        #Args:
+        #    name (str): Name of the model.
+        #    dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+        #&#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
@@ -575,25 +575,18 @@ class model:
 <span>(</span><span>name, dataset)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
-<dd>Name of the model.</dd>
-<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
-<dd>DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</dd>
-</dl></section>
+<section class="desc"></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class model:
     def __init__(self, name, dataset):
-        &#34;&#34;&#34;
-        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
-            
-        Args:
-            name (str): Name of the model.
-            dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
-        &#34;&#34;&#34;
+        #&#34;&#34;&#34;
+        #Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+        #    
+        #Args:
+        #    name (str): Name of the model.
+        #    dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+        #&#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
