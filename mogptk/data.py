@@ -20,7 +20,7 @@ class FormatNumber:
         return self._parse(val)
 
     def _format(self, val):
-        return val
+        return '%.6g' % (val,)
 
     def _scale(self, maxfreq=None):
         return 1, None
@@ -336,10 +336,11 @@ class Data:
                 it1 = iter(X)
                 it2 = iter(X)
 
-            first = len(next(it2))
-            x_nested_lists = all(isinstance(val, (list, np.ndarray)) for val in it1) and all(len(val) == first for val in it2)
-            if x_nested_lists: 
-                input_dims = first
+            if all(isinstance(val, (list, np.ndarray)) for val in it1):
+                first = len(next(it2))
+                if all(len(val) == first for val in it2):
+                    x_nested_lists = True
+                    input_dims = first
 
         # convert dicts to lists
         if x_labels != None:
