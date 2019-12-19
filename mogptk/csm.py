@@ -18,18 +18,19 @@ class CSM(model):
         like_params (dict, optional): Parameters to GPflow likelihood.
 
     Examples:
-        >>> import numpy as np
-        >>> t = np.linspace(0, 10, 100)
-        >>> y1 = np.sin(0.5 * t)
-        >>> y2 = 2 * np.sin(0.2 * t)
-        >>> import mogptk
-        >>> data_list = []
-        >>> mogptk.data_list.append(mogptk.Data(t, y1))
-        >>> mogptk.data_list.append(mogptk.Data(t, y2))
-        >>> model = mogptk.CSM(data_list, Q=2)
-        >>> model.build()
-        >>> model.train()
-        >>> model.plot_prediction()
+
+    >>> import numpy as np
+    >>> t = np.linspace(0, 10, 100)
+    >>> y1 = np.sin(0.5 * t)
+    >>> y2 = 2 * np.sin(0.2 * t)
+    >>> import mogptk
+    >>> data_list = []
+    >>> mogptk.data_list.append(mogptk.Data(t, y1))
+    >>> mogptk.data_list.append(mogptk.Data(t, y2))
+    >>> model = mogptk.CSM(data_list, Q=2)
+    >>> model.build()
+    >>> model.train()
+    >>> model.plot_prediction()
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """

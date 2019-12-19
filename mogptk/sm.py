@@ -61,9 +61,7 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
 
 class SM(model):
     """
-    Single output GP with Spectral mixture kernel.
-
-    A Gaussian process regression using Spectral mixture kernel [1]
+    A single output GP Spectral mixture kernel as proposed by [1].
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
@@ -74,8 +72,8 @@ class SM(model):
         sparse (bool, optional): If True, will use sparse GP regression.
         like_params (dict, optional): Parameters to GPflow likelihood.
 
-    ----------
     Examples:
+
     >>> import numpy as np
     >>> t = np.linspace(0, 10, 100)
     >>> y = np.sin(0.5 * t)
@@ -86,9 +84,7 @@ class SM(model):
     >>> model.train()
     >>> model.predict([np.linspace(1, 15, 150)])
 
-    References:
-    [1] A. Wilson and R. Adams, “Gaussian process kernels for pattern discovery and extrapolation,”
-    in International Conference on Machine Learning, 2013.
+    [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
     """
     def __init__(self, dataset, Q=1, name="SM", likelihood=None, variational=False, sparse=False, like_params={}):
         model.__init__(self, name, dataset)

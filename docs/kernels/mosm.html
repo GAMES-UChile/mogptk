@@ -23,15 +23,9 @@
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">import gpflow
-from gpflow.params import Parameter
-from gpflow import transforms
 import numpy as np
 import tensorflow as tf
-from tensorflow import reduce_sum as rsum
-from tensorflow import reduce_prod as rprod
 
-from .fixphase import FixPhase
-from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
 # TODO: dont use angular frequency
@@ -51,21 +45,21 @@ class MultiOutputSpectralMixture(MultiKernel):
         phase = np.zeros((output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
-        self.magnitude = Parameter(magnitude, prior=magnitude_prior)
-        self.mean = Parameter(mean, transform=transforms.positive)
-        self.variance = Parameter(variance, transform=transforms.positive)
-        self.delay = Parameter(delay)
-        self.phase = Parameter(phase)
+        self.magnitude = gpflow.params.Parameter(magnitude, prior=magnitude_prior)
+        self.mean = gpflow.params.Parameter(mean, transform=gpflow.transforms.positive)
+        self.variance = gpflow.params.Parameter(variance, transform=gpflow.transforms.positive)
+        self.delay = gpflow.params.Parameter(delay)
+        self.phase = gpflow.params.Parameter(phase)
 
     def subK(self, index, X, X2):
         i, j = index
         if i == j:
             mean = tf.expand_dims(tf.slice(self.mean, [0, i], [self.input_dim, 1]), axis=2)
             temp = np.power(2 * np.pi, self.input_dim / 2) \
-                    * tf.sqrt(rprod(self.variance[:, i])) \
+                    * tf.sqrt(tf.reduce_prod(self.variance[:, i])) \
                     * tf.square(self.magnitude[i])
             K = temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
-                    * tf.cos(rsum(mean * self.dist(X, X2), 0))
+                    * tf.cos(tf.reduce_sum(mean * self.dist(X, X2), 0))
         else:
             sv = self.variance[:, i] + self.variance[:, j]
             cross_delay = tf.reshape(
@@ -79,11 +73,11 @@ class MultiOutputSpectralMixture(MultiKernel):
                 [self.input_dim, 1, 1]
             )
             cross_magnitude = self.magnitude[i] * self.magnitude[j] \
-                    * tf.exp(-0.25 * rsum(tf.square(self.mean[:, i] - self.mean[:, j]) / sv))
+                    * tf.exp(-0.25 * tf.reduce_sum(tf.square(self.mean[:, i] - self.mean[:, j]) / sv))
 
-            alpha = np.power(2 * np.pi, self.input_dim / 2) * tf.sqrt(rprod(cross_var)) * cross_magnitude
+            alpha = np.power(2 * np.pi, self.input_dim / 2) * tf.sqrt(tf.reduce_prod(cross_var)) * cross_magnitude
             K = alpha * tf.exp(-0.5 * self.sqdist(X + self.delay[:, i], X2 + self.delay[:, j], cross_var)) \
-                    * tf.cos(rsum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
+                    * tf.cos(tf.reduce_sum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
         return K</code></pre>
 </details>
 </section>
@@ -134,21 +128,21 @@ matrix appropriately.</p>
         phase = np.zeros((output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
-        self.magnitude = Parameter(magnitude, prior=magnitude_prior)
-        self.mean = Parameter(mean, transform=transforms.positive)
-        self.variance = Parameter(variance, transform=transforms.positive)
-        self.delay = Parameter(delay)
-        self.phase = Parameter(phase)
+        self.magnitude = gpflow.params.Parameter(magnitude, prior=magnitude_prior)
+        self.mean = gpflow.params.Parameter(mean, transform=gpflow.transforms.positive)
+        self.variance = gpflow.params.Parameter(variance, transform=gpflow.transforms.positive)
+        self.delay = gpflow.params.Parameter(delay)
+        self.phase = gpflow.params.Parameter(phase)
 
     def subK(self, index, X, X2):
         i, j = index
         if i == j:
             mean = tf.expand_dims(tf.slice(self.mean, [0, i], [self.input_dim, 1]), axis=2)
             temp = np.power(2 * np.pi, self.input_dim / 2) \
-                    * tf.sqrt(rprod(self.variance[:, i])) \
+                    * tf.sqrt(tf.reduce_prod(self.variance[:, i])) \
                     * tf.square(self.magnitude[i])
             K = temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
-                    * tf.cos(rsum(mean * self.dist(X, X2), 0))
+                    * tf.cos(tf.reduce_sum(mean * self.dist(X, X2), 0))
         else:
             sv = self.variance[:, i] + self.variance[:, j]
             cross_delay = tf.reshape(
@@ -162,11 +156,11 @@ matrix appropriately.</p>
                 [self.input_dim, 1, 1]
             )
             cross_magnitude = self.magnitude[i] * self.magnitude[j] \
-                    * tf.exp(-0.25 * rsum(tf.square(self.mean[:, i] - self.mean[:, j]) / sv))
+                    * tf.exp(-0.25 * tf.reduce_sum(tf.square(self.mean[:, i] - self.mean[:, j]) / sv))
 
-            alpha = np.power(2 * np.pi, self.input_dim / 2) * tf.sqrt(rprod(cross_var)) * cross_magnitude
+            alpha = np.power(2 * np.pi, self.input_dim / 2) * tf.sqrt(tf.reduce_prod(cross_var)) * cross_magnitude
             K = alpha * tf.exp(-0.5 * self.sqdist(X + self.delay[:, i], X2 + self.delay[:, j], cross_var)) \
-                    * tf.cos(rsum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
+                    * tf.cos(tf.reduce_sum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
         return K</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -192,10 +186,10 @@ matrix appropriately.</p>
     if i == j:
         mean = tf.expand_dims(tf.slice(self.mean, [0, i], [self.input_dim, 1]), axis=2)
         temp = np.power(2 * np.pi, self.input_dim / 2) \
-                * tf.sqrt(rprod(self.variance[:, i])) \
+                * tf.sqrt(tf.reduce_prod(self.variance[:, i])) \
                 * tf.square(self.magnitude[i])
         K = temp * tf.exp(-0.5 * self.sqdist(X, X2, self.variance[:, i])) \
-                * tf.cos(rsum(mean * self.dist(X, X2), 0))
+                * tf.cos(tf.reduce_sum(mean * self.dist(X, X2), 0))
     else:
         sv = self.variance[:, i] + self.variance[:, j]
         cross_delay = tf.reshape(
@@ -209,11 +203,11 @@ matrix appropriately.</p>
             [self.input_dim, 1, 1]
         )
         cross_magnitude = self.magnitude[i] * self.magnitude[j] \
-                * tf.exp(-0.25 * rsum(tf.square(self.mean[:, i] - self.mean[:, j]) / sv))
+                * tf.exp(-0.25 * tf.reduce_sum(tf.square(self.mean[:, i] - self.mean[:, j]) / sv))
 
-        alpha = np.power(2 * np.pi, self.input_dim / 2) * tf.sqrt(rprod(cross_var)) * cross_magnitude
+        alpha = np.power(2 * np.pi, self.input_dim / 2) * tf.sqrt(tf.reduce_prod(cross_var)) * cross_magnitude
         K = alpha * tf.exp(-0.5 * self.sqdist(X + self.delay[:, i], X2 + self.delay[:, j], cross_var)) \
-                * tf.cos(rsum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
+                * tf.cos(tf.reduce_sum(cross_mean * (self.dist(X, X2) + cross_delay), axis=0) + cross_phase)
     return K</code></pre>
 </details>
 </dd>

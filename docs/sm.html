@@ -85,9 +85,7 @@ def _estimate_from_sm(dataset, Q, method=&#39;BNSE&#39;, optimizer=&#39;BFGS&#39
 
 class SM(model):
     &#34;&#34;&#34;
-    Single output GP with Spectral mixture kernel.
-
-    A Gaussian process regression using Spectral mixture kernel [1]
+    A single output GP Spectral mixture kernel as proposed by [1].
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
@@ -98,8 +96,8 @@ class SM(model):
         sparse (bool, optional): If True, will use sparse GP regression.
         like_params (dict, optional): Parameters to GPflow likelihood.
 
-    ----------
     Examples:
+
     &gt;&gt;&gt; import numpy as np
     &gt;&gt;&gt; t = np.linspace(0, 10, 100)
     &gt;&gt;&gt; y = np.sin(0.5 * t)
@@ -110,9 +108,7 @@ class SM(model):
     &gt;&gt;&gt; model.train()
     &gt;&gt;&gt; model.predict([np.linspace(1, 15, 150)])
 
-    References:
-    [1] A. Wilson and R. Adams, “Gaussian process kernels for pattern discovery and extrapolation,”
-    in International Conference on Machine Learning, 2013.
+    [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013
     &#34;&#34;&#34;
     def __init__(self, dataset, Q=1, name=&#34;SM&#34;, likelihood=None, variational=False, sparse=False, like_params={}):
         model.__init__(self, name, dataset)
@@ -232,8 +228,7 @@ class SM(model):
 <span>(</span><span>dataset, Q=1, name='SM', likelihood=None, variational=False, sparse=False, like_params={})</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Single output GP with Spectral mixture kernel.</p>
-<p>A Gaussian process regression using Spectral mixture kernel [1]</p>
+<section class="desc"><p>A single output GP Spectral mixture kernel as proposed by [1].</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
@@ -251,7 +246,6 @@ class SM(model):
 <dt><strong><code>like_params</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>Parameters to GPflow likelihood.</dd>
 </dl>
-<hr>
 <p>Examples:</p>
 <pre><code>&gt;&gt;&gt; import numpy as np
 &gt;&gt;&gt; t = np.linspace(0, 10, 100)
@@ -263,16 +257,12 @@ class SM(model):
 &gt;&gt;&gt; model.train()
 &gt;&gt;&gt; model.predict([np.linspace(1, 15, 150)])
 </code></pre>
-<p>References:
-[1] A. Wilson and R. Adams, “Gaussian process kernels for pattern discovery and extrapolation,”
-in International Conference on Machine Learning, 2013.</p></section>
+<p>[1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013</p></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class SM(model):
     &#34;&#34;&#34;
-    Single output GP with Spectral mixture kernel.
-
-    A Gaussian process regression using Spectral mixture kernel [1]
+    A single output GP Spectral mixture kernel as proposed by [1].
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
@@ -283,8 +273,8 @@ in International Conference on Machine Learning, 2013.</p></section>
         sparse (bool, optional): If True, will use sparse GP regression.
         like_params (dict, optional): Parameters to GPflow likelihood.
 
-    ----------
     Examples:
+
     &gt;&gt;&gt; import numpy as np
     &gt;&gt;&gt; t = np.linspace(0, 10, 100)
     &gt;&gt;&gt; y = np.sin(0.5 * t)
@@ -295,9 +285,7 @@ in International Conference on Machine Learning, 2013.</p></section>
     &gt;&gt;&gt; model.train()
     &gt;&gt;&gt; model.predict([np.linspace(1, 15, 150)])
 
-    References:
-    [1] A. Wilson and R. Adams, “Gaussian process kernels for pattern discovery and extrapolation,”
-    in International Conference on Machine Learning, 2013.
+    [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013
     &#34;&#34;&#34;
     def __init__(self, dataset, Q=1, name=&#34;SM&#34;, likelihood=None, variational=False, sparse=False, like_params={}):
         model.__init__(self, name, dataset)

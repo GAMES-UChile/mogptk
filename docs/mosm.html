@@ -45,18 +45,18 @@ class MOSM(model):
         like_params (dict, optional): Parameters to GPflow likelihood.
 
     Examples:
-        &gt;&gt;&gt; import numpy as np
-        &gt;&gt;&gt; t = np.linspace(0, 10, 100)
-        &gt;&gt;&gt; y1 = np.sin(0.5 * t)
-        &gt;&gt;&gt; y2 = 2 * np.sin(0.2 * t)
-        &gt;&gt;&gt; import mogptk
-        &gt;&gt;&gt; data_list = []
-        &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y1))
-        &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y2))
-        &gt;&gt;&gt; model = mogptk.MOSM(data_list, Q=2)
-        &gt;&gt;&gt; model.build()
-        &gt;&gt;&gt; model.train()
-        &gt;&gt;&gt; model.plot_prediction()
+    &gt;&gt;&gt; import numpy as np
+    &gt;&gt;&gt; t = np.linspace(0, 10, 100)
+    &gt;&gt;&gt; y1 = np.sin(0.5 * t)
+    &gt;&gt;&gt; y2 = 2 * np.sin(0.2 * t)
+    &gt;&gt;&gt; import mogptk
+    &gt;&gt;&gt; data_list = []
+    &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y1))
+    &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y2))
+    &gt;&gt;&gt; model = mogptk.MOSM(data_list, Q=2)
+    &gt;&gt;&gt; model.build()
+    &gt;&gt;&gt; model.train()
+    &gt;&gt;&gt; model.plot_prediction()
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
@@ -353,7 +353,7 @@ class MOSM(model):
 <dt><strong><code>like_params</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>Parameters to GPflow likelihood.</dd>
 </dl>
-<h2 id="examples">Examples</h2>
+<p>Examples:</p>
 <pre><code>&gt;&gt;&gt; import numpy as np
 &gt;&gt;&gt; t = np.linspace(0, 10, 100)
 &gt;&gt;&gt; y1 = np.sin(0.5 * t)
@@ -366,8 +366,8 @@ class MOSM(model):
 &gt;&gt;&gt; model.build()
 &gt;&gt;&gt; model.train()
 &gt;&gt;&gt; model.plot_prediction()
-[1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
-</code></pre></section>
+</code></pre>
+<p>[1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017</p></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class MOSM(model):
@@ -384,18 +384,18 @@ class MOSM(model):
         like_params (dict, optional): Parameters to GPflow likelihood.
 
     Examples:
-        &gt;&gt;&gt; import numpy as np
-        &gt;&gt;&gt; t = np.linspace(0, 10, 100)
-        &gt;&gt;&gt; y1 = np.sin(0.5 * t)
-        &gt;&gt;&gt; y2 = 2 * np.sin(0.2 * t)
-        &gt;&gt;&gt; import mogptk
-        &gt;&gt;&gt; data_list = []
-        &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y1))
-        &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y2))
-        &gt;&gt;&gt; model = mogptk.MOSM(data_list, Q=2)
-        &gt;&gt;&gt; model.build()
-        &gt;&gt;&gt; model.train()
-        &gt;&gt;&gt; model.plot_prediction()
+    &gt;&gt;&gt; import numpy as np
+    &gt;&gt;&gt; t = np.linspace(0, 10, 100)
+    &gt;&gt;&gt; y1 = np.sin(0.5 * t)
+    &gt;&gt;&gt; y2 = 2 * np.sin(0.2 * t)
+    &gt;&gt;&gt; import mogptk
+    &gt;&gt;&gt; data_list = []
+    &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y1))
+    &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y2))
+    &gt;&gt;&gt; model = mogptk.MOSM(data_list, Q=2)
+    &gt;&gt;&gt; model.build()
+    &gt;&gt;&gt; model.train()
+    &gt;&gt;&gt; model.plot_prediction()
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;

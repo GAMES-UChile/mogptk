@@ -1,12 +1,6 @@
-from gpflow.params import Parameter
-from gpflow import transforms
 import numpy as np
 import tensorflow as tf
-from tensorflow import reduce_sum as rsum
-from tensorflow import reduce_prod as rprod
 
-from .fixphase import FixPhase
-from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
 class ConvolutionalGaussian(MultiKernel):
@@ -21,8 +15,8 @@ class ConvolutionalGaussian(MultiKernel):
         variance = np.zeros((input_dim, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = Parameter(constant, transform=transforms.positive)
-        self.variance = Parameter(variance, transform=transforms.positive)
+        self.constant = gpflow.params.Parameter(constant, transform=gpflow.transforms.positive)
+        self.variance = gpflow.params.Parameter(variance, transform=gpflow.transforms.positive)
 
     def subK(self, index, X, X2):
         i, j = index

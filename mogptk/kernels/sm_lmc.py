@@ -1,12 +1,6 @@
-from gpflow.params import Parameter
-from gpflow import transforms
 import numpy as np
 import tensorflow as tf
-from tensorflow import reduce_sum as rsum
-from tensorflow import reduce_prod as rprod
 
-from .fixphase import FixPhase
-from .fixdelay import FixDelay
 from .multikernel import MultiKernel
 
 # uses angular freq
@@ -24,9 +18,9 @@ class SpectralMixtureLMC(MultiKernel):
         variance = np.random.random((input_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = Parameter(constant)
-        self.mean = Parameter(mean, transform = transforms.positive)
-        self.variance = Parameter(variance, transform=transforms.positive)
+        self.constant = gpflow.params.Parameter(constant)
+        self.mean = gpflow.params.Parameter(mean, transform=gpflow.transforms.positive)
+        self.variance = gpflow.params.Parameter(variance, transform=gpflow.transforms.positive)
 
     def subK(self, index, X, X2):
         i, j = index

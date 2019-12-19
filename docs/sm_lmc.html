@@ -42,20 +42,21 @@ class SM_LMC(model):
         like_params (dict, optional): Parameters to GPflow likelihood.
 
     Examples:
-        &gt;&gt;&gt; import numpy as np
-        &gt;&gt;&gt; t = np.linspace(0, 10, 100)
-        &gt;&gt;&gt; y1 = np.sin(0.5 * t)
-        &gt;&gt;&gt; y2 = 2 * np.sin(0.2 * t)
-        &gt;&gt;&gt; import mogptk
-        &gt;&gt;&gt; data_list = []
-        &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y1))
-        &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y2))
-        &gt;&gt;&gt; model = mogptk.SM_LMC(data_list, Q=2)
-        &gt;&gt;&gt; model.build()
-        &gt;&gt;&gt; model.train()
-        &gt;&gt;&gt; model.plot_prediction()
 
-    [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013
+    &gt;&gt;&gt; import numpy as np
+    &gt;&gt;&gt; t = np.linspace(0, 10, 100)
+    &gt;&gt;&gt; y1 = np.sin(0.5 * t)
+    &gt;&gt;&gt; y2 = 2 * np.sin(0.2 * t)
+    &gt;&gt;&gt; import mogptk
+    &gt;&gt;&gt; data_list = []
+    &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y1))
+    &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y2))
+    &gt;&gt;&gt; model = mogptk.SM_LMC(data_list, Q=2)
+    &gt;&gt;&gt; model.build()
+    &gt;&gt;&gt; model.train()
+    &gt;&gt;&gt; model.plot_prediction()
+
+    [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, &#34;Geostatistics for Natural Resource Evaluation&#34;, Oxford University Press, 1997
     &#34;&#34;&#34;
     def __init__(self, dataset, Q=1, Rq=1, name=&#34;SM-LMC&#34;, likelihood=None, variational=False, sparse=False, like_params={}):
@@ -166,7 +167,7 @@ class SM_LMC(model):
 <dt><strong><code>like_params</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>Parameters to GPflow likelihood.</dd>
 </dl>
-<h2 id="examples">Examples</h2>
+<p>Examples:</p>
 <pre><code>&gt;&gt;&gt; import numpy as np
 &gt;&gt;&gt; t = np.linspace(0, 10, 100)
 &gt;&gt;&gt; y1 = np.sin(0.5 * t)
@@ -179,9 +180,9 @@ class SM_LMC(model):
 &gt;&gt;&gt; model.build()
 &gt;&gt;&gt; model.train()
 &gt;&gt;&gt; model.plot_prediction()
-[1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
 </code></pre>
-<p>[2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997</p></section>
+<p>[1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
+[2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997</p></section>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">class SM_LMC(model):
@@ -199,20 +200,21 @@ class SM_LMC(model):
         like_params (dict, optional): Parameters to GPflow likelihood.
 
     Examples:
-        &gt;&gt;&gt; import numpy as np
-        &gt;&gt;&gt; t = np.linspace(0, 10, 100)
-        &gt;&gt;&gt; y1 = np.sin(0.5 * t)
-        &gt;&gt;&gt; y2 = 2 * np.sin(0.2 * t)
-        &gt;&gt;&gt; import mogptk
-        &gt;&gt;&gt; data_list = []
-        &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y1))
-        &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y2))
-        &gt;&gt;&gt; model = mogptk.SM_LMC(data_list, Q=2)
-        &gt;&gt;&gt; model.build()
-        &gt;&gt;&gt; model.train()
-        &gt;&gt;&gt; model.plot_prediction()
 
-    [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013
+    &gt;&gt;&gt; import numpy as np
+    &gt;&gt;&gt; t = np.linspace(0, 10, 100)
+    &gt;&gt;&gt; y1 = np.sin(0.5 * t)
+    &gt;&gt;&gt; y2 = 2 * np.sin(0.2 * t)
+    &gt;&gt;&gt; import mogptk
+    &gt;&gt;&gt; data_list = []
+    &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y1))
+    &gt;&gt;&gt; mogptk.data_list.append(mogptk.Data(t, y2))
+    &gt;&gt;&gt; model = mogptk.SM_LMC(data_list, Q=2)
+    &gt;&gt;&gt; model.build()
+    &gt;&gt;&gt; model.train()
+    &gt;&gt;&gt; model.plot_prediction()
+
+    [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, &#34;Geostatistics for Natural Resource Evaluation&#34;, Oxford University Press, 1997
     &#34;&#34;&#34;
     def __init__(self, dataset, Q=1, Rq=1, name=&#34;SM-LMC&#34;, likelihood=None, variational=False, sparse=False, like_params={}):

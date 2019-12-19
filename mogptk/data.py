@@ -780,7 +780,6 @@ class Data:
         idx = np.where(np.logical_and(self.X[:,0] >= start, self.X[:,0] <= end))
         self.mask[idx] = False
 
-    # TODO
     def remove_random_ranges(self, n, duration):
         """
         Removes a number of ranges to simulate sensor failure.
@@ -797,25 +796,20 @@ class Data:
         if self.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
-        print(duration)
         duration = self.formatters[0]._parse_duration(duration)
-        print(n, duration)
         if n < 1:
             return
 
-        # TODO: what if N != 1 and we have dates on the X-axis? Make sure that ranges do not overlap and are picked randomly
         m = (self.X[-1]-self.X[0]) - n*duration
         if m <= 0:
             raise Exception("no data left after removing ranges")
 
-        ## TODO: doesn't work
-        locs = np.round(np.sort(np.random.rand(n)) * m)
-        print(locs)
-        for i in range(len(locs)):
-            loc = int(locs[i] + i * duration)
-            idx = np.arange(int(loc), int(loc+duration))
-            print(idx)
-            self.mask[idx] = False
+        locs = self.X[:,0] <= self.X[-1,0]-duration
+        locs[sum(locs)] = True # make sure the last data point can be deleted
+        for i in range(n):
+            x = self.X[locs][np.random.randint(len(self.X[locs]))]
+            locs[(self.X[:,0] > x-duration) & (self.X[:,0] < x+duration)] = False
+            self.mask[(self.X[:,0] >= x) & (self.X[:,0] < x+duration)] = False
     
     ################################################################
     
@@ -1104,8 +1098,11 @@ class Data:
 
         if self.F != None:
             n = len(self.X[:,0])*10
-            x_min = min(np.min(self.X[:,0]), np.min(self.X_pred))
-            x_max = max(np.max(self.X[:,0]), np.max(self.X_pred))
+            x_min = np.min(self.X[:,0])
+            x_max = np.max(self.X[:,0])
+            if len(self.X_pred) != 0:
+                x_min = min(x_min, np.min(self.X_pred))
+                x_max = max(x_max, np.max(self.X_pred))
 
             x = np.empty((n, 1))
             x[:,0] = np.linspace(x_min, x_max, n)
@@ -1136,13 +1133,14 @@ class Data:
         """
         Plot the spectrum of the data.
 
-        TODO: Add BNSE as spectrum estimate option.
-
         Args:
             method (str, optional): Set the method to get the spectrum such as 'lombscargle'.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
             per (float, str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per='3d' for three days.
             maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+
+        Returns:
+            matplotlib.axes.Axes
         """
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() > 2:
@@ -1155,8 +1153,6 @@ class Data:
         
         ax.set_title(self.name, fontsize=36)
 
-        X_space = self.X[:,0].copy()
-
         formatter = self.formatters[0]
         factor, name = formatter._scale(per)
         if name != None:
@@ -1164,20 +1160,33 @@ class Data:
         else:
             ax.set_xlabel('Frequency')
 
-        X_space /= factor
-
+        X_space = self.X[:,0].copy() / factor
         freq = maxfreq
         if freq == None:
             dist = np.abs(X_space[1:]-X_space[:-1])
             freq = 1/np.average(dist)
 
         X = np.linspace(0.0, freq, 10001)[1:]
+        Y_err = []
         if method == 'lombscargle':
             Y = signal.lombscargle(X_space, self.Y, X)
+        elif method == 'bnse':
+            # TODO: check if outcome is correct
+            nyquist = self.get_nyquist_estimation()
+            bnse = bse(X_space, self.Y)
+            bnse.set_freqspace(freq/2.0/np.pi, 10001)
+            bnse.train()
+            bnse.compute_moments()
+            Y = bnse.post_mean_r**2 + bnse.post_mean_i**2
+            Y_err = 2 * np.sqrt(np.diag(bnse.post_cov_r**2 + bnse.post_cov_i**2))
+            Y = Y[1:]
+            Y_err = Y_err[1:]
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
         ax.plot(X, Y, 'k-')
+        if len(Y_err) != 0:
+            ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.1)
         ax.set_title(self.name + ' spectrum', fontsize=30)
         ax.set_yticks([])
         ax.set_ylim(0, None)

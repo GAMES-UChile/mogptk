@@ -20,15 +20,15 @@
 <h1 class="title">Module <code>mogptk</code></h1>
 </header>
 <section id="section-intro">
-<p>MOGPTK is a Python toolkit for multi output Gaussian processes. It contains data handling classes and different multi output models to facilitate the training and predicting of multi channel data sets. It provides a complete toolkit to improve the training of MOGPs, where it allows for easy reformatting of data (date/time to numbers), detrending or transformation of the data (such as taking the natural logarithm), functions that aid in adding gaps to the data or specifying which range should be predicted, and more.</p>
-<p>It contains the implementation of four MOGP models:</p>
+<p>MOGPTK is a Python toolkit for multi output Gaussian processes. It contains data handling classes and different multi output models to facilitate the training and prediction of multi channel data sets. It provides a complete toolkit to improve the training of MOGPs, where it allows for easy reformatting of data (date/time to numbers), detrending or transformation of the data (such as taking the natural logarithm), functions that aid in adding gaps to the data or specifying which range should be predicted, and more.</p>
+<p>The following four MOGP models have been implemented:</p>
 <ul>
 <li>Multi Output Spectral Mixture (MOSM) as proposed by [1]</li>
 <li>Cross Spectral Mixture (CSM) as proposed by [2]</li>
 <li>Convolutional Gaussian (CONV) as proposed by [3]</li>
 <li>Spectral Mixture - Linear Model of Coregionalization (SM-LMC) as proposed by combining SM [4] and LMC [5]</li>
 </ul>
-<p>Each model has specialized methods for parameter estimation to improve training. For example, the MOSM model can estimate its parameters using the training of spectral mixture kernels to each of the channels individually. It can also estimate its parameters using Bayesian Nonparametric Spectral Estimation (BNSE) [6]. After parameter estimation, the training of the model will converge more rapidly and there is a higher chance it will converge. Additionally, some models allow the interpretation of the parameters by investigating the cross-correlation parameters between the channels to better interpret what the learned parameters actually mean on your data.</p>
+<p>Each model has specialized methods for parameter estimation to improve training. For example, the MOSM model can estimate its parameters using the training of spectral mixture kernels for each of the channels individually. It can also estimate its parameters using Bayesian Nonparametric Spectral Estimation (BNSE) [6]. After parameter estimation, the training of the model will converge more rapidly and there is a higher chance it will converge at all. Additionally, some models allow the interpretation of the parameters by investigating the cross-correlation parameters between the channels to better interpret what the learned parameters actually mean.</p>
 <ul>
 <li>[1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017</li>
 <li>[2] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015</li>
@@ -38,14 +38,17 @@
 <li>[6] F. Tobar, "Bayesian Nonparametric Spectral Estimation", Advances in Neural Information Processing Systems 32, 2018</li>
 </ul>
 <h2 id="installation">Installation</h2>
+<p>Make sure you have Python 3.6 and <code>pip</code> installed, and run the following command:</p>
+<pre><code>pip install git+&lt;https://github.com/GAMES-UChile/MultiOutputGP-Toolkit&gt;
+</code></pre>
 <h2 id="quick-example">Quick Example</h2>
 <p>This is a quick example showing how this library can be used. First we import the library as follows:</p>
 <pre><code>&gt;&gt;&gt; import mogptk
 </code></pre>
-<p>Next we load our data (<code>x</code>, and <code>y</code>) into a <code>Data</code> class. You <code>x</code> data should be a <code>list</code> or <code>numpy.ndarray</code> of <code>n</code> data points. When you have more than one input dimension, the shape of <code>x</code> should look like <code>(n,input_dims)</code>. You <code>y</code> data should be a <code>list</code> or <code>numpy.ndarray</code> of <code>n</code> data points.</p>
+<p>Next we load our data (<code>x</code>, and <code>y</code>) into a <code>Data</code> class. Your <code>x</code> data should be a <code>list</code> or <code>numpy.ndarray</code> of <code>n</code> data points. When you have more than one input dimension, the shape of <code>x</code> should look like <code>(n,input_dims)</code>. When <code>x</code> is a dictionary, each item should be a <code>list</code> or <code>numpy.ndarray</code>, and the keys should be referenced by passing a <code>x_labels</code> which is a <code>list</code> or strings. Your <code>y</code> data should be a <code>list</code> or <code>numpy.ndarray</code> of <code>n</code> data points.</p>
 <pre><code>&gt;&gt;&gt; data = mogptk.Data(x, y, name='Dataset')
 </code></pre>
-<p>If you have multiple output channels, it is convenient to use the <code>DataSet</code> class which can hold multiple <code>Data</code> objects, one for each channel. Additionally, there is functionality to create a <code>Data</code> object from a CSV file, a <code>pandas.DataFrame</code> or using a Python function, for example:</p>
+<p>If you have multiple output channels it is convenient to use the <code>DataSet</code> class which can hold multiple <code>Data</code> objects, one for each channel. Additionally, there is functionality to create a <code>Data</code> object from a CSV file, a <code>pandas.DataFrame</code> or using a Python function, for example:</p>
 <pre><code>&gt;&gt;&gt; data = mogptk.DataSet()
 &gt;&gt;&gt; data.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='Function'))
 &gt;&gt;&gt; data.append(mogptk.LoadCSV('data.csv', 'time', 'measurement', name='CSV'))
@@ -56,7 +59,7 @@
 &gt;&gt;&gt; data['DataFrame'].remove_randomly(pct=0.40)
 &gt;&gt;&gt; data['Function'].set_pred_range(0.0, 5.0, n=200)
 </code></pre>
-<p>With our data set, we can instantiate a model (e.g. <code>MOSM</code>, <code>CSM</code>, <code>CONV</code>, <code>SM_LMC</code>) and set its parameters. All models accept a <code>Q</code> parameter, which is the number of (Gaussian) mixtures to use. Some models also have an <code>Rq</code> parameter, see the cited references above for an exact description.</p>
+<p>With our data set, we can instantiate a model (e.g. <code>MOSM</code>, <code>CSM</code>, <code>CONV</code>, <code>SM_LMC</code>) and set its parameters. All models accept a <code>Q</code> parameter which is the number of (Gaussian) mixtures to use. Some models also have an <code>Rq</code> parameter, see the cited references above for an exact description.</p>
 <pre><code>&gt;&gt;&gt; mosm = mogptk.MOSM(data, Q=3)
 </code></pre>
 <p>Given our model, we first estimate the parameters using a per-channel Spectral Mixture kernel or using Bayesian Nonparametric Spectral Estimation to improve the speed and likelihood of convergence when training:</p>
@@ -66,16 +69,10 @@
 <pre><code>&gt;&gt;&gt; mosm.train()
 &gt;&gt;&gt; mosm.predict()
 </code></pre>
-<p>Finally we can plot our data and prediction, get information about the model, etc.:</p>
-<pre><code>&gt;&gt;&gt; mosm.info()
-&gt;&gt;&gt; data.plot()
+<p>Finally we can plot our data and prediction:</p>
+<pre><code>&gt;&gt;&gt; data.plot()
 </code></pre>
-<h2 id="models">Models</h2>
-<h3 id="mosm">MOSM</h3>
-<h3 id="csm">CSM</h3>
-<h3 id="conv">CONV</h3>
-<h3 id="42-lmc">*-LMC</h3>
-<h3 id="42-igp">*-IGP</h3>
+<p>See the rest of this documentation for a full overview of all functionalities.</p>
 <h2 id="data-handling">Data handling</h2>
 <h3 id="formats">Formats</h3>
 <p>The format classes allow the independent (X axis) data to be formatted so that it can be converted into numbers. Each class implements the following functions:</p>
@@ -98,6 +95,14 @@
 <h4 id="transformdetrend">TransformDetrend</h4>
 <h4 id="transformnormalize">TransformNormalize</h4>
 <h4 id="transformlog">TransformLog</h4>
+<h2 id="models">Models</h2>
+<h3 id="mosm">MOSM</h3>
+<h3 id="csm">CSM</h3>
+<h3 id="conv">CONV</h3>
+<h3 id="-lmc">*-LMC</h3>
+<h3 id="-igp">*-IGP</h3>
+<h2 id="advice-on-training">Advice on training</h2>
+<h2 id="visualization-and-interpretation">Visualization and interpretation</h2>
 <details class="source">
 <summary>Source code</summary>
 <pre><code class="python">&#34;&#34;&#34;
@@ -107,8 +112,8 @@ from .model import *
 from .sm import *
 from .mosm import *
 from .csm import *
-from .sm_lmc import *
 from .conv import *
+from .sm_lmc import *
 from .data import *
 from .dataset import *
 from .plot import *
@@ -181,14 +186,6 @@ from .errors import *</code></pre>
 <ul>
 <li><a href="#installation">Installation</a></li>
 <li><a href="#quick-example">Quick Example</a></li>
-<li><a href="#models">Models</a><ul>
-<li><a href="#mosm">MOSM</a></li>
-<li><a href="#csm">CSM</a></li>
-<li><a href="#conv">CONV</a></li>
-<li><a href="#42-lmc">*-LMC</a></li>
-<li><a href="#42-igp">*-IGP</a></li>
-</ul>
-</li>
 <li><a href="#data-handling">Data handling</a><ul>
 <li><a href="#formats">Formats</a><ul>
 <li><a href="#formatnumber">FormatNumber</a></li>
@@ -204,6 +201,16 @@ from .errors import *</code></pre>
 </li>
 </ul>
 </li>
+<li><a href="#models">Models</a><ul>
+<li><a href="#mosm">MOSM</a></li>
+<li><a href="#csm">CSM</a></li>
+<li><a href="#conv">CONV</a></li>
+<li><a href="#-lmc">*-LMC</a></li>
+<li><a href="#-igp">*-IGP</a></li>
+</ul>
+</li>
+<li><a href="#advice-on-training">Advice on training</a></li>
+<li><a href="#visualization-and-interpretation">Visualization and interpretation</a></li>
 </ul>
 </div>
 <ul id="index">
