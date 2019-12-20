@@ -1,4 +1,5 @@
 import numpy as np
+import gpflow
 import tensorflow as tf
 
 from .multikernel import MultiKernel

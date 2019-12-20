@@ -1,6 +1,6 @@
 import numpy as np
-import pandas as pd
-from sklearn import metrics
+import pandas as pd          # TODO: remove dependency on sklearn?
+from sklearn import metrics  # TODO: remove dependency on sklearn?
 
 def mean_absolute_percentage_error(y_true, y_pred):
     idx = np.nonzero(y_true)

@@ -91,7 +91,7 @@ class SM(model):
         self.Q = Q
 
         if self.dataset.get_output_dims() != 1:
-            raise Exception("single output Spectral Mixture kernel can only take one output dimension in the data")
+            raise Exception("single output spectral mixture kernel can only have one output dimension in the data")
 
         with self.graph.as_default():
             with self.session.as_default():

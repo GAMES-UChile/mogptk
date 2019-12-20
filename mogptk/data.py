@@ -2,7 +2,7 @@ import csv
 import copy
 import inspect
 import numpy as np
-from mogptk.bnse import *
+from .bnse import *
 from scipy import signal
 import dateutil, datetime
 import matplotlib
@@ -930,6 +930,10 @@ class Data:
 
         self.X_pred = x
 
+        # clear old prediction data now that X_pred has been updated
+        self.Y_mu_pred = {}
+        self.Y_var_pred = {}
+
     ################################################################
 
     def get_nyquist_estimation(self):
@@ -1090,11 +1094,11 @@ class Data:
             if self.Y_mu_pred[name].size != 0:
                 lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
                 upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
-                ax.plot(self.X_pred[name][:,0], self.Y_mu_pred[name], ls='-', color=colors[i], lw=3)
-                ax.fill_between(self.X_pred[name][:,0], lower, upper, color=colors[i], alpha=0.1)
-                ax.plot(self.X_pred[name][:,0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
-                ax.plot(self.X_pred[name][:,0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
-                legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=3, label='Prediction '+name))
+                ax.plot(self.X_pred[:,0], self.Y_mu_pred[name], ls='-', color=colors[i], lw=2)
+                ax.fill_between(self.X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
+                ax.plot(self.X_pred[:,0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
+                ax.plot(self.X_pred[:,0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
+                legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label='Prediction '+name))
 
         if self.F != None:
             n = len(self.X[:,0])*10
