@@ -235,10 +235,13 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         <mogptk.data.Data at ...>
     """
 
-    if (not isinstance(x_cols, list) or not all(isinstance(item, str) for item in x_cols)) and not isinstance(xcols, str):
+    if (not isinstance(x_cols, list) or not all(isinstance(item, str) for item in x_cols)) and not isinstance(x_cols, str):
         raise ValueError("x_cols must be string or list of strings")
     if not isinstance(y_col, str):
         raise ValueError("y_col must be string")
+
+    if isinstance(x_cols, str):
+        x_cols = [x_cols]
 
     with open(filename, mode='r') as csv_file:
         rows = list(csv.DictReader(csv_file, **kwargs))
@@ -255,7 +258,7 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
             X.append(xs)
             Y.append(row[y_col])
 
-        return Data(X, Y, name=name, format=fmts, x_labels=xcols, y_label=y_col)
+        return Data(X, Y, name=name, formats=format, x_labels=x_cols, y_label=y_col)
 
 def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
     """
