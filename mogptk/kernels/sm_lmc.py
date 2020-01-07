@@ -19,9 +19,9 @@ class SpectralMixtureLMC(MultiKernel):
         variance = np.random.random((input_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = gpflow.params.Parameter(constant)
-        self.mean = gpflow.params.Parameter(mean, transform=gpflow.transforms.positive)
-        self.variance = gpflow.params.Parameter(variance, transform=gpflow.transforms.positive)
+        self.constant = gpflow.Parameter(constant)
+        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive())
+        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive())
 
     def subK(self, index, X, X2):
         i, j = index

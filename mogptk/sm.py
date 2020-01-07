@@ -93,13 +93,11 @@ class SM(model):
         if self.dataset.get_output_dims() != 1:
             raise Exception("single output spectral mixture kernel can only have one output dimension in the data")
 
-        with self.graph.as_default():
-            with self.session.as_default():
-                kernel = SpectralMixture(
-                    self.dataset.get_input_dims()[0],
-                    self.Q,
-                )
-                self._build(kernel, likelihood, variational, sparse, like_params)
+        kernel = SpectralMixture(
+            self.dataset.get_input_dims()[0],
+            self.Q,
+        )
+        self._build(kernel, likelihood, variational, sparse, like_params)
 
     def estimate_params(self, method='BNSE'):
         """

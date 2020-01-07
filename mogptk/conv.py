@@ -37,19 +37,17 @@ class CONV(model):
         model.__init__(self, name, dataset)
         self.Q = Q
 
-        with self.graph.as_default():
-            with self.session.as_default():
-                for q in range(self.Q):
-                    kernel = ConvolutionalGaussian(
-                        self.dataset.get_input_dims()[0],
-                        self.dataset.get_output_dims(),
-                    )
-                    if q == 0:
-                        kernel_set = kernel
-                    else:
-                        kernel_set += kernel
-                kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
-                self._build(kernel_set, likelihood, variational, sparse, like_params)
+        for q in range(self.Q):
+            kernel = ConvolutionalGaussian(
+                self.dataset.get_input_dims()[0],
+                self.dataset.get_output_dims(),
+            )
+            if q == 0:
+                kernel_set = kernel
+            else:
+                kernel_set += kernel
+        kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
+        self._build(kernel_set, likelihood, variational, sparse, like_params)
 
     def estimate_params(self, method='SM', sm_method='random', sm_opt='BFGS', sm_maxiter=2000, plot=False):
         """

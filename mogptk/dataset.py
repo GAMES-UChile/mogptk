@@ -352,6 +352,8 @@ class DataSet:
 
         chan = [i * np.ones(len(x[i])) for i in range(len(x))]
         chan = np.concatenate(chan).reshape(-1, 1)
+        if len(chan) == 0:
+            return np.array([]).reshape(-1, 1)
 
         x = np.concatenate(x)
         x = np.concatenate((chan, x), axis=1)

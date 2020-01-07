@@ -1,5 +1,4 @@
-from gpflow.params import Parameter
-from gpflow import transforms
+import gpflow
 import numpy as np
 import tensorflow as tf
 
@@ -16,13 +15,13 @@ class Noise(MultiKernel):
         noise = np.random.random((output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
-        self.noise = Parameter(noise, transform=transforms.positive)
+        self.noise = gpflow.Parameter(noise, transform=gpflow.utilities.positive())
 
     def subK(self, index, X, X2):
         i, j = index
-        if i != j or X != X2:
+        if i != j or not np.array_equal(X, X2):
             K = tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
         else:
-            K = tf.matrix_diag(tf.fill([tf.shape(X)[0]], self.noise[i]))
+            K = tf.linalg.diag(tf.fill([tf.shape(X)[0]], self.noise[i]))
         return K
 

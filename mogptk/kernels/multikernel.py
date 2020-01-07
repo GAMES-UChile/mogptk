@@ -2,7 +2,6 @@
 # by Rasmus Bonnevie on issue #328, credits to him.
 import tensorflow as tf
 from gpflow.kernels import Kernel
-from gpflow.decors import params_as_tensors
 
 class MultiKernel(Kernel):
     """Abstract class for MultiOutput Kernels.
@@ -17,7 +16,8 @@ class MultiKernel(Kernel):
     matrix appropriately.
     """
     def __init__(self, input_dim, output_dim, active_dims=None, name=None):
-        Kernel.__init__(self, input_dim, active_dims, name)
+        Kernel.__init__(self, active_dims, name)
+        self.input_dim = input_dim
         self.output_dim = output_dim
 
     def subK(self, indexes, X, X2):
@@ -25,10 +25,9 @@ class MultiKernel(Kernel):
 
     def subKdiag(self, indexes, X):
         K = self.subK((indexes, indexes), X, X)
-        return tf.diag_part(K)
+        return tf.linalg.diag_part(K)
 
-    @params_as_tensors
-    def K(self, X, X2=None):
+    def K(self, X, X2=None, presliced=False):
         # X, X2 = self._slice(X, X2)
         Xindex = tf.cast(X[:, 0], tf.int32)  # find group indices
 
@@ -65,7 +64,7 @@ class MultiKernel(Kernel):
 
         # return Ksort
 
-    def Kdiag(self, X):
+    def K_diag(self, X, presliced=False):
         # X, _ = self._slice(X, None)
         Xindex = tf.cast(X[:, 0], tf.int32)  # find recursion level indices
         Xparts, Xsplitn, Freturn = self._splitback(X[:, 1:], Xindex)

@@ -14,14 +14,11 @@
 
 import tensorflow as tf
 import numpy as np
-from gpflow.decors import params_as_tensors
-from gpflow.params import Parameter
-from gpflow.kernels import Kernel
-from gpflow import transforms
+import gpflow
 
 # TODO: means are spatial freqs, optimize by using angular freq
 # TODO: split out the Q part and use kernel + kernel + ... Q times?
-class SpectralMixture(Kernel):
+class SpectralMixture(gpflow.kernels.Kernel):
     def __init__(self, input_dim, Q=1, active_dims=None):
         """
         - Q (int): The number of mixtures.
@@ -30,18 +27,17 @@ class SpectralMixture(Kernel):
         http://hips.seas.harvard.edu/files/wilson-extrapolation-icml-2013_0.pdf
         http://www.cs.cmu.edu/~andrewgw/typo.pdf
         """
-        mixture_weights = np.random.standard_normal((Q))
-        mixture_means = np.random.standard_normal((Q, input_dim))
-        mixture_scales = np.random.standard_normal((input_dim, Q))
+        mixture_weights = np.random.random((Q))
+        mixture_means = np.random.random((Q, input_dim))
+        mixture_scales = np.random.random((input_dim, Q))
 
         super().__init__(input_dim, active_dims)
-        self.num_mixtures = Parameter(Q, trainable=False)
-        self.mixture_weights = Parameter(mixture_weights, transform=transforms.positive)
-        self.mixture_scales = Parameter(mixture_scales, transform=transforms.positive)
-        self.mixture_means = Parameter(mixture_means, transform=transforms.positive)
+        self.num_mixtures = gpflow.Parameter(Q, trainable=False, dtype=np.int_)
+        self.mixture_weights = gpflow.Parameter(mixture_weights, transform=gpflow.utilities.positive())
+        self.mixture_scales = gpflow.Parameter(mixture_scales, transform=gpflow.utilities.positive())
+        self.mixture_means = gpflow.Parameter(mixture_means, transform=gpflow.utilities.positive())
 
-    @params_as_tensors
-    def K(self, X1, X2=None):
+    def K(self, X1, X2=None, presliced=False):
         if self.mixture_weights == None or self.mixture_means == None \
                                       or self.mixture_scales == None:
                 raise RuntimeError('Parameters of spectral mixture kernel not initialized.\
@@ -65,7 +61,7 @@ class SpectralMixture(Kernel):
 
         scales_expand = tf.expand_dims(tf.expand_dims(self.mixture_scales, -2), -2)
                                                                 # D x 1 x 1 x num_mixtures
-        r_tile = tf.tile(tf.expand_dims(r,-1),(1,1,1,self.num_mixtures))
+        r_tile = tf.tile(tf.expand_dims(r,-1),(1,1,1,self.num_mixtures.numpy()))
                                                                # D x N1 x N2 x num_mixtures
         exp_term = tf.multiply(tf.transpose(tf.reduce_sum(tf.square(tf.multiply(r_tile, scales_expand)), 0)\
                                             ,perm=[2, 0, 1]), -2. * np.pi ** 2)
@@ -76,8 +72,7 @@ class SpectralMixture(Kernel):
         return tf.reduce_sum(tf.multiply(weights,tf.multiply(tf.exp(exp_term),tf.cos(cos_term))),0)
 
 
-    @params_as_tensors
-    def Kdiag(self, X):
+    def K_diag(self, X, presliced=False):
         X = tf.expand_dims(X[:, 1], -1)
 
         # just the sum of weights. Weights represent the signal

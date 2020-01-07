@@ -16,8 +16,8 @@ class ConvolutionalGaussian(MultiKernel):
         variance = np.zeros((input_dim, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = gpflow.params.Parameter(constant, transform=gpflow.transforms.positive)
-        self.variance = gpflow.params.Parameter(variance, transform=gpflow.transforms.positive)
+        self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive())
+        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive())
 
     def subK(self, index, X, X2):
         i, j = index
