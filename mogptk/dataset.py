@@ -340,7 +340,7 @@ class DataSet:
 
     def to_kernel_pred(self):
         """
-        Return the prediction vectors in the format as used by the kernels.
+        Return the prediction input vectors in the format as used by the kernels.
 
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
@@ -395,7 +395,7 @@ class DataSet:
         """
         return copy.deepcopy(self)
 
-    def plot(self, title=None):
+    def plot(self, title=None, figsize=(12, 8)):
         """
         Plot each Data channel.
 
@@ -409,7 +409,7 @@ class DataSet:
         Examples:
             >>> fig, axes = dataset.plot('Title')
         """
-        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
+        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
         if title != None:
             fig.suptitle(title)
 

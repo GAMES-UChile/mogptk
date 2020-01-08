@@ -5,6 +5,7 @@ import numpy as np
 from .bnse import *
 from scipy import signal
 import dateutil, datetime
+import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 import re
@@ -235,29 +236,39 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
         <mogptk.data.Data at ...>
     """
 
-    if (not isinstance(x_cols, list) or not all(isinstance(item, str) for item in x_cols)) and not isinstance(xcols, str):
+    if (not isinstance(x_cols, list) or not all(isinstance(item, str) for item in x_cols)) and not isinstance(x_cols, str):
         raise ValueError("x_cols must be string or list of strings")
     if not isinstance(y_col, str):
         raise ValueError("y_col must be string")
 
-    with open(filename, mode='r') as csv_file:
-        rows = list(csv.DictReader(csv_file, **kwargs))
+    # if isinstance(x_cols, str):
+    #     x_cols = [x_cols]
+
+    # with open(filename, mode='r') as csv_file:
+    #     rows = list(csv.DictReader(csv_file, **kwargs))
         
-        X = []
-        Y = []
-        for j, row in enumerate(rows):
-            if filter != None and not filter(row):
-                continue
+    #     X = []
+    #     Y = []
+    #     for j, row in enumerate(rows):
+    #         if filter != None and not filter(row):
+    #             continue
 
-            xs = []
-            for i, x_col in enumerate(x_cols):
-                xs.append(row[x_col])
-            X.append(xs)
-            Y.append(row[y_col])
+    #         xs = []
+    #         for i, x_col in enumerate(x_cols):
+    #             xs.append(row[x_col])
+    #         X.append(xs)
+    #         Y.append(row[y_col])
 
-        return Data(X, Y, name=name, format=fmts, x_labels=xcols, y_label=y_col)
+    #     return Data(X, Y, name=name, formats=format, x_labels=x_cols, y_label=y_col)
 
-def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
+    df = pd.read_csv(filename, **kwargs)
+    df.dropna(inplace=True)
+
+    return LoadDataFrame(df=df, x_cols=x_cols, y_col=y_col, name=name, format=format, filter=filter)
+
+
+# TODO: filter not implemented
+def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None):
     """
     LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_col the name of the output column. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
 
@@ -291,7 +302,7 @@ def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None, **kwargs
     x_data = df[x_cols]
     y_data = df[y_col]
 
-    return Data(x_data.values, y_data.values, name=name, format=fmts, x_labels=x_data.columns.values.tolist(), y_label=y_data.name)
+    return Data(x_data.values, y_data.values, name=name, formats=format, x_labels=x_data.columns.values.tolist(), y_label=y_data.name)
 
 ################################################################
 ################################################################
@@ -360,13 +371,14 @@ class Data:
                     X = list(map(list, zip(*[X[key] for key in x_labels])))
 
                 if formats != None and isinstance(formats, dict):
-                    it = iter(formats.values())
-                    first = len(next(it))
-                    if not all(isinstance(fmt, (list, np.ndarray)) for fmt in formats.values()) or not all(len(fmt) == first for fmt in it):
-                        raise ValueError("formats dict should contain all lists or np.ndarrays where each has the same length")
-                    if not all(key in formats for key in x_labels):
-                        raise ValueError("formats dict must contain all keys listed in x_labels")
-                    formats = list(map(list, zip(*[formats[key] for key in x_labels])))
+                    # it = iter(formats.values())
+                    # first = len(next(it))
+                    # if not all(isinstance(fmt, (list, np.ndarray)) for fmt in formats.values()) or not all(len(fmt) == first for fmt in it):
+                    #     raise ValueError("formats dict should contain all lists or np.ndarrays where each has the same length")
+                    # if not all(key in formats for key in x_labels):
+                    #     raise ValueError("formats dict must contain all keys listed in x_labels")
+                    # formats = list(map(list, zip(*[formats[key] for key in x_labels])))
+                    formats = list(formats.values())
 
         # format X columns
         if formats != None:
@@ -374,13 +386,13 @@ class Data:
                 raise ValueError("formats should be list or dict for each input dimension, when a dict is passed than x_labels must also be set")
 
             if n != 0:
-                if not isinstance(format, list):
-                    format = [format]
+                if not isinstance(formats, list):
+                    formats = [formats]
                 for col in range(input_dims):
-                    if len(format) <= col:
-                        format.append(FormatNumber())
-                    elif isinstance(format[col], type):
-                        format[col] = format[col]()
+                    if len(formats) <= col:
+                        formats.append(FormatNumber())
+                    elif isinstance(formats[col], type):
+                        formats[col] = formats[col]()
                 
                 X_raw = X
                 X = np.empty((n,input_dims))
@@ -388,12 +400,12 @@ class Data:
                     if x_nested_lists:
                         for col in range(input_dims):
                             try:
-                                X[row,col] = format[col]._parse(val[col])
+                                X[row,col] = formats[col]._parse(val[col])
                             except ValueError:
                                 print("Warning: could not parse X format at row %d column %s" % (row+1, col))
                     else:
                         try:
-                            X[row,0] = format[col]._parse(val)
+                            X[row,0] = formats[col]._parse(val)
                         except ValueError:
                             print("Warning: could not parse X format at row %d" % (row+1,))
             else:

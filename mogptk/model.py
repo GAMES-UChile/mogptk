@@ -25,7 +25,8 @@ class model:
         #    
         #Args:
         #    name (str): Name of the model.
-        #    dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+        #    dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels.
+        #    When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
         #"""
         
         if not isinstance(dataset, DataSet):
@@ -485,7 +486,7 @@ class model:
             >>> model.predict(plot=True)
         """
         if x is not None:
-            self.dataset.set_pred(self.name, x)
+            self.dataset.set_pred(x)
 
         x = self.dataset.to_kernel_pred()
         if len(x) == 0:
@@ -497,8 +498,11 @@ class model:
         if plot:
             self.plot_prediction()
 
+        _, mu, lower, upper = self.dataset.get_pred(self.name)
+        return mu, lower, upper
+
     # TODO
-    def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title='', ret_fig=False):
+    def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title=''):
 
         """
         Plot training points, all data and prediction for training range for all channels.
@@ -566,19 +570,8 @@ class model:
             if ylims is not None:
                 axes[i].set_ylim(ylims[i]) 
             
-        plt.suptitle(title, y=1.02)
+        plt.suptitle(title, y=1.02, fontsize=20)
         plt.tight_layout()
-
-        data_dict = {
-            'x_train':x_train,
-            'y_train':y_train,
-            'x_all':x_all,
-            'y_all':y_all,
-            'y_pred':mu,
-            'low_ci':lower,
-            'hi_ci':upper,
-        }
-
-        if ret_fig:
-            return fig, axes, data_dict
+        
+        return fig, axes
 
