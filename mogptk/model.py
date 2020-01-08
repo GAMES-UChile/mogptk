@@ -13,7 +13,10 @@ from tabulate import tabulate
 
 import logging
 logging.getLogger('tensorflow').propagate = False
-#tf.logging.set_verbosity(tf.logging.WARN)
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
+
+gpflow.config.set_default_positive_minimum(1e-6)
+#gpflow.config.set_default_positive_bijector("exp")
 
 class model:
     def __init__(self, name, dataset):
@@ -258,6 +261,10 @@ class model:
         if kern[key].shape != val.shape:
             raise Exception("parameter name '%s' must have shape %s and not %s" % (key, kern[key].shape, val.shape))
 
+        for i, v in np.ndenumerate(val):
+            if v < gpflow.config.default_positive_minimum():
+                val[i] = gpflow.config.default_positive_minimum()
+
         kern[key].assign(val)
 
     def set_likelihood_param(self, key, val):
@@ -282,6 +289,10 @@ class model:
 
         if likelihood[key].shape != val.shape:
             raise Exception("parameter name '%s' must have shape %s and not %s" % (key, likelihood[key].shape, val.shape))
+
+        for i, v in np.ndenumerate(val):
+            if v < gpflow.config.default_positive_minimum():
+                val[i] = gpflow.config.default_positive_minimum()
 
         likelihood[key].assign(val)
 
@@ -433,19 +444,16 @@ class model:
             step_i += 1
 
         def loss():
-            #print("VAR", self.model.likelihood.variance)
-            if self.model.likelihood.variance < 1e-6:
-                self.model.likelihood.variance.assign(1.0e-6)
-            #print("VAR", self.model.likelihood.variance)
             #x, y = self.model.data
             #K = self.model.kernel(x)
             #num_data = x.shape[0]
             #k_diag = tf.linalg.diag_part(K)
             #s_diag = tf.fill([num_data], self.model.likelihood.variance)
             #ks = tf.linalg.set_diag(K, k_diag + s_diag)
-            #print("POSDEF?", np.all(np.linalg.eigvals(ks) > 0))
             #tf.debugging.check_numerics(ks, "ks")
-            #L = tf.linalg.cholesky(ks)
+            #if not np.all(np.linalg.eigvals(ks) > 0):
+            #    print("NOT POSITIVE DEFINITE:")
+            #    print(ks)
             return -self.model.log_marginal_likelihood()
 
         start_time = time.time()

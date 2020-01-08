@@ -17,15 +17,13 @@ class CrossSpectralMixture(MultiKernel):
         constant = np.random.random((Rq, output_dim))
         mean = np.random.random(input_dim)
         variance = np.random.random(input_dim)
-        phase = np.zeros((Rq, output_dim))
+        phase = np.ones((Rq, output_dim)) * gpflow.config.default_positive_minimum()
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
         self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive())
         self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive())
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive())
         self.phase = gpflow.Parameter(phase, transform=gpflow.utilities.positive())
-
-        print("init phase", self.phase)
 
     def subK(self, index, X, X2):
         i, j = index
@@ -36,6 +34,5 @@ class CrossSpectralMixture(MultiKernel):
         exp = tf.exp(exp_term)
         constants_times_exp = tf.expand_dims(tf.expand_dims(constants, 1), 2) * exp
         cos_term = tf.reduce_sum(tf.expand_dims(tf.expand_dims(self.mean, 1), 2) * Tau, axis=0) + tf.expand_dims(tf.expand_dims(self.phase[:,i] - self.phase[:,j], 1), 2)
-        print("phase", self.phase)
         cos = tf.cos(cos_term)
         return tf.reduce_sum(constants_times_exp * cos, axis=0)
