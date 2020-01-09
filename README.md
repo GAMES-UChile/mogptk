@@ -4,7 +4,7 @@
 
 The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and interpreting Gaussian process models with multiple data channels. It builds upon [GPflow](https://www.gpflow.org/) and [TensorFlow](https://www.tensorflow.org/) to provide an easy way to train multi-output models effectively and interpret their results. The main authors are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar as part of the Center for Mathematical Modelling at the University of Chile.
 
-## Installation guide
+## Installation
 Make sure you have Python 3.7 and `pip` installed, and run the following command:
 
 ```
@@ -28,7 +28,7 @@ One of the main advantages of the present toolkit is the GPU support, which enab
 ## Getting Started
 Once installed, you can run the following example to see how the toolkit works. Using a variety of utility function you can load and filter/transform/aggregate your data before feeding it to the available models. Each model has additional functionality for parameter estimation or interpretation.
 
-```
+```python
 import numpy as np
 import mogptk
 
