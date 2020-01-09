@@ -64,6 +64,13 @@ mosm.predict()
 data.plot()
 ```
 
+## Example Notebooks
+**[Currency Exchange](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/currency_exchange_experiment.ipynb)**: this notebook shows the training of multiple models on a dataset of 11 currency exchanges in 2017 and 2018 with respect to the US dollar. These 11 channels are fitted with the MOSM, SM-LMC, CSM and CONV kernel and their results are compared. We also interpret the results for some models and show how much some channels correlate.
+
+**[GONU]()**: this is a training set of four channels called GONU (Gold, Oil, NASDAQ, and the US dollar index).
+
+TODO: more
+
 ## Glossary
 - GP - Gaussian process, see [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) by C.E. Rasmussen and C.K.I. Williams.
 - M - the number of channels (i.e. output dimensions)
@@ -74,7 +81,7 @@ data.plot()
 - CONV - Convolution Gaussian kernel, see [Sparse Convolved Multiple Output Gaussian Processes](https://arxiv.org/abs/0911.5107) by M.A. Álvarez and N.D. Lawrence.
 - SM-LMC - Spectral mixture linear model of coregionalization kernel, see [Gaussian Process Kernels for Pattern Discovery and Extrapolation](https://arxiv.org/abs/1302.4245) by A.G. Wilson and R.P. Adams and the book "Geostatistics for Natural Resource Evaluation" by P. Goovaerts.
 
-## Main authors
+## Authors
 - Taco de Wolff
 - Alejandro Cuevas
 - Felipe Tobar
