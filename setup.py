@@ -12,7 +12,7 @@ setup(name='mogptk',
       python_requires='~=3.7.0',
       install_requires=[
           'numpy~=1.18.0',
-          'gpflow @ git+https://github.com/GPflow/GPflow@develop',
+          'gpflow~=2.0.0rc1',
           'tensorflow~=2.0.0',
           'matplotlib',
           'scipy',
