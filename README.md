@@ -65,11 +65,18 @@ data.plot()
 ```
 
 ## Example Notebooks
-**[Currency Exchange](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/currency_exchange_experiment.ipynb)**: this notebook shows the training of multiple models on a dataset of 11 currency exchanges in 2017 and 2018 with respect to the US dollar. These 11 channels are fitted with the MOSM, SM-LMC, CSM and CONV kernel and their results are compared. We also interpret the results for some models and show how much some channels correlate.
 
-**[GONU]()**: this is a training set of four channels called GONU (Gold, Oil, NASDAQ, and the US dollar index).
+**[Quick Start](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/Quick_start.ipynb)**: Short notebook showcasing basic use of the toolkit.
 
-TODO: more
+**[Initial parameter estimation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/single_sm_test.ipynb)**: Parameter initialization using different methods, for single output regression using spectral mixture kernel and multioutput case using MOSM kernel. [Incomplete]
+
+**[Transformations](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/gonu_experiment.ipynb)**: Use different transformations on a financial dataset composed of four channels (Gold, Oil, NASDAQ, and the US dollar index). [Incomplete]
+
+**[Error metrics](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/climate_example.ipynb)** Obtain different metrics to compare models using climate dataset.
+
+**[Full example](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/currency_exchange_experiment.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchanges in 2017 and 2018 with respect to the US dollar. These 11 channels are fitted with the MOSM, SM-LMC, CSM and CONV kernel and their results are compared. We also interpret the results for some models and show how much some channels correlate.
+
+TODO: example with csv and dataframe handling.
 
 ## Glossary
 - **GP**: Gaussian process, see [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) by C.E. Rasmussen and C.K.I. Williams.
