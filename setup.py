@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name='mogptk',
       version='0.1',
@@ -7,18 +7,20 @@ setup(name='mogptk',
       author='Taco de Wolff, Alejandro Cuevas, Felipe Tobar',
       author_email='tacodewolff@gmail.com',
       license='MIT',
-      packages=['mogptk'],
+      packages=find_packages(),
       keywords=['MOGP', 'MOSM', 'GP', 'Gaussian Process', 'Multi-Output', 'Tobar', 'Parra'],
       python_requires='~=3.7.0',
       install_requires=[
           'numpy~=1.18.0',
           'gpflow~=2.0.0rc1',
           'tensorflow~=2.0.0',
+          'tensorflow-probability~=0.8.0',
           'matplotlib',
           'scipy',
           'scikit-learn',
           'pandas',
           'seaborn',
           'python-dateutil',
+          'ipython',
       ],
 )
