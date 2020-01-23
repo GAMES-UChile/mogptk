@@ -212,21 +212,21 @@ def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
     data.set_function(f)
     return data
 
-def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs):
+def LoadCSV(filename, x_cols, y_cols, name=None, format={}, filter=None, **kwargs):
     """
-    LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_col the name of the output column. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+    LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
 
     Args:
         filename (str): CSV filename.
         x_cols (str, list): Name or names of X column(s) in CSV.
-        y_col (str): Name of Y column in CSV.
+        y_cols (str, list): Name or names of Y column(s) in CSV.
         name (str, optional): Name of data.
         format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
         filter (function, optional): Function that takes row as argument, and returns True to keep the record.
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
-        mogptk.data.Data
+        mogptk.data.DataSet
 
     Examples:
         >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
@@ -238,51 +238,31 @@ def LoadCSV(filename, x_cols, y_col, name=None, format={}, filter=None, **kwargs
 
     if (not isinstance(x_cols, list) or not all(isinstance(item, str) for item in x_cols)) and not isinstance(x_cols, str):
         raise ValueError("x_cols must be string or list of strings")
-    if not isinstance(y_col, str):
-        raise ValueError("y_col must be string")
-
-    # if isinstance(x_cols, str):
-    #     x_cols = [x_cols]
-
-    # with open(filename, mode='r') as csv_file:
-    #     rows = list(csv.DictReader(csv_file, **kwargs))
-        
-    #     X = []
-    #     Y = []
-    #     for j, row in enumerate(rows):
-    #         if filter != None and not filter(row):
-    #             continue
-
-    #         xs = []
-    #         for i, x_col in enumerate(x_cols):
-    #             xs.append(row[x_col])
-    #         X.append(xs)
-    #         Y.append(row[y_col])
-
-    #     return Data(X, Y, name=name, formats=format, x_labels=x_cols, y_label=y_col)
+    if (not isinstance(y_cols, list) or not all(isinstance(item, str) for item in y_cols)) and not isinstance(y_cols, str):
+        raise ValueError("y_cols must be string or list of strings")
 
     df = pd.read_csv(filename, **kwargs)
     df.dropna(inplace=True)
 
-    return LoadDataFrame(df=df, x_cols=x_cols, y_col=y_col, name=name, format=format, filter=filter)
+    return LoadDataFrame(df=df, x_cols=x_cols, y_cols=y_cols, name=name, format=format, filter=filter)
 
 
 # TODO: filter not implemented
-def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None):
+def LoadDataFrame(df, x_cols, y_cols, name=None, format={}, filter=None):
     """
-    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_col the name of the output column. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
 
     Args:
         df (pandas.DataFrame): The Pandas DataFrame.
         x_cols (str, list): Name or names of X column(s) in DataFrame.
-        y_col (str): Name of Y column in DataFrame.
+        y_cols (str, list): Name or names of Y column(s) in DataFrame.
         name (str, optional): Name of data.
         format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
         filter (function, optional): Function that takes row as argument, and returns True to keep the record.
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
-        mogptk.data.Data
+        mogptk.data.DataSet
 
     Examples:
         >>> df = pd.DataFrame(...)
@@ -293,16 +273,26 @@ def LoadDataFrame(df, x_cols, y_col, name=None, format={}, filter=None):
         >>> LoadDataFrame(df, 'Date', 'Price', delimiter=' ', quotechar='|')
         <mogptk.data.Data at ...>
     """
-    input_dims = 1
-    if isinstance(x_cols, list):
-        input_dims = len(x_cols)
-    else:
+
+    if not isinstance(x_cols, list):
         x_cols = [x_cols]
+    if not isinstance(y_cols, list):
+        y_cols = [y_cols]
 
+    input_dims = len(x_cols)
     x_data = df[x_cols]
-    y_data = df[y_col]
 
-    return Data(x_data.values, y_data.values, name=name, formats=format, x_labels=x_data.columns.values.tolist(), y_label=y_data.name)
+    dataset = DataSet()
+    for y_col in y_cols:
+        y_data = df[y_col]
+        dataset.append(Data(
+            x_data.values,
+            y_data.values,
+            name=name,
+            formats=format,
+            x_labels=x_data.columns.values.tolist(),
+            y_label=y_data.name))
+    return dataset
 
 ################################################################
 ################################################################
