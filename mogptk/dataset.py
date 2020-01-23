@@ -188,7 +188,7 @@ class DataSet:
             >>> dataset.get_names()
             ['A', 'B', 'C']
         """
-        return [channel.get_name() for channel in self.channels]
+        return [channel.get_name() if channel.get_name() != "" else "#"+str(i+1) for i, channel in enumerate(self.channels)]
 
     def get(self, index):
         """
