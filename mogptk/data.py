@@ -5,7 +5,6 @@ import numpy as np
 from .bnse import *
 from scipy import signal
 import dateutil, datetime
-import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 import re
