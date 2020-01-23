@@ -3,7 +3,7 @@ import pandas as pd
 from .data import Data
 import matplotlib.pyplot as plt
 
-def LoadCSV(filename, x_cols, y_cols, name=None, format={}, filter=None, **kwargs):
+def LoadCSV(filename, x_cols, y_cols, names="", format={}, filter=None, **kwargs):
     """
     LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
 
@@ -11,7 +11,7 @@ def LoadCSV(filename, x_cols, y_cols, name=None, format={}, filter=None, **kwarg
         filename (str): CSV filename.
         x_cols (str, list): Name or names of X column(s) in CSV.
         y_cols (str, list): Name or names of Y column(s) in CSV.
-        name (str, optional): Name of data.
+        names (str, list, optional): Name or names of data channels.
         format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
         filter (function, optional): Function that takes row as argument, and returns True to keep the record.
         **kwargs: Additional keyword arguments for csv.DictReader.
@@ -35,11 +35,11 @@ def LoadCSV(filename, x_cols, y_cols, name=None, format={}, filter=None, **kwarg
     df = pd.read_csv(filename, **kwargs)
     df.dropna(inplace=True)
 
-    return LoadDataFrame(df=df, x_cols=x_cols, y_cols=y_cols, name=name, format=format, filter=filter)
+    return LoadDataFrame(df=df, x_cols=x_cols, y_cols=y_cols, names=names, format=format, filter=filter)
 
 
 # TODO: filter not implemented
-def LoadDataFrame(df, x_cols, y_cols, name=None, format={}, filter=None):
+def LoadDataFrame(df, x_cols, y_cols, names="", format={}, filter=None):
     """
     LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
 
@@ -47,7 +47,7 @@ def LoadDataFrame(df, x_cols, y_cols, name=None, format={}, filter=None):
         df (pandas.DataFrame): The Pandas DataFrame.
         x_cols (str, list): Name or names of X column(s) in DataFrame.
         y_cols (str, list): Name or names of Y column(s) in DataFrame.
-        name (str, optional): Name of data.
+        names (str, list, optional): Name or names of data channels.
         format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
         filter (function, optional): Function that takes row as argument, and returns True to keep the record.
         **kwargs: Additional keyword arguments for csv.DictReader.
@@ -65,21 +65,30 @@ def LoadDataFrame(df, x_cols, y_cols, name=None, format={}, filter=None):
         <mogptk.data.Data at ...>
     """
 
+    if (not isinstance(x_cols, list) or not all(isinstance(item, str) for item in x_cols)) and not isinstance(x_cols, str):
+        raise ValueError("x_cols must be string or list of strings")
+    if (not isinstance(y_cols, list) or not all(isinstance(item, str) for item in y_cols)) and not isinstance(y_cols, str):
+        raise ValueError("y_cols must be string or list of strings")
+
     if not isinstance(x_cols, list):
         x_cols = [x_cols]
     if not isinstance(y_cols, list):
         y_cols = [y_cols]
+    if not isinstance(names, list):
+        names = [names]
+    if len(y_cols) != len(names):
+        raise ValueError("y_cols and names must be of the same length")
 
     input_dims = len(x_cols)
     x_data = df[x_cols]
 
     dataset = DataSet()
-    for y_col in y_cols:
-        y_data = df[y_col]
+    for i in range(len(y_cols)):
+        y_data = df[y_cols[i]]
         dataset.append(Data(
             x_data.values,
             y_data.values,
-            name=name,
+            name=names[i],
             formats=format,
             x_labels=x_data.columns.values.tolist(),
             y_label=y_data.name))

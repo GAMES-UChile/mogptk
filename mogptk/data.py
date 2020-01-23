@@ -157,7 +157,7 @@ class TransformLog:
 ################################################################
 ################################################################
 
-def LoadFunction(f, start, end, n, var=0.0, name=None, random=False):
+def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     """
     LoadFunction loads a dataset from a given function y = f(x) + N(0,var). It will pick n data points between start and end for x, for which f is being evaluated. By default the n points are spread equally over the interval, with random=True they will be picked randomly.
 
