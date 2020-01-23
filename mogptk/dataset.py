@@ -2,6 +2,92 @@ import numpy as np
 from .data import Data
 import matplotlib.pyplot as plt
 
+def LoadCSV(filename, x_cols, y_cols, name=None, format={}, filter=None, **kwargs):
+    """
+    LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+
+    Args:
+        filename (str): CSV filename.
+        x_cols (str, list): Name or names of X column(s) in CSV.
+        y_cols (str, list): Name or names of Y column(s) in CSV.
+        name (str, optional): Name of data.
+        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
+        **kwargs: Additional keyword arguments for csv.DictReader.
+
+    Returns:
+        mogptk.data.DataSet
+
+    Examples:
+        >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
+        <mogptk.data.Data at ...>
+
+        >>> LoadCSV('gold.csv', 'Date', 'Price', delimiter=' ', quotechar='|')
+        <mogptk.data.Data at ...>
+    """
+
+    if (not isinstance(x_cols, list) or not all(isinstance(item, str) for item in x_cols)) and not isinstance(x_cols, str):
+        raise ValueError("x_cols must be string or list of strings")
+    if (not isinstance(y_cols, list) or not all(isinstance(item, str) for item in y_cols)) and not isinstance(y_cols, str):
+        raise ValueError("y_cols must be string or list of strings")
+
+    df = pd.read_csv(filename, **kwargs)
+    df.dropna(inplace=True)
+
+    return LoadDataFrame(df=df, x_cols=x_cols, y_cols=y_cols, name=name, format=format, filter=filter)
+
+
+# TODO: filter not implemented
+def LoadDataFrame(df, x_cols, y_cols, name=None, format={}, filter=None):
+    """
+    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+
+    Args:
+        df (pandas.DataFrame): The Pandas DataFrame.
+        x_cols (str, list): Name or names of X column(s) in DataFrame.
+        y_cols (str, list): Name or names of Y column(s) in DataFrame.
+        name (str, optional): Name of data.
+        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
+        **kwargs: Additional keyword arguments for csv.DictReader.
+
+    Returns:
+        mogptk.data.DataSet
+
+    Examples:
+        >>> df = pd.DataFrame(...)
+        >>> LoadDataFrame(df, 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
+        <mogptk.data.Data at ...>
+
+        >>> df = pd.DataFrame(...)
+        >>> LoadDataFrame(df, 'Date', 'Price', delimiter=' ', quotechar='|')
+        <mogptk.data.Data at ...>
+    """
+
+    if not isinstance(x_cols, list):
+        x_cols = [x_cols]
+    if not isinstance(y_cols, list):
+        y_cols = [y_cols]
+
+    input_dims = len(x_cols)
+    x_data = df[x_cols]
+
+    dataset = DataSet()
+    for y_col in y_cols:
+        y_data = df[y_col]
+        dataset.append(Data(
+            x_data.values,
+            y_data.values,
+            name=name,
+            formats=format,
+            x_labels=x_data.columns.values.tolist(),
+            y_label=y_data.name))
+    return dataset
+
+################################################################
+################################################################
+################################################################
+
 class DataSet:
     def __init__(self, *args):
         """
