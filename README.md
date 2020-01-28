@@ -1,6 +1,6 @@
 # Multi-Output Gaussian Process Toolkit
 
-**[API Documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/) - [Tutorial](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/TUTORIAL.md) - [Contribute](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/CONTRIBUTE.md)**
+**[API Documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/) - [Tutorials & Examples](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit#tutorials)**
 
 The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and interpreting Gaussian process models with multiple data channels. It builds upon [GPflow](https://www.gpflow.org/) and [TensorFlow](https://www.tensorflow.org/) to provide an easy way to train multi-output models effectively and interpret their results. The main authors are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar as part of the Center for Mathematical Modelling at the University of Chile.
 
@@ -102,7 +102,7 @@ data.plot()
 - Felipe Tobar
 
 ## Contributing
-We accept and encourage contributions to the toolkit in the form of pull requests (PRs), bug reports and discussions (GitHub issues). Please see the [contribute guide](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/CONTRIBUTE.md) for more information.
+We accept and encourage contributions to the toolkit in the form of pull requests (PRs), bug reports and discussions (GitHub issues). TODO
 
 ## Citing
 TODO
