@@ -1,6 +1,6 @@
 # Multi-Output Gaussian Process Toolkit
 
-[Documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/)
+**[API Documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/) - [Tutorial](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/TUTORIAL.md) - [Contribute](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/CONTRIBUTE.md)**
 
 The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and interpreting Gaussian process models with multiple data channels. It builds upon [GPflow](https://www.gpflow.org/) and [TensorFlow](https://www.tensorflow.org/) to provide an easy way to train multi-output models effectively and interpret their results. The main authors are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar as part of the Center for Mathematical Modelling at the University of Chile.
 
@@ -8,13 +8,13 @@ The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and i
 Make sure you have Python 3.7 and `pip` installed, and run the following command:
 
 ```
-pip install git+https://github.com/GAMES-UChile/MultiOutputGP-Toolkit
+pip install mogptk
 ```
 
 This will automatically install the necessary dependencies (such as GPflow2 and TensorFlow2).
 
 ## Documentation
-See **[Documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/)** for documentation of our toolkit, including usage and examples.
+See the [API documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/) for documentation of our toolkit, including usage and examples of functions and classes.
 
 ## Introduction
 This repository provides a toolkit to perform multi-output GP regression with kernels that are designed to utilize correlation information among channels in order to better model signals. The toolkit is mainly targeted to time-series, and includes plotting functions for the case of single input with multiple outputs (time series with several channels).
@@ -64,19 +64,27 @@ mosm.predict()
 data.plot()
 ```
 
-## Example Notebooks
+## Tutorials
 
-**[Quick Start](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/Quick_start.ipynb)**: Short notebook showcasing basic use of the toolkit.
+**[00 - Quick Start](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/00_Quick_Start.ipynb)**: Short notebook showcasing basic use of the toolkit.
 
-**[Initial parameter estimation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/single_sm_test.ipynb)**: Parameter initialization using different methods, for single output regression using spectral mixture kernel and multioutput case using MOSM kernel. [Incomplete]
+**[01 - Data Loading](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/01_Data_Loading.ipynb)**: CSV & DataFrame
 
-**[Transformations](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/gonu_experiment.ipynb)**: Use different transformations on a financial dataset composed of four channels (Gold, Oil, NASDAQ, and the US dollar index). [Incomplete]
+**[02 - Data Preparation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/02_Data_Preparation.ipynb)**: Use different transformations on a financial dataset composed of four channels (Gold, Oil, NASDAQ, and the US dollar index). [Incomplete]
 
-**[Error metrics](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/climate_example.ipynb)** Obtain different metrics to compare models using climate dataset.
+**[03 - Parameter Estimation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/03_Parameter_Estimation.ipynb)**: Parameter initialization using different methods, for single output regression using spectral mixture kernel and multioutput case using MOSM kernel. [Incomplete]
 
-**[Full example](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/currency_exchange_experiment.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchanges in 2017 and 2018 with respect to the US dollar. These 11 channels are fitted with the MOSM, SM-LMC, CSM and CONV kernel and their results are compared. We also interpret the results for some models and show how much some channels correlate.
+**[04 - Model Training](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/04_Model_Training.ipynb)**
 
-TODO: example with csv and dataframe handling.
+**[05 - Error Metrics](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/05_Error_Metrics.ipynb)** Obtain different metrics to compare models using climate dataset.
+
+## Examples
+
+**[Currency Exchange](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/currency_exchange_experiment.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchanges in 2017 and 2018 with respect to the US dollar. These 11 channels are fitted with the MOSM, SM-LMC, CSM and CONV kernel and their results are compared. We also interpret the results for some models and show how much some channels correlate.
+
+**[Gold, Oil, NASDAQ, USD-index](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_GONU.ipynb)**
+
+**[Human Activity Recognition](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_HAR.ipynb)**
 
 ## Glossary
 - **GP**: Gaussian process, see [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) by C.E. Rasmussen and C.K.I. Williams.
@@ -94,7 +102,7 @@ TODO: example with csv and dataframe handling.
 - Felipe Tobar
 
 ## Contributing
-We accept and encourage contributions to the toolkit in the form of pull requests (PRs), bug reports and discussions (GitHub issues). Please see [TODO] for more information.
+We accept and encourage contributions to the toolkit in the form of pull requests (PRs), bug reports and discussions (GitHub issues). Please see the [contribute guide](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/CONTRIBUTE.md) for more information.
 
 ## Citing
 TODO
