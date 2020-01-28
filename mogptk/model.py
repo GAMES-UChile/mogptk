@@ -454,7 +454,7 @@ class model:
             opt.minimize(loss, self.model.trainable_variables)
         else:
             opt = gpflow.optimizers.Scipy()
-            opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': verbose}, **params)
+            opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': True}, **params)
 
         if verbose:
             print("Training finished in %.1f minutes" % ((time.time() - start_time)/60))
