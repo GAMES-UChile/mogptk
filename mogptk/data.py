@@ -1039,12 +1039,12 @@ class Data:
             ax.plot(x[:,0], y, 'r--', lw=1)
             legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent function'))
 
-        ax.plot(self.X[:,0], self.Y, 'k-')
+        ax.plot(self.X[:,0], self.Y, 'k-', alpha=0.7)
         legend.append(plt.Line2D([0], [0], ls='-', color='k', label='Data'))
 
         if self.has_removed_obs():
             X, Y = self.X[self.mask,:], self.Y[self.mask]
-            ax.plot(X[:,0], Y, 'k.', mew=2, ms=5)
+            ax.plot(X[:,0], Y, 'k.', mew=.5, ms=8, markeredgecolor='white')
             legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))
 
         ax.set_xlabel(self.x_labels[0])
@@ -1115,7 +1115,7 @@ class Data:
         ax.plot(X, Y, 'k-')
         if len(Y_err) != 0:
             ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.1)
-        ax.set_title(self.name + ' spectrum', fontsize=30)
+        ax.set_title(self.name + ' Spectrum')
         ax.set_yticks([])
         ax.set_ylim(0, None)
 
