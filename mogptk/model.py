@@ -408,7 +408,7 @@ class model:
         tol=1e-6,
         maxiter=2000,
         params={},
-        export_graph=False):
+        verbose=False):
         """
         Trains the model using the kernel and its parameters.
 
@@ -424,25 +424,13 @@ class model:
             tol (float): Tolerance for optimizer. Defaults to 1e-6.
             maxiter (int): Maximum number of iterations. Defaults to 2000.
             params (dict): Additional dictionary with parameters to minimize. 
-            export_graph (bool): Default to False.
+            verbose (bool): Enable verbose output.
 
         Examples:
             >>> model.train(tol=1e-6, maxiter=1e5)
             
             >>> model.train(method='Adam', opt_params={...})
         """
-        #if export_graph:
-        #    def get_tensor(name):
-        #        return self.graph.get_tensor_by_name('GPR-' + self.model._index + '/likelihood_1/' + name + ':0')
-        #    writer = tf.summary.FileWriter("log", self.graph)
-        #    K_summary = tf.summary.histogram('K', get_tensor('K'))
-
-        step_i = 0
-        def step(theta):
-            nonlocal step_i
-            #if export_graph:
-            #    writer.add_summary(self.session.run(K_summary), step_i)
-            step_i += 1
 
         def loss():
             #x, y = self.model.data
@@ -457,15 +445,19 @@ class model:
             #    print(ks)
             return -self.model.log_marginal_likelihood()
 
+        if verbose:
+            print("Initializing training...")
+
         start_time = time.time()
         if method.lower() == "adam":
             opt = tf.optimizers.Adam(learning_rate=0.001)
             opt.minimize(loss, self.model.trainable_variables)
         else:
             opt = gpflow.optimizers.Scipy()
-            opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': False}, **params)
+            opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': verbose}, **params)
 
-        print("Done in %.1f minutes" % ((time.time() - start_time)/60))
+        if verbose:
+            print("Training finished in %.1f minutes" % ((time.time() - start_time)/60))
 
     ################################################################################
     # Predictions ##################################################################
