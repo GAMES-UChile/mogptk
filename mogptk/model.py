@@ -430,7 +430,6 @@ class model:
             >>> model.train(method='Adam', opt_params={...})
         """
 
-        @tf.function
         def loss():
             #x, y = self.model.data
             #K = self.model.kernel(x)
@@ -449,7 +448,7 @@ class model:
             opt.minimize(loss, self.model.trainable_variables)
         else:
             opt = gpflow.optimizers.Scipy()
-            opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': True}, jit=False, **params)
+            opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': True}, **params)
 
     ################################################################################
     # Predictions ##################################################################

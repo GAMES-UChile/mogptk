@@ -5,11 +5,11 @@ from setuptools import setup, find_packages
 is_py37 = sys.version_info.major == 3 and sys.version_info.minor == 7
 
 requirements = [
-    'numpy>=1.18',
-    'gpflow @ git+https://github.com/GPflow/GPflow.git@develop#egg=gpflow',
-    'tensorflow-probability>=0.9',
+    'numpy>=1.10',
+    'gpflow==2.0.0rc1',
+    'tensorflow-probability==0.8',
     'matplotlib',
-    'scipy',
+    'scipy>=0.18',
     'scikit-learn',
     'pandas',
     'seaborn',
@@ -20,10 +20,10 @@ requirements = [
 
 try:
     import tensorflow as tf
-    if parse_version(tf.__version__) < parse_version('2.1.0'):
+    if parse_version(tf.__version__) < parse_version('2.0.0'):
         raise DeprecationWarning("TensorFlow version below minimum requirement")
 except (ImportError, DeprecationWarning):
-    requirements.append('tensorflow~=2.1')
+    requirements.append('tensorflow==2.0')
 
 setup(name='mogptk',
       version='0.1',
