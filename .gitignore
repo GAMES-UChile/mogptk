@@ -5,4 +5,4 @@ __pycache__/
 build/
 dist/
 mogptk.egg-info/
-examples/log
+examples/test*

@@ -20,49 +20,18 @@ Each model has specialized methods for parameter estimation to improve training.
 Make sure you have Python 3.6 and `pip` installed, and run the following command:
 
 ```
-pip install git+https://github.com/GAMES-UChile/MultiOutputGP-Toolkit
+pip install mogptk
 ```
 
-## Quick Example
-This is a quick example showing how this library can be used. First we import the library as follows:
-
-    >>> import mogptk
-
-Next we load our data (`x`, and `y`) into a `Data` class. Your `x` data should be a `list` or `numpy.ndarray` of `n` data points. When you have more than one input dimension, the shape of `x` should look like `(n,input_dims)`. When `x` is a dictionary, each item should be a `list` or `numpy.ndarray`, and the keys should be referenced by passing a `x_labels` which is a `list` or strings. Your `y` data should be a `list` or `numpy.ndarray` of `n` data points.
-
-    >>> data = mogptk.Data(x, y, name='Dataset')
-
-If you have multiple output channels it is convenient to use the `DataSet` class which can hold multiple `Data` objects, one for each channel. Additionally, there is functionality to create a `Data` object from a CSV file, a `pandas.DataFrame` or using a Python function, for example:
-
-    >>> data = mogptk.DataSet()
-    >>> data.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='Function'))
-    >>> data.append(mogptk.LoadCSV('data.csv', 'time', 'measurement', name='CSV'))
-    >>> data.append(mogptk.LoadDataFrame(df, 'x', 'y', name='DataFrame'))
-
-Next we can transform our data, remove data points (e.g. to simulate sensor failure), and set our prediction range:
-
-    >>> data['CSV'].transform(mogptk.TransformLog)
-    >>> data['DataFrame'].remove_randomly(pct=0.40)
-    >>> data['Function'].set_pred_range(0.0, 5.0, n=200)
-
-With our data set, we can instantiate a model (e.g. `MOSM`, `CSM`, `CONV`, `SM_LMC`) and set its parameters. All models accept a `Q` parameter which is the number of (Gaussian) mixtures to use. Some models also have an `Rq` parameter, see the cited references above for an exact description.
-
-    >>> mosm = mogptk.MOSM(data, Q=3)
-
-Given our model, we first estimate the parameters using a per-channel Spectral Mixture kernel or using Bayesian Nonparametric Spectral Estimation to improve the speed and likelihood of convergence when training:
-
-    >>> mosm.estimate_params()
-
-Next we train our model and do a prediction using the data range previously defined:
-
-    >>> mosm.train()
-    >>> mosm.predict()
-
-Finally we can plot our data and prediction:
-
-    >>> data.plot()
-
-See the rest of this documentation for a full overview of all functionalities.
+## Glossary
+- **GP**: Gaussian process, see [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) by C.E. Rasmussen and C.K.I. Williams.
+- **M**: the number of channels (i.e. output dimensions)
+- **N**: the number of data points
+- **Q**: the number of components to use for a kernel. Each component is added additively to the kernel set using the GPflow kernel addition operator
+- **MOSM**: Multi-output spectral mixture kernel, see [Spectral Mixture Kernels for Multi-Output Gaussian Processes](https://arxiv.org/abs/1709.01298) by G. Parra and F. Tobar.
+- **CSM**: Cross spectral mixture kernel, see [GP Kernels for Cross-Spectrum Analysis](https://papers.nips.cc/paper/5966-gp-kernels-for-cross-spectrum-analysis) by K.R. Ulrich et al.
+- **CONV**: Convolution Gaussian kernel, see [Sparse Convolved Multiple Output Gaussian Processes](https://arxiv.org/abs/0911.5107) by M.A. Álvarez and N.D. Lawrence.
+- **SM-LMC**: Spectral mixture linear model of coregionalization kernel, see [Gaussian Process Kernels for Pattern Discovery and Extrapolation](https://arxiv.org/abs/1302.4245) by A.G. Wilson and R.P. Adams and the book "Geostatistics for Natural Resource Evaluation" by P. Goovaerts.
 
 ## Data handling
 ### Formats
