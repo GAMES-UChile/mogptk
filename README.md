@@ -13,9 +13,6 @@ pip install mogptk
 
 This will automatically install the necessary dependencies such as GPflow2 and TensorFlow2. See [Tutorials & Examples](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit#tutorials) to get started.
 
-## Documentation
-See the [API documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/) for documentation of our toolkit, including usage and examples of functions and classes.
-
 ## Introduction
 This repository provides a toolkit to perform multi-output GP regression with kernels that are designed to utilize correlation information among channels in order to better model signals. The toolkit is mainly targeted to time-series, and includes plotting functions for the case of single input with multiple outputs (time series with several channels).
 
@@ -27,84 +24,28 @@ One of the main advantages of the present toolkit is the GPU support, which enab
 
 ## Tutorials
 
-**[00 - Quick Start](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/00_Quick_Start.ipynb)**: Short notebook showcasing basic use of the toolkit.
+**[00 - Quick Start](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/00_Quick_Start.ipynb)**: Short notebook showing the basic use of the toolkit.
 
-**[01 - Data Loading](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/01_Data_Loading.ipynb)**: CSV & DataFrame
+**[01 - Data Loading](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/01_Data_Loading.ipynb)**: Functionality to load CSVs and DataFrames while using formatters for dates.
 
 **[02 - Data Preparation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/02_Data_Preparation.ipynb)**: Use different transformations on a financial dataset composed of four channels (Gold, Oil, NASDAQ, and the US dollar index). [Incomplete]
 
-**[03 - Parameter Estimation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/03_Parameter_Estimation.ipynb)**: Parameter initialization using different methods, for single output regression using spectral mixture kernel and multioutput case using MOSM kernel. [Incomplete]
+**[03 - Parameter Estimation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/03_Parameter_Estimation.ipynb)**: Parameter initialization using different methods, for single output regression using spectral mixture kernel and multioutput case using MOSM kernel.
 
-**[04 - Model Training](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/04_Model_Training.ipynb)**
+**[04 - Model Training](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/04_Model_Training.ipynb)**: Training of models while keeping certain parameters fixed.
 
 **[05 - Error Metrics](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/05_Error_Metrics.ipynb)** Obtain different metrics to compare models using climate dataset.
 
 ## Examples
 
-**[Currency Exchange](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/currency_exchange_experiment.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchanges in 2017 and 2018 with respect to the US dollar. These 11 channels are fitted with the MOSM, SM-LMC, CSM and CONV kernel and their results are compared. We also interpret the results for some models and show how much some channels correlate.
+**[Currency Exchange](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/currency_exchange_experiment.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchange rates (against the dollar) from 2017 and 2018. These 11 channels are fitted with the MOSM, SM-LMC, CSM, and CONV kernels and their results are compared and interpreted.
 
-**[Gold, Oil, NASDAQ, USD-index](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_GONU.ipynb)**
+**[Gold, Oil, NASDAQ, USD-index](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_GONU.ipynb)**: The commodity indices for gold and oil, together with the indices for the NASDAQ and the USD against a basket of other currencies, we train multiple models to find correlations between the macro economic indicators.
 
-**[Human Activity Recognition](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_HAR.ipynb)**
+**[Human Activity Recognition](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_HAR.ipynb)**: Using the Inertial Measurement Unit (IMU) of an Apple iPhone 4, the accelerometer, gyroscope and magnetometer 3D data were recorded for different activities resulting in nine channels.
 
-<!--
-## Getting Started
-Once installed, you can follow the following example to see how the toolkit works. Using a variety of utility function you can load and filter/transform/aggregate your data before feeding it to the available models. Each model has additional functionality for parameter estimation or interpretation.
-
-This is a quick example showing how this library can be used. First we import the library as follows:
-
-```python
-import mogptk
-```
-
-Next we load our data (`x`, and `y`) into a `Data` class. Your `x` data should be a `list` or `numpy.ndarray` of `n` data points. When you have more than one input dimension, the shape of `x` should look like `(n,input_dims)`. When `x` is a dictionary, each item should be a `list` or `numpy.ndarray`, and the keys should be referenced by passing a `x_labels` which is a `list` or strings. Your `y` data should be a `list` or `numpy.ndarray` of `n` data points.
-
-```python
-data = mogptk.Data(x, y, name='Dataset')
-```
-
-If you have multiple output channels it is convenient to use the `DataSet` class which can hold multiple `Data` objects, one for each channel. Additionally, there is functionality to create a `Data` object from a CSV file, a `pandas.DataFrame` or using a Python function, for example:
-
-```python
-data = mogptk.DataSet()
-data.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='Function'))
-data.append(mogptk.LoadCSV('data.csv', 'time', 'measurement', name='CSV'))
-data.append(mogptk.LoadDataFrame(df, 'x', 'y', name='DataFrame'))
-```
-
-Next we can transform our data, remove data points (e.g. to simulate sensor failure), and set our prediction range:
-
-```python
-data['CSV'].transform(mogptk.TransformLog)
-data['DataFrame'].remove_randomly(pct=0.40)
-data['Function'].set_pred_range(0.0, 5.0, n=200)
-```
-
-With our data set, we can instantiate a model (e.g. `MOSM`, `CSM`, `CONV`, `SM_LMC`) and set its parameters. All models accept a `Q` parameter which is the number of (Gaussian) mixtures to use. Some models also have an `Rq` parameter, see the cited references above for an exact description.
-
-```python
-mosm = mogptk.MOSM(data, Q=3)
-```
-
-Given our model, we first estimate the parameters using a per-channel Spectral Mixture kernel or using Bayesian Nonparametric Spectral Estimation to improve the speed and likelihood of convergence when training:
-
-```python
-mosm.estimate_params()
-```
-
-Next we train our model and do a prediction using the data range previously defined:
-
-```python
-mosm.train()
-mosm.predict()
-```
-
-Finally we can plot our data and prediction:
-
-```python
-data.plot()
-```
--->
+## Documentation
+See the [API documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/) for documentation of our toolkit, including usage and examples of functions and classes.
 
 ## Authors
 - Taco de Wolff
