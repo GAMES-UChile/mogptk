@@ -1005,8 +1005,6 @@ class Data:
         if ax == None:
             ax = plt.gca()
         
-        ax.set_title(self.name, fontsize=36)
-        
         legend = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
@@ -1044,7 +1042,7 @@ class Data:
 
         ax.set_xlabel(self.x_labels[0])
         ax.set_ylabel(self.y_label)
-        ax.set_title(self.name, fontsize=30)
+        ax.set_title(self.name)
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
         ax.xaxis.set_major_formatter(formatter)
 
