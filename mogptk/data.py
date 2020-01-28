@@ -260,64 +260,71 @@ class Data:
                     x_nested_lists = True
                     input_dims = first
 
+        if n == 0:
+            raise ValueError("X must contain at least one data row")
+
         # convert dicts to lists
         if x_labels != None:
-            if n != 0:
-                if isinstance(x_labels, str) and input_dims == 1:
-                    x_labels = [x_labels] 
-                if not isinstance(x_labels, list) or not all(isinstance(label, str) for label in x_labels):
-                    raise ValueError("x_labels must be a string or list of strings for each input dimension")
+            if isinstance(x_labels, str) and input_dims == 1:
+                x_labels = [x_labels]
+            if not isinstance(x_labels, list) or not all(isinstance(label, str) for label in x_labels):
+                raise ValueError("x_labels must be a string or list of strings for each input dimension")
 
-                if isinstance(X, dict):
-                    it = iter(X.values())
-                    first = len(next(it))
-                    if not all(isinstance(x, (list, np.ndarray)) for x in X.values()) or not all(len(x) == first for x in it):
-                        raise ValueError("X dict should contain all lists or np.ndarrays where each has the same length")
-                    if not all(key in X for key in x_labels):
-                        raise ValueError("X dict must contain all keys listed in x_labels")
-                    X = list(map(list, zip(*[X[key] for key in x_labels])))
+            if isinstance(X, dict):
+                it = iter(X.values())
+                first = len(next(it))
+                if not all(isinstance(x, (list, np.ndarray)) for x in X.values()) or not all(len(x) == first for x in it):
+                    raise ValueError("X dict should contain all lists or np.ndarrays where each has the same length")
+                if not all(key in X for key in x_labels):
+                    raise ValueError("X dict must contain all keys listed in x_labels")
+                X = list(map(list, zip(*[X[key] for key in x_labels])))
 
-                if formats != None and isinstance(formats, dict):
-                    # it = iter(formats.values())
-                    # first = len(next(it))
-                    # if not all(isinstance(fmt, (list, np.ndarray)) for fmt in formats.values()) or not all(len(fmt) == first for fmt in it):
-                    #     raise ValueError("formats dict should contain all lists or np.ndarrays where each has the same length")
-                    # if not all(key in formats for key in x_labels):
-                    #     raise ValueError("formats dict must contain all keys listed in x_labels")
-                    # formats = list(map(list, zip(*[formats[key] for key in x_labels])))
-                    formats = list(formats.values())
+            if formats != None and isinstance(formats, dict):
+                formats = list(formats.values())
 
         # format X columns
-        if formats != None:
-            if not isinstance(formats, list):
-                raise ValueError("formats should be list or dict for each input dimension, when a dict is passed than x_labels must also be set")
+        if formats == None:
+            formats = [FormatNumber()] * input_dims
 
-            if n != 0:
-                if not isinstance(formats, list):
-                    formats = [formats]
+        if not isinstance(formats, (list, dict)):
+            raise ValueError("formats should be list or dict for each input dimension, when a dict is passed than x_labels must also be set")
+
+        for col in range(input_dims):
+            if len(formats) <= col:
+                formats.append(FormatNumber())
+            elif isinstance(formats[col], type):
+                formats[col] = formats[col]()
+
+        bad_rows = set()
+
+        X_raw = X
+        X = np.empty((n,input_dims))
+        for row, val in enumerate(X_raw):
+            if x_nested_lists:
                 for col in range(input_dims):
-                    if len(formats) <= col:
-                        formats.append(FormatNumber())
-                    elif isinstance(formats[col], type):
-                        formats[col] = formats[col]()
-                
-                X_raw = X
-                X = np.empty((n,input_dims))
-                for row, val in enumerate(X_raw):
-                    if x_nested_lists:
-                        for col in range(input_dims):
-                            try:
-                                X[row,col] = formats[col]._parse(val[col])
-                            except ValueError:
-                                print("Warning: could not parse X format at row %d column %s" % (row+1, col))
-                    else:
-                        try:
-                            X[row,0] = formats[col]._parse(val)
-                        except ValueError:
-                            print("Warning: could not parse X format at row %d" % (row+1,))
+                    try:
+                        X[row,col] = formats[col]._parse(val[col])
+                    except ValueError:
+                        bad_rows.add(row)
             else:
-                # error handled below
-                pass
+                try:
+                    X[row,0] = formats[col]._parse(val)
+                except ValueError:
+                    bad_rows.add(row)
+
+        Y_raw = Y
+        Y = np.empty((n,))
+        for row, val in enumerate(Y_raw):
+            try:
+                Y[row] = FormatNumber()._parse(val)
+            except ValueError:
+                bad_rows.add(row)
+
+        if 0 < len(bad_rows):
+            bad_rows = list(bad_rows)
+            print("Warning: could not parse values for %d rows, removing data points" % (len(bad_rows),))
+            np.delete(X, bad_rows)
+            np.delete(Y, bad_rows)
 
         # check if X and Y are correct inputs
         if isinstance(X, list):
