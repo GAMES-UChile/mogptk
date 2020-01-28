@@ -530,16 +530,15 @@ class model:
 
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i in range(n_dim):
-            axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=5)
-            axes[i].plot(x_all[i][:,0], y_all[i], '--', label='Test', c='gray',lw=1.4, zorder=5)
-            
-            axes[i].plot(x_pred[i][:,0], mu[i], label='Post.Mean', c=colors[i], zorder=1)
             axes[i].fill_between(x_pred[i][:,0].reshape(-1),
                 lower[i],
                 upper[i],
                 label='95% c.i',
-                color=colors[i],
+                color=colors[i%len(colors)],
                 alpha=0.4)
+            axes[i].plot(x_pred[i][:,0], mu[i], label='Post.Mean', c=colors[i%len(colors)])
+            axes[i].plot(x_all[i][:,0], y_all[i], '--k', label='Test', lw=1)
+            axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=5)
             
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
