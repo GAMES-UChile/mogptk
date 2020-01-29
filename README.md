@@ -51,11 +51,14 @@ One of the main advantages of the present toolkit is the GPU support, which enab
 
 ## Examples
 
+
 **[Currency Exchange](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/currency_exchange_experiment.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchange rates (against the dollar) from 2017 and 2018. These 11 channels are fitted with the MOSM, SM-LMC, CSM, and CONV kernels and their results are compared and interpreted.
 
 **[Gold, Oil, NASDAQ, USD-index](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_GONU.ipynb)**: The commodity indices for gold and oil, together with the indices for the NASDAQ and the USD against a basket of other currencies, we train multiple models to find correlations between the macro economic indicators.
 
 **[Human Activity Recognition](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_HAR.ipynb)**: Using the Inertial Measurement Unit (IMU) of an Apple iPhone 4, the accelerometer, gyroscope and magnetometer 3D data were recorded for different activities resulting in nine channels.
+
+**[Seasonal C02 and Airline passangers](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_single_output_spectral_mixture.ipynb)**: Regression for 2 datasets using a single output spectral mixture, first the Mauna Loa C02 concentration and the second the passangers in a airline.
 
 ## Documentation
 See the [API documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/) for documentation of our toolkit, including usage and examples of functions and classes.

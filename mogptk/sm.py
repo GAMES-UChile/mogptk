@@ -183,6 +183,8 @@ class SM(model):
         axes.set_xlim(0, x[-1] + 0.1)
         if log_scale:
             axes.set_yscale('log')
-        axes.set_xlabel(r'$\omega$')
+        axes.set_xlabel('Frequency')
         axes.set_ylabel('PSD')
         axes.set_title(title)
+
+        return fig, axes
