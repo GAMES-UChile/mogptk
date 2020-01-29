@@ -407,7 +407,8 @@ class model:
         method='L-BFGS-B',
         tol=1e-6,
         maxiter=2000,
-        params={}):
+        params={},
+        verbose=False):
         """
         Trains the model using the kernel and its parameters.
 
@@ -423,6 +424,7 @@ class model:
             tol (float): Tolerance for optimizer. Defaults to 1e-6.
             maxiter (int): Maximum number of iterations. Defaults to 2000.
             params (dict): Additional dictionary with parameters to minimize. 
+            verbose (bool): Print verbose output about the state of the optimizer.
 
         Examples:
             >>> model.train(tol=1e-6, maxiter=1e5)
@@ -430,6 +432,10 @@ class model:
             >>> model.train(method='Adam', opt_params={...})
         """
 
+        if verbose:
+            print('Starting optimization...')
+
+        i = 0
         def loss():
             #x, y = self.model.data
             #K = self.model.kernel(x)
@@ -441,7 +447,12 @@ class model:
             #if not np.all(np.linalg.eigvals(ks) > 0):
             #    print("NOT POSITIVE DEFINITE:")
             #    print(ks)
-            return -self.model.log_marginal_likelihood()
+
+            loss = -self.model.log_marginal_likelihood()
+            if verbose:
+                print('  iteration = %5d, loss = %f' % (i, loss))
+            i += 1
+            return loss
 
         if method.lower() == "adam":
             opt = tf.optimizers.Adam(learning_rate=0.001)
@@ -449,6 +460,9 @@ class model:
         else:
             opt = gpflow.optimizers.Scipy()
             opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': True}, **params)
+
+        if verbose:
+            print('Optimization finished')
 
     ################################################################################
     # Predictions ##################################################################
