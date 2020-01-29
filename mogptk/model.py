@@ -527,9 +527,9 @@ class model:
                 label='95% c.i',
                 color=colors[i%len(colors)],
                 alpha=0.4)
-            axes[i].plot(x_pred[i][:,0], mu[i], label='Post.Mean', c=colors[i%len(colors)])
-            axes[i].plot(x_all[i][:,0], y_all[i], '--k', label='Test', lw=1)
-            axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=5)
+            axes[i].plot(x_pred[i][:,0], mu[i], label='Post.Mean', c=colors[i%len(colors)], zorder=2)
+            axes[i].plot(x_all[i][:,0], y_all[i], '--k', label='Test', lw=1, alpha=0.8, zorder=1)
+            axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=10, mew=0.5, markeredgecolor='white', zorder=3)
             
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
