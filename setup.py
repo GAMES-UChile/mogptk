@@ -1,4 +1,5 @@
 import sys
+from os import path
 from pkg_resources import parse_version
 from setuptools import setup, find_packages
 
@@ -25,9 +26,15 @@ try:
 except (ImportError, DeprecationWarning):
     requirements.append('tensorflow==2.0')
 
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
+
 setup(name='mogptk',
       version='0.1',
       description='Multi-Output Gaussian Process ToolKit',
+      long_description=long_description,
+      long_description_content_type='text/markdown',
       url='https://github.com/GAMES-UChile/MultiOutputGP-Toolbox',
       author='Taco de Wolff, Alejandro Cuevas, Felipe Tobar',
       author_email='tacodewolff@gmail.com',
