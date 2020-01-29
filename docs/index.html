@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.6.3" />
+<meta name="generator" content="pdoc 0.7.4" />
 <title>mogptk API documentation</title>
 <meta name="description" content="MOGPTK is a Python toolkit for multi output Gaussian processes. It contains data handling classes and different multi output models to facilitate the …" />
 <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
 <link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
-<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase;cursor:pointer}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
 <style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 </head>
@@ -39,40 +39,19 @@
 </ul>
 <h2 id="installation">Installation</h2>
 <p>Make sure you have Python 3.6 and <code>pip</code> installed, and run the following command:</p>
-<pre><code>pip install git+&lt;https://github.com/GAMES-UChile/MultiOutputGP-Toolkit&gt;
+<pre><code>pip install mogptk
 </code></pre>
-<h2 id="quick-example">Quick Example</h2>
-<p>This is a quick example showing how this library can be used. First we import the library as follows:</p>
-<pre><code>&gt;&gt;&gt; import mogptk
-</code></pre>
-<p>Next we load our data (<code>x</code>, and <code>y</code>) into a <code>Data</code> class. Your <code>x</code> data should be a <code>list</code> or <code>numpy.ndarray</code> of <code>n</code> data points. When you have more than one input dimension, the shape of <code>x</code> should look like <code>(n,input_dims)</code>. When <code>x</code> is a dictionary, each item should be a <code>list</code> or <code>numpy.ndarray</code>, and the keys should be referenced by passing a <code>x_labels</code> which is a <code>list</code> or strings. Your <code>y</code> data should be a <code>list</code> or <code>numpy.ndarray</code> of <code>n</code> data points.</p>
-<pre><code>&gt;&gt;&gt; data = mogptk.Data(x, y, name='Dataset')
-</code></pre>
-<p>If you have multiple output channels it is convenient to use the <code>DataSet</code> class which can hold multiple <code>Data</code> objects, one for each channel. Additionally, there is functionality to create a <code>Data</code> object from a CSV file, a <code>pandas.DataFrame</code> or using a Python function, for example:</p>
-<pre><code>&gt;&gt;&gt; data = mogptk.DataSet()
-&gt;&gt;&gt; data.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='Function'))
-&gt;&gt;&gt; data.append(mogptk.LoadCSV('data.csv', 'time', 'measurement', name='CSV'))
-&gt;&gt;&gt; data.append(mogptk.LoadDataFrame(df, 'x', 'y', name='DataFrame'))
-</code></pre>
-<p>Next we can transform our data, remove data points (e.g. to simulate sensor failure), and set our prediction range:</p>
-<pre><code>&gt;&gt;&gt; data['CSV'].transform(mogptk.TransformLog)
-&gt;&gt;&gt; data['DataFrame'].remove_randomly(pct=0.40)
-&gt;&gt;&gt; data['Function'].set_pred_range(0.0, 5.0, n=200)
-</code></pre>
-<p>With our data set, we can instantiate a model (e.g. <code>MOSM</code>, <code>CSM</code>, <code>CONV</code>, <code>SM_LMC</code>) and set its parameters. All models accept a <code>Q</code> parameter which is the number of (Gaussian) mixtures to use. Some models also have an <code>Rq</code> parameter, see the cited references above for an exact description.</p>
-<pre><code>&gt;&gt;&gt; mosm = mogptk.MOSM(data, Q=3)
-</code></pre>
-<p>Given our model, we first estimate the parameters using a per-channel Spectral Mixture kernel or using Bayesian Nonparametric Spectral Estimation to improve the speed and likelihood of convergence when training:</p>
-<pre><code>&gt;&gt;&gt; mosm.estimate_params()
-</code></pre>
-<p>Next we train our model and do a prediction using the data range previously defined:</p>
-<pre><code>&gt;&gt;&gt; mosm.train()
-&gt;&gt;&gt; mosm.predict()
-</code></pre>
-<p>Finally we can plot our data and prediction:</p>
-<pre><code>&gt;&gt;&gt; data.plot()
-</code></pre>
-<p>See the rest of this documentation for a full overview of all functionalities.</p>
+<h2 id="glossary">Glossary</h2>
+<ul>
+<li><strong>GP</strong>: Gaussian process, see <a href="http://www.gaussianprocess.org/gpml/">Gaussian Processes for Machine Learning</a> by C.E. Rasmussen and C.K.I. Williams.</li>
+<li><strong>M</strong>: the number of channels (i.e. output dimensions)</li>
+<li><strong>N</strong>: the number of data points</li>
+<li><strong>Q</strong>: the number of components to use for a kernel. Each component is added additively to the kernel set using the GPflow kernel addition operator</li>
+<li><strong>MOSM</strong>: Multi-output spectral mixture kernel, see <a href="https://arxiv.org/abs/1709.01298">Spectral Mixture Kernels for Multi-Output Gaussian Processes</a> by G. Parra and F. Tobar.</li>
+<li><strong>CSM</strong>: Cross spectral mixture kernel, see <a href="https://papers.nips.cc/paper/5966-gp-kernels-for-cross-spectrum-analysis">GP Kernels for Cross-Spectrum Analysis</a> by K.R. Ulrich et al.</li>
+<li><strong>CONV</strong>: Convolution Gaussian kernel, see <a href="https://arxiv.org/abs/0911.5107">Sparse Convolved Multiple Output Gaussian Processes</a> by M.A. Álvarez and N.D. Lawrence.</li>
+<li><strong>SM-LMC</strong>: Spectral mixture linear model of coregionalization kernel, see <a href="https://arxiv.org/abs/1302.4245">Gaussian Process Kernels for Pattern Discovery and Extrapolation</a> by A.G. Wilson and R.P. Adams and the book "Geostatistics for Natural Resource Evaluation" by P. Goovaerts.</li>
+</ul>
 <h2 id="data-handling">Data handling</h2>
 <h3 id="formats">Formats</h3>
 <p>The format classes allow the independent (X axis) data to be formatted so that it can be converted into numbers. Each class implements the following functions:</p>
@@ -104,7 +83,9 @@
 <h2 id="advice-on-training">Advice on training</h2>
 <h2 id="visualization-and-interpretation">Visualization and interpretation</h2>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">&#34;&#34;&#34;
 .. include:: ./documentation.md
 &#34;&#34;&#34;
@@ -185,7 +166,7 @@ from .errors import *</code></pre>
 <div class="toc">
 <ul>
 <li><a href="#installation">Installation</a></li>
-<li><a href="#quick-example">Quick Example</a></li>
+<li><a href="#glossary">Glossary</a></li>
 <li><a href="#data-handling">Data handling</a><ul>
 <li><a href="#formats">Formats</a><ul>
 <li><a href="#formatnumber">FormatNumber</a></li>
@@ -234,7 +215,7 @@ from .errors import *</code></pre>
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.6.3</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.7.4</a>.</p>
 </footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
 <script>hljs.initHighlightingOnLoad()</script>

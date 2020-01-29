@@ -5,13 +5,26 @@
 The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and interpreting Gaussian process models with multiple data channels. It builds upon [GPflow](https://www.gpflow.org/) and [TensorFlow](https://www.tensorflow.org/) to provide an easy way to train multi-output models effectively and interpret their results. The main authors are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar as part of the Center for Mathematical Modelling at the University of Chile.
 
 ## Installation
-Make sure you have at least Python 3.6 and run the following command using pip:
+With [Anaconda](https://www.anaconda.com/distribution/) installed on your system, open a command prompt and create a virtual environment:
+
+```
+conda create -n myenv python=3.7
+conda activate myenv
+```
+
+where `myenv` is the name of your environment, and where the version of Python could be 3.6 or above. In order to use TensorFlow on the GPU, the easiest way is to install TensorFlow through conda (and not pip) before we install this toolkit. If you will be using the CPU you can skip this step.
+
+```
+conda install tensorflow
+```
+
+Next we will install this toolkit and automatically install the necessary dependencies such as GPflow2 and TensorFlow2.
 
 ```
 pip install mogptk
 ```
 
-This will automatically install the necessary dependencies such as GPflow2 and TensorFlow2. See [Tutorials & Examples](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit#tutorials) to get started.
+See [Tutorials & Examples](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit#tutorials) to get started.
 
 ## Introduction
 This repository provides a toolkit to perform multi-output GP regression with kernels that are designed to utilize correlation information among channels in order to better model signals. The toolkit is mainly targeted to time-series, and includes plotting functions for the case of single input with multiple outputs (time series with several channels).

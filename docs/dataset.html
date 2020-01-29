@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.6.3" />
+<meta name="generator" content="pdoc 0.7.4" />
 <title>mogptk.dataset API documentation</title>
 <meta name="description" content="" />
 <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
 <link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
-<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase;cursor:pointer}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
 <style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 </head>
@@ -21,10 +21,115 @@
 </header>
 <section id="section-intro">
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">import numpy as np
+import pandas as pd
 from .data import Data
 import matplotlib.pyplot as plt
+
+def LoadCSV(filename, x_col=0, y_col=1, name=&#34;&#34;, format={}, filter=None, **kwargs):
+    &#34;&#34;&#34;
+    LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. Setting a formatter for a column will enable parsing for example date fields such as &#39;2019-03-01&#39;. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+
+    Args:
+        filename (str): CSV filename.
+        x_col (int, str, list, optional): Names or indices of X column(s) in CSV.
+        y_col (int, str, list, optional): Names or indices of Y column(s) in CSV.
+        name (str, list, optional): Name or names of data channels.
+        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
+        **kwargs: Additional keyword arguments for csv.DictReader.
+
+    Returns:
+        mogptk.data.DataSet
+
+    Examples:
+        &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, name=&#39;Gold&#39;, format={&#39;Date&#39;: FormatDate}, filter=lambda row: row[&#39;Region&#39;] == &#39;Europe&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+
+        &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, delimiter=&#39; &#39;, quotechar=&#39;|&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+    &#34;&#34;&#34;
+
+    if (not isinstance(x_col, list) or not all(isinstance(item, int) for item in x_col) and not all(isinstance(item, str) for item in x_col)) and not isinstance(x_col, int) and not isinstance(x_col, str):
+        raise ValueError(&#34;x_col must be integer, string or list of integers or strings&#34;)
+    if (not isinstance(y_col, list) or not all(isinstance(item, int) for item in y_col) and not all(isinstance(item, str) for item in y_col)) and not isinstance(y_col, int) and not isinstance(y_col, str):
+        raise ValueError(&#34;y_col must be integer, string or list of integers or strings&#34;)
+
+    df = pd.read_csv(filename, **kwargs)
+    df.dropna(inplace=True)
+
+    return LoadDataFrame(df=df, x_col=x_col, y_col=y_col, name=name, format=format, filter=filter)
+
+
+# TODO: filter not implemented
+def LoadDataFrame(df, x_col=0, y_col=1, name=&#34;&#34;, format={}, filter=None):
+    &#34;&#34;&#34;
+    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns. Setting a formatter for a column will enable parsing for example date fields such as &#39;2019-03-01&#39;. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+
+    Args:
+        df (pandas.DataFrame): The Pandas DataFrame.
+        x_col (int, str, list): Names or indices of X column(s) in DataFrame.
+        y_col (int, str, list): Names or indices of Y column(s) in DataFrame.
+        name (str, list, optional): Name or names of data channels.
+        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
+        **kwargs: Additional keyword arguments for csv.DictReader.
+
+    Returns:
+        mogptk.data.DataSet
+
+    Examples:
+        &gt;&gt;&gt; df = pd.DataFrame(...)
+        &gt;&gt;&gt; LoadDataFrame(df, &#39;Date&#39;, &#39;Price&#39;, name=&#39;Gold&#39;, format={&#39;Date&#39;: FormatDate}, filter=lambda row: row[&#39;Region&#39;] == &#39;Europe&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+
+        &gt;&gt;&gt; df = pd.DataFrame(...)
+        &gt;&gt;&gt; LoadDataFrame(df, &#39;Date&#39;, &#39;Price&#39;, delimiter=&#39; &#39;, quotechar=&#39;|&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+    &#34;&#34;&#34;
+
+    if (not isinstance(x_col, list) or not all(isinstance(item, int) for item in x_col) and not all(isinstance(item, str) for item in x_col)) and not isinstance(x_col, int) and not isinstance(x_col, str):
+        raise ValueError(&#34;x_col must be integer, string or list of integers or strings&#34;)
+    if (not isinstance(y_col, list) or not all(isinstance(item, int) for item in y_col) and not all(isinstance(item, str) for item in y_col)) and not isinstance(y_col, int) and not isinstance(y_col, str):
+        raise ValueError(&#34;y_col must be integer, string or list of integers or strings&#34;)
+
+    if not isinstance(x_col, list):
+        x_col = [x_col]
+    if not isinstance(y_col, list):
+        y_col = [y_col]
+    if not isinstance(name, list):
+        name = [name]
+    if len(y_col) != len(name):
+        raise ValueError(&#34;y_col and name must be of the same length&#34;)
+
+    # if columns are indices, convert to column names
+    if all(isinstance(item, int) for item in x_col):
+        x_col = [df.columns[item] for item in x_col]
+    if all(isinstance(item, int) for item in y_col):
+        y_col = [df.columns[item] for item in y_col]
+
+    input_dims = len(x_col)
+    x_data = df[x_col]
+    x_labels = [str(item) for item in x_col]
+
+    dataset = DataSet()
+    for i in range(len(y_col)):
+        y_data = df[y_col[i]]
+        dataset.append(Data(
+            x_data.values,
+            y_data.values,
+            name=name[i],
+            formats=format,
+            x_labels=x_labels,
+            y_label=y_data.name))
+    return dataset
+
+################################################################
+################################################################
+################################################################
 
 class DataSet:
     def __init__(self, *args):
@@ -53,6 +158,9 @@ class DataSet:
             return self.channels[self.get_names().index(key)]
         return self.channels[key]
 
+    # TODO
+    #def __str__(self):
+
     def append(self, arg):
         &#34;&#34;&#34;
         Append channel(s) to DataSet.
@@ -116,7 +224,7 @@ class DataSet:
             &gt;&gt;&gt; dataset.get_names()
             [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;]
         &#34;&#34;&#34;
-        return [channel.get_name() for channel in self.channels]
+        return [channel.get_name() if channel.get_name() != &#34;&#34; else &#34;#&#34;+str(i+1) for i, channel in enumerate(self.channels)]
 
     def get(self, index):
         &#34;&#34;&#34;
@@ -364,7 +472,7 @@ class DataSet:
 
     def to_kernel_pred(self):
         &#34;&#34;&#34;
-        Return the prediction vectors in the format as used by the kernels.
+        Return the prediction input vectors in the format as used by the kernels.
 
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
@@ -376,6 +484,8 @@ class DataSet:
 
         chan = [i * np.ones(len(x[i])) for i in range(len(x))]
         chan = np.concatenate(chan).reshape(-1, 1)
+        if len(chan) == 0:
+            return np.array([]).reshape(-1, 1)
 
         x = np.concatenate(x)
         x = np.concatenate((chan, x), axis=1)
@@ -417,7 +527,7 @@ class DataSet:
         &#34;&#34;&#34;
         return copy.deepcopy(self)
 
-    def plot(self, title=None):
+    def plot(self, title=None, figsize=(12, 8)):
         &#34;&#34;&#34;
         Plot each Data channel.
 
@@ -431,7 +541,7 @@ class DataSet:
         Examples:
             &gt;&gt;&gt; fig, axes = dataset.plot(&#39;Title&#39;)
         &#34;&#34;&#34;
-        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
+        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
         if title != None:
             fig.suptitle(title)
 
@@ -446,6 +556,185 @@ class DataSet:
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="mogptk.dataset.LoadCSV"><code class="name flex">
+<span>def <span class="ident">LoadCSV</span></span>(<span>filename, x_col=0, y_col=1, name='', format={}, filter=None, **kwargs)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
+<dd>CSV filename.</dd>
+<dt><strong><code>x_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code>, optional</dt>
+<dd>Names or indices of X column(s) in CSV.</dd>
+<dt><strong><code>y_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code>, optional</dt>
+<dd>Names or indices of Y column(s) in CSV.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, <code>list</code>, optional</dt>
+<dd>Name or names of data channels.</dd>
+<dt><strong><code>format</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, &hellip;</dd>
+<dt><strong><code>filter</code></strong> :&ensp;<code>function</code>, optional</dt>
+<dd>Function that takes row as argument, and returns True to keep the record.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Additional keyword arguments for csv.DictReader.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>mogptk.data.DataSet</code></dt>
+<dd>&nbsp;</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; LoadCSV('gold.csv', 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
+&lt;mogptk.data.Data at ...&gt;
+
+&gt;&gt;&gt; LoadCSV('gold.csv', 'Date', 'Price', delimiter=' ', quotechar='|')
+&lt;mogptk.data.Data at ...&gt;
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def LoadCSV(filename, x_col=0, y_col=1, name=&#34;&#34;, format={}, filter=None, **kwargs):
+    &#34;&#34;&#34;
+    LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. Setting a formatter for a column will enable parsing for example date fields such as &#39;2019-03-01&#39;. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+
+    Args:
+        filename (str): CSV filename.
+        x_col (int, str, list, optional): Names or indices of X column(s) in CSV.
+        y_col (int, str, list, optional): Names or indices of Y column(s) in CSV.
+        name (str, list, optional): Name or names of data channels.
+        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
+        **kwargs: Additional keyword arguments for csv.DictReader.
+
+    Returns:
+        mogptk.data.DataSet
+
+    Examples:
+        &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, name=&#39;Gold&#39;, format={&#39;Date&#39;: FormatDate}, filter=lambda row: row[&#39;Region&#39;] == &#39;Europe&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+
+        &gt;&gt;&gt; LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, delimiter=&#39; &#39;, quotechar=&#39;|&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+    &#34;&#34;&#34;
+
+    if (not isinstance(x_col, list) or not all(isinstance(item, int) for item in x_col) and not all(isinstance(item, str) for item in x_col)) and not isinstance(x_col, int) and not isinstance(x_col, str):
+        raise ValueError(&#34;x_col must be integer, string or list of integers or strings&#34;)
+    if (not isinstance(y_col, list) or not all(isinstance(item, int) for item in y_col) and not all(isinstance(item, str) for item in y_col)) and not isinstance(y_col, int) and not isinstance(y_col, str):
+        raise ValueError(&#34;y_col must be integer, string or list of integers or strings&#34;)
+
+    df = pd.read_csv(filename, **kwargs)
+    df.dropna(inplace=True)
+
+    return LoadDataFrame(df=df, x_col=x_col, y_col=y_col, name=name, format=format, filter=filter)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.LoadDataFrame"><code class="name flex">
+<span>def <span class="ident">LoadDataFrame</span></span>(<span>df, x_col=0, y_col=1, name='', format={}, filter=None)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>df</code></strong> :&ensp;<code>pandas.DataFrame</code></dt>
+<dd>The Pandas DataFrame.</dd>
+<dt><strong><code>x_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code></dt>
+<dd>Names or indices of X column(s) in DataFrame.</dd>
+<dt><strong><code>y_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code></dt>
+<dd>Names or indices of Y column(s) in DataFrame.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, <code>list</code>, optional</dt>
+<dd>Name or names of data channels.</dd>
+<dt><strong><code>format</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, &hellip;</dd>
+<dt><strong><code>filter</code></strong> :&ensp;<code>function</code>, optional</dt>
+<dd>Function that takes row as argument, and returns True to keep the record.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Additional keyword arguments for csv.DictReader.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>mogptk.data.DataSet</code></dt>
+<dd>&nbsp;</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; df = pd.DataFrame(...)
+&gt;&gt;&gt; LoadDataFrame(df, 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
+&lt;mogptk.data.Data at ...&gt;
+
+&gt;&gt;&gt; df = pd.DataFrame(...)
+&gt;&gt;&gt; LoadDataFrame(df, 'Date', 'Price', delimiter=' ', quotechar='|')
+&lt;mogptk.data.Data at ...&gt;
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def LoadDataFrame(df, x_col=0, y_col=1, name=&#34;&#34;, format={}, filter=None):
+    &#34;&#34;&#34;
+    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns. Setting a formatter for a column will enable parsing for example date fields such as &#39;2019-03-01&#39;. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+
+    Args:
+        df (pandas.DataFrame): The Pandas DataFrame.
+        x_col (int, str, list): Names or indices of X column(s) in DataFrame.
+        y_col (int, str, list): Names or indices of Y column(s) in DataFrame.
+        name (str, list, optional): Name or names of data channels.
+        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
+        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
+        **kwargs: Additional keyword arguments for csv.DictReader.
+
+    Returns:
+        mogptk.data.DataSet
+
+    Examples:
+        &gt;&gt;&gt; df = pd.DataFrame(...)
+        &gt;&gt;&gt; LoadDataFrame(df, &#39;Date&#39;, &#39;Price&#39;, name=&#39;Gold&#39;, format={&#39;Date&#39;: FormatDate}, filter=lambda row: row[&#39;Region&#39;] == &#39;Europe&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+
+        &gt;&gt;&gt; df = pd.DataFrame(...)
+        &gt;&gt;&gt; LoadDataFrame(df, &#39;Date&#39;, &#39;Price&#39;, delimiter=&#39; &#39;, quotechar=&#39;|&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+    &#34;&#34;&#34;
+
+    if (not isinstance(x_col, list) or not all(isinstance(item, int) for item in x_col) and not all(isinstance(item, str) for item in x_col)) and not isinstance(x_col, int) and not isinstance(x_col, str):
+        raise ValueError(&#34;x_col must be integer, string or list of integers or strings&#34;)
+    if (not isinstance(y_col, list) or not all(isinstance(item, int) for item in y_col) and not all(isinstance(item, str) for item in y_col)) and not isinstance(y_col, int) and not isinstance(y_col, str):
+        raise ValueError(&#34;y_col must be integer, string or list of integers or strings&#34;)
+
+    if not isinstance(x_col, list):
+        x_col = [x_col]
+    if not isinstance(y_col, list):
+        y_col = [y_col]
+    if not isinstance(name, list):
+        name = [name]
+    if len(y_col) != len(name):
+        raise ValueError(&#34;y_col and name must be of the same length&#34;)
+
+    # if columns are indices, convert to column names
+    if all(isinstance(item, int) for item in x_col):
+        x_col = [df.columns[item] for item in x_col]
+    if all(isinstance(item, int) for item in y_col):
+        y_col = [df.columns[item] for item in y_col]
+
+    input_dims = len(x_col)
+    x_data = df[x_col]
+    x_labels = [str(item) for item in x_col]
+
+    dataset = DataSet()
+    for i in range(len(y_col)):
+        y_data = df[y_col[i]]
+        dataset.append(Data(
+            x_data.values,
+            y_data.values,
+            name=name[i],
+            formats=format,
+            x_labels=x_labels,
+            y_label=y_data.name))
+    return dataset</code></pre>
+</details>
+</dd>
+</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
@@ -465,7 +754,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; dataset = mogptk.DataSet(channel_a, channel_b, channel_c)
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">class DataSet:
     def __init__(self, *args):
         &#34;&#34;&#34;
@@ -493,6 +784,9 @@ class DataSet:
             return self.channels[self.get_names().index(key)]
         return self.channels[key]
 
+    # TODO
+    #def __str__(self):
+
     def append(self, arg):
         &#34;&#34;&#34;
         Append channel(s) to DataSet.
@@ -556,7 +850,7 @@ class DataSet:
             &gt;&gt;&gt; dataset.get_names()
             [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;]
         &#34;&#34;&#34;
-        return [channel.get_name() for channel in self.channels]
+        return [channel.get_name() if channel.get_name() != &#34;&#34; else &#34;#&#34;+str(i+1) for i, channel in enumerate(self.channels)]
 
     def get(self, index):
         &#34;&#34;&#34;
@@ -804,7 +1098,7 @@ class DataSet:
 
     def to_kernel_pred(self):
         &#34;&#34;&#34;
-        Return the prediction vectors in the format as used by the kernels.
+        Return the prediction input vectors in the format as used by the kernels.
 
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
@@ -816,6 +1110,8 @@ class DataSet:
 
         chan = [i * np.ones(len(x[i])) for i in range(len(x))]
         chan = np.concatenate(chan).reshape(-1, 1)
+        if len(chan) == 0:
+            return np.array([]).reshape(-1, 1)
 
         x = np.concatenate(x)
         x = np.concatenate((chan, x), axis=1)
@@ -857,7 +1153,7 @@ class DataSet:
         &#34;&#34;&#34;
         return copy.deepcopy(self)
 
-    def plot(self, title=None):
+    def plot(self, title=None, figsize=(12, 8)):
         &#34;&#34;&#34;
         Plot each Data channel.
 
@@ -871,7 +1167,7 @@ class DataSet:
         Examples:
             &gt;&gt;&gt; fig, axes = dataset.plot(&#39;Title&#39;)
         &#34;&#34;&#34;
-        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
+        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
         if title != None:
             fig.suptitle(title)
 
@@ -896,7 +1192,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='A'))
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def append(self, arg):
     &#34;&#34;&#34;
     Append channel(s) to DataSet.
@@ -938,7 +1236,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; other = dataset.copy()
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
     Make a deep copy of DataSet.
@@ -972,7 +1272,9 @@ class DataSet:
 &gt;&gt;&gt; dataset.from_kernel_pred('MOSM', mu, var)
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def from_kernel_pred(self, name, mu, var):
     &#34;&#34;&#34;
     Returns the predictions from the format as used by the kernels. The prediction is stored in the Data class by the given name.
@@ -1014,7 +1316,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; channel = dataset.get('A')
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get(self, index):
     &#34;&#34;&#34;
     Return Data object given a channel index or name.
@@ -1054,7 +1358,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; x, y = dataset.get_all()
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get_all(self):
     &#34;&#34;&#34;
     Returns all observations (including removed observations).
@@ -1094,7 +1400,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; amplitudes, means, variances = dataset.get_bnse_estimation()
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get_bnse_estimation(self, Q, n=5000):
     &#34;&#34;&#34;
     Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
@@ -1138,7 +1446,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; x, y = dataset.get_data()
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get_data(self):
     &#34;&#34;&#34;
     Returns observations.
@@ -1168,7 +1478,9 @@ class DataSet:
 [2, 1]
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
     Return the input dimensions per channel.
@@ -1208,7 +1520,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; amplitudes, means, variances = dataset.get_ls_estimation()
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get_ls_estimation(self, Q, n=50000):
     &#34;&#34;&#34;
     Peaks estimation using Lomb Scargle.
@@ -1251,7 +1565,9 @@ class DataSet:
 ['A', 'B', 'C']
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get_names(self):
     &#34;&#34;&#34;
     Return the names of the channels.
@@ -1263,7 +1579,7 @@ class DataSet:
         &gt;&gt;&gt; dataset.get_names()
         [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;]
     &#34;&#34;&#34;
-    return [channel.get_name() for channel in self.channels]</code></pre>
+    return [channel.get_name() if channel.get_name() != &#34;&#34; else &#34;#&#34;+str(i+1) for i, channel in enumerate(self.channels)]</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_nyquist_estimation"><code class="name flex">
@@ -1280,7 +1596,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; freqs = dataset.get_nyquist_estimation()
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
     Estimate nyquist frequency by taking 0.5/(minimum distance of points).
@@ -1312,7 +1630,9 @@ class DataSet:
 <dd>&nbsp;</dd>
 </dl></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get_output_dims(self):
     &#34;&#34;&#34;
     Return the output dimensions of the dataset, i.e. the number of channels.
@@ -1354,7 +1674,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = dataset.get_pred('MOSM', sigma=1)
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get_pred(self, name, sigma=2):
     &#34;&#34;&#34;
     Returns the prediction of a given name with a normal variance of sigma.
@@ -1401,7 +1723,9 @@ class DataSet:
 <pre><code>&gt;&gt;&gt; x, y = dataset.get_removed()
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def get_removed(self):
     &#34;&#34;&#34;
     Returns the removed observations.
@@ -1417,7 +1741,7 @@ class DataSet:
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>self, title=None)</span>
+<span>def <span class="ident">plot</span></span>(<span>self, title=None, figsize=(12, 8))</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Plot each Data channel.</p>
@@ -1433,8 +1757,10 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <pre><code>&gt;&gt;&gt; fig, axes = dataset.plot('Title')
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
-<pre><code class="python">def plot(self, title=None):
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot(self, title=None, figsize=(12, 8)):
     &#34;&#34;&#34;
     Plot each Data channel.
 
@@ -1448,7 +1774,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
     Examples:
         &gt;&gt;&gt; fig, axes = dataset.plot(&#39;Title&#39;)
     &#34;&#34;&#34;
-    fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False)
+    fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
     if title != None:
         fig.suptitle(title)
 
@@ -1473,7 +1799,9 @@ list of matplotlib.axes.Axes: List of axes.</p>
 &gt;&gt;&gt; dataset.set_pred({'A': [5.0, 5.5, 6.0, 6.5, 7.0], 'B': [0.1, 0.2, 0.3]})
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def set_pred(self, x):
     &#34;&#34;&#34;
     Set the prediction range per channel.
@@ -1520,7 +1848,9 @@ list of matplotlib.axes.Axes: List of axes.</p>
 &gt;&gt;&gt; dataset.set_pred_range(0.0, 5.0, n=200) # the same for each channel
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def set_pred_range(self, start, end, n=None, step=None):
     &#34;&#34;&#34;
     Set the prediction range per channel. Inputs should be lists of shape (input_dims,) for each channel or dicts where the keys are the channel indices.
@@ -1575,7 +1905,9 @@ numpy.ndarray: Y data.</p>
 <pre><code>&gt;&gt;&gt; x, y = dataset.to_kernel()
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def to_kernel(self):
     &#34;&#34;&#34;
     Return the data vectors in the format as used by the kernels.
@@ -1606,17 +1938,19 @@ numpy.ndarray: Y data.</p>
 <span>def <span class="ident">to_kernel_pred</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Return the prediction vectors in the format as used by the kernels.</p>
+<section class="desc"><p>Return the prediction input vectors in the format as used by the kernels.</p>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.</p>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; x = dataset.to_kernel_pred()
 </code></pre></section>
 <details class="source">
-<summary>Source code</summary>
+<summary>
+<span>Expand source code</span>
+</summary>
 <pre><code class="python">def to_kernel_pred(self):
     &#34;&#34;&#34;
-    Return the prediction vectors in the format as used by the kernels.
+    Return the prediction input vectors in the format as used by the kernels.
 
     Returns:
         numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
@@ -1628,6 +1962,8 @@ numpy.ndarray: Y data.</p>
 
     chan = [i * np.ones(len(x[i])) for i in range(len(x))]
     chan = np.concatenate(chan).reshape(-1, 1)
+    if len(chan) == 0:
+        return np.array([]).reshape(-1, 1)
 
     x = np.concatenate(x)
     x = np.concatenate((chan, x), axis=1)
@@ -1648,6 +1984,12 @@ numpy.ndarray: Y data.</p>
 <li><h3>Super-module</h3>
 <ul>
 <li><code><a title="mogptk" href="index.html">mogptk</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="mogptk.dataset.LoadCSV" href="#mogptk.dataset.LoadCSV">LoadCSV</a></code></li>
+<li><code><a title="mogptk.dataset.LoadDataFrame" href="#mogptk.dataset.LoadDataFrame">LoadDataFrame</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -1682,7 +2024,7 @@ numpy.ndarray: Y data.</p>
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.6.3</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.7.4</a>.</p>
 </footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
 <script>hljs.initHighlightingOnLoad()</script>
