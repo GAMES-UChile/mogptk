@@ -1,97 +1,113 @@
 import numpy as np
 import pandas as pd
-from .data import Data
+from .data import *
 import matplotlib.pyplot as plt
 
-def LoadCSV(filename, x_cols, y_cols, names="", format={}, filter=None, **kwargs):
+def LoadCSV(filename, x_col=0, y_col=1, name=None, formats={}, **kwargs):
     """
     LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
-
     Args:
         filename (str): CSV filename.
-        x_cols (str, list): Name or names of X column(s) in CSV.
-        y_cols (str, list): Name or names of Y column(s) in CSV.
-        names (str, list, optional): Name or names of data channels.
-        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
-        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
+        x_col (int, str, list of int or str): Names or indices of X column(s) in CSV.
+        y_col (int, str, list of int or str): Names or indices of Y column(s) in CSV.
+        name (str, list, optional): Name or names of data channels.
+        formats (dict, optional): Dictionary with x_col values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
-        mogptk.data.DataSet
+        mogptk.dataset.DataSet
 
     Examples:
-        >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
-        <mogptk.data.Data at ...>
-
-        >>> LoadCSV('gold.csv', 'Date', 'Price', delimiter=' ', quotechar='|')
-        <mogptk.data.Data at ...>
+        >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold', formats={'Date': FormatDate})
+        <mogptk.dataset.DataSet at ...>
+        >>> LoadCSV('gold.csv', 'Date', 'Price', sep=' ', quotechar='|')
+        <mogptk.dataset.DataSet at ...>
     """
 
-    if (not isinstance(x_cols, list) or not all(isinstance(item, str) for item in x_cols)) and not isinstance(x_cols, str):
-        raise ValueError("x_cols must be string or list of strings")
-    if (not isinstance(y_cols, list) or not all(isinstance(item, str) for item in y_cols)) and not isinstance(y_cols, str):
-        raise ValueError("y_cols must be string or list of strings")
-
     df = pd.read_csv(filename, **kwargs)
-    df.dropna(inplace=True)
+    return LoadDataFrame(df, x_col, y_col, name, formats)
 
-    return LoadDataFrame(df=df, x_cols=x_cols, y_cols=y_cols, names=names, format=format, filter=filter)
-
-
-# TODO: filter not implemented
-def LoadDataFrame(df, x_cols, y_cols, names="", format={}, filter=None):
+def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
     """
     LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
 
     Args:
         df (pandas.DataFrame): The Pandas DataFrame.
-        x_cols (str, list): Name or names of X column(s) in DataFrame.
-        y_cols (str, list): Name or names of Y column(s) in DataFrame.
-        names (str, list, optional): Name or names of data channels.
-        format (dict, optional): Dictionary with x_cols values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
-        filter (function, optional): Function that takes row as argument, and returns True to keep the record.
-        **kwargs: Additional keyword arguments for csv.DictReader.
+        x_col (int, str, list of int or str): Names or indices of X column(s) in DataFrame.
+        y_col (int, str, list of int or str): Names or indices of Y column(s) in DataFrame.
+        name (str, list of str, optional): Name or names of data channels.
+        formats (dict, optional): Dictionary with x_col values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
 
     Returns:
-        mogptk.data.DataSet
+        mogptk.dataset.DataSet
 
     Examples:
         >>> df = pd.DataFrame(...)
-        >>> LoadDataFrame(df, 'Date', 'Price', name='Gold', format={'Date': FormatDate}, filter=lambda row: row['Region'] == 'Europe')
-        <mogptk.data.Data at ...>
-
-        >>> df = pd.DataFrame(...)
-        >>> LoadDataFrame(df, 'Date', 'Price', delimiter=' ', quotechar='|')
-        <mogptk.data.Data at ...>
+        >>> LoadDataFrame(df, 'Date', 'Price', name='Gold')
+        <mogptk.dataset.DataSet at ...>
     """
 
-    if (not isinstance(x_cols, list) or not all(isinstance(item, str) for item in x_cols)) and not isinstance(x_cols, str):
-        raise ValueError("x_cols must be string or list of strings")
-    if (not isinstance(y_cols, list) or not all(isinstance(item, str) for item in y_cols)) and not isinstance(y_cols, str):
-        raise ValueError("y_cols must be string or list of strings")
+    if (not isinstance(x_col, list) or not all(isinstance(item, int) for item in x_col) and not all(isinstance(item, str) for item in x_col)) and not isinstance(x_col, int) and not isinstance(x_col, str):
+        raise ValueError("x_col must be integer, string or list of integers or strings")
+    if (not isinstance(y_col, list) or not all(isinstance(item, int) for item in y_col) and not all(isinstance(item, str) for item in y_col)) and not isinstance(y_col, int) and not isinstance(y_col, str):
+        raise ValueError("y_col must be integer, string or list of integers or strings")
 
-    if not isinstance(x_cols, list):
-        x_cols = [x_cols]
-    if not isinstance(y_cols, list):
-        y_cols = [y_cols]
-    if not isinstance(names, list):
-        names = [names]
-    if len(y_cols) != len(names):
-        raise ValueError("y_cols and names must be of the same length")
+    if not isinstance(x_col, list):
+        x_col = [x_col]
+    if not isinstance(y_col, list):
+        y_col = [y_col]
 
-    input_dims = len(x_cols)
-    x_data = df[x_cols]
+    if name == None:
+        name = [None] * len(y_col)
+    else:
+        if not isinstance(name, list):
+            name = [name]
+        if len(y_col) != len(name):
+            raise ValueError("y_col and name must be of the same length")
+
+    # if columns are indices, convert to column names
+    if all(isinstance(item, int) for item in x_col):
+        x_col = [df.columns[item] for item in x_col]
+    if all(isinstance(item, int) for item in y_col):
+        y_col = [df.columns[item] for item in y_col]
+
+    df = df[x_col + y_col]
+    if len(df.index) == 0:
+        raise ValueError("dataframe cannot be empty")
+    df = df.dropna()
+    if len(df.index) == 0:
+        raise ValueError("dataframe has NaN values for every row, consider selecting X and Y columns that have valid values by setting x_col and y_col")
+
+    input_dims = len(x_col)
+    x_data = df[x_col]
+    x_labels = [str(item) for item in x_col]
+
+    # set formatters automatically if not already set, try and see if we can parse datetime values
+    for col in df.columns:
+        if col not in formats:
+            dtype = df.dtypes[col]
+            if np.issubdtype(dtype, np.number):
+                formats[col] = FormatNumber()
+            elif np.issubdtype(dtype, np.datetime64):
+                formats[col] = FormatDateTime()
+            elif np.issubdtype(dtype, np.object_):
+                try:
+                    _ = dateutil.parser.parse(df[col].iloc[0])
+                    formats[col] = FormatDateTime()
+                except:
+                    raise ValueError("unknown format for column %s, must be a number type or datetime" % (col,))
 
     dataset = DataSet()
-    for i in range(len(y_cols)):
-        y_data = df[y_cols[i]]
+    for i in range(len(y_col)):
+        y_data = df[y_col[i]]
         dataset.append(Data(
             x_data.values,
             y_data.values,
-            name=names[i],
-            formats=format,
-            x_labels=x_data.columns.values.tolist(),
-            y_label=y_data.name))
+            name=name[i],
+            formats=formats,
+            x_labels=x_labels,
+            y_label=str(y_col[i]),
+        ))
     return dataset
 
 ################################################################
@@ -124,6 +140,15 @@ class DataSet:
         if isinstance(key, str):
             return self.channels[self.get_names().index(key)]
         return self.channels[key]
+
+    def __str__(self):
+        return self.__repr__()
+    
+    def __repr__(self):
+        s = ''
+        for channel in self.channels:
+            s += channel.__repr__() + "\n"
+        return s
 
     def append(self, arg):
         """
@@ -212,6 +237,7 @@ class DataSet:
                     return channel
         raise ValueError("channel '%d' does not exist in DataSet" % (index))
     
+    # TODO: rename to training data?
     def get_data(self):
         """
         Returns observations.
@@ -238,6 +264,7 @@ class DataSet:
         """
         return [channel.get_all()[0] for channel in self.channels], [channel.get_all()[1] for channel in self.channels]
 
+    # TODO: rename to test data?
     def get_removed(self):
         """
         Returns the removed observations.

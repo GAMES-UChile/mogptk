@@ -7,6 +7,7 @@ from scipy import signal
 import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd
 import re
 
 class FormatNumber:
@@ -30,7 +31,11 @@ class FormatDate:
     FormatDate is a formatter that takes date values as input, such as '2019-03-01', and stores values internally as days since 1970-01-01.
     """
     def _parse(self, val):
-        return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()/3600/24
+        if isinstance(val, np.datetime64):
+            dt = pd.Timestamp(val).to_pydatetime()
+        else:
+            dt = dateutil.parser.parse(val)
+        return (dt - datetime.datetime(1970,1,1)).total_seconds()/3600/24
 
     def _parse_duration(self, val):
         if isinstance(val, int):
@@ -61,7 +66,11 @@ class FormatDateTime:
     FormatDateTime is a formatter that takes date and time values as input, such as '2019-03-01 12:30', and stores values internally as seconds since 1970-01-01.
     """
     def _parse(self, val):
-        return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()
+        if isinstance(val, np.datetime64):
+            dt = pd.Timestamp(val).to_pydatetime()
+        else:
+            dt = dateutil.parser.parse(val)
+        return (dt - datetime.datetime(1970,1,1)).total_seconds()
 
     def _parse_duration(self, val):
         if isinstance(val, int):
@@ -216,7 +225,7 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
 ################################################################
 
 class Data:
-    def __init__(self, X, Y, name="", formats=None, x_labels=None, y_label=None):
+    def __init__(self, X, Y, name=None, formats=None, x_labels=None, y_label=None):
         """
         Data class holds all the observations, latent functions and prediction data.
 
@@ -230,7 +239,7 @@ class Data:
             X (list, numpy.ndarray, dict): Independent variable data of shape (n) or (n,input_dims).
             Y (list, numpy.ndarray): Dependent variable data of shape (n).
             name (str, optional): Name of data.
-            formats (list, dict, optional): List or dict of formatters (such as FormatNumber (default), FormatDate,
+            formats (dict, optional): List or dict of formatters (such as FormatNumber (default), FormatDate,
                 FormatDateTime, ...) for each input dimension.
             x_labels (str, list of str, optional): Name or names of input dimensions.
             y_label (str, optional): Name of output dimension.
@@ -279,17 +288,22 @@ class Data:
                     raise ValueError("X dict must contain all keys listed in x_labels")
                 X = list(map(list, zip(*[X[key] for key in x_labels])))
 
-            if formats != None and isinstance(formats, dict):
-                formats = list(formats.values())
+            if isinstance(formats, dict):
+                formats_list = []
+                for col in x_labels:
+                    formats_list.append(formats[col])
+                if y_label != None:
+                    formats_list.append(formats[y_label])
+                formats = formats_list
 
         # format X columns
         if formats == None:
-            formats = [FormatNumber()] * input_dims
+            formats = [FormatNumber()] * (input_dims+1)
 
-        if not isinstance(formats, (list, dict)):
+        if not isinstance(formats, list):
             raise ValueError("formats should be list or dict for each input dimension, when a dict is passed than x_labels must also be set")
 
-        for col in range(input_dims):
+        for col in range(input_dims+1):
             if len(formats) <= col:
                 formats.append(FormatNumber())
             elif isinstance(formats[col], type):
@@ -316,15 +330,17 @@ class Data:
         Y = np.empty((n,))
         for row, val in enumerate(Y_raw):
             try:
-                Y[row] = FormatNumber()._parse(val)
+                Y[row] = formats[-1]._parse(val)
             except ValueError:
                 bad_rows.add(row)
 
         if 0 < len(bad_rows):
             bad_rows = list(bad_rows)
             print("Warning: could not parse values for %d rows, removing data points" % (len(bad_rows),))
-            np.delete(X, bad_rows)
-            np.delete(Y, bad_rows)
+            if len(bad_rows) == n:
+                raise ValueError("none of the data points could be parsed, are they valid numbers or is an appropriate formatter set?")
+            X = np.delete(X, bad_rows)
+            Y = np.delete(Y, bad_rows)
 
         # check if X and Y are correct inputs
         if isinstance(X, list):
@@ -347,8 +363,6 @@ class Data:
             Y = np.array(Y)
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
             raise ValueError("X and Y must be lists or numpy arrays, if dicts are passed then x_labels and/or y_label must also be set")
-        X = X.astype(float)
-        Y = Y.astype(float)
 
         if X.ndim == 1:
             X = X.reshape(-1, 1)
@@ -372,7 +386,6 @@ class Data:
             elif 1e4 < xran:
                 print("Warning: very large X range may give problems, it is suggested to scale down your X-axis")
         
-        self.name = name
         self.X = X # shape (n, input_dims)
         self.Y = Y # shape (n)
         self.mask = np.array([True] * n)
@@ -381,24 +394,32 @@ class Data:
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-        if x_labels != None and isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
+        self.x_labels = [''] * input_dims
+        if isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
             self.x_labels = x_labels
-        else:
-            self.x_labels = [''] * input_dims
 
-        if y_label != None and isinstance(y_label, str):
+        self.name = ''
+        if isinstance(name, str):
+            self.name = name
+        elif isinstance(y_label, str):
+            self.name = y_label
+
+        self.y_label = ''
+        if isinstance(y_label, str):
             self.y_label = y_label
-        else:
-            self.y_label = ''
 
-        if formats != None and isinstance(formats, list):
+        self.formatters = [FormatNumber()] * input_dims
+        if isinstance(formats, list):
             self.formatters = formats
-        else:
-            self.formatters = [FormatNumber()] * input_dims
+
         self.transformations = []
 
     def __str__(self):
-        return "x=%s\ny=%s" % (self.X.tolist(), self.Y.tolist())
+        return self.__repr__()
+
+    def __repr__(self):
+        data = np.concatenate((self.X, self.Y.reshape(-1,1)), axis=1)
+        return repr(pd.DataFrame(data, columns=(self.x_labels + [self.y_label])))
 
     def set_name(self, name):
         """

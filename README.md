@@ -15,7 +15,7 @@ conda activate myenv
 where `myenv` is the name of your environment, and where the version of Python could be 3.6 or above. In order to use TensorFlow on the GPU, the easiest way is to install TensorFlow through conda (and not pip) before we install this toolkit. If you will be using the CPU you can skip this step.
 
 ```
-conda install tensorflow
+conda install tensorflow-gpu
 ```
 
 Next we will install this toolkit and automatically install the necessary dependencies such as GPflow2 and TensorFlow2.
