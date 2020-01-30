@@ -21,12 +21,12 @@ class MultiOutputSpectralMixture(MultiKernel):
         phase = np.zeros((output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dim)
-        self.magnitude = gpflow.Parameter(magnitude, prior=magnitude_prior)
-        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive())
-        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive())
+        self.magnitude = gpflow.Parameter(magnitude, prior=magnitude_prior, name="magnitude")
+        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name="mean")
+        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name="variance")
         if output_dim != 1:
-            self.delay = gpflow.Parameter(delay)
-            self.phase = gpflow.Parameter(phase)
+            self.delay = gpflow.Parameter(delay, name="delay")
+            self.phase = gpflow.Parameter(phase, name="phase")
 
     def subK(self, index, X, X2):
         i, j = index

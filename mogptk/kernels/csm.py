@@ -20,10 +20,10 @@ class CrossSpectralMixture(MultiKernel):
         phase = np.ones((Rq, output_dim)) * gpflow.config.default_positive_minimum()
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive())
-        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive())
-        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive())
-        self.phase = gpflow.Parameter(phase, transform=gpflow.utilities.positive())
+        self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name="constant")
+        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name="mean")
+        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name="variance")
+        self.phase = gpflow.Parameter(phase, transform=gpflow.utilities.positive(), name="phase")
 
     def subK(self, index, X, X2):
         i, j = index

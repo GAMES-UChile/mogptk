@@ -435,7 +435,7 @@ class model:
         if verbose:
             print('Starting optimization...')
 
-        i = 0
+        @tf.function  # optimize TF
         def loss():
             #x, y = self.model.data
             #K = self.model.kernel(x)
@@ -443,16 +443,16 @@ class model:
             #k_diag = tf.linalg.diag_part(K)
             #s_diag = tf.fill([num_data], self.model.likelihood.variance)
             #ks = tf.linalg.set_diag(K, k_diag + s_diag)
-            #tf.debugging.check_numerics(ks, "ks")
-            #if not np.all(np.linalg.eigvals(ks) > 0):
-            #    print("NOT POSITIVE DEFINITE:")
-            #    print(ks)
+            #tf.debugging.check_numerics(ks, "ks check")
 
-            loss = -self.model.log_marginal_likelihood()
-            if verbose:
-                print('  iteration = %5d, loss = %f' % (i, loss))
-            i += 1
-            return loss
+            return -self.model.log_marginal_likelihood()
+
+        #for i in range(2):
+        #    with tf.GradientTape() as tape:
+        #        l = loss()
+        #    grads = tape.gradient(l, self.model.trainable_variables)
+        #    print(self.model.trainable_variables)
+        #    print(grads)
 
         if method.lower() == "adam":
             opt = tf.optimizers.Adam(learning_rate=0.001)
