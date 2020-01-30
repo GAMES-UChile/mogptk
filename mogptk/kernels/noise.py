@@ -14,7 +14,7 @@ class Noise(Kernel):
         self.noise = gpflow.Parameter(noise, transform=gpflow.utilities.positive(), name="noise")
 
     def K(self, X, X2=None, presliced=False):
-        if X2 != None and not np.array_equal(X, X2):
+        if X2 is not None and not np.array_equal(X, X2):
             return tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
         return tf.linalg.diag(self.K_diag(X))
 

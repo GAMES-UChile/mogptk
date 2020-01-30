@@ -28,6 +28,21 @@ class MultiKernel(Kernel):
         return tf.linalg.diag_part(K)
 
     def K(self, X, X2=None, presliced=False):
+        # TODO: clean up, what follows is a start
+        #if presliced == False:
+        #    X, X2 = self.slice(X, X2)
+
+        #idx = tf.cast(X[:, 0], tf.int32)
+        #parts = tf.dynamic_partition(X[:, 1:], idx, self.output_dim)
+
+        #if X2 is None:
+        #    for i in range(self.output_dim):
+        #        for j in range(self.output_dim):
+        #            self.K_sub((i,j), parts[i], parts[j])
+        #else:
+        #    idx2 = idx
+
+
         # X, X2 = self._slice(X, X2)
         Xindex = tf.cast(X[:, 0], tf.int32)  # find group indices
 
