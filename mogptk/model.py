@@ -119,7 +119,7 @@ class model:
                     table += header + contents
                 display(HTML('<table>%s</table>' % (table)))
 
-                likelihood = self.get_likelihood_params()
+                likelihood = self.get_likelihood_parameters()
                 table = '<tr><th>Likelihood</th>'
                 for key in likelihood:
                     table += '<th>%s</th>' % (key,)
@@ -151,7 +151,7 @@ class model:
                     print(tabulate(contents, headers=headers))
                     print()
 
-                likelihood = self.get_likelihood_params()
+                likelihood = self.get_likelihood_parameters()
                 content = ['']
                 for key in likelihood.keys():
                     val = likelihood[key]
@@ -552,10 +552,11 @@ class model:
                 upper[i],
                 label='95% c.i',
                 color=colors[i%len(colors)],
-                alpha=0.4)
-            axes[i].plot(x_pred[i][:,0], mu[i], label='Post.Mean', c=colors[i%len(colors)], zorder=2)
-            axes[i].plot(x_all[i][:,0], y_all[i], '--k', label='Test', lw=1, alpha=0.8, zorder=1)
-            axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=10, mew=0.5, markeredgecolor='white', zorder=3)
+                alpha=0.4,
+                zorder=1)
+            axes[i].plot(x_pred[i][:,0], mu[i], label='Post.Mean', c=colors[i%len(colors)], zorder=3)
+            axes[i].plot(x_all[i][:,0], y_all[i], '--k', label='Test', lw=1, alpha=0.8, zorder=2)
+            axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=10, mew=0.5, markeredgecolor='white', zorder=4)
             
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
