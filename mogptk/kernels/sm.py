@@ -31,8 +31,10 @@ class SpectralMixture(gpflow.kernels.Kernel):
         mixture_means = np.random.random((Q, input_dim))
         mixture_scales = np.random.random((input_dim, Q))
 
+        
         super().__init__(input_dim, active_dims)
-        self.num_mixtures = gpflow.Parameter(Q, trainable=False, dtype=np.int_)
+
+        self.num_mixtures = Q
         self.mixture_weights = gpflow.Parameter(mixture_weights, transform=gpflow.utilities.positive())
         self.mixture_scales = gpflow.Parameter(mixture_scales, transform=gpflow.utilities.positive())
         self.mixture_means = gpflow.Parameter(mixture_means, transform=gpflow.utilities.positive())

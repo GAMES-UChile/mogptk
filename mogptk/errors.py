@@ -114,7 +114,7 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
 
     for model in models:
 
-        n_channels = model.get_output_dims()
+        n_channels = model.dataset.get_output_dims()
 
         error_per_channel = []
 
