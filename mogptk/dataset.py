@@ -74,7 +74,7 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
     df = df[x_col + y_col]
     if len(df.index) == 0:
         raise ValueError("dataframe cannot be empty")
-    df = df.dropna()
+
     if len(df.index) == 0:
         raise ValueError("dataframe has NaN values for every row, consider selecting X and Y columns that have valid values by setting x_col and y_col")
 
@@ -97,12 +97,17 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
                 except:
                     raise ValueError("unknown format for column %s, must be a number type or datetime" % (col,))
 
+
+    
+
     dataset = DataSet()
     for i in range(len(y_col)):
-        y_data = df[y_col[i]]
+        channel = df[x_col + [y_col[i]]].dropna()
+
+
         dataset.append(Data(
-            x_data.values,
-            y_data.values,
+            channel[x_col].values,
+            channel[y_col[i]].values,
             name=name[i],
             formats=formats,
             x_labels=x_labels,

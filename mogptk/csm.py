@@ -88,14 +88,14 @@ class CSM(model):
                 mean = np.array(means)[:,:,q].mean(axis=0)
                 variance = np.array(variances)[:,:,q].mean(axis=0)
 
-                self.set_param(q, 'constant', constant)
-                self.set_param(q, 'mean', mean * 2 * np.pi)
-                self.set_param(q, 'variance', variance * 5)
+                self.set_parameter(q, 'constant', constant)
+                self.set_parameter(q, 'mean', mean * 2 * np.pi)
+                self.set_parameter(q, 'variance', variance * 5)
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
             for q in range(self.Q):
-                self.set_param(q, 'constant', params[q]['weight'].mean(axis=0).reshape(self.Rq, -1))
-                self.set_param(q, 'mean', params[q]['mean'].mean(axis=1))
-                self.set_param(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
+                self.set_parameter(q, 'constant', params[q]['weight'].mean(axis=0).reshape(self.Rq, -1))
+                self.set_parameter(q, 'mean', params[q]['mean'].mean(axis=1))
+                self.set_parameter(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
         else:
             raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")

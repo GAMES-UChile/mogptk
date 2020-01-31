@@ -96,7 +96,7 @@ class model:
             try:
                 get_ipython
                 table = ''
-                for q, params in enumerate(self.get_params()):
+                for q, params in enumerate(self.get_parameters()):
                     contents = []
                     output_dims = self.dataset.get_output_dims()
                     for j in range(output_dims):
@@ -130,7 +130,7 @@ class model:
                 display(HTML('<table>%s</table>' % (table)))
             except:
                 table = ''
-                for q, params in enumerate(self.get_params()):
+                for q, params in enumerate(self.get_parameters()):
                     contents = []
                     output_dims = self.dataset.get_output_dims()
                     for j in range(output_dims):
@@ -167,12 +167,12 @@ class model:
                     headers.append(key)
                 print(tabulate([content], headers=headers))
 
-    def get_params(self):
+    def get_parameters(self):
         """
         Returns all parameters set for the kernel per component.
 
         Examples:
-            >>> params = model.get_params()
+            >>> params = model.get_parameters()
         """
 
         params = []
@@ -189,7 +189,7 @@ class model:
                     params[0][param_name] = param_val.read_value().numpy()
         return params
 
-    def get_likelihood_params(self):
+    def get_likelihood_parameters(self):
         """
         Returns all parameters set for the likelihood.
 
@@ -202,7 +202,7 @@ class model:
                 params[param_name] = param_val.read_value().numpy()
         return params
 
-    def get_param(self, q, key):
+    def get_parameter(self, q, key):
         """
         Gets a kernel parameter for component 'q' with key the parameter name.
 
@@ -230,7 +230,7 @@ class model:
     
         return kern[key].read_value().numpy()
 
-    def set_param(self, q, key, val):
+    def set_parameter(self, q, key, val):
         """
         Sets a kernel parameter for component 'q' with key the parameter name.
 
@@ -268,7 +268,7 @@ class model:
 
         kern[key].assign(val)
 
-    def set_likelihood_param(self, key, val):
+    def set_likelihood_parameter(self, key, val):
         """
         Sets a likelihood parameter with key the parameter name.
 
@@ -297,18 +297,24 @@ class model:
 
         likelihood[key].assign(val)
 
-    def fix_param(self, key):
+    def fix_parameters(self, q, key):
         """
         Make parameter untrainable (undo with `unfix_param`).
 
         Args:
+            q: (int, list or array-like of ints): components to fix.
             key (str): Name of the parameter.
 
         Examples:
-            >>> model.fix_param('variance')
+            >>> model.fix_param([0, 1], 'variance')
         """
+
+        if isinstance(q, int):
+            q = [q]
+
         if hasattr(self.model.kernel, 'kernels'):
-            for kernel_i, kernel in enumerate(self.model.kernel.kernels):
+            for kernel_i in q:
+                kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                         getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = False
@@ -317,18 +323,24 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                     getattr(self.model.kernel, param_name).trainable = False
 
-    def unfix_param(self, key):
+    def unfix_parameters(self, q, key):
         """
         Make parameter trainable (that was previously fixed, see `fix_param`).
 
         Args:
+        q: (int, list or array-like of ints): components to unfix.
             key (str): Name of the parameter.
 
         Examples:
             >>> model.unfix_param('variance')
         """
+
+        if isinstance(q, int):
+            q = [q]
+
         if hasattr(self.model.kernel, 'kernels'):
-            for kernel_i, kernel in enumerate(self.model.kernel.kernels):
+             for kernel_i in q:
+                kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                         getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = True
@@ -337,7 +349,7 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                     getattr(self.model.kernel, param_name).trainable = True
 
-    def save_params(self, filename):
+    def save_parameters(self, filename):
         """
         Save model parameters to a given file that can then be loaded with `load_params()`.
 
@@ -362,13 +374,13 @@ class model:
 
         data = {
             'model': self.__class__.__name__,
-            'likelihood': self.get_likelihood_params(),
-            'params': self.get_params()
+            'likelihood': self.get_likelihood_parameters(),
+            'params': self.get_parameters()
         }
         with open(filename, 'w') as w:
             json.dump(data, w, cls=NumpyEncoder)
 
-    def load_params(self, filename):
+    def load_parameters(self, filename):
         """
         Load model parameters from a given file that was previously saved with `save_params()`.
 
@@ -391,7 +403,7 @@ class model:
             if data['model'] != self.__class__.__name__:
                 raise Exception("parameter file uses model '%s' which is different from current model '%s'" % (data['model'], self.__class__.__name__))
 
-            cur_params = self.get_params()
+            cur_params = self.get_parameters()
             if len(data['params']) != len(cur_params):
                 raise Exception("parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model's Q different?" % (len(data['params']), len(cur_params)))
 

@@ -708,7 +708,7 @@ class Data:
         idx = np.where(np.logical_and(self.X[:,0] >= start, self.X[:,0] <= end))
         self.mask[idx] = False
     
-    def remove_rel_range(self, start, end):
+    def remove_rel_range(self, start=None, end=None):
         """
         Removes observations between start and end as a percentage of the number of observations. So '0' is the first observation, '0.5' is the middle observation, and '1' is the last observation.
 
@@ -718,6 +718,12 @@ class Data:
         """
         if self.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
+
+        if end is None:
+            end = 1
+        if start is None:
+            start = 0
+
 
         x_min = np.min(self.X[:,0])
         x_max = np.max(self.X[:,0])
