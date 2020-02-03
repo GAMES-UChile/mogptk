@@ -79,12 +79,17 @@ class CSM(model):
 
         if method == 'BNSE':
             amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            if len(amplitudes) == 0:
+                logger.warning('BNSE could not find peaks for CSM')
+                return
+
             for q in range(self.Q):
                 constant = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 for channel in range(len(self.dataset)):
                     constant[:,channel] = amplitudes[channel][:,q].mean()
             
-                constant = constant / constant.max()
+                if not np.isclose(constant.max(), 0.0):
+                    constant = constant / constant.max()
                 mean = np.array(means)[:,:,q].mean(axis=0)
                 variance = np.array(variances)[:,:,q].mean(axis=0)
 
@@ -99,3 +104,8 @@ class CSM(model):
                 self.set_param(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
         else:
             raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")
+
+        noise = np.empty((self.dataset.get_output_dims()))
+        for i, channel in enumerate(self.dataset):
+            noise[i] = (channel.Y).var() / 30
+        self.set_param(self.Q, 'noise', noise)

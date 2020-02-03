@@ -68,9 +68,12 @@ class CONV(model):
         """
         if method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot, fix_means=True)
-            print(params)
             for q in range(self.Q):
-                self.set_param(q, 'constant', params[q]['weight'].mean(axis=0) / params[q]['weight'].mean())
+                constant = params[q]['weight'].mean(axis=0)
+                if not np.isclose(params[q]['weight'].mean(), 0.0):
+                    constant /= params[q]['weight'].mean()
+
+                self.set_param(q, 'constant', constant)
                 self.set_param(q, 'variance', params[q]['scale'])
         else:
             raise Exception("possible methods of estimation are either 'SM'")
