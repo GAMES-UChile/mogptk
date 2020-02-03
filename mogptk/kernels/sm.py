@@ -32,7 +32,7 @@ class SpectralMixture(gpflow.kernels.Kernel):
         mixture_scales = np.random.random((input_dim, Q))
 
         super().__init__(input_dim, active_dims)
-        self.num_mixtures = gpflow.Parameter(Q, trainable=False, dtype=np.int_)
+        self.num_mixtures = int(Q)
         self.mixture_weights = gpflow.Parameter(mixture_weights, transform=gpflow.utilities.positive())
         self.mixture_scales = gpflow.Parameter(mixture_scales, transform=gpflow.utilities.positive())
         self.mixture_means = gpflow.Parameter(mixture_means, transform=gpflow.utilities.positive())
@@ -61,7 +61,7 @@ class SpectralMixture(gpflow.kernels.Kernel):
 
         scales_expand = tf.expand_dims(tf.expand_dims(self.mixture_scales, -2), -2)
                                                                 # D x 1 x 1 x num_mixtures
-        r_tile = tf.tile(tf.expand_dims(r,-1),(1,1,1,self.num_mixtures.numpy()))
+        r_tile = tf.tile(tf.expand_dims(r,-1),(1,1,1,self.num_mixtures))
                                                                # D x N1 x N2 x num_mixtures
         exp_term = tf.multiply(tf.transpose(tf.reduce_sum(tf.square(tf.multiply(r_tile, scales_expand)), 0)\
                                             ,perm=[2, 0, 1]), -2. * np.pi ** 2)

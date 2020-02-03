@@ -94,78 +94,102 @@ class model:
         """
         with np.printoptions(precision=3, floatmode='fixed'):
             try:
-                get_ipython
-                table = ''
+                get_ipython # fails if we're not in a notebook
+
+                table = '<table><tr><th>Kernel</th><th>Name</th><th>Train</th><th>Shape</th><th>Dtype</th><th>Value</th></tr>'
                 for q, params in enumerate(self.get_params()):
-                    contents = []
-                    output_dims = self.dataset.get_output_dims()
-                    for j in range(output_dims):
-                        content = '<td>%s</td>' % (self.dataset[j].get_name(),)
-
-                        values = []
-                        for key in params.keys():
-                            val = params[key]
-                            if val.ndim == 1 and val.shape[0] == output_dims:
-                                values.append('%.3f' % (val[j],))
-                            elif val.ndim == 2 and val.shape[1] == output_dims:
-                                values.append(str(val[:,j]))
-                            else:
-                                values.append(str(val))
-                        content += '<td>' + '</td><td>'.join(values) + '</td>'
-                        contents.append(content)
-
-                    header = '<tr><th>Q=%d</th><th>' % (q,) + '</th><th>'.join(params.keys()) + '</th></tr>'
-                    contents = '<tr>' + '</tr><tr>'.join(contents) + '</tr>'
-                    table += header + contents
-                display(HTML('<table>%s</table>' % (table)))
-
-                likelihood = self.get_likelihood_params()
-                table = '<tr><th>Likelihood</th>'
-                for key in likelihood:
-                    table += '<th>%s</th>' % (key,)
-                table += '</tr><tr><td></td>'
-                for key in likelihood:
-                    table += '<td>%s</td>' % (likelihood[key],)
-                table += '</tr>'
-                display(HTML('<table>%s</table>' % (table)))
-            except:
-                table = ''
-                for q, params in enumerate(self.get_params()):
-                    contents = []
-                    output_dims = self.dataset.get_output_dims()
-                    for j in range(output_dims):
-                        content = [self.dataset[j].get_name()]
-                        for key in params.keys():
-                            val = params[key]
-                            if val.ndim == 1 and val.shape[0] == output_dims:
-                                content.append('%.3f' % (val[j],))
-                            elif val.ndim == 2 and val.shape[1] == output_dims:
-                                content.append(str(val[:,j]))
-                            else:
-                                content.append(str(val))
-                        contents.append(content)
-
-                    headers = ["Q=%d" % (q,)]
-                    for key in params.keys():
-                        headers.append(key)
-                    print(tabulate(contents, headers=headers))
-                    print()
-
-                likelihood = self.get_likelihood_params()
-                content = ['']
-                for key in likelihood.keys():
-                    val = likelihood[key]
-                    if val.ndim == 1 and val.shape[0] == output_dims:
-                        content.append('%.3f' % (val[j],))
-                    elif val.ndim == 2 and val.shape[1] == output_dims:
-                        content.append(str(val[:,j]))
+                    kernel = None
+                    if hasattr(self.model.kernel, 'kernels'):
+                        kernel = self.model.kernel.kernels[q]
                     else:
-                        content.append(str(val))
+                        kernel = self.model.kernel
 
-                headers = ["Likelihood"]
-                for key in likelihood.keys():
-                    headers.append(key)
-                print(tabulate([content], headers=headers))
+                    first = True
+                    for key in params.keys():
+                        param = getattr(kernel, key)
+
+                        val = params[key]
+                        if val.ndim == 0:
+                            val = '%.3f' % (val,)
+                        else:
+                            val = str(val)
+
+                        tr_style = ''
+                        name = ''
+                        if first:
+                            if q != 0:
+                                tr_style = ' style="border-top:1px solid darkgrey"'
+                            name = '<th rowspan="%d" style="text-align:center">%s<br>Q=%d</th>' % (len(params.keys()), kernel.name, q)
+                            first = False
+
+                        table += '<tr%s>%s<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
+
+                first = True
+                params = self.get_likelihood_params()
+                for key in params:
+                    param = getattr(self.model.likelihood, key)
+
+                    val = params[key]
+                    if val.ndim == 0:
+                        val = '%.3f' % (val,)
+                    else:
+                        val = str(val)
+
+                    name = ''
+                    tr_style = ''
+                    if first:
+                        tr_style = ' style="border-top:1px solid darkgrey"'
+                        name = '<th rowspan="%d" style="text-align:center">%s<br>likelihood</th>' % (len(params.keys()), self.model.likelihood.name)
+                        first = False
+
+                    table += '<tr%s>%s<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
+                table += '</table>'
+                display(HTML(table))
+            except Exception as e:
+                contents = []
+                for q, params in enumerate(self.get_params()):
+                    kernel = None
+                    if hasattr(self.model.kernel, 'kernels'):
+                        kernel = self.model.kernel.kernels[q]
+                    else:
+                        kernel = self.model.kernel
+
+                    first = True
+                    for key in params.keys():
+                        param = getattr(kernel, key)
+
+                        val = params[key]
+                        if val.ndim == 0:
+                            val = '%.3f' % (val,)
+                        else:
+                            val = str(val)
+
+                        name = ''
+                        if first:
+                            name = '%s Q=%d' % (kernel.name, q)
+                            first = False
+
+                        contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
+
+                first = True
+                params = self.get_likelihood_params()
+                for key in params.keys():
+                    param = getattr(self.model.likelihood, key)
+
+                    val = params[key]
+                    if val.ndim == 0:
+                        val = '%.3f' % (val,)
+                    else:
+                        val = str(val)
+
+                    name = ''
+                    if first:
+                        name = '%s likelihood' % (self.model.likelihood.name,)
+                        first = False
+
+                    contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
+
+                print(tabulate(contents, headers=['Kernel', 'Name', 'Train', 'Shape', 'Dtype', 'Value']))
 
     def get_params(self):
         """
