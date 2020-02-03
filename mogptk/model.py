@@ -447,26 +447,18 @@ class model:
         """
         inital_time = time.time()
         if verbose:
-            print('Starting optimization\n >Initial NLL: {:.3f}'.format(self.model.log_marginal_likelihood().numpy()))
+            print('Starting optimization\n >Model: {} \n >Channels: {} \
+                \n >Components: {} \n >Training points:{} \n >Initial NLL: {:.3f}'.format(
+                    self.name,
+                    len(self.dataset),
+                    self.Q,
+                    sum([len(data.mask) for data in self.dataset]),
+                    self.model.log_marginal_likelihood().numpy()))
 
         @tf.function  # optimize TF
         def loss():
-            #x, y = self.model.data
-            #K = self.model.kernel(x)
-            #num_data = x.shape[0]
-            #k_diag = tf.linalg.diag_part(K)
-            #s_diag = tf.fill([num_data], self.model.likelihood.variance)
-            #ks = tf.linalg.set_diag(K, k_diag + s_diag)
-            #tf.debugging.check_numerics(ks, "ks check")
 
             return -self.model.log_marginal_likelihood()
-
-        #for i in range(2):
-        #    with tf.GradientTape() as tape:
-        #        l = loss()
-        #    grads = tape.gradient(l, self.model.trainable_variables)
-        #    print(self.model.trainable_variables)
-        #    print(grads)
 
         if method.lower() == "adam":
             opt = tf.optimizers.Adam(learning_rate=0.001)
