@@ -493,6 +493,11 @@ class model:
         Args:
             x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
+        returns :
+            mu (ndarray): Posterior mean.
+            lower (ndarray): Lower confidence interval.
+            upper (ndarray): Upper confidence interval.
+
         Examples:
             >>> model.predict(plot=True)
         """
@@ -589,7 +594,21 @@ class model:
 
     def plot_gram(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=''):
         """
-        Plot the gram matrix of associated kernel
+        Plot the gram matrix of associated kernel.
+
+        The gram matrix is evaluated depending a equaly spaced grid 
+        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
+
+        Args:
+            xmin (float, list, array): 
+            xmax (float, list, array):
+            n_points (int): Number of points per channel
+            figsize (2-tuple of ints): Figure size.
+            title (str): Figure title.
+        Returns:
+            fig : Matplotlib figure
+            ax : Matplotlib axis
+
         """
         if xmin is None:
             xmin = [data.X.min() for data in self.dataset]

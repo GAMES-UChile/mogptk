@@ -79,23 +79,44 @@ class CSM(model):
 
         if method == 'BNSE':
             amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+
+            constant = np.empty((self.Q, self.Rq, self.dataset.get_output_dims()))
             for q in range(self.Q):
-                constant = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 for channel in range(len(self.dataset)):
-                    constant[:,channel] = amplitudes[channel][:,q].mean()
+                    constant[q, :,channel] = amplitudes[channel][:,q].mean()
             
-                constant = constant / constant.max()
                 mean = np.array(means)[:,:,q].mean(axis=0)
                 variance = np.array(variances)[:,:,q].mean(axis=0)
 
-                self.set_parameter(q, 'constant', constant)
                 self.set_parameter(q, 'mean', mean * 2 * np.pi)
                 self.set_parameter(q, 'variance', variance * 5)
+
+            # normalize proportional to channel variance
+            for channel, data in enumerate(self.dataset):
+                if constant[:, :, channel].sum()==0:
+                    raise Exception("Sum of magnitudes equal to zero")
+                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var()
+
+            for q in range(self.Q):
+                self.set_parameter(q, 'constant', constant[q, :, :])
+
+
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+            constant = np.empty((self.Q, self.Rq, self.dataset.get_output_dims()))
+
             for q in range(self.Q):
-                self.set_parameter(q, 'constant', params[q]['weight'].mean(axis=0).reshape(self.Rq, -1))
+                constant[q, :, :] = params[q]['weight'].mean(axis=0).reshape(self.Rq, -1)
                 self.set_parameter(q, 'mean', params[q]['mean'].mean(axis=1))
                 self.set_parameter(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
+
+            # normalize proportional to channel variance
+            for channel, data in enumerate(self.dataset):
+                if constant[:, :, channel].sum()==0:
+                    raise Exception("Sum of magnitudes equal to zero")
+                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var()
+                
+            for q in range(self.Q):
+                self.set_parameter(q, 'constant', constant[q, :, :])
         else:
             raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")

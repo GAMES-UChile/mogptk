@@ -25,6 +25,7 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, formats={}, **kwargs):
     """
 
     df = pd.read_csv(filename, **kwargs)
+
     return LoadDataFrame(df, x_col, y_col, name, formats)
 
 def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):

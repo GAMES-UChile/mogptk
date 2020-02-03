@@ -68,12 +68,22 @@ class CONV(model):
         """
         if method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot, fix_means=True)
-            print(params)
+
+            constant = np.empty((self.Q, self.dataset.get_output_dims()))
             for q in range(self.Q):
-                self.set_parameter(q, 'constant', params[q]['weight'].mean(axis=0) / params[q]['weight'].mean())
-                self.set_parameter(q, 'variance', params[q]['scale'])
+                constanst = params[q]['weight'].mean(axis=0)
+                self.set_parameter(q, 'variance', params[q]['scale'] * 10)
+
+            for channel, data in enumerate(self.dataset):
+                if constant[:, channel].sum()==0:
+                    raise Exception("Sum of magnitudes equal to zero")
+                constant[:, channel] = constant[:, channel] / constant[:, channel].sum() * data.Y[data.mask].var()
+
+            for q in range(self.Q):
+                self.set_parameter(q, 'constant', constant[q, :])
+
         else:
-            raise Exception("possible methods of estimation are either 'SM'")
+            raise Exception("possible methods of estimation are only 'SM'")
 
         noise = np.empty((self.dataset.get_output_dims()))
         for i, channel in enumerate(self.dataset):

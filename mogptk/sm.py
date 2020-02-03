@@ -40,10 +40,10 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
 
             if fix_means:
                 sm.set_parameter(0, 'mixture_means', np.zeros((Q, input_dims)))
-                sm.set_parameter(0, 'mixture_scales', sm.get_parameter(0, 'mixture_scales') * 100.0)
-                sm.fix_parameter('mixture_means')
+                sm.set_parameter(0, 'mixture_scales', sm.get_parameter(0, 'mixture_scales') * 50)
+                sm.fix_parameters(0, 'mixture_means')
 
-            sm.train(method=optimizer, maxiter=maxiter, tol=1e-50)
+            sm.train(method=optimizer, maxiter=maxiter)
 
             if plot:
                 nyquist = dataset[channel].get_nyquist_estimation()
@@ -126,21 +126,21 @@ class SM(model):
         if method == 'random':
             x, y = self.dataset[0].get_data()
             weights, means, scales = sm_init(x, y, self.Q)
-            for q in range(self.Q):
-                self.set_parameter(0, 'mixture_weights', weights)
-                self.set_parameter(0, 'mixture_means', np.array(means))
-                self.set_parameter(0, 'mixture_scales', np.array(scales.T))
+            self.set_parameter(0, 'mixture_weights', weights)
+            self.set_parameter(0, 'mixture_means', np.array(means))
+            self.set_parameter(0, 'mixture_scales', np.array(scales.T))
 
         elif method == 'LS':
             amplitudes, means, variances = self.dataset[0].get_ls_estimation(self.Q)
             if len(amplitudes) == 0:
                 logging.warning('LS could not find peaks for SM')
                 return
+            
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
 
-            for q in range(self.Q):
-                self.set_parameter(q, 'mixture_weights', amplitudes.mean(axis=0) / amplitudes.mean())
-                self.set_parameter(q, 'mixture_means', means.T)
-                self.set_parameter(q, 'mixture_scales', variances * 2.0)
+            self.set_parameter(0, 'mixture_weights', mixture_weights)
+            self.set_parameter(0, 'mixture_means', means.T)
+            self.set_parameter(0, 'mixture_scales', variances * 2.0)
 
         elif method == 'BNSE':
             amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
@@ -148,10 +148,11 @@ class SM(model):
                 logging.warning('BNSE could not find peaks for SM')
                 return
 
-            for q in range(self.Q):
-                self.set_parameter(0, 'mixture_weights', amplitudes.mean(axis=0) / amplitudes.mean())
-                self.set_parameter(0, 'mixture_means', means.T)
-                self.set_parameter(0, 'mixture_scales', variances * 2.0)
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
+            
+            self.set_parameter(0, 'mixture_weights', mixture_weights)
+            self.set_parameter(0, 'mixture_means', means.T)
+            self.set_parameter(0, 'mixture_scales', variances * 2.0)
 
     def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
         """

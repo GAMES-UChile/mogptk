@@ -115,7 +115,7 @@ class TransformDetrend:
         if data.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
-        self.coef = np.polyfit(data.X[:,0], data.Y, self.degree)
+        self.coef = np.polyfit(data.X[data.mask,0], data.Y[data.mask], self.degree)
         # reg = Ridge(alpha=0.1, fit_intercept=True)
         # reg.fit(data.X, data.Y)
         # self.trend = reg
@@ -136,8 +136,8 @@ class TransformNormalize:
         pass
 
     def _data(self, data):
-        self.ymin = np.amin(data.Y)
-        self.ymax = np.amax(data.Y)
+        self.ymin = np.amin(data.Y[data.mask])
+        self.ymax = np.amax(data.Y[data.mask])
 
     def _forward(self, x, y):
         return (y-self.ymin)/(self.ymax-self.ymin)
@@ -153,8 +153,8 @@ class TransformLog:
         pass
 
     def _data(self, data):
-        self.shift = 1 - np.amin(data.Y)
-        self.mean = np.log(data.Y + self.shift).mean()
+        self.shift = 1 - np.amin(data.Y[data.mask])
+        self.mean = np.log(data.Y[data.mask] + self.shift).mean()
 
     def _forward(self, x, y):
         return np.log(y + self.shift) - self.mean
@@ -935,8 +935,8 @@ class Data:
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x = self.X[:,i]
-            y = self.Y
+            x = self.X[self.mask, i]
+            y = self.Y[self.mask]
             bnse = bse(x, y)
             bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
