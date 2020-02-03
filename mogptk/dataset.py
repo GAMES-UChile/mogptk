@@ -466,8 +466,6 @@ class DataSet:
                     xmin[formatter.category] = min(xmin[formatter.category], np.min(x[:,i]))
                     xmax[formatter.category] = max(xmax[formatter.category], np.max(x[:,i]))
 
-        print(xmin, xmax)
-
         for channel in self.channels:
             offsets = []
             scales = []

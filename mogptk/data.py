@@ -1026,6 +1026,7 @@ class Data:
             bnse.compute_moments()
 
             amplitudes, positions, variances = bnse.get_freq_peaks()
+            # TODO: sqrt of amplitudes? vs LS?
             if len(positions) == 0:
                 continue
 
@@ -1074,7 +1075,7 @@ class Data:
             x = np.linspace(0, nyquist[i], n+1)[1:]
             dx = x[1]-x[0]
 
-            y = signal.lombscargle(self.X[self.mask,i], self.Y, x)
+            y = signal.lombscargle(self.X[self.mask,i], self.Y[self.mask], x)
             ind, _ = signal.find_peaks(y)
             ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
