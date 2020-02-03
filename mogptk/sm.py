@@ -43,10 +43,10 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
 
             if fix_means:
                 sm.set_parameter(0, 'mixture_means', np.zeros((Q, input_dims)))
-                sm.set_parameter(0, 'mixture_scales', sm.get_parameter(0, 'mixture_scales') * 100.0)
-                sm.fix_parameter('mixture_means')
+                sm.set_parameter(0, 'mixture_scales', sm.get_parameter(0, 'mixture_scales') * 50)
+                sm.fix_parameters(0, 'mixture_means')
 
-            sm.train(method=optimizer, maxiter=maxiter, tol=1e-50)
+            sm.train(method=optimizer, maxiter=maxiter)
 
             if plot:
                 nyquist = dataset[channel].get_nyquist_estimation()
@@ -65,6 +65,10 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
 class SM(model):
     """
     A single output GP Spectral mixture kernel as proposed by [1].
+
+    The model contain the dataset and the associated gpflow model, 
+    when the mogptk.Model is instanciated the gpflow model is built 
+    using random parameters.
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
@@ -138,10 +142,8 @@ class SM(model):
             if len(amplitudes) == 0:
                 logger.warning('LS could not find peaks for SM')
                 return
-
-            mixture_weights = amplitudes.mean(axis=0)
-            if not np.isclose(amplitudes.mean(), 0.0):
-                mixture_weights /= amplitudes.mean()
+            
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
 
             self.set_parameter(0, 'mixture_weights', mixture_weights)
             self.set_parameter(0, 'mixture_means', means.T)
@@ -153,9 +155,7 @@ class SM(model):
                 logger.warning('BNSE could not find peaks for SM')
                 return
 
-            mixture_weights = amplitudes.mean(axis=0)
-            if not np.isclose(amplitudes.mean(), 0.0):
-                mixture_weights /= amplitudes.mean()
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
 
             self.set_parameter(0, 'mixture_weights', mixture_weights)
             self.set_parameter(0, 'mixture_means', means.T)

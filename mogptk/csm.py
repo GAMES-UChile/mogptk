@@ -7,6 +7,10 @@ class CSM(model):
     """
     Cross Spectral Mixture kernel [1] with Q components and Rq latent functions.
 
+    The model contain the dataset and the associated gpflow model, 
+    when the mogptk.Model is instanciated the gpflow model is built 
+    using random parameters.
+
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
         Q (int, optional): Number of components.
@@ -83,25 +87,39 @@ class CSM(model):
                 logger.warning('BNSE could not find peaks for CSM')
                 return
 
+            constant = np.empty((self.Q, self.Rq, self.dataset.get_output_dims()))
             for q in range(self.Q):
-                constant = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
                 for channel in range(len(self.dataset)):
-                    constant[:,channel] = amplitudes[channel][:,q].mean()
+                    constant[q, :,channel] = amplitudes[channel][:,q].mean()
             
-                if not np.isclose(constant.max(), 0.0):
-                    constant = constant / constant.max()
                 mean = np.array(means)[:,:,q].mean(axis=0)
                 variance = np.array(variances)[:,:,q].mean(axis=0)
 
-                self.set_parameter(q, 'constant', constant)
                 self.set_parameter(q, 'mean', mean * 2 * np.pi)
                 self.set_parameter(q, 'variance', variance * 5)
+
+            # normalize proportional to channel variance
+            for channel, data in enumerate(self.dataset):
+                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var()
+
+            for q in range(self.Q):
+                self.set_parameter(q, 'constant', constant[q, :, :])
+
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+            constant = np.empty((self.Q, self.Rq, self.dataset.get_output_dims()))
+
             for q in range(self.Q):
-                self.set_parameter(q, 'constant', params[q]['weight'].mean(axis=0).reshape(self.Rq, -1))
+                constant[q, :, :] = params[q]['weight'].mean(axis=0).reshape(self.Rq, -1)
                 self.set_parameter(q, 'mean', params[q]['mean'].mean(axis=1))
                 self.set_parameter(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
+
+            # normalize proportional to channel variance
+            for channel, data in enumerate(self.dataset):
+                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var()
+                
+            for q in range(self.Q):
+                self.set_parameter(q, 'constant', constant[q, :, :])
         else:
             raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")
 

@@ -130,7 +130,7 @@ class TransformDetrend:
         if data.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
-        self.coef = np.polyfit(data.X[:,0], data.Y, self.degree)
+        self.coef = np.polyfit(data.X[data.mask,0], data.Y[data.mask], self.degree)
         # reg = Ridge(alpha=0.1, fit_intercept=True)
         # reg.fit(data.X, data.Y)
         # self.trend = reg
@@ -168,8 +168,8 @@ class TransformNormalize:
         pass
 
     def _data(self, data):
-        self.ymin = np.amin(data.Y)
-        self.ymax = np.amax(data.Y)
+        self.ymin = np.amin(data.Y[data.mask])
+        self.ymax = np.amax(data.Y[data.mask])
 
     def _forward(self, x, y):
         return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
@@ -185,14 +185,32 @@ class TransformLog:
         pass
 
     def _data(self, data):
-        self.shift = 1 - np.amin(data.Y)
-        self.mean = np.log(data.Y + self.shift).mean()
+        self.shift = 1 - np.amin(data.Y[data.mask])
+        self.mean = np.log(data.Y[data.mask] + self.shift).mean()
 
     def _forward(self, x, y):
         return np.log(y + self.shift) - self.mean
     
     def _backward(self, x, y):
         return np.exp(y + self.mean) - self.shift
+
+class TransformWhiten:
+    """
+    Transform the data so it has mean 0 and variance 1
+    """
+    def __init__(self):
+        pass
+    
+    def _data(self, data):
+        # take only the non-removed observations
+        self.mean = data.Y[data.mask].mean()
+        self.std = data.Y[data.mask].std()
+        
+    def _forward(self, x, y):
+        return (y - self.mean) / self.std
+    
+    def _backward(self, x, y):
+        return (y * self.std) + self.mean
 
 ################################################################
 ################################################################
@@ -968,7 +986,7 @@ class Data:
 
         nyquist = np.empty((input_dims))
         for i in range(self.get_input_dims()):
-            x = np.sort(self.X[:,i])
+            x = np.sort(self.X[self.mask,i])
             dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
             dist = np.min(dist[np.nonzero(dist)])
             nyquist[i] = 0.5/dist
@@ -1000,9 +1018,8 @@ class Data:
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x = self.X[:,i]
-            y = self.Y
-
+            x = self.X[self.mask, i]
+            y = self.Y[self.mask]
             bnse = bse(x, y)
             bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
@@ -1057,7 +1074,7 @@ class Data:
             x = np.linspace(0, nyquist[i], n+1)[1:]
             dx = x[1]-x[0]
 
-            y = signal.lombscargle(self.X[:,i], self.Y, x)
+            y = signal.lombscargle(self.X[self.mask,i], self.Y, x)
             ind, _ = signal.find_peaks(y)
             ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 

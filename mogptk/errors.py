@@ -93,9 +93,10 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
 
         raw_errors (bool): If true returns for each model a list is returned
             with the errors of each channel (y_true - y_pred).
-            If false returns for each model a list of 3 arrays with the
-            mean absolute error (MAE), mean absolute porcentual error (MAPE)
-            and root mean squared error (RMSE) for each channel.
+            If false returns for each model a list of 4 arrays with the
+            mean absolute error (MAE), std-normalized mean absolute error (nMAE),
+            root mean squared error (RMSE) and std-normalized root mean 
+            squared error (nRMSE) for each channel.
 
     Returns:
         List with length equal to the number of models, each element
@@ -116,7 +117,13 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
 
         n_channels = model.dataset.get_output_dims()
 
+        if n_channels==1:
+            if not isinstance(y_test, list):
+                y_test = [y_test]
+
         error_per_channel = []
+
+        # print([a.std() for a in y_test])
 
         # predict with model
         y_pred, _, _ = model.predict(x_test)
@@ -131,9 +138,9 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
             else:
                 mae = np.abs(errors).mean()
                 # mape = (np.abs(errors / y_test[i]) * 100).mean()
-                nmae = mae / y_test[i].mean()
+                nmae = mae / y_test[i].std()
                 rmse = np.sqrt((errors**2).mean())
-                nrmse = rmse / y_test[i].mean()
+                nrmse = rmse / y_test[i].std()
                 error_per_channel.append(np.array([mae, nmae, rmse, nrmse]))
 
         error_per_model.append(error_per_channel)

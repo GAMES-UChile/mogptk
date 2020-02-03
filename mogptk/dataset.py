@@ -25,6 +25,7 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, formats={}, **kwargs):
     """
 
     df = pd.read_csv(filename, **kwargs)
+
     return LoadDataFrame(df, x_col, y_col, name, formats)
 
 def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
@@ -123,16 +124,21 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
 ################################################################
 
 class DataSet:
-    def __init__(self, *args):
-        """
+    """
         DataSet is a class that holds multiple Data objects as channels.
 
         Args:
-            *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Accepts multiple arguments, each of which should be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+            *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Accepts multiple arguments,
+                each of which should be either a DataSet or Data object, a list of
+                Data objects or a dictionary of Data objects. Each Data object will be added to the
+                list of channels. In case of a dictionary, the key will set the name of the Data object.
+                If a DataSet is passed, its channels will be added.
 
         Examples:
             >>> dataset = mogptk.DataSet(channel_a, channel_b, channel_c)
         """
+    def __init__(self, *args):
+        
 
         self.channels = []
         for arg in args:
