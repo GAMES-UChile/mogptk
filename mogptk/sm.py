@@ -42,23 +42,23 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
             sm.estimate_params(method)
 
             if fix_means:
-                sm.set_param(0, 'mixture_means', np.zeros((Q, input_dims)))
-                sm.set_param(0, 'mixture_scales', sm.get_param(0, 'mixture_scales') * 100.0)
-                sm.fix_param('mixture_means')
+                sm.set_parameter(0, 'mixture_means', np.zeros((Q, input_dims)))
+                sm.set_parameter(0, 'mixture_scales', sm.get_parameter(0, 'mixture_scales') * 100.0)
+                sm.fix_parameter('mixture_means')
 
             sm.train(method=optimizer, maxiter=maxiter, tol=1e-50)
 
             if plot:
                 nyquist = dataset[channel].get_nyquist_estimation()
-                means = sm.get_param(0, 'mixture_means')
-                weights = sm.get_param(0, 'mixture_weights')
-                scales = sm.get_param(0, 'mixture_scales').T
+                means = sm.get_parameter(0, 'mixture_means')
+                weights = sm.get_parameter(0, 'mixture_weights')
+                scales = sm.get_parameter(0, 'mixture_scales').T
                 plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=dataset[channel].name)
 
             for q in range(Q):
-                params[q]['weight'][i,channel] = sm.get_param(0, 'mixture_weights')[q]
-                params[q]['mean'][i,channel] = sm.get_param(0, 'mixture_means')[q,:] * np.pi * 2
-                params[q]['scale'][i,channel] = sm.get_param(0, 'mixture_scales')[:,q]
+                params[q]['weight'][i,channel] = sm.get_parameter(0, 'mixture_weights')[q]
+                params[q]['mean'][i,channel] = sm.get_parameter(0, 'mixture_means')[q,:] * np.pi * 2
+                params[q]['scale'][i,channel] = sm.get_parameter(0, 'mixture_scales')[:,q]
 
     return params
 
@@ -129,9 +129,9 @@ class SM(model):
         if method == 'random':
             x, y = self.dataset[0].get_data()
             weights, means, scales = sm_init(x, y, self.Q)
-            self.set_param(0, 'mixture_weights', weights)
-            self.set_param(0, 'mixture_means', np.array(means))
-            self.set_param(0, 'mixture_scales', np.array(scales.T))
+            self.set_parameter(0, 'mixture_weights', weights)
+            self.set_parameter(0, 'mixture_means', np.array(means))
+            self.set_parameter(0, 'mixture_scales', np.array(scales.T))
 
         elif method == 'LS':
             amplitudes, means, variances = self.dataset[0].get_ls_estimation(self.Q)
@@ -143,9 +143,9 @@ class SM(model):
             if not np.isclose(amplitudes.mean(), 0.0):
                 mixture_weights /= amplitudes.mean()
 
-            self.set_param(0, 'mixture_weights', mixture_weights)
-            self.set_param(0, 'mixture_means', means.T)
-            self.set_param(0, 'mixture_scales', variances * 2.0)
+            self.set_parameter(0, 'mixture_weights', mixture_weights)
+            self.set_parameter(0, 'mixture_means', means.T)
+            self.set_parameter(0, 'mixture_scales', variances * 2.0)
 
         elif method == 'BNSE':
             amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
@@ -157,17 +157,17 @@ class SM(model):
             if not np.isclose(amplitudes.mean(), 0.0):
                 mixture_weights /= amplitudes.mean()
 
-            self.set_param(0, 'mixture_weights', mixture_weights)
-            self.set_param(0, 'mixture_means', means.T)
-            self.set_param(0, 'mixture_scales', variances * 2.0)
+            self.set_parameter(0, 'mixture_weights', mixture_weights)
+            self.set_parameter(0, 'mixture_means', means.T)
+            self.set_parameter(0, 'mixture_scales', variances * 2.0)
 
     def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
         """
         Plot power spectral density of single output GP-SM.
         """
-        means = self.get_param(0, 'mixture_means') * 2.0 * np.pi
-        weights = self.get_param(0, 'mixture_weights')
-        scales = self.get_param(0, 'mixture_scales').T
+        means = self.get_parameter(0, 'mixture_means') * 2.0 * np.pi
+        weights = self.get_parameter(0, 'mixture_weights')
+        scales = self.get_parameter(0, 'mixture_scales').T
         
         # calculate bounds
         x_low = norm.ppf(0.001, loc=means, scale=scales).min()

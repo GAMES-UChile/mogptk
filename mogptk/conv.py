@@ -73,13 +73,13 @@ class CONV(model):
                 if not np.isclose(params[q]['weight'].mean(), 0.0):
                     constant /= params[q]['weight'].mean()
 
-                self.set_param(q, 'constant', constant)
-                self.set_param(q, 'variance', params[q]['scale'])
+                self.set_parameter(q, 'constant', constant)
+                self.set_parameter(q, 'variance', params[q]['scale'])
         else:
             raise Exception("possible methods of estimation are either 'SM'")
 
         noise = np.empty((self.dataset.get_output_dims()))
         for i, channel in enumerate(self.dataset):
             noise[i] = (channel.Y).var() / 30
-        self.set_param(self.Q, 'noise', noise)
+        self.set_parameter(self.Q, 'noise', noise)
     

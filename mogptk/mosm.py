@@ -95,9 +95,9 @@ class MOSM(model):
                 else:
                     print("!!")
 
-                self.set_param(q, 'magnitude', magnitude)
-                self.set_param(q, 'mean', mean)
-                self.set_param(q, 'variance', variance)
+                self.set_parameter(q, 'magnitude', magnitude)
+                self.set_parameter(q, 'mean', mean)
+                self.set_parameter(q, 'variance', variance)
 
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
@@ -106,22 +106,22 @@ class MOSM(model):
                 if not np.isclose(params[q]['weight'].mean(), 0.0):
                     magnitude /= params[q]['weight'].mean()
 
-                self.set_param(q, 'magnitude', magnitude)
-                self.set_param(q, 'mean', params[q]['mean'])
-                self.set_param(q, 'variance', params[q]['scale'] * 2)
+                self.set_parameter(q, 'magnitude', magnitude)
+                self.set_parameter(q, 'mean', params[q]['mean'])
+                self.set_parameter(q, 'variance', params[q]['scale'] * 2)
         else:
             raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")
 
         noise = np.empty((self.dataset.get_output_dims()))
         for i, channel in enumerate(self.dataset):
             noise[i] = (channel.Y).var() / 30
-        self.set_param(self.Q, 'noise', noise)
+        self.set_parameter(self.Q, 'noise', noise)
 
     def plot(self):
         names = self.dataset.get_names()
         nyquist = self.dataset.get_nyquist_estimation()
 
-        params = self.get_params()
+        params = self.get_parameters()
         means = np.array([params[q]['mean'] for q in range(self.Q)])
         weights = np.array([params[q]['magnitude'] for q in range(self.Q)])**2
         scales = np.array([params[q]['variance'] for q in range(self.Q)])
@@ -248,8 +248,8 @@ class MOSM(model):
     def info(self):
         for channel in range(self.dataset.get_output_dims()):
             for q in range(self.Q):
-                mean = self.get_param(q, "mean")[:,channel]
-                var = self.get_param(q, "variance")[:,channel]
+                mean = self.get_parameter(q, "mean")[:,channel]
+                var = self.get_parameter(q, "variance")[:,channel]
                 if np.linalg.norm(mean) < np.linalg.norm(var):
                     print("‣ MOSM approaches RBF kernel for q=%d in channel='%s'" % (q, self.dataset[channel].name))
 
@@ -279,12 +279,12 @@ class MOSM(model):
         for q in range(Q):
             for i in range(m):
                 for j in range(m):
-                    var_i = self.get_param(q, 'variance')[:, i]
-                    var_j = self.get_param(q, 'variance')[:, j]
-                    mu_i = self.get_param(q, 'mean')[:, i]
-                    mu_j = self.get_param(q, 'mean')[:, j]
-                    w_i = self.get_param(q, 'magnitude')[i]
-                    w_j = self.get_param(q, 'magnitude')[j]
+                    var_i = self.get_parameter(q, 'variance')[:, i]
+                    var_j = self.get_parameter(q, 'variance')[:, j]
+                    mu_i = self.get_parameter(q, 'mean')[:, i]
+                    mu_j = self.get_parameter(q, 'mean')[:, j]
+                    w_i = self.get_parameter(q, 'magnitude')[i]
+                    w_j = self.get_parameter(q, 'magnitude')[j]
                     sv = var_i + var_j
 
                     # cross covariance
@@ -296,11 +296,11 @@ class MOSM(model):
                     exp_term = -1/4 * ((mu_i - mu_j)**2 / sv).sum()
                     cross_params['magnitude'][i, j, q] = w_i * w_j * np.exp(exp_term)
             # cross phase
-            phase_q = self.get_param(q, 'phase')
+            phase_q = self.get_parameter(q, 'phase')
             cross_params['phase'][:, :, q] = np.subtract.outer(phase_q, phase_q)
             for n in range(d):
                 # cross delay        
-                delay_n_q = self.get_param(q, 'delay')[n, :]
+                delay_n_q = self.get_parameter(q, 'delay')[n, :]
                 cross_params['delay'][:, :, n, q] = np.subtract.outer(delay_n_q, delay_n_q)
 
         return cross_params
