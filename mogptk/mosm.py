@@ -11,6 +11,10 @@ class MOSM(model):
     """
     MOGP with Multi Output Spectral Mixture kernel, as proposed in [1].
 
+    The model contain the dataset and the associated gpflow model, 
+    when the mogptk.Model is instanciated the gpflow model is built 
+    using random parameters.
+
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
         Q (int, optional): Number of components.
@@ -19,6 +23,10 @@ class MOSM(model):
         variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
         sparse (bool, optional): If True, will use sparse GP regression.
         like_params (dict, optional): Parameters to GPflow likelihood.
+
+    Atributes:
+        dataset: Constains the mogptk.DataSet associated.
+        model: GPflow model.
 
     Examples:
     >>> import numpy as np

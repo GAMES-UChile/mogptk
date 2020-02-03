@@ -5,7 +5,12 @@ from .sm import _estimate_from_sm
 
 class SM_LMC(model):
     """
-    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2].
+    Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
+    The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2].
+
+    The model contain the dataset and the associated gpflow model, 
+    when the mogptk.Model is instanciated the gpflow model is built 
+    using random parameters.
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.

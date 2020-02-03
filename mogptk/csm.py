@@ -7,6 +7,10 @@ class CSM(model):
     """
     Cross Spectral Mixture kernel [1] with Q components and Rq latent functions.
 
+    The model contain the dataset and the associated gpflow model, 
+    when the mogptk.Model is instanciated the gpflow model is built 
+    using random parameters.
+
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
         Q (int, optional): Number of components.

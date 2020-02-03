@@ -63,6 +63,10 @@ class SM(model):
     """
     A single output GP Spectral mixture kernel as proposed by [1].
 
+    The model contain the dataset and the associated gpflow model, 
+    when the mogptk.Model is instanciated the gpflow model is built 
+    using random parameters.
+
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
         Q (int, optional): Number of components.

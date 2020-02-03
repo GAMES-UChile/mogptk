@@ -445,9 +445,9 @@ class model:
             
             >>> model.train(method='Adam', opt_params={...})
         """
-
+        inital_time = time.time()
         if verbose:
-            print('Starting optimization...')
+            print('Starting optimization\n >Initial NLL: {:.3f}'.format(self.model.log_marginal_likelihood().numpy()))
 
         @tf.function  # optimize TF
         def loss():
@@ -475,8 +475,9 @@ class model:
             opt = gpflow.optimizers.Scipy()
             opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': True}, **params)
 
+        elapsed_time = time.time() - inital_time
         if verbose:
-            print('Optimization finished')
+            print('Optimization finished in {:.2f} minutes\n >Final NLL: {:.3f} \n'.format(elapsed_time / 60, self.model.log_marginal_likelihood().numpy()))
 
     ################################################################################
     # Predictions ##################################################################

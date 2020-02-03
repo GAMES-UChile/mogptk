@@ -41,16 +41,15 @@ One of the main advantages of the present toolkit is the GPU support, which enab
 
 **[01 - Data Loading](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/01_Data_Loading.ipynb)**: Functionality to load CSVs and DataFrames while using formatters for dates.
 
-**[02 - Data Preparation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/02_Data_Preparation.ipynb)**: Use different transformations on a financial dataset composed of four channels (Gold, Oil, NASDAQ, and the US dollar index). [Incomplete]
+**[02 - Data Preparation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/02_Data_Preparation.ipynb)**: Handle data, removing observations to simulate sensor failure and apply tranformations to the data.
 
 **[03 - Parameter Estimation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/03_Parameter_Estimation.ipynb)**: Parameter initialization using different methods, for single output regression using spectral mixture kernel and multioutput case using MOSM kernel.
 
 **[04 - Model Training](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/04_Model_Training.ipynb)**: Training of models while keeping certain parameters fixed.
 
-**[05 - Error Metrics](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/05_Error_Metrics.ipynb)** Obtain different metrics to compare models using climate dataset.
+**[05 - Error Metrics](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/05_Error_Metrics.ipynb)** Obtain different metrics to compare models.
 
 ## Examples
-
 
 **[Currency Exchange](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/currency_exchange_experiment.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchange rates (against the dollar) from 2017 and 2018. These 11 channels are fitted with the MOSM, SM-LMC, CSM, and CONV kernels and their results are compared and interpreted.
 
