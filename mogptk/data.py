@@ -9,12 +9,17 @@ import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 import re
+import logging
+
+logger = logging.getLogger('mogptk')
 
 class FormatNumber:
     """
     FormatNumber is the default formatter and takes regular floating point values as input.
     """
     def _parse(self, val):
+        if np.isnan(val):
+            raise ValueError("number cannot be NaN")
         return float(val)
 
     def _parse_duration(self, val):
@@ -130,7 +135,7 @@ class TransformDetrend:
 
 class TransformNormalize:
     """
-    TransformNormalize is a transformer that normalizes the data so that the y-axis is between 0 and 1.
+    TransformNormalize is a transformer that normalizes the data so that the y-axis is between -1 and 1.
     """
     def __init__(self):
         pass
@@ -140,10 +145,10 @@ class TransformNormalize:
         self.ymax = np.amax(data.Y)
 
     def _forward(self, x, y):
-        return (y-self.ymin)/(self.ymax-self.ymin)
+        return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
     
     def _backward(self, x, y):
-        return y*(self.ymax-self.ymin)+self.ymin
+        return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin
 
 class TransformLog:
     """
@@ -336,11 +341,12 @@ class Data:
 
         if 0 < len(bad_rows):
             bad_rows = list(bad_rows)
-            print("Warning: could not parse values for %d rows, removing data points" % (len(bad_rows),))
+            logger.info("could not parse values for %d rows, removing data points", len(bad_rows))
             if len(bad_rows) == n:
                 raise ValueError("none of the data points could be parsed, are they valid numbers or is an appropriate formatter set?")
             X = np.delete(X, bad_rows)
             Y = np.delete(Y, bad_rows)
+            n -= len(bad_rows)
 
         # check if X and Y are correct inputs
         if isinstance(X, list):
@@ -379,12 +385,13 @@ class Data:
             X = np.take_along_axis(X, ind, axis=0)
             Y = np.take_along_axis(Y, ind[:,0], axis=0)
 
-        for dim in range(X.shape[1]):
-            xran = np.max(X[:,dim]) - np.min(X[:,dim])
-            if xran < 1e-3:
-                print("Warning: very small X range may give problems, it is suggested to scale up your X-axis")
-            elif 1e4 < xran:
-                print("Warning: very large X range may give problems, it is suggested to scale down your X-axis")
+        # TODO: re-enable warnings
+        #for dim in range(X.shape[1]):
+        #    xran = np.max(X[:,dim]) - np.min(X[:,dim])
+        #    if xran < 1e-3:
+        #        print("Warning: very small X range may give problems, it is suggested to scale up your X-axis")
+        #    elif 1e4 < xran:
+        #        print("Warning: very large X range may give problems, it is suggested to scale down your X-axis")
         
         self.X = X # shape (n, input_dims)
         self.Y = Y # shape (n)

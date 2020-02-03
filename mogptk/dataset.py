@@ -15,7 +15,7 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, formats={}, **kwargs):
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
-        mogptk.dataset.DataSet
+        mogptk.data.Data or mogptk.dataset.DataSet
 
     Examples:
         >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold', formats={'Date': FormatDate})
@@ -39,7 +39,7 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
         formats (dict, optional): Dictionary with x_col values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
 
     Returns:
-        mogptk.dataset.DataSet
+        mogptk.data.Data or mogptk.dataset.DataSet
 
     Examples:
         >>> df = pd.DataFrame(...)
@@ -74,9 +74,9 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
     df = df[x_col + y_col]
     if len(df.index) == 0:
         raise ValueError("dataframe cannot be empty")
-    df = df.dropna()
-    if len(df.index) == 0:
-        raise ValueError("dataframe has NaN values for every row, consider selecting X and Y columns that have valid values by setting x_col and y_col")
+    #df = df.dropna()
+    #if len(df.index) == 0:
+    #    raise ValueError("dataframe has NaN values for every row, consider selecting X and Y columns that have valid values by setting x_col and y_col")
 
     input_dims = len(x_col)
     x_data = df[x_col]
@@ -91,11 +91,16 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
             elif np.issubdtype(dtype, np.datetime64):
                 formats[col] = FormatDateTime()
             elif np.issubdtype(dtype, np.object_):
+                first = df[col].iloc[0]
                 try:
-                    _ = dateutil.parser.parse(df[col].iloc[0])
-                    formats[col] = FormatDateTime()
+                    _ = float(first)
+                    formats[col] = FormatNumber()
                 except:
-                    raise ValueError("unknown format for column %s, must be a number type or datetime" % (col,))
+                    try:
+                        _ = dateutil.parser.parse(first)
+                        formats[col] = FormatDateTime()
+                    except:
+                        raise ValueError("unknown format for column %s, must be a number type or datetime" % (col,))
 
     dataset = DataSet()
     for i in range(len(y_col)):
@@ -108,6 +113,8 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
             x_labels=x_labels,
             y_label=str(y_col[i]),
         ))
+    if dataset.get_output_dims() == 1:
+        return dataset[0]
     return dataset
 
 ################################################################

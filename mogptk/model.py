@@ -15,19 +15,23 @@ import logging
 logging.getLogger('tensorflow').propagate = False
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
+tf.autograph.set_verbosity(0) # TODO: remove and fix problem
+
 gpflow.config.set_default_positive_minimum(1e-6)
 #gpflow.config.set_default_positive_bijector("exp")
 
+logger = logging.getLogger('mogptk')
+
 class model:
     def __init__(self, name, dataset):
-        #"""
-        #Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
-        #    
-        #Args:
-        #    name (str): Name of the model.
-        #    dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels.
-        #    When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
-        #"""
+        """
+        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+
+        Args:
+            name (str): Name of the model.
+            dataset (mogptk.dataset.DataSet, mogptk.data.Data): DataSet with Data objects for all the channels.
+            When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+        """
         
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
@@ -513,6 +517,10 @@ class model:
         if len(x) == 0:
             raise Exception('no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()')
 
+        #x_data = self.model.data[0]
+        #Kmm = self.model.kernel(x_data)
+        #s = tf.linalg.diag(tf.fill([x_data.shape[0]], self.model.likelihood.variance))
+        #print(np.isfinite(Kmm).all(), np.isfinite(s).all(), np.all(np.linalg.eigvals(Kmm) > 0))
         mu, var = self.model.predict_f(x)
         self.dataset.from_kernel_pred(self.name, mu, var)
         
