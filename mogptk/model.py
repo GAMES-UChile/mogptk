@@ -18,7 +18,6 @@ logging.getLogger('tensorflow').setLevel(logging.ERROR)
 tf.autograph.set_verbosity(0) # TODO: remove and fix problem
 
 gpflow.config.set_default_positive_minimum(1e-6)
-#gpflow.config.set_default_positive_bijector("exp")
 
 logger = logging.getLogger('mogptk')
 
@@ -41,6 +40,14 @@ class model:
             raise Exception("all data channels must have unique names")
         if len(set(dataset.get_input_dims())) != 1:
             raise Exception("all data channels must have the same amount of input dimensions")
+
+        for channel in dataset:
+            for dim in range(channel.X.shape[1]):
+                xran = np.max(channel.X[:,dim]) - np.min(channel.X[:,dim])
+                if xran < 1e-3:
+                    logger.warning("Very small X range may give problems, it is suggested to scale up your X-axis")
+                elif 1e4 < xran:
+                    logger.warning("Very large X range may give problems, it is suggested to scale down your X-axis")
 
         self.name = name
         self.dataset = dataset
@@ -89,19 +96,19 @@ class model:
 
     ################################################################
 
-    def print_params(self):
+    def print_parameters(self):
         """
         Print the parameters of the model in a table.
 
         Examples:
-            >>> model.print_params()
+            >>> model.print_parameters()
         """
         with np.printoptions(precision=3, floatmode='fixed'):
             try:
                 get_ipython # fails if we're not in a notebook
 
                 table = '<table><tr><th>Kernel</th><th>Name</th><th>Train</th><th>Shape</th><th>Dtype</th><th>Value</th></tr>'
-                for q, params in enumerate(self.get_params()):
+                for q, params in enumerate(self.get_parameters()):
                     kernel = None
                     if hasattr(self.model.kernel, 'kernels'):
                         kernel = self.model.kernel.kernels[q]
@@ -129,7 +136,7 @@ class model:
                         table += '<tr%s>%s<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
 
                 first = True
-                params = self.get_likelihood_params()
+                params = self.get_likelihood_parameters()
                 for key in params:
                     param = getattr(self.model.likelihood, key)
 
@@ -151,7 +158,7 @@ class model:
                 display(HTML(table))
             except Exception as e:
                 contents = []
-                for q, params in enumerate(self.get_params()):
+                for q, params in enumerate(self.get_parameters()):
                     kernel = None
                     if hasattr(self.model.kernel, 'kernels'):
                         kernel = self.model.kernel.kernels[q]
@@ -176,7 +183,7 @@ class model:
                         contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
 
                 first = True
-                params = self.get_likelihood_params()
+                params = self.get_likelihood_parameters()
                 for key in params.keys():
                     param = getattr(self.model.likelihood, key)
 
@@ -222,7 +229,7 @@ class model:
         Returns all parameters set for the likelihood.
 
         Examples:
-            >>> params = model.get_likelihood_params()
+            >>> params = model.get_likelihood_parameters()
         """
         params = {}
         for param_name, param_val in self.model.likelihood.__dict__.items():
@@ -242,7 +249,7 @@ class model:
             val (numpy.ndarray): Value of parameter.
 
         Examples:
-            >>> val = model.get_param(0, 'variance') # for Q=0 get the parameter called 'variance'
+            >>> val = model.get_parameter(0, 'variance') # for Q=0 get the parameter called 'variance'
         """
         if hasattr(self.model.kernel, 'kernels'):
             if q < 0 or len(self.model.kernel.kernels) <= q:
@@ -532,7 +539,13 @@ class model:
         #x_data = self.model.data[0]
         #Kmm = self.model.kernel(x_data)
         #s = tf.linalg.diag(tf.fill([x_data.shape[0]], self.model.likelihood.variance))
+        #Kmm += s
+
         #print(np.isfinite(Kmm).all(), np.isfinite(s).all(), np.all(np.linalg.eigvals(Kmm) > 0))
+        #np.set_printoptions(threshold=np.inf)
+        #print(Kmm)
+        #print(np.linalg.eigvals(Kmm))
+
         mu, var = self.model.predict_f(x)
         self.dataset.from_kernel_pred(self.name, mu, var)
         

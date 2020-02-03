@@ -102,13 +102,9 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
                     except:
                         raise ValueError("unknown format for column %s, must be a number type or datetime" % (col,))
 
-
-    
-
     dataset = DataSet()
     for i in range(len(y_col)):
         channel = df[x_col + [y_col[i]]].dropna()
-
 
         dataset.append(Data(
             channel[x_col].values,
@@ -447,6 +443,32 @@ class DataSet:
             means.append(channel_means)
             variances.append(channel_variances)
         return amplitudes, means, variances
+
+    def rescale_x(self):
+        xmin = {}
+        xmax = {}
+        for channel in self.channels:
+            for i, formatter in enumerate(channel.formatters[:-1]):
+                if not hasattr(formatter, 'category'):
+                    formatter.category = 'none'
+
+                x = channel.get_all()[0]
+                if formatter.category not in xmin:
+                    xmin[formatter.category] = np.min(x[:,i])
+                    xmax[formatter.category] = np.max(x[:,i])
+                else:
+                    xmin[formatter.category] = min(xmin[formatter.category], np.min(x[:,i]))
+                    xmax[formatter.category] = max(xmax[formatter.category], np.max(x[:,i]))
+
+        print(xmin, xmax)
+
+        for channel in self.channels:
+            offsets = []
+            scales = []
+            for i, formatter in enumerate(channel.formatters[:-1]):
+                offsets.append(xmin[formatter.category])
+                scales.append(1000.0 / (xmax[formatter.category] - xmin[formatter.category]))
+            channel.set_x_scaling(offsets, scales)
 
     def to_kernel(self):
         """

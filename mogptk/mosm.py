@@ -92,8 +92,6 @@ class MOSM(model):
                 # normalize across channels
                 if not np.isclose(magnitude.mean(), 0.0):
                     magnitude = np.sqrt(magnitude / magnitude.mean())
-                else:
-                    print("!!")
 
                 self.set_parameter(q, 'magnitude', magnitude)
                 self.set_parameter(q, 'mean', mean)
