@@ -74,36 +74,56 @@ class MOSM(model):
             plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in 'SM' mode.
         """
 
+        n_channels = self.dataset.get_output_dims()
+
         if method == 'BNSE':
             amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            magnitude = np.zeros((n_channels, self.Q))
             for q in range(self.Q):
-                magnitude = np.empty((self.dataset.get_output_dims()))
-                mean = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
-                variance = np.empty((self.dataset.get_input_dims()[0], self.dataset.get_output_dims()))
-                for channel in range(len(self.dataset)):
-                    magnitude[channel] = amplitudes[channel][:,q].mean()
+                mean = np.empty((self.dataset.get_input_dims()[0], n_channels))
+                variance = np.empty((self.dataset.get_input_dims()[0], n_channels))
+                for channel in range(n_channels):
+                    magnitude[channel, q] = amplitudes[channel][:,q].mean()
                     mean[:,channel] = means[channel][:,q] * 2 * np.pi
                     variance[:,channel] = variances[channel][:,q] * 2
             
-                # normalize across channels
-                magnitude = np.sqrt(magnitude / magnitude.mean())
+            # normalize proportional to channels variances
+            for channel, data in enumerate(self.dataset):
+                if magnitude[channel, :].sum()==0:
+                    raise Exception("Sum of magnitudes equal to zero")
 
-                self.set_parameter(q, 'magnitude', magnitude)
+                magnitude[channel, :] = np.sqrt(magnitude[channel, :] / magnitude[channel, :].sum() * data.Y[data.mask].var())
+
+            for q in range(self.Q):
+                self.set_parameter(q, 'magnitude', magnitude[:, q])
                 self.set_parameter(q, 'mean', mean)
                 self.set_parameter(q, 'variance', variance)
 
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+
+            magnitude = np.zeros((n_channels, self.Q))
             for q in range(self.Q):
-                self.set_parameter(q, 'magnitude', params[q]['weight'].mean(axis=0) / params[q]['weight'].mean())
+                magnitude[:, q] = params[q]['weight'].mean(axis=0)
+
                 self.set_parameter(q, 'mean', params[q]['mean'])
                 self.set_parameter(q, 'variance', params[q]['scale'] * 2)
+
+            # normalize proportional to channels variances
+            for channel, data in enumerate(self.dataset):
+                if magnitude[channel, :].sum()==0:
+                    raise Exception("Sum of magnitudes equal to zero")
+
+                magnitude[channel, :] = np.sqrt(magnitude[channel, :] / magnitude[channel, :].sum() * data.Y[data.mask].var())            
+
+            for q in range(self.Q):
+                self.set_parameter(q, 'magnitude', magnitude[:, q])
         else:
             raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")
 
-        noise = np.empty((self.dataset.get_output_dims()))
-        for i, channel in enumerate(self.dataset):
-            noise[i] = (channel.Y).var() / 30
+        noise = np.empty((n_channels))
+        for channel, data in enumerate(self.dataset):
+            noise[channel] = (data.Y[data.mask]).var() / 30
         self.set_parameter(self.Q, 'noise', noise)
 
     def plot(self):
@@ -188,51 +208,6 @@ class MOSM(model):
             ax.plot(w, np.imag(psd_total), 'g', lw=1.2, alpha=0.7)
         ax.set_yticks([])
         return
-
-    def plot_correlations(self, figsize=None):
-        """
-        Plot correlation coeficient matrix.
-
-        This is done evaluating the kernel at K_ij(0, 0)
-        for al channels.
-        """
-
-        m = self.dataset.get_output_dims()
-
-        cross_params = self.get_cross_params()
-        mean = cross_params['mean'][:, :, 0, :]
-        cov = cross_params['covariance'][:, :, 0, :]
-        delay = cross_params['delay'][:, :, 0, :]
-        magn = cross_params['magnitude'][:, :, :]
-        phase = cross_params['phase'][:, :, :]
-
-        corr_coef_matrix = np.zeros((m, m))
-
-        alpha = magn / np.sqrt(2 * np.pi * cov)
-
-        np.fill_diagonal(corr_coef_matrix, np.diagonal(alpha.sum(2)))
-
-        for i in range(m):
-            for j in range(m):
-                if i!=j:
-                    corr = np.exp(-0.5 *  delay[i, j, :]**2 * cov[i, j, :]) 
-                    corr *= np.cos(delay[i, j, :] * mean[i, j, :] + phase[i, j, :])
-                    corr_coef_matrix[i, j] = (alpha[i, j, :] * corr).sum()
-                norm = np.sqrt(np.diagonal(alpha.sum(2))[i]) * np.sqrt(np.diagonal(alpha.sum(2))[j])
-                corr_coef_matrix[i, j] /= norm
-
-        fig, ax = plt.subplots()
-        color_range = np.abs(corr_coef_matrix).max()
-        norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
-        im = ax.matshow(corr_coef_matrix, cmap='coolwarm', norm=norm)
-        # fig.colorbar(im,  boundaries=np.linspace(np.round(corr_coef_matrix.min(), 1), np.round(corr_coef_matrix.max(), 1), 7))
-        fig.colorbar(im)
-        for (i, j), z in np.ndenumerate(corr_coef_matrix):
-#             ax.text(j, i, '{:0.1f}'.format(z), ha='center', va='center')
-            ax.text(j, i, '{:0.1f}'.format(z), ha='center', va='center', 
-                bbox=dict(boxstyle='round', facecolor='white', alpha=0.5, edgecolor='0.9'),
-                fontsize=figsize)
-        return fig, ax, corr_coef_matrix
 
     def info(self):
         for channel in range(self.dataset.get_output_dims()):

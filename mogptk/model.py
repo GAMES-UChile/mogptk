@@ -7,6 +7,8 @@ import tensorflow as tf
 from .dataset import DataSet
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from IPython.display import display, HTML
 from tabulate import tabulate
@@ -408,11 +410,11 @@ class model:
                 raise Exception("parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model's Q different?" % (len(data['params']), len(cur_params)))
 
             for key, val in data['likelihood'].items():
-                self.set_likelihood_param(key, val)
+                self.set_likelihood_parameter(key, val)
 
             for q, param in enumerate(data['params']):
                 for key, val in param.items():
-                    self.set_param(q, key, val)
+                    self.set_parameter(q, key, val)
 
     def train(
         self,
@@ -583,4 +585,54 @@ class model:
         plt.tight_layout()
         
         return fig, axes
+
+
+    def plot_gram(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=''):
+        """
+        Plot the gram matrix of associated kernel
+        """
+        if xmin is None:
+            xmin = [data.X.min() for data in self.dataset]
+
+        if xmax is None:
+            xmax = [data.X.max() for data in self.dataset]
+
+
+        M = len(self.dataset)
+
+        if not isinstance(xmin, (list, np.ndarray)):
+            xmin = [xmin] * M
+
+        if not isinstance(xmax, (list, np.ndarray)):
+            xmax = [xmax] * M
+
+        xx = np.zeros((M * n_points, 2))
+        xx[:, 0] = np.repeat(np.arange(M), n_points)
+
+        for m in range(M):
+            xx[m * n_points: (m + 1) * n_points, 1] = np.linspace(xmin[m], xmax[m], n_points)
+            
+        K_gram = self.model.kernel.K(xx)
+        
+        fig, ax = plt.subplots(figsize=figsize)
+        color_range = np.abs(K_gram).max()
+        norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
+        im = ax.matshow(K_gram, cmap='coolwarm', norm=norm)
+
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.3)
+        fig.colorbar(im, cax=cax)
+
+        # Major ticks every 20, minor ticks every 5
+        major_ticks = np.arange(-0.5, M * n_points, n_points)
+        minor_ticks = np.arange(-0.5, M * n_points, 2)
+
+        ax.set_xticks(major_ticks)
+        ax.set_yticks(major_ticks)
+        ax.grid(which='major', alpha=.8, linewidth=1.5, color='k')
+        ax.set_xticklabels([]);
+        ax.set_yticklabels([]);
+        ax.set_title(title)
+
+        return fig, ax
 
