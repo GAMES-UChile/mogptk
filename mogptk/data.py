@@ -162,6 +162,24 @@ class TransformLog:
     def _backward(self, x, y):
         return np.exp(y + self.mean) - self.shift
 
+class TransformWhiten:
+    """
+    Transform the data so it has mean 0 and variance 1
+    """
+    def __init__(self):
+        pass
+    
+    def _data(self, data):
+        # take only the non-removed observations
+        self.mean = data.Y[data.mask].mean()
+        self.std = data.Y[data.mask].std()
+        
+    def _forward(self, x, y):
+        return (y - self.mean) / self.std
+    
+    def _backward(self, x, y):
+        return (y * self.std) + self.mean
+
 ################################################################
 ################################################################
 ################################################################
