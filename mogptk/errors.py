@@ -47,9 +47,9 @@ def errors(*models, **kwargs):
                 continue
 
             if all_obs:
-                x, y_true = channel.get_all_obs()
+                x, y_true = channel.get_data()
             else:
-                x, y_true = channel.get_del_obs()
+                x, y_true = channel.get_test_data()
 
             if len(x) > 0:
                 if channel.F != None:

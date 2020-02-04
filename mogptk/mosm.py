@@ -60,7 +60,7 @@ class MOSM(model):
         kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
         self._build(kernel_set, likelihood, variational, sparse, like_params)
 
-    def estimate_params(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
+    def estimate_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
         """
         Estimate kernel parameters.
 
@@ -150,7 +150,7 @@ class MOSM(model):
         Note: Implemented only for 1 input dimension.
         """
 
-        cross_params = self.get_cross_params()
+        cross_params = self._get_cross_parameters()
         m = self.dataset.get_output_dims()
 
         fig, axes = plt.subplots(m, m, sharex=False, figsize=figsize, squeeze=False)
@@ -224,7 +224,7 @@ class MOSM(model):
                 if np.linalg.norm(mean) < np.linalg.norm(var):
                     print("‣ MOSM approaches RBF kernel for q=%d in channel='%s'" % (q, self.dataset[channel].name))
 
-    def get_cross_params(self):
+    def _get_cross_parameters(self):
         """
         Obtain cross parameters from MOSM
 

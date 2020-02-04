@@ -59,7 +59,7 @@ class CSM(model):
         kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
         self._build(kernel_set, likelihood, variational, sparse, like_params)
     
-    def estimate_params(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
+    def estimate_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
         """
         Estimate kernel parameters.
 
@@ -126,4 +126,4 @@ class CSM(model):
         noise = np.empty((self.dataset.get_output_dims()))
         for i, channel in enumerate(self.dataset):
             noise[i] = (channel.Y).var() / 30
-        self.set_param(self.Q, 'noise', noise)
+        self.set_parameter(self.Q, 'noise', noise)

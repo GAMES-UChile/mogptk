@@ -664,7 +664,7 @@ class Data:
         """
         return self.name
 
-    def has_removed_obs(self):
+    def has_test_data(self):
         """
         Returns True if observations have been removed using the remove_* methods.
 
@@ -672,7 +672,7 @@ class Data:
             boolean
 
         Examples:
-            >>> data.has_removed_obs()
+            >>> data.has_test_data()
             True
         """
         return False in self.mask
@@ -690,9 +690,24 @@ class Data:
         """
         return self.X.shape[1]
 
+    def get_train_data(self):
+        """
+        Returns the observations used for training.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            >>> x, y = data.get_train_data()
+        """
+        x = self.X[self.mask,:]
+        y = self.Y[self.mask]
+        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+    
     def get_data(self):
         """
-        Returns the observations.
+        Returns all observations, train and test.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -701,35 +716,20 @@ class Data:
         Examples:
             >>> x, y = data.get_data()
         """
-        x = self.X[self.mask,:]
-        y = self.Y[self.mask]
-        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
-    
-    def get_all(self):
-        """
-        Returns all observations (including removed observations).
-
-        Returns:
-            numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
-
-        Examples:
-            >>> x, y = data.get_all()
-        """
         x = self.X
         y = self.Y
         return self.X_offsets + x/self.X_scales, self._detransform(x, y)
 
-    def get_removed(self):
+    def get_test_data(self):
         """
-        Returns the removed observations.
+        Returns the observations used for testing.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
             numpy.ndarray: Y data of shape (n).
 
         Examples:
-            >>> x, y = data.get_removed()
+            >>> x, y = data.get_test_data()
         """
         x = self.X[~self.mask,:]
         y = self.Y[~self.mask]
@@ -789,7 +789,7 @@ class Data:
         idx = np.where(np.logical_and(self.X[:,0] >= start, self.X[:,0] <= end))
         self.mask[idx] = False
     
-    def remove_rel_range(self, start=None, end=None):
+    def remove_relative_range(self, start=None, end=None):
         """
         Removes observations between start and end as a percentage of the number of observations. So '0' is the first observation, '0.5' is the middle observation, and '1' is the last observation.
 
@@ -847,7 +847,7 @@ class Data:
     
     ################################################################
     
-    def get_pred(self, name, sigma=2):
+    def get_prediction(self, name, sigma=2):
         """
         Returns the prediction of a given name with a normal variance of sigma.
 
@@ -862,7 +862,7 @@ class Data:
             numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
 
         Examples:
-            >>> x, y_mean, y_var_lower, y_var_upper = data.get_pred('MOSM', sigma=1)
+            >>> x, y_mean, y_var_lower, y_var_upper = data.get_prediction('MOSM', sigma=1)
         """
         if name not in self.Y_mu_pred:
             raise Exception("prediction name '%s' does not exist" % (name))
@@ -876,7 +876,7 @@ class Data:
         upper = self._detransform(self.X_pred, upper)
         return self.X_scales*(self.X_pred-self.X_offsets), mu, lower, upper
 
-    def set_pred_range(self, start=None, end=None, n=None, step=None):
+    def set_prediction_range(self, start=None, end=None, n=None, step=None):
         """
         Sets the prediction range.
 
@@ -894,10 +894,10 @@ class Data:
 
         Examples:
             >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
-            >>> data.set_pred_range(3, 8, 200)
+            >>> data.set_prediction_range(3, 8, 200)
         
-            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', format={'Date': mogptk.FormatDate})
-            >>> data.set_pred_range('2016-01-15', '2016-06-15', step='1d')
+            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', formats={'Date': mogptk.FormatDate})
+            >>> data.set_prediction_range('2016-01-15', '2016-06-15', step='1d')
         """
         if self.get_input_dims() != 1:
             raise Exception("can only set prediction range on one dimensional input data")
@@ -942,7 +942,7 @@ class Data:
 
         self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
     
-    def set_pred(self, x):
+    def set_prediction_X(self, x):
         """
         Set the prediction range directly.
 
@@ -950,7 +950,7 @@ class Data:
             x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
 
         Examples:
-            >>> data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+            >>> data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
         """
         if isinstance(x, list):
             x = np.array(x)
@@ -1046,7 +1046,7 @@ class Data:
 
         return A, B, C
 
-    def get_ls_estimation(self, Q=1, n=50000):
+    def get_lombscargle_estimation(self, Q=1, n=50000):
         """
         Peak estimation using Lomb Scargle.
 
@@ -1060,7 +1060,7 @@ class Data:
             numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
         Examples:
-            >>> amplitudes, means, variances = data.get_ls_estimation()
+            >>> amplitudes, means, variances = data.get_lombscargle_estimation()
         """
         input_dims = self.get_input_dims()
 
@@ -1153,7 +1153,7 @@ class Data:
         ax.plot(X[:,0], self.Y, 'k-', alpha=0.7)
         legend.append(plt.Line2D([0], [0], ls='-', color='k', label='Data'))
 
-        if self.has_removed_obs():
+        if self.has_test_data():
             x, y = X[self.mask,:], self.Y[self.mask]
             ax.plot(x[:,0], y, 'k.', mew=.5, ms=8, markeredgecolor='white')
             legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))

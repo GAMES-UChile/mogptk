@@ -39,7 +39,7 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
     for channel in range(output_dims):
         for i in range(input_dims):  # TODO one SM per channel
             sm = SM(dataset[channel], Q)
-            sm.estimate_params(method)
+            sm.estimate_parameters(method)
 
             if fix_means:
                 sm.set_parameter(0, 'mixture_means', np.zeros((Q, input_dims)))
@@ -106,7 +106,7 @@ class SM(model):
         )
         self._build(kernel, likelihood, variational, sparse, like_params)
 
-    def estimate_params(self, method='BNSE'):
+    def estimate_parameters(self, method='BNSE'):
         """
         Estimate parameters of kernel from data using different methods.
 
@@ -131,14 +131,14 @@ class SM(model):
             raise Exception("possible methods are 'random', 'LS' and 'BNSE' (see documentation).")
 
         if method == 'random':
-            x, y = self.dataset[0].get_data()
+            x, y = self.dataset[0].get_train_data()
             weights, means, scales = sm_init(x, y, self.Q)
             self.set_parameter(0, 'mixture_weights', weights)
             self.set_parameter(0, 'mixture_means', np.array(means))
             self.set_parameter(0, 'mixture_scales', np.array(scales.T))
 
         elif method == 'LS':
-            amplitudes, means, variances = self.dataset[0].get_ls_estimation(self.Q)
+            amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('LS could not find peaks for SM')
                 return

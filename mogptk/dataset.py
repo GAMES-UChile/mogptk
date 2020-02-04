@@ -251,10 +251,22 @@ class DataSet:
                     return channel
         raise ValueError("channel '%d' does not exist in DataSet" % (index))
     
-    # TODO: rename to training data?
+    def get_train_data(self):
+        """
+        Returns observations used for training.
+
+        Returns:
+            list: X data of shape (n,input_dims) per channel.
+            list: Y data of shape (n,) per channel.
+
+        Examples:
+            >>> x, y = dataset.get_train_data()
+        """
+        return [channel.get_train_data()[0] for channel in self.channels], [channel.get_train_data()[1] for channel in self.channels]
+    
     def get_data(self):
         """
-        Returns observations.
+        Returns all observations, train and test.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -264,35 +276,21 @@ class DataSet:
             >>> x, y = dataset.get_data()
         """
         return [channel.get_data()[0] for channel in self.channels], [channel.get_data()[1] for channel in self.channels]
-    
-    def get_all(self):
+
+    def get_test_data(self):
         """
-        Returns all observations (including removed observations).
+        Returns the observations used for testing.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
             list: Y data of shape (n,) per channel.
 
         Examples:
-            >>> x, y = dataset.get_all()
+            >>> x, y = dataset.get_test_data()
         """
-        return [channel.get_all()[0] for channel in self.channels], [channel.get_all()[1] for channel in self.channels]
-
-    # TODO: rename to test data?
-    def get_removed(self):
-        """
-        Returns the removed observations.
-
-        Returns:
-            list: X data of shape (n,input_dims) per channel.
-            list: Y data of shape (n,) per channel.
-
-        Examples:
-            >>> x, y = dataset.get_removed()
-        """
-        return [channel.get_removed()[0] for channel in self.channels], [channel.get_removed()[1] for channel in self.channels]
+        return [channel.get_test_data()[0] for channel in self.channels], [channel.get_test_data()[1] for channel in self.channels]
     
-    def get_pred(self, name, sigma=2):
+    def get_prediction(self, name, sigma=2):
         """
         Returns the prediction of a given name with a normal variance of sigma.
 
@@ -307,21 +305,21 @@ class DataSet:
             list: Y upper prediction of uncertainty interval of shape (n,) per channel.
 
         Examples:
-            >>> x, y_mean, y_var_lower, y_var_upper = dataset.get_pred('MOSM', sigma=1)
+            >>> x, y_mean, y_var_lower, y_var_upper = dataset.get_prediction('MOSM', sigma=1)
         """
         x = []
         mu = []
         lower = []
         upper = []
         for channel in self.channels:
-            channel_x, channel_mu, channel_lower, channel_upper = channel.get_pred(name, sigma)
+            channel_x, channel_mu, channel_lower, channel_upper = channel.get_prediction(name, sigma)
             x.append(channel_x)
             mu.append(channel_mu)
             lower.append(channel_lower)
             upper.append(channel_upper)
         return x, mu, lower, upper
 
-    def set_pred(self, x):
+    def set_prediction_x(self, x):
         """
         Set the prediction range per channel.
 
@@ -329,23 +327,23 @@ class DataSet:
             x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
-            >>> dataset.set_pred([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
-            >>> dataset.set_pred({'A': [5.0, 5.5, 6.0, 6.5, 7.0], 'B': [0.1, 0.2, 0.3]})
+            >>> dataset.set_prediction_x([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
+            >>> dataset.set_prediction_x({'A': [5.0, 5.5, 6.0, 6.5, 7.0], 'B': [0.1, 0.2, 0.3]})
         """
         if isinstance(x, list):
             if len(x) != len(self.channels):
                 raise ValueError("prediction x expected to be a list of shape (output_dims,n)")
 
             for i, channel in enumerate(self.channels):
-                channel.set_pred(x[i])
+                channel.set_prediction_x(x[i])
         elif isinstance(x, dict):
             for name in x:
-                self.get(name).set_pred(x[name])
+                self.get(name).set_prediction_x(x[name])
         else:
             for i, channel in enumerate(self.channels):
-                channel.set_pred(x)
+                channel.set_prediction_x(x)
 
-    def set_pred_range(self, start, end, n=None, step=None):
+    def set_prediction_range(self, start, end, n=None, step=None):
         """
         Set the prediction range per channel. Inputs should be lists of shape (input_dims,) for each channel or dicts where the keys are the channel indices.
 
@@ -356,8 +354,8 @@ class DataSet:
             step (list, dict, optional): Step size for prediction range per channel.
 
         Examples:
-            >>> dataset.set_pred_range([2, 3], [5, 6], [4, None], [None, 0.5])
-            >>> dataset.set_pred_range(0.0, 5.0, n=200) # the same for each channel
+            >>> dataset.set_prediction_range([2, 3], [5, 6], [4, None], [None, 0.5])
+            >>> dataset.set_prediction_range(0.0, 5.0, n=200) # the same for each channel
         """
         if not isinstance(start, (list, dict)):
             start = [start] * self.get_output_dims()
@@ -384,7 +382,7 @@ class DataSet:
             raise ValueError("start, end, n, and/or step must be lists of shape (output_dims,n)")
 
         for i, channel in enumerate(self.channels):
-            channel.set_pred_range(start[i], end[i], n[i], step[i])
+            channel.set_prediction_range(start[i], end[i], n[i], step[i])
     
     def get_nyquist_estimation(self):
         """
@@ -424,7 +422,7 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_ls_estimation(self, Q, n=50000):
+    def get_lombscargle_estimation(self, Q, n=50000):
         """
         Peaks estimation using Lomb Scargle.
 
@@ -438,13 +436,13 @@ class DataSet:
             list: Variance array of shape (input_dims,Q) per channel.
 
         Examples:
-            >>> amplitudes, means, variances = dataset.get_ls_estimation()
+            >>> amplitudes, means, variances = dataset.get_lombscargle_estimation()
         """
         amplitudes = []
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_ls_estimation(Q, n)
+            channel_amplitudes, channel_means, channel_variances = channel.get_lombscargle_estimation(Q, n)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
@@ -458,7 +456,7 @@ class DataSet:
                 if not hasattr(formatter, 'category'):
                     formatter.category = 'none'
 
-                x = channel.get_all()[0]
+                x = channel.get_data()[0]
                 if formatter.category not in xmin:
                     xmin[formatter.category] = np.min(x[:,i])
                     xmax[formatter.category] = np.max(x[:,i])
@@ -474,7 +472,7 @@ class DataSet:
                 scales.append(1000.0 / (xmax[formatter.category] - xmin[formatter.category]))
             channel.set_x_scaling(offsets, scales)
 
-    def to_kernel(self):
+    def _to_kernel(self):
         """
         Return the data vectors in the format as used by the kernels.
 
@@ -483,7 +481,7 @@ class DataSet:
             numpy.ndarray: Y data.
 
         Examples:
-            >>> x, y = dataset.to_kernel()
+            >>> x, y = dataset._to_kernel()
         """
         x = [channel.X[channel.mask] for channel in self.channels]
         y = [channel.Y[channel.mask] for channel in self.channels]
@@ -499,7 +497,7 @@ class DataSet:
         y = np.concatenate(y).reshape(-1, 1)
         return x, y
 
-    def to_kernel_pred(self):
+    def _to_kernel_prediction(self):
         """
         Return the prediction input vectors in the format as used by the kernels.
 
@@ -507,7 +505,7 @@ class DataSet:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
 
         Examples:
-            >>> x = dataset.to_kernel_pred()
+            >>> x = dataset._to_kernel_prediction()
         """
         x = [channel.X_pred for channel in self.channels]
 
@@ -520,7 +518,7 @@ class DataSet:
         x = np.concatenate((chan, x), axis=1)
         return x
 
-    def from_kernel_pred(self, name, mu, var):
+    def _from_kernel_prediction(self, name, mu, var):
         """
         Returns the predictions from the format as used by the kernels. The prediction is stored in the Data class by the given name.
 
@@ -532,7 +530,7 @@ class DataSet:
         Examples:
             >>> x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
             >>> mu, var = model.model.predict_f(x)
-            >>> dataset.from_kernel_pred('MOSM', mu, var)
+            >>> dataset._from_kernel_prediction('MOSM', mu, var)
         """
         N = [len(channel.X_pred) for channel in self.channels]
         if len(mu) != len(var) or sum(N) != len(mu):

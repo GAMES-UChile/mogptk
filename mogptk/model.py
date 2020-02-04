@@ -68,7 +68,7 @@ class model:
             like_params (dict): Parameters to GPflow likelihood.
         """
 
-        x, y = self.dataset.to_kernel()
+        x, y = self.dataset._to_kernel()
         # Gaussian likelihood
         if likelihood == None:
             if not sparse:
@@ -277,7 +277,7 @@ class model:
             val (float, numpy.ndarray): Value of parameter.
 
         Examples:
-            >>> model.set_param(0, 'variance', np.array([5.0, 3.0])) # for Q=0 set the parameter called 'variance'
+            >>> model.set_parameter(0, 'variance', np.array([5.0, 3.0])) # for Q=0 set the parameter called 'variance'
         """
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -314,7 +314,7 @@ class model:
             val (float, ndarray): Value of parameter.
 
         Examples:
-            >>> model.set_likelihood_param('variance', np.array([5.0, 3.0])) # set the parameter called 'variance'
+            >>> model.set_likelihood_parameter('variance', np.array([5.0, 3.0])) # set the parameter called 'variance'
         """
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -334,16 +334,16 @@ class model:
 
         likelihood[key].assign(val)
 
-    def fix_parameters(self, q, key):
+    def fix_parameter(self, q, key):
         """
-        Make parameter untrainable (undo with `unfix_param`).
+        Make parameter untrainable (undo with `unfix_parameter`).
 
         Args:
             q: (int, list or array-like of ints): components to fix.
             key (str): Name of the parameter.
 
         Examples:
-            >>> model.fix_param([0, 1], 'variance')
+            >>> model.fix_parameter([0, 1], 'variance')
         """
 
         if isinstance(q, int):
@@ -360,7 +360,7 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                     getattr(self.model.kernel, param_name).trainable = False
 
-    def unfix_parameters(self, q, key):
+    def unfix_parameter(self, q, key):
         """
         Make parameter trainable (that was previously fixed, see `fix_param`).
 
@@ -369,7 +369,7 @@ class model:
             key (str): Name of the parameter.
 
         Examples:
-            >>> model.unfix_param('variance')
+            >>> model.unfix_parameter('variance')
         """
 
         if isinstance(q, int):
@@ -388,13 +388,13 @@ class model:
 
     def save_parameters(self, filename):
         """
-        Save model parameters to a given file that can then be loaded with `load_params()`.
+        Save model parameters to a given file that can then be loaded with `load_parameters()`.
 
         Args:
             filename (str): Filename to save to, automatically appends '.params'.
 
         Examples:
-            >>> model.save_params('filename')
+            >>> model.save_parameters('filename')
         """
         filename += "." + self.name + ".params"
 
@@ -419,13 +419,13 @@ class model:
 
     def load_parameters(self, filename):
         """
-        Load model parameters from a given file that was previously saved with `save_params()`.
+        Load model parameters from a given file that was previously saved with `save_parameters()`.
 
         Args:
             filename (str): Filename to load from, automatically appends '.params'.
 
         Examples:
-            >>> model.load_params('filename')
+            >>> model.load_parameters('filename')
         """
         filename += "." + self.name + ".params"
 
@@ -530,11 +530,11 @@ class model:
             >>> model.predict(plot=True)
         """
         if x is not None:
-            self.dataset.set_pred(x)
+            self.dataset.set_prediction_x(x)
 
-        x = self.dataset.to_kernel_pred()
+        x = self.dataset._to_kernel_prediction()
         if len(x) == 0:
-            raise Exception('no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()')
+            raise Exception('no prediction x range set, use x argument or set manually using DataSet.set_prediction_x() or Data.set_prediction_x()')
 
         #x_data = self.model.data[0]
         #Kmm = self.model.kernel(x_data)
@@ -547,12 +547,12 @@ class model:
         #print(np.linalg.eigvals(Kmm))
 
         mu, var = self.model.predict_f(x)
-        self.dataset.from_kernel_pred(self.name, mu, var)
+        self.dataset._from_kernel_prediction(self.name, mu, var)
         
         if plot:
             self.plot_prediction()
 
-        _, mu, lower, upper = self.dataset.get_pred(self.name)
+        _, mu, lower, upper = self.dataset.get_prediction(self.name)
         return mu, lower, upper
 
     # TODO
@@ -574,9 +574,9 @@ class model:
         TODO: Add case for single output SM kernel.
         """
         # get data
-        x_train, y_train = self.dataset.get_data()
-        x_all, y_all = self.dataset.get_all()
-        x_pred, mu, lower, upper = self.dataset.get_pred(self.name)
+        x_train, y_train = self.dataset.get_train_data()
+        x_all, y_all = self.dataset.get_data()
+        x_pred, mu, lower, upper = self.dataset.get_prediction(self.name)
 
         n_dim = self.dataset.get_output_dims()
         if n_dim == 1:
@@ -630,7 +630,7 @@ class model:
         return fig, axes
 
 
-    def plot_gram(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=''):
+    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=''):
         """
         Plot the gram matrix of associated kernel.
 
