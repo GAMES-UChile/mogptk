@@ -183,7 +183,7 @@ class MOSM(model):
         phase = params['phase'][i, j, :]
 
         
-        w_high = (mean + 1* np.sqrt(cov)).max()
+        w_high = (mean + 2* np.sqrt(cov)).max()
 
         w = np.linspace(-w_high, w_high, 1000)
 
