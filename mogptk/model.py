@@ -605,7 +605,7 @@ class model:
             
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
-            formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0]._format(x))
+            formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0].format(x))
             axes[i].xaxis.set_major_formatter(formatter)
 
             # set channels name

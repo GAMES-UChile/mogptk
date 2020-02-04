@@ -37,10 +37,10 @@ pip install mogptk
 ### Formats
 The format classes allow the independent (X axis) data to be formatted so that it can be converted into numbers. Each class implements the following functions:
 
-- **\_parse(str) returns num**: parses a string to a number, can raise `ValueError`
-- **\_parse\_duration(str) returns num**: parses a string to a number as a difference/interval, e.g. duration in seconds or distance in meters
-- **\_format(num) returns str**: format a number to be displayed
-- **\_scale(maxfreq=None) returns (num, str)**: returns the default duration unit of the format and its name, e.g. to plot the frequency per day or per year
+- **parse(str) returns num**: parses a string to a number, can raise `ValueError`
+- **parse\_delta(str) returns num**: parses a string to a number as a difference/interval, e.g. duration in seconds or distance in meters
+- **format(num) returns str**: format a number to be displayed
+- **get_scale(maxfreq=None) returns (num, str)**: returns the default duration unit of the format and its name, e.g. to plot the frequency per day or per year
 
 #### FormatNumber
 #### FormatDate
@@ -48,9 +48,9 @@ The format classes allow the independent (X axis) data to be formatted so that i
 ### Transformations
 The transformation classes allow transforming the dependent data (Y axis) to be transformed. Each class implements the following functions:
 
-- **\_data(data)**: pass the Data class in case the transformer uses that data to calculate the transformation
-- **\_forward(x, y)** returns y: does a forward transformation where x has shape (n,input\_dims) and y has shape (n,)
-- **\_backward(x, y)** returns y: does a backward transformation (invert) where x has shape (n,input\_dims) and y has shape (n,)
+- **set_data(data)**: pass the Data class in case the transformer uses that data to calculate the transformation
+- **forward(y, x=None)** returns y: does a forward transformation where x has shape (n,input\_dims) and y has shape (n,)
+- **backward(y, x=None)** returns y: does a backward transformation (invert) where x has shape (n,input\_dims) and y has shape (n,)
 
 #### TransformDetrend
 #### TransformNormalize
