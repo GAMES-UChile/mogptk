@@ -101,7 +101,7 @@ class MOSM(model):
             
             # normalize proportional to channels variances
             for channel, data in enumerate(self.dataset):
-                magnitude[channel, :] = np.sqrt(magnitude[channel, :] / magnitude[channel, :].sum() * data.Y[data.mask].var())
+                magnitude[channel, :] = np.sqrt(magnitude[channel, :] / magnitude[channel, :].sum() * data.Y[data.mask].var()) * 2
 
             for q in range(self.Q):
                 self.set_parameter(q, 'magnitude', magnitude[:, q])
@@ -122,7 +122,7 @@ class MOSM(model):
                 if magnitude[channel, :].sum()==0:
                     raise Exception("Sum of magnitudes equal to zero")
 
-                magnitude[channel, :] = np.sqrt(magnitude[channel, :] / magnitude[channel, :].sum() * data.Y[data.mask].var())            
+                magnitude[channel, :] = np.sqrt(magnitude[channel, :] / magnitude[channel, :].sum() * data.Y[data.mask].var()) * 2
             for q in range(self.Q):
                 self.set_parameter(q, 'magnitude', magnitude[:, q])
         else:
