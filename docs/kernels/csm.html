@@ -45,11 +45,11 @@ class CrossSpectralMixture(MultiKernel):
         variance = np.random.random(input_dim)
         phase = np.ones((Rq, output_dim)) * gpflow.config.default_positive_minimum()
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive())
-        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive())
-        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive())
-        self.phase = gpflow.Parameter(phase, transform=gpflow.utilities.positive())
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=&#34;csm&#34;)
+        self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name=&#34;constant&#34;)
+        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name=&#34;mean&#34;)
+        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name=&#34;variance&#34;)
+        self.phase = gpflow.Parameter(phase, transform=gpflow.utilities.positive(), name=&#34;phase&#34;)
 
     def subK(self, index, X, X2):
         i, j = index
@@ -111,11 +111,11 @@ matrix appropriately.</p>
         variance = np.random.random(input_dim)
         phase = np.ones((Rq, output_dim)) * gpflow.config.default_positive_minimum()
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive())
-        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive())
-        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive())
-        self.phase = gpflow.Parameter(phase, transform=gpflow.utilities.positive())
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=&#34;csm&#34;)
+        self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name=&#34;constant&#34;)
+        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name=&#34;mean&#34;)
+        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name=&#34;variance&#34;)
+        self.phase = gpflow.Parameter(phase, transform=gpflow.utilities.positive(), name=&#34;phase&#34;)
 
     def subK(self, index, X, X2):
         i, j = index
@@ -133,6 +133,7 @@ matrix appropriately.</p>
 <ul class="hlist">
 <li><a title="mogptk.kernels.multikernel.MultiKernel" href="multikernel.html#mogptk.kernels.multikernel.MultiKernel">MultiKernel</a></li>
 <li>gpflow.kernels.base.Kernel</li>
+<li>gpflow.base.Module</li>
 <li>tensorflow.python.module.module.Module</li>
 <li>tensorflow.python.training.tracking.tracking.AutoTrackable</li>
 <li>tensorflow.python.training.tracking.base.Trackable</li>

@@ -44,10 +44,10 @@ class SpectralMixtureLMC(MultiKernel):
         mean = np.random.random((input_dim))
         variance = np.random.random((input_dim))
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = gpflow.Parameter(constant)
-        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive())
-        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive())
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=&#34;sm-lmc&#34;)
+        self.constant = gpflow.Parameter(constant, name=&#34;constant&#34;)
+        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name=&#34;mean&#34;)
+        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name=&#34;variance&#34;)
 
     def subK(self, index, X, X2):
         i, j = index
@@ -108,10 +108,10 @@ matrix appropriately.</p>
         mean = np.random.random((input_dim))
         variance = np.random.random((input_dim))
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dims)
-        self.constant = gpflow.Parameter(constant)
-        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive())
-        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive())
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=&#34;sm-lmc&#34;)
+        self.constant = gpflow.Parameter(constant, name=&#34;constant&#34;)
+        self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name=&#34;mean&#34;)
+        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name=&#34;variance&#34;)
 
     def subK(self, index, X, X2):
         i, j = index
@@ -129,6 +129,7 @@ matrix appropriately.</p>
 <ul class="hlist">
 <li><a title="mogptk.kernels.multikernel.MultiKernel" href="multikernel.html#mogptk.kernels.multikernel.MultiKernel">MultiKernel</a></li>
 <li>gpflow.kernels.base.Kernel</li>
+<li>gpflow.base.Module</li>
 <li>tensorflow.python.module.module.Module</li>
 <li>tensorflow.python.training.tracking.tracking.AutoTrackable</li>
 <li>tensorflow.python.training.tracking.base.Trackable</li>

@@ -28,28 +28,49 @@
 import numpy as np
 import tensorflow as tf
 
-from .multikernel import MultiKernel
+from gpflow.kernels import Kernel
 
-class Noise(MultiKernel):
-    def __init__(self, input_dim, output_dim, active_dim=None):
-        &#34;&#34;&#34;
-        - input_dim (int): The number of input dimensions.
-        - output_dim (int): The number of output dimensions.
-        - active_dims (list of int): Apply kernel to specified dimensions only.
-        &#34;&#34;&#34;
+class Noise(Kernel):
+    def __init__(self, input_dim, output_dim, active_dims=None):
+        Kernel.__init__(self, active_dims)
+        self.input_dim = input_dim
+        self.output_dim = output_dim
 
         noise = np.random.random((output_dim))
+        self.noise = gpflow.Parameter(noise, transform=gpflow.utilities.positive(), name=&#34;noise&#34;)
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dim)
-        self.noise = gpflow.Parameter(noise, transform=gpflow.utilities.positive())
+    def K(self, X, X2=None, presliced=False):
+        if X2 is not None and not np.array_equal(X, X2):
+            return tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
+        return tf.linalg.diag(self.K_diag(X))
 
-    def subK(self, index, X, X2):
-        i, j = index
-        if i != j or not np.array_equal(X, X2):
-            K = tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
-        else:
-            K = tf.linalg.diag(tf.fill([tf.shape(X)[0]], self.noise[i]))
-        return K</code></pre>
+    def K_diag(self, X, presliced=False):
+        idx = tf.cast(X[:, 0], tf.int32)
+        noises = tf.gather(self.noise, idx)
+        return noises
+
+#from .multikernel import MultiKernel
+#
+#class Noise(MultiKernel):
+#    def __init__(self, input_dim, output_dim, active_dim=None):
+#        &#34;&#34;&#34;
+#        - input_dim (int): The number of input dimensions.
+#        - output_dim (int): The number of output dimensions.
+#        - active_dims (list of int): Apply kernel to specified dimensions only.
+#        &#34;&#34;&#34;
+#
+#        noise = np.random.random((output_dim))
+#
+#        MultiKernel.__init__(self, input_dim, output_dim, active_dim)
+#        self.noise = gpflow.Parameter(noise, transform=gpflow.utilities.positive(), name=&#34;noise&#34;)
+#
+#    def subK(self, index, X, X2):
+#        i, j = index
+#        if i != j or not np.array_equal(X, X2):
+#            K = tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
+#        else:
+#            K = tf.linalg.diag(tf.fill([tf.shape(X)[0]], self.noise[i]))
+#        return K</code></pre>
 </details>
 </section>
 <section>
@@ -63,60 +84,47 @@ class Noise(MultiKernel):
 <dl>
 <dt id="mogptk.kernels.noise.Noise"><code class="flex name class">
 <span>class <span class="ident">Noise</span></span>
-<span>(</span><span>input_dim, output_dim, active_dim=None)</span>
+<span>(</span><span>input_dim, output_dim, active_dims=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Abstract class for MultiOutput Kernels.</p>
-<p>This abstract kernel assumes input X where the first column is a
-series of integer indices and the remaining dimensions are
-unconstrained. Multikernels are designed to handle outputs from
-different Gaussian processes, specifically in the case where they
-are not independent and where they can be observed independently.
-This abstract class implements the functionality necessary to split
-the observations into different cases and reorder the final kernel
-matrix appropriately.</p>
-<ul>
-<li>input_dim (int): The number of input dimensions.</li>
-<li>output_dim (int): The number of output dimensions.</li>
-<li>active_dims (list of int): Apply kernel to specified dimensions only.</li>
-</ul></section>
+<section class="desc"><p>The basic kernel class. Handles active dims.</p>
+<p>:param active_dims: active dimensions, has the slice type.
+:param name: optional kernel name.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Noise(MultiKernel):
-    def __init__(self, input_dim, output_dim, active_dim=None):
-        &#34;&#34;&#34;
-        - input_dim (int): The number of input dimensions.
-        - output_dim (int): The number of output dimensions.
-        - active_dims (list of int): Apply kernel to specified dimensions only.
-        &#34;&#34;&#34;
+<pre><code class="python">class Noise(Kernel):
+    def __init__(self, input_dim, output_dim, active_dims=None):
+        Kernel.__init__(self, active_dims)
+        self.input_dim = input_dim
+        self.output_dim = output_dim
 
         noise = np.random.random((output_dim))
+        self.noise = gpflow.Parameter(noise, transform=gpflow.utilities.positive(), name=&#34;noise&#34;)
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dim)
-        self.noise = gpflow.Parameter(noise, transform=gpflow.utilities.positive())
+    def K(self, X, X2=None, presliced=False):
+        if X2 is not None and not np.array_equal(X, X2):
+            return tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
+        return tf.linalg.diag(self.K_diag(X))
 
-    def subK(self, index, X, X2):
-        i, j = index
-        if i != j or not np.array_equal(X, X2):
-            K = tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
-        else:
-            K = tf.linalg.diag(tf.fill([tf.shape(X)[0]], self.noise[i]))
-        return K</code></pre>
+    def K_diag(self, X, presliced=False):
+        idx = tf.cast(X[:, 0], tf.int32)
+        noises = tf.gather(self.noise, idx)
+        return noises</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.multikernel.MultiKernel" href="multikernel.html#mogptk.kernels.multikernel.MultiKernel">MultiKernel</a></li>
 <li>gpflow.kernels.base.Kernel</li>
+<li>gpflow.base.Module</li>
 <li>tensorflow.python.module.module.Module</li>
 <li>tensorflow.python.training.tracking.tracking.AutoTrackable</li>
 <li>tensorflow.python.training.tracking.base.Trackable</li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.noise.Noise.subK"><code class="name flex">
-<span>def <span class="ident">subK</span></span>(<span>self, index, X, X2)</span>
+<dt id="mogptk.kernels.noise.Noise.K"><code class="name flex">
+<span>def <span class="ident">K</span></span>(<span>self, X, X2=None, presliced=False)</span>
 </code></dt>
 <dd>
 <section class="desc"></section>
@@ -124,24 +132,28 @@ matrix appropriately.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def subK(self, index, X, X2):
-    i, j = index
-    if i != j or not np.array_equal(X, X2):
-        K = tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
-    else:
-        K = tf.linalg.diag(tf.fill([tf.shape(X)[0]], self.noise[i]))
-    return K</code></pre>
+<pre><code class="python">def K(self, X, X2=None, presliced=False):
+    if X2 is not None and not np.array_equal(X, X2):
+        return tf.zeros([tf.shape(X)[0], tf.shape(X2)[0]], dtype=tf.float64)
+    return tf.linalg.diag(self.K_diag(X))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.kernels.noise.Noise.K_diag"><code class="name flex">
+<span>def <span class="ident">K_diag</span></span>(<span>self, X, presliced=False)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def K_diag(self, X, presliced=False):
+    idx = tf.cast(X[:, 0], tf.int32)
+    noises = tf.gather(self.noise, idx)
+    return noises</code></pre>
 </details>
 </dd>
 </dl>
-<h3>Inherited members</h3>
-<ul class="hlist">
-<li><code><b><a title="mogptk.kernels.multikernel.MultiKernel" href="multikernel.html#mogptk.kernels.multikernel.MultiKernel">MultiKernel</a></b></code>:
-<ul class="hlist">
-<li><code><a title="mogptk.kernels.multikernel.MultiKernel.sqdist" href="multikernel.html#mogptk.kernels.multikernel.MultiKernel.sqdist">sqdist</a></code></li>
-</ul>
-</li>
-</ul>
 </dd>
 </dl>
 </section>
@@ -162,7 +174,8 @@ matrix appropriately.</p>
 <li>
 <h4><code><a title="mogptk.kernels.noise.Noise" href="#mogptk.kernels.noise.Noise">Noise</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.noise.Noise.subK" href="#mogptk.kernels.noise.Noise.subK">subK</a></code></li>
+<li><code><a title="mogptk.kernels.noise.Noise.K" href="#mogptk.kernels.noise.Noise.K">K</a></code></li>
+<li><code><a title="mogptk.kernels.noise.Noise.K_diag" href="#mogptk.kernels.noise.Noise.K_diag">K_diag</a></code></li>
 </ul>
 </li>
 </ul>

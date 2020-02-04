@@ -30,6 +30,9 @@ from .kernels import SpectralMixture, sm_init, Noise
 from .plot import plot_spectrum
 from scipy.stats import norm
 import matplotlib.pyplot as plt
+import logging
+
+logger = logging.getLogger(&#39;mogptk&#39;)
 
 def _estimate_from_sm(dataset, Q, method=&#39;BNSE&#39;, optimizer=&#39;BFGS&#39;, maxiter=2000, plot=False, fix_means=False):
     &#34;&#34;&#34;
@@ -62,32 +65,36 @@ def _estimate_from_sm(dataset, Q, method=&#39;BNSE&#39;, optimizer=&#39;BFGS&#39
     for channel in range(output_dims):
         for i in range(input_dims):  # TODO one SM per channel
             sm = SM(dataset[channel], Q)
-            sm.estimate_params(method)
+            sm.estimate_parameters(method)
 
             if fix_means:
-                sm.set_param(0, &#39;mixture_means&#39;, np.zeros((Q, input_dims)))
-                sm.set_param(0, &#39;mixture_scales&#39;, sm.get_param(0, &#39;mixture_scales&#39;) * 100.0)
-                sm.fix_param(&#39;mixture_means&#39;)
+                sm.set_parameter(0, &#39;mixture_means&#39;, np.zeros((Q, input_dims)))
+                sm.set_parameter(0, &#39;mixture_scales&#39;, sm.get_parameter(0, &#39;mixture_scales&#39;) * 50)
+                sm.fix_parameters(0, &#39;mixture_means&#39;)
 
-            sm.train(method=optimizer, maxiter=maxiter, tol=1e-50)
+            sm.train(method=optimizer, maxiter=maxiter)
 
             if plot:
                 nyquist = dataset[channel].get_nyquist_estimation()
-                means = sm.get_param(0, &#39;mixture_means&#39;)
-                weights = sm.get_param(0, &#39;mixture_weights&#39;)
-                scales = sm.get_param(0, &#39;mixture_scales&#39;).T
+                means = sm.get_parameter(0, &#39;mixture_means&#39;)
+                weights = sm.get_parameter(0, &#39;mixture_weights&#39;)
+                scales = sm.get_parameter(0, &#39;mixture_scales&#39;).T
                 plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=dataset[channel].name)
 
             for q in range(Q):
-                params[q][&#39;weight&#39;][i,channel] = sm.get_param(0, &#39;mixture_weights&#39;)[q]
-                params[q][&#39;mean&#39;][i,channel] = sm.get_param(0, &#39;mixture_means&#39;)[q,:] * np.pi * 2
-                params[q][&#39;scale&#39;][i,channel] = sm.get_param(0, &#39;mixture_scales&#39;)[:,q]
+                params[q][&#39;weight&#39;][i,channel] = sm.get_parameter(0, &#39;mixture_weights&#39;)[q]
+                params[q][&#39;mean&#39;][i,channel] = sm.get_parameter(0, &#39;mixture_means&#39;)[q,:] * np.pi * 2
+                params[q][&#39;scale&#39;][i,channel] = sm.get_parameter(0, &#39;mixture_scales&#39;)[:,q]
 
     return params
 
 class SM(model):
     &#34;&#34;&#34;
     A single output GP Spectral mixture kernel as proposed by [1].
+
+    The model contain the dataset and the associated gpflow model, 
+    when the mogptk.Model is instanciated the gpflow model is built 
+    using random parameters.
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
@@ -125,7 +132,7 @@ class SM(model):
         )
         self._build(kernel, likelihood, variational, sparse, like_params)
 
-    def estimate_params(self, method=&#39;BNSE&#39;):
+    def estimate_parameters(self, method=&#39;BNSE&#39;):
         &#34;&#34;&#34;
         Estimate parameters of kernel from data using different methods.
 
@@ -150,42 +157,43 @@ class SM(model):
             raise Exception(&#34;possible methods are &#39;random&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
 
         if method == &#39;random&#39;:
-            x, y = self.dataset[0].get_data()
+            x, y = self.dataset[0].get_train_data()
             weights, means, scales = sm_init(x, y, self.Q)
-            for q in range(self.Q):
-                self.set_param(0, &#39;mixture_weights&#39;, weights)
-                self.set_param(0, &#39;mixture_means&#39;, np.array(means))
-                self.set_param(0, &#39;mixture_scales&#39;, np.array(scales.T))
+            self.set_parameter(0, &#39;mixture_weights&#39;, weights)
+            self.set_parameter(0, &#39;mixture_means&#39;, np.array(means))
+            self.set_parameter(0, &#39;mixture_scales&#39;, np.array(scales.T))
 
         elif method == &#39;LS&#39;:
-            amplitudes, means, variances = self.dataset[0].get_ls_estimation(self.Q)
+            amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
-                logging.warning(&#39;LS could not find peaks for SM&#39;)
+                logger.warning(&#39;LS could not find peaks for SM&#39;)
                 return
+            
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
 
-            for q in range(self.Q):
-                self.set_param(q, &#39;mixture_weights&#39;, amplitudes.mean(axis=0) / amplitudes.mean())
-                self.set_param(q, &#39;mixture_means&#39;, means.T)
-                self.set_param(q, &#39;mixture_scales&#39;, variances * 2.0)
+            self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
+            self.set_parameter(0, &#39;mixture_means&#39;, means.T)
+            self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)
 
         elif method == &#39;BNSE&#39;:
             amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
-                logging.warning(&#39;BNSE could not find peaks for SM&#39;)
+                logger.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-            for q in range(self.Q):
-                self.set_param(0, &#39;mixture_weights&#39;, amplitudes.mean(axis=0) / amplitudes.mean())
-                self.set_param(0, &#39;mixture_means&#39;, means.T)
-                self.set_param(0, &#39;mixture_scales&#39;, variances * 2.0)
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
+
+            self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
+            self.set_parameter(0, &#39;mixture_means&#39;, means.T)
+            self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)
 
     def plot_psd(self, figsize=(10, 4), title=&#39;&#39;, log_scale=False):
         &#34;&#34;&#34;
         Plot power spectral density of single output GP-SM.
         &#34;&#34;&#34;
-        means = self.get_param(0, &#39;mixture_means&#39;) * 2.0 * np.pi
-        weights = self.get_param(0, &#39;mixture_weights&#39;)
-        scales = self.get_param(0, &#39;mixture_scales&#39;).T
+        means = self.get_parameter(0, &#39;mixture_means&#39;) * 2.0 * np.pi
+        weights = self.get_parameter(0, &#39;mixture_weights&#39;)
+        scales = self.get_parameter(0, &#39;mixture_scales&#39;).T
         
         # calculate bounds
         x_low = norm.ppf(0.001, loc=means, scale=scales).min()
@@ -209,9 +217,11 @@ class SM(model):
         axes.set_xlim(0, x[-1] + 0.1)
         if log_scale:
             axes.set_yscale(&#39;log&#39;)
-        axes.set_xlabel(r&#39;$\omega$&#39;)
+        axes.set_xlabel(&#39;Frequency&#39;)
         axes.set_ylabel(&#39;PSD&#39;)
-        axes.set_title(title)</code></pre>
+        axes.set_title(title)
+
+        return fig, axes</code></pre>
 </details>
 </section>
 <section>
@@ -229,6 +239,9 @@ class SM(model):
 </code></dt>
 <dd>
 <section class="desc"><p>A single output GP Spectral mixture kernel as proposed by [1].</p>
+<p>The model contain the dataset and the associated gpflow model,
+when the mogptk.Model is instanciated the gpflow model is built
+using random parameters.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
@@ -257,7 +270,16 @@ class SM(model):
 &gt;&gt;&gt; model.train()
 &gt;&gt;&gt; model.predict([np.linspace(1, 15, 150)])
 </code></pre>
-<p>[1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013</p></section>
+<p>[1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013</p>
+<p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
+<h2 id="args_1">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the model.</dd>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a>, <a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a></dt>
+<dd>DataSet with Data objects for all the channels.</dd>
+</dl>
+<p>When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -265,6 +287,10 @@ class SM(model):
 <pre><code class="python">class SM(model):
     &#34;&#34;&#34;
     A single output GP Spectral mixture kernel as proposed by [1].
+
+    The model contain the dataset and the associated gpflow model, 
+    when the mogptk.Model is instanciated the gpflow model is built 
+    using random parameters.
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
@@ -302,7 +328,7 @@ class SM(model):
         )
         self._build(kernel, likelihood, variational, sparse, like_params)
 
-    def estimate_params(self, method=&#39;BNSE&#39;):
+    def estimate_parameters(self, method=&#39;BNSE&#39;):
         &#34;&#34;&#34;
         Estimate parameters of kernel from data using different methods.
 
@@ -327,42 +353,43 @@ class SM(model):
             raise Exception(&#34;possible methods are &#39;random&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
 
         if method == &#39;random&#39;:
-            x, y = self.dataset[0].get_data()
+            x, y = self.dataset[0].get_train_data()
             weights, means, scales = sm_init(x, y, self.Q)
-            for q in range(self.Q):
-                self.set_param(0, &#39;mixture_weights&#39;, weights)
-                self.set_param(0, &#39;mixture_means&#39;, np.array(means))
-                self.set_param(0, &#39;mixture_scales&#39;, np.array(scales.T))
+            self.set_parameter(0, &#39;mixture_weights&#39;, weights)
+            self.set_parameter(0, &#39;mixture_means&#39;, np.array(means))
+            self.set_parameter(0, &#39;mixture_scales&#39;, np.array(scales.T))
 
         elif method == &#39;LS&#39;:
-            amplitudes, means, variances = self.dataset[0].get_ls_estimation(self.Q)
+            amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
-                logging.warning(&#39;LS could not find peaks for SM&#39;)
+                logger.warning(&#39;LS could not find peaks for SM&#39;)
                 return
+            
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
 
-            for q in range(self.Q):
-                self.set_param(q, &#39;mixture_weights&#39;, amplitudes.mean(axis=0) / amplitudes.mean())
-                self.set_param(q, &#39;mixture_means&#39;, means.T)
-                self.set_param(q, &#39;mixture_scales&#39;, variances * 2.0)
+            self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
+            self.set_parameter(0, &#39;mixture_means&#39;, means.T)
+            self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)
 
         elif method == &#39;BNSE&#39;:
             amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
-                logging.warning(&#39;BNSE could not find peaks for SM&#39;)
+                logger.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-            for q in range(self.Q):
-                self.set_param(0, &#39;mixture_weights&#39;, amplitudes.mean(axis=0) / amplitudes.mean())
-                self.set_param(0, &#39;mixture_means&#39;, means.T)
-                self.set_param(0, &#39;mixture_scales&#39;, variances * 2.0)
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
+
+            self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
+            self.set_parameter(0, &#39;mixture_means&#39;, means.T)
+            self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)
 
     def plot_psd(self, figsize=(10, 4), title=&#39;&#39;, log_scale=False):
         &#34;&#34;&#34;
         Plot power spectral density of single output GP-SM.
         &#34;&#34;&#34;
-        means = self.get_param(0, &#39;mixture_means&#39;) * 2.0 * np.pi
-        weights = self.get_param(0, &#39;mixture_weights&#39;)
-        scales = self.get_param(0, &#39;mixture_scales&#39;).T
+        means = self.get_parameter(0, &#39;mixture_means&#39;) * 2.0 * np.pi
+        weights = self.get_parameter(0, &#39;mixture_weights&#39;)
+        scales = self.get_parameter(0, &#39;mixture_scales&#39;).T
         
         # calculate bounds
         x_low = norm.ppf(0.001, loc=means, scale=scales).min()
@@ -386,9 +413,11 @@ class SM(model):
         axes.set_xlim(0, x[-1] + 0.1)
         if log_scale:
             axes.set_yscale(&#39;log&#39;)
-        axes.set_xlabel(r&#39;$\omega$&#39;)
+        axes.set_xlabel(&#39;Frequency&#39;)
         axes.set_ylabel(&#39;PSD&#39;)
-        axes.set_title(title)</code></pre>
+        axes.set_title(title)
+
+        return fig, axes</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -396,8 +425,8 @@ class SM(model):
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.sm.SM.estimate_params"><code class="name flex">
-<span>def <span class="ident">estimate_params</span></span>(<span>self, method='BNSE')</span>
+<dt id="mogptk.sm.SM.estimate_parameters"><code class="name flex">
+<span>def <span class="ident">estimate_parameters</span></span>(<span>self, method='BNSE')</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Estimate parameters of kernel from data using different methods.</p>
@@ -417,7 +446,7 @@ and use the first Q peaks as the means and mixture weights.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def estimate_params(self, method=&#39;BNSE&#39;):
+<pre><code class="python">def estimate_parameters(self, method=&#39;BNSE&#39;):
     &#34;&#34;&#34;
     Estimate parameters of kernel from data using different methods.
 
@@ -442,34 +471,35 @@ and use the first Q peaks as the means and mixture weights.</p>
         raise Exception(&#34;possible methods are &#39;random&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
 
     if method == &#39;random&#39;:
-        x, y = self.dataset[0].get_data()
+        x, y = self.dataset[0].get_train_data()
         weights, means, scales = sm_init(x, y, self.Q)
-        for q in range(self.Q):
-            self.set_param(0, &#39;mixture_weights&#39;, weights)
-            self.set_param(0, &#39;mixture_means&#39;, np.array(means))
-            self.set_param(0, &#39;mixture_scales&#39;, np.array(scales.T))
+        self.set_parameter(0, &#39;mixture_weights&#39;, weights)
+        self.set_parameter(0, &#39;mixture_means&#39;, np.array(means))
+        self.set_parameter(0, &#39;mixture_scales&#39;, np.array(scales.T))
 
     elif method == &#39;LS&#39;:
-        amplitudes, means, variances = self.dataset[0].get_ls_estimation(self.Q)
+        amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
         if len(amplitudes) == 0:
-            logging.warning(&#39;LS could not find peaks for SM&#39;)
+            logger.warning(&#39;LS could not find peaks for SM&#39;)
             return
+        
+        mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
 
-        for q in range(self.Q):
-            self.set_param(q, &#39;mixture_weights&#39;, amplitudes.mean(axis=0) / amplitudes.mean())
-            self.set_param(q, &#39;mixture_means&#39;, means.T)
-            self.set_param(q, &#39;mixture_scales&#39;, variances * 2.0)
+        self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
+        self.set_parameter(0, &#39;mixture_means&#39;, means.T)
+        self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)
 
     elif method == &#39;BNSE&#39;:
         amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
         if np.sum(amplitudes) == 0.0:
-            logging.warning(&#39;BNSE could not find peaks for SM&#39;)
+            logger.warning(&#39;BNSE could not find peaks for SM&#39;)
             return
 
-        for q in range(self.Q):
-            self.set_param(0, &#39;mixture_weights&#39;, amplitudes.mean(axis=0) / amplitudes.mean())
-            self.set_param(0, &#39;mixture_means&#39;, means.T)
-            self.set_param(0, &#39;mixture_scales&#39;, variances * 2.0)</code></pre>
+        mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
+
+        self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
+        self.set_parameter(0, &#39;mixture_means&#39;, means.T)
+        self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.sm.SM.plot_psd"><code class="name flex">
@@ -485,9 +515,9 @@ and use the first Q peaks as the means and mixture weights.</p>
     &#34;&#34;&#34;
     Plot power spectral density of single output GP-SM.
     &#34;&#34;&#34;
-    means = self.get_param(0, &#39;mixture_means&#39;) * 2.0 * np.pi
-    weights = self.get_param(0, &#39;mixture_weights&#39;)
-    scales = self.get_param(0, &#39;mixture_scales&#39;).T
+    means = self.get_parameter(0, &#39;mixture_means&#39;) * 2.0 * np.pi
+    weights = self.get_parameter(0, &#39;mixture_weights&#39;)
+    scales = self.get_parameter(0, &#39;mixture_scales&#39;).T
     
     # calculate bounds
     x_low = norm.ppf(0.001, loc=means, scale=scales).min()
@@ -511,9 +541,11 @@ and use the first Q peaks as the means and mixture weights.</p>
     axes.set_xlim(0, x[-1] + 0.1)
     if log_scale:
         axes.set_yscale(&#39;log&#39;)
-    axes.set_xlabel(r&#39;$\omega$&#39;)
+    axes.set_xlabel(&#39;Frequency&#39;)
     axes.set_ylabel(&#39;PSD&#39;)
-    axes.set_title(title)</code></pre>
+    axes.set_title(title)
+
+    return fig, axes</code></pre>
 </details>
 </dd>
 </dl>
@@ -521,19 +553,20 @@ and use the first Q peaks as the means and mixture weights.</p>
 <ul class="hlist">
 <li><code><b><a title="mogptk.model.model" href="model.html#mogptk.model.model">model</a></b></code>:
 <ul class="hlist">
-<li><code><a title="mogptk.model.model.fix_param" href="model.html#mogptk.model.model.fix_param">fix_param</a></code></li>
-<li><code><a title="mogptk.model.model.get_likelihood_params" href="model.html#mogptk.model.model.get_likelihood_params">get_likelihood_params</a></code></li>
-<li><code><a title="mogptk.model.model.get_param" href="model.html#mogptk.model.model.get_param">get_param</a></code></li>
-<li><code><a title="mogptk.model.model.get_params" href="model.html#mogptk.model.model.get_params">get_params</a></code></li>
-<li><code><a title="mogptk.model.model.load_params" href="model.html#mogptk.model.model.load_params">load_params</a></code></li>
+<li><code><a title="mogptk.model.model.fix_parameter" href="model.html#mogptk.model.model.fix_parameter">fix_parameter</a></code></li>
+<li><code><a title="mogptk.model.model.get_likelihood_parameters" href="model.html#mogptk.model.model.get_likelihood_parameters">get_likelihood_parameters</a></code></li>
+<li><code><a title="mogptk.model.model.get_parameter" href="model.html#mogptk.model.model.get_parameter">get_parameter</a></code></li>
+<li><code><a title="mogptk.model.model.get_parameters" href="model.html#mogptk.model.model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.model.model.load_parameters" href="model.html#mogptk.model.model.load_parameters">load_parameters</a></code></li>
+<li><code><a title="mogptk.model.model.plot_gram_matrix" href="model.html#mogptk.model.model.plot_gram_matrix">plot_gram_matrix</a></code></li>
 <li><code><a title="mogptk.model.model.plot_prediction" href="model.html#mogptk.model.model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.model.predict" href="model.html#mogptk.model.model.predict">predict</a></code></li>
-<li><code><a title="mogptk.model.model.print_params" href="model.html#mogptk.model.model.print_params">print_params</a></code></li>
-<li><code><a title="mogptk.model.model.save_params" href="model.html#mogptk.model.model.save_params">save_params</a></code></li>
-<li><code><a title="mogptk.model.model.set_likelihood_param" href="model.html#mogptk.model.model.set_likelihood_param">set_likelihood_param</a></code></li>
-<li><code><a title="mogptk.model.model.set_param" href="model.html#mogptk.model.model.set_param">set_param</a></code></li>
+<li><code><a title="mogptk.model.model.print_parameters" href="model.html#mogptk.model.model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.model.model.save_parameters" href="model.html#mogptk.model.model.save_parameters">save_parameters</a></code></li>
+<li><code><a title="mogptk.model.model.set_likelihood_parameter" href="model.html#mogptk.model.model.set_likelihood_parameter">set_likelihood_parameter</a></code></li>
+<li><code><a title="mogptk.model.model.set_parameter" href="model.html#mogptk.model.model.set_parameter">set_parameter</a></code></li>
 <li><code><a title="mogptk.model.model.train" href="model.html#mogptk.model.model.train">train</a></code></li>
-<li><code><a title="mogptk.model.model.unfix_param" href="model.html#mogptk.model.model.unfix_param">unfix_param</a></code></li>
+<li><code><a title="mogptk.model.model.unfix_parameter" href="model.html#mogptk.model.model.unfix_parameter">unfix_parameter</a></code></li>
 </ul>
 </li>
 </ul>
@@ -557,7 +590,7 @@ and use the first Q peaks as the means and mixture weights.</p>
 <li>
 <h4><code><a title="mogptk.sm.SM" href="#mogptk.sm.SM">SM</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.sm.SM.estimate_params" href="#mogptk.sm.SM.estimate_params">estimate_params</a></code></li>
+<li><code><a title="mogptk.sm.SM.estimate_parameters" href="#mogptk.sm.SM.estimate_parameters">estimate_parameters</a></code></li>
 <li><code><a title="mogptk.sm.SM.plot_psd" href="#mogptk.sm.SM.plot_psd">plot_psd</a></code></li>
 </ul>
 </li>

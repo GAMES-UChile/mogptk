@@ -73,9 +73,9 @@ def errors(*models, **kwargs):
                 continue
 
             if all_obs:
-                x, y_true = channel.get_all_obs()
+                x, y_true = channel.get_data()
             else:
-                x, y_true = channel.get_del_obs()
+                x, y_true = channel.get_test_data()
 
             if len(x) &gt; 0:
                 if channel.F != None:
@@ -119,9 +119,10 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
 
         raw_errors (bool): If true returns for each model a list is returned
             with the errors of each channel (y_true - y_pred).
-            If false returns for each model a list of 3 arrays with the
-            mean absolute error (MAE), mean absolute porcentual error (MAPE)
-            and root mean squared error (RMSE) for each channel.
+            If false returns for each model a list of 4 arrays with the
+            mean absolute error (MAE), std-normalized mean absolute error (nMAE),
+            root mean squared error (RMSE) and std-normalized root mean 
+            squared error (nRMSE) for each channel.
 
     Returns:
         List with length equal to the number of models, each element
@@ -140,9 +141,15 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
 
     for model in models:
 
-        n_channels = model.get_output_dims()
+        n_channels = model.dataset.get_output_dims()
+
+        if n_channels==1:
+            if not isinstance(y_test, list):
+                y_test = [y_test]
 
         error_per_channel = []
+
+        # print([a.std() for a in y_test])
 
         # predict with model
         y_pred, _, _ = model.predict(x_test)
@@ -157,9 +164,9 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
             else:
                 mae = np.abs(errors).mean()
                 # mape = (np.abs(errors / y_test[i]) * 100).mean()
-                nmae = mae / y_test[i].mean()
+                nmae = mae / y_test[i].std()
                 rmse = np.sqrt((errors**2).mean())
-                nrmse = rmse / y_test[i].mean()
+                nrmse = rmse / y_test[i].std()
                 error_per_channel.append(np.array([mae, nmae, rmse, nrmse]))
 
         error_per_model.append(error_per_channel)
@@ -235,9 +242,9 @@ However if a latent function is defined in the data this will be used as the tru
                 continue
 
             if all_obs:
-                x, y_true = channel.get_all_obs()
+                x, y_true = channel.get_data()
             else:
-                x, y_true = channel.get_del_obs()
+                x, y_true = channel.get_test_data()
 
             if len(x) &gt; 0:
                 if channel.F != None:
@@ -299,9 +306,10 @@ Length is the output dimension.</dd>
 <dt><strong><code>raw_errors</code></strong> :&ensp;<code>bool</code></dt>
 <dd>If true returns for each model a list is returned
 with the errors of each channel (y_true - y_pred).
-If false returns for each model a list of 3 arrays with the
-mean absolute error (MAE), mean absolute porcentual error (MAPE)
-and root mean squared error (RMSE) for each channel.</dd>
+If false returns for each model a list of 4 arrays with the
+mean absolute error (MAE), std-normalized mean absolute error (nMAE),
+root mean squared error (RMSE) and std-normalized root mean
+squared error (nRMSE) for each channel.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -339,9 +347,10 @@ numpy array with errors from model 'i' at channel 'j'
 
         raw_errors (bool): If true returns for each model a list is returned
             with the errors of each channel (y_true - y_pred).
-            If false returns for each model a list of 3 arrays with the
-            mean absolute error (MAE), mean absolute porcentual error (MAPE)
-            and root mean squared error (RMSE) for each channel.
+            If false returns for each model a list of 4 arrays with the
+            mean absolute error (MAE), std-normalized mean absolute error (nMAE),
+            root mean squared error (RMSE) and std-normalized root mean 
+            squared error (nRMSE) for each channel.
 
     Returns:
         List with length equal to the number of models, each element
@@ -360,9 +369,15 @@ numpy array with errors from model 'i' at channel 'j'
 
     for model in models:
 
-        n_channels = model.get_output_dims()
+        n_channels = model.dataset.get_output_dims()
+
+        if n_channels==1:
+            if not isinstance(y_test, list):
+                y_test = [y_test]
 
         error_per_channel = []
+
+        # print([a.std() for a in y_test])
 
         # predict with model
         y_pred, _, _ = model.predict(x_test)
@@ -377,9 +392,9 @@ numpy array with errors from model 'i' at channel 'j'
             else:
                 mae = np.abs(errors).mean()
                 # mape = (np.abs(errors / y_test[i]) * 100).mean()
-                nmae = mae / y_test[i].mean()
+                nmae = mae / y_test[i].std()
                 rmse = np.sqrt((errors**2).mean())
-                nrmse = rmse / y_test[i].mean()
+                nrmse = rmse / y_test[i].std()
                 error_per_channel.append(np.array([mae, nmae, rmse, nrmse]))
 
         error_per_model.append(error_per_channel)

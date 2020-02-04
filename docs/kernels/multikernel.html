@@ -54,6 +54,21 @@ class MultiKernel(Kernel):
         return tf.linalg.diag_part(K)
 
     def K(self, X, X2=None, presliced=False):
+        # TODO: clean up, what follows is a start
+        #if presliced == False:
+        #    X, X2 = self.slice(X, X2)
+
+        #idx = tf.cast(X[:, 0], tf.int32)
+        #parts = tf.dynamic_partition(X[:, 1:], idx, self.output_dim)
+
+        #if X2 is None:
+        #    for i in range(self.output_dim):
+        #        for j in range(self.output_dim):
+        #            self.K_sub((i,j), parts[i], parts[j])
+        #else:
+        #    idx2 = idx
+
+
         # X, X2 = self._slice(X, X2)
         Xindex = tf.cast(X[:, 0], tf.int32)  # find group indices
 
@@ -161,7 +176,8 @@ are not independent and where they can be observed independently.
 This abstract class implements the functionality necessary to split
 the observations into different cases and reorder the final kernel
 matrix appropriately.</p>
-<p>:param active_dims: active dimensions, has the slice type.</p></section>
+<p>:param active_dims: active dimensions, has the slice type.
+:param name: optional kernel name.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -191,6 +207,21 @@ matrix appropriately.</p>
         return tf.linalg.diag_part(K)
 
     def K(self, X, X2=None, presliced=False):
+        # TODO: clean up, what follows is a start
+        #if presliced == False:
+        #    X, X2 = self.slice(X, X2)
+
+        #idx = tf.cast(X[:, 0], tf.int32)
+        #parts = tf.dynamic_partition(X[:, 1:], idx, self.output_dim)
+
+        #if X2 is None:
+        #    for i in range(self.output_dim):
+        #        for j in range(self.output_dim):
+        #            self.K_sub((i,j), parts[i], parts[j])
+        #else:
+        #    idx2 = idx
+
+
         # X, X2 = self._slice(X, X2)
         Xindex = tf.cast(X[:, 0], tf.int32)  # find group indices
 
@@ -277,6 +308,7 @@ matrix appropriately.</p>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>gpflow.kernels.base.Kernel</li>
+<li>gpflow.base.Module</li>
 <li>tensorflow.python.module.module.Module</li>
 <li>tensorflow.python.training.tracking.tracking.AutoTrackable</li>
 <li>tensorflow.python.training.tracking.base.Trackable</li>
@@ -286,7 +318,6 @@ matrix appropriately.</p>
 <li><a title="mogptk.kernels.conv.ConvolutionalGaussian" href="conv.html#mogptk.kernels.conv.ConvolutionalGaussian">ConvolutionalGaussian</a></li>
 <li><a title="mogptk.kernels.csm.CrossSpectralMixture" href="csm.html#mogptk.kernels.csm.CrossSpectralMixture">CrossSpectralMixture</a></li>
 <li><a title="mogptk.kernels.mosm.MultiOutputSpectralMixture" href="mosm.html#mogptk.kernels.mosm.MultiOutputSpectralMixture">MultiOutputSpectralMixture</a></li>
-<li><a title="mogptk.kernels.noise.Noise" href="noise.html#mogptk.kernels.noise.Noise">Noise</a></li>
 <li><a title="mogptk.kernels.sm_lmc.SpectralMixtureLMC" href="sm_lmc.html#mogptk.kernels.sm_lmc.SpectralMixtureLMC">SpectralMixtureLMC</a></li>
 </ul>
 <h3>Methods</h3>
@@ -301,6 +332,21 @@ matrix appropriately.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def K(self, X, X2=None, presliced=False):
+    # TODO: clean up, what follows is a start
+    #if presliced == False:
+    #    X, X2 = self.slice(X, X2)
+
+    #idx = tf.cast(X[:, 0], tf.int32)
+    #parts = tf.dynamic_partition(X[:, 1:], idx, self.output_dim)
+
+    #if X2 is None:
+    #    for i in range(self.output_dim):
+    #        for j in range(self.output_dim):
+    #            self.K_sub((i,j), parts[i], parts[j])
+    #else:
+    #    idx2 = idx
+
+
     # X, X2 = self._slice(X, X2)
     Xindex = tf.cast(X[:, 0], tf.int32)  # find group indices
 
