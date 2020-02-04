@@ -27,8 +27,12 @@ try:
     else:
         requirements.append('tensorflow-probability==0.9')
 except (ImportError, DeprecationWarning):
-    requirements.append('tensorflow==2.1')
-    requirements.append('tensorflow-probability==0.9')
+    if is_py37:
+        requirements.append('tensorflow==2.1')
+        requirements.append('tensorflow-probability==0.9')
+    else:
+        requirements.append('tensorflow==2.0')
+        requirements.append('tensorflow-probability==0.8')
 
 this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
