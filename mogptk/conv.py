@@ -75,13 +75,10 @@ class CONV(model):
                 self.set_parameter(q, 'variance', params[q]['scale'] * 10)
 
             for channel, data in enumerate(self.dataset):
-                if constant[:, channel].sum()==0:
-                    raise Exception("Sum of magnitudes equal to zero")
                 constant[:, channel] = constant[:, channel] / constant[:, channel].sum() * data.Y[data.mask].var()
 
             for q in range(self.Q):
                 self.set_parameter(q, 'constant', constant[q, :])
-
         else:
             raise Exception("possible methods of estimation are only 'SM'")
 

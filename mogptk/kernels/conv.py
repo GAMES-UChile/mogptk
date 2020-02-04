@@ -15,7 +15,7 @@ class ConvolutionalGaussian(MultiKernel):
         constant = np.random.random((output_dim))
         variance = np.ones((input_dim, output_dim)) * 10
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dims)
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name="conv")
         self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name="constant")
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name="variance")
 

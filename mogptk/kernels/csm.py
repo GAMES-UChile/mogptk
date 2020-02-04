@@ -19,7 +19,7 @@ class CrossSpectralMixture(MultiKernel):
         variance = np.random.random(input_dim)
         phase = np.ones((Rq, output_dim)) * gpflow.config.default_positive_minimum()
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dims)
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name="csm")
         self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name="constant")
         self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name="mean")
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name="variance")

@@ -86,6 +86,10 @@ class MOSM(model):
 
         if method == 'BNSE':
             amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            if len(amplitudes) == 0:
+                logger.warning('BNSE could not find peaks for MOSM')
+                return
+
             magnitude = np.zeros((n_channels, self.Q))
             for q in range(self.Q):
                 mean = np.empty((self.dataset.get_input_dims()[0], n_channels))
@@ -97,9 +101,6 @@ class MOSM(model):
             
             # normalize proportional to channels variances
             for channel, data in enumerate(self.dataset):
-                if magnitude[channel, :].sum()==0:
-                    raise Exception("Sum of magnitudes equal to zero")
-
                 magnitude[channel, :] = np.sqrt(magnitude[channel, :] / magnitude[channel, :].sum() * data.Y[data.mask].var())
 
             for q in range(self.Q):
@@ -113,7 +114,6 @@ class MOSM(model):
             magnitude = np.zeros((n_channels, self.Q))
             for q in range(self.Q):
                 magnitude[:, q] = params[q]['weight'].mean(axis=0)
-
                 self.set_parameter(q, 'mean', params[q]['mean'])
                 self.set_parameter(q, 'variance', params[q]['scale'] * 2)
 
@@ -123,7 +123,6 @@ class MOSM(model):
                     raise Exception("Sum of magnitudes equal to zero")
 
                 magnitude[channel, :] = np.sqrt(magnitude[channel, :] / magnitude[channel, :].sum() * data.Y[data.mask].var())            
-
             for q in range(self.Q):
                 self.set_parameter(q, 'magnitude', magnitude[:, q])
         else:

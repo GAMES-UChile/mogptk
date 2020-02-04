@@ -4,6 +4,9 @@ from .kernels import SpectralMixture, sm_init, Noise
 from .plot import plot_spectrum
 from scipy.stats import norm
 import matplotlib.pyplot as plt
+import logging
+
+logger = logging.getLogger('mogptk')
 
 def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000, plot=False, fix_means=False):
     """
@@ -137,7 +140,7 @@ class SM(model):
         elif method == 'LS':
             amplitudes, means, variances = self.dataset[0].get_ls_estimation(self.Q)
             if len(amplitudes) == 0:
-                logging.warning('LS could not find peaks for SM')
+                logger.warning('LS could not find peaks for SM')
                 return
             
             mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
@@ -149,11 +152,11 @@ class SM(model):
         elif method == 'BNSE':
             amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
-                logging.warning('BNSE could not find peaks for SM')
+                logger.warning('BNSE could not find peaks for SM')
                 return
 
             mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
-            
+
             self.set_parameter(0, 'mixture_weights', mixture_weights)
             self.set_parameter(0, 'mixture_means', means.T)
             self.set_parameter(0, 'mixture_scales', variances * 2.0)

@@ -85,13 +85,15 @@ class SM_LMC(model):
         
         if method == 'BNSE':
             amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
-            constant = np.empty((self.Q, self.Rq, self.dataset.get_output_dims()))
+            if len(amplitudes) == 0:
+                logger.warning('BNSE could not find peaks for SM-LMC')
+                return
 
+            constant = np.empty((self.Q, self.Rq, self.dataset.get_output_dims()))
             for q in range(self.Q):
                 for channel in range(len(self.dataset)):
                     constant[q, :,channel] = amplitudes[channel][:,q].mean()
             
-                # constant = np.sqrt(constant / constant.mean())
                 mean = np.array(means)[:,:,q].mean(axis=0)
                 variance = np.array(variances)[:,:,q].mean(axis=0)
 
@@ -101,9 +103,6 @@ class SM_LMC(model):
 
             # normalize proportional to channel variance
             for channel, data in enumerate(self.dataset):
-                if constant[:, :, channel].sum()==0:
-                    raise Exception("Sum of magnitudes equal to zero")
-
                 constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var()
 
             for q in range(self.Q):

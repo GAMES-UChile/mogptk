@@ -9,14 +9,23 @@ import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 import re
+import logging
+
+logger = logging.getLogger('mogptk')
 
 class FormatNumber:
     """
     FormatNumber is the default formatter and takes regular floating point values as input.
     """
+    def __init__(self):
+        self.category = 'num'
+
     def _parse(self, val):
+        if np.isnan(val):
+            raise ValueError("number cannot be NaN")
         return float(val)
 
+    # TODO: rename parse_delta?
     def _parse_duration(self, val):
         return self._parse(val)
 
@@ -30,6 +39,9 @@ class FormatDate:
     """
     FormatDate is a formatter that takes date values as input, such as '2019-03-01', and stores values internally as days since 1970-01-01.
     """
+    def __init__(self):
+        self.category = 'date'
+
     def _parse(self, val):
         if isinstance(val, np.datetime64):
             dt = pd.Timestamp(val).to_pydatetime()
@@ -65,6 +77,9 @@ class FormatDateTime:
     """
     FormatDateTime is a formatter that takes date and time values as input, such as '2019-03-01 12:30', and stores values internally as seconds since 1970-01-01.
     """
+    def __init__(self):
+        self.category = 'date'
+
     def _parse(self, val):
         if isinstance(val, np.datetime64):
             dt = pd.Timestamp(val).to_pydatetime()
@@ -128,9 +143,26 @@ class TransformDetrend:
         return y + np.polyval(self.coef, x[:, 0])
         # return y + self.trend.predict(x)
 
+class TransformLinear:
+    """
+    TransformLinear transforms the data linearly so that y => (y-offset)/scale.
+    """
+    def __init__(self, scale=1.0, offset=0.0):
+        self.scale = scale
+        self.offset = offset
+
+    def _data(self, data):
+        pass
+
+    def _forward(self, x, y):
+        return (y-self.offset)/self.scale
+
+    def _backward(self, x, y):
+        return self.scale*y + self.offset
+
 class TransformNormalize:
     """
-    TransformNormalize is a transformer that normalizes the data so that the y-axis is between 0 and 1.
+    TransformNormalize is a transformer that normalizes the data so that the y-axis is between -1 and 1.
     """
     def __init__(self):
         pass
@@ -140,10 +172,10 @@ class TransformNormalize:
         self.ymax = np.amax(data.Y[data.mask])
 
     def _forward(self, x, y):
-        return (y-self.ymin)/(self.ymax-self.ymin)
+        return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
     
     def _backward(self, x, y):
-        return y*(self.ymax-self.ymin)+self.ymin
+        return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin
 
 class TransformLog:
     """
@@ -354,11 +386,12 @@ class Data:
 
         if 0 < len(bad_rows):
             bad_rows = list(bad_rows)
-            print("Warning: could not parse values for %d rows, removing data points" % (len(bad_rows),))
+            logger.info("could not parse values for %d rows, removing data points", len(bad_rows))
             if len(bad_rows) == n:
                 raise ValueError("none of the data points could be parsed, are they valid numbers or is an appropriate formatter set?")
             X = np.delete(X, bad_rows)
             Y = np.delete(Y, bad_rows)
+            n -= len(bad_rows)
 
         # check if X and Y are correct inputs
         if isinstance(X, list):
@@ -396,13 +429,6 @@ class Data:
             ind = np.argsort(X, axis=0)
             X = np.take_along_axis(X, ind, axis=0)
             Y = np.take_along_axis(Y, ind[:,0], axis=0)
-
-        for dim in range(X.shape[1]):
-            xran = np.max(X[:,dim]) - np.min(X[:,dim])
-            if xran < 1e-3:
-                print("Warning: very small X range may give problems, it is suggested to scale up your X-axis")
-            elif 1e4 < xran:
-                print("Warning: very large X range may give problems, it is suggested to scale down your X-axis")
         
         self.X = X # shape (n, input_dims)
         self.Y = Y # shape (n)
@@ -412,9 +438,9 @@ class Data:
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-        self.x_labels = [''] * input_dims
+        self.X_labels = [''] * input_dims
         if isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
-            self.x_labels = x_labels
+            self.X_labels = x_labels
 
         self.name = ''
         if isinstance(name, str):
@@ -422,22 +448,22 @@ class Data:
         elif isinstance(y_label, str):
             self.name = y_label
 
-        self.y_label = ''
+        self.Y_label = ''
         if isinstance(y_label, str):
-            self.y_label = y_label
+            self.Y_label = y_label
 
-        self.formatters = [FormatNumber()] * input_dims
-        if isinstance(formats, list):
-            self.formatters = formats
+        self.formatters = formats # list of formatters for all input dimensions, the last element is for the output dimension
+        self.transformations = [] # transformers for Y coordinates
 
-        self.transformations = []
+        self.X_offsets = np.array([0.0] * input_dims)
+        self.X_scales = np.array([1.0] * input_dims)
 
     def __str__(self):
         return self.__repr__()
 
     def __repr__(self):
         data = np.concatenate((self.X, self.Y.reshape(-1,1)), axis=1)
-        return repr(pd.DataFrame(data, columns=(self.x_labels + [self.y_label])))
+        return repr(pd.DataFrame(data, columns=(self.X_labels + [self.Y_label])))
 
     def set_name(self, name):
         """
@@ -471,8 +497,8 @@ class Data:
         if len(x_labels) != self.get_input_dims():
             raise ValueError("x_labels must have the same input dimensions as the data")
 
-        self.x_labels = x_labels
-        self.y_label = y_label
+        self.X_labels = x_labels
+        self.Y_label = y_label
 
     def set_function(self, f):
         """
@@ -488,6 +514,41 @@ class Data:
         """
         _check_function(f, self.get_input_dims())
         self.F = f
+
+    def set_x_scaling(self, offsets, scales):
+        """
+        Set offset and scaling of X axis for each input dimension.
+
+        Args:
+            offsets (float, list or np.ndarray of floats): X offsets per input dimension.
+            scales (float, list or np.ndarray of floats): X scales per input dimension.
+
+        Examples:
+            >>> data.set_x_scaling([['X', 'Y'], 'Cd')
+        """
+
+        if isinstance(offsets, float):
+            offsets = [offsets]
+        elif isinstance(offsets, np.ndarray):
+            offsets = list(offsets)
+        if not isinstance(offsets, list) or not all(isinstance(item, float) for item in offsets) or len(offsets) != self.get_input_dims():
+            raise ValueError("offsets must be a float, list or np.ndarray of floats and have the same input dimensions as the data")
+
+        if isinstance(scales, float):
+            scales = [scales]
+        elif isinstance(scales, np.ndarray):
+            scales = list(scales)
+        if not isinstance(scales, list) or not all(isinstance(item, float) for item in scales) or len(scales) != self.get_input_dims():
+            raise ValueError("scales must be a float, list or np.ndarray of floats and have the same input dimensions as the data")
+
+        self.X = self.X_offsets + (self.X/self.X_scales)
+        self.X_pred = self.X_offsets + (self.X_pred/self.X_scales)
+
+        self.X_offsets = offsets
+        self.X_scales = scales
+
+        self.X = self.X_scales*(self.X-self.X_offsets)
+        self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
 
     def copy(self):
         """
@@ -522,6 +583,7 @@ class Data:
             self.F = lambda x: t._forward(x, f(x))
         self.transformations.append(t)
     
+    # TODO: remove?
     def filter(self, start, end):
         """
         Filter the data range to be between start and end. Start and end can be strings if a proper formatter is set for the independent variable.
@@ -540,14 +602,15 @@ class Data:
         if self.get_input_dims() != 1:
             raise ValueError("can only filter on one dimensional input data")
         
-        start = self.formatters[0]._parse(start)
-        end = self.formatters[0]._parse(end)
+        start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
+        end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
         ind = (self.X[:,0] >= start) & (self.X[:,0] < end)
 
         self.X = np.expand_dims(self.X[ind,0], 1)
         self.Y = self.Y[ind]
         self.mask = self.mask[ind]
 
+    # TODO: remove?
     def aggregate(self, duration, f=np.mean):
         """
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
@@ -574,7 +637,7 @@ class Data:
         
         start = self.X[0,0]
         end = self.X[-1,0]
-        step = self.formatters[0]._parse_duration(duration)
+        step = self.X_scales[0] * self.formatters[0]._parse_duration(duration)
 
         X = np.arange(start+step/2, end+step/2, step)
         Y = np.empty((len(X)))
@@ -640,7 +703,7 @@ class Data:
         """
         x = self.X[self.mask,:]
         y = self.Y[self.mask]
-        return x, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
     
     def get_all(self):
         """
@@ -655,7 +718,7 @@ class Data:
         """
         x = self.X
         y = self.Y
-        return x, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
 
     def get_removed(self):
         """
@@ -670,7 +733,7 @@ class Data:
         """
         x = self.X[~self.mask,:]
         y = self.Y[~self.mask]
-        return x, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
 
     ################################################################
     
@@ -717,11 +780,11 @@ class Data:
         if start == None:
             start = np.min(self.X[:,0])
         else:
-            start = self.formatters[0]._parse(start)
+            start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
         if end == None:
             end = np.max(self.X[:,0])
         else:
-            end = self.formatters[0]._parse(end)
+            end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
 
         idx = np.where(np.logical_and(self.X[:,0] >= start, self.X[:,0] <= end))
         self.mask[idx] = False
@@ -811,7 +874,7 @@ class Data:
         mu = self._detransform(self.X_pred, mu)
         lower = self._detransform(self.X_pred, lower)
         upper = self._detransform(self.X_pred, upper)
-        return self.X_pred, mu, lower, upper
+        return self.X_scales*(self.X_pred-self.X_offsets), mu, lower, upper
 
     def set_pred_range(self, start=None, end=None, n=None, step=None):
         """
@@ -876,6 +939,8 @@ class Data:
             else:
                 step = self.formatters[0]._parse_duration(step)
             self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
+
+        self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
     
     def set_pred(self, x):
         """
@@ -899,7 +964,7 @@ class Data:
         if x.ndim != 2 or x.shape[1] != self.get_input_dims():
             raise ValueError("x shape must be (n,input_dims)")
 
-        self.X_pred = x
+        self.X_pred = self.X_scales*(x-self.X_offsets)
 
         # clear old prediction data now that X_pred has been updated
         self.Y_mu_pred = {}
@@ -921,7 +986,7 @@ class Data:
 
         nyquist = np.empty((input_dims))
         for i in range(self.get_input_dims()):
-            x = np.sort(self.X[:,i])
+            x = np.sort(self.X[self.mask,i])
             dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
             dist = np.min(dist[np.nonzero(dist)])
             nyquist[i] = 0.5/dist
@@ -937,8 +1002,8 @@ class Data:
 
         Returns:
             numpy.ndarray: Amplitude array of shape (input_dims,Q).
-            numpy.ndarray: Frequency array of shape (input_dims,Q).
-            numpy.ndarray: Variance array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+            numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
         Examples:
             >>> amplitudes, means, variances = data.get_bnse_estimation()
@@ -961,6 +1026,7 @@ class Data:
             bnse.compute_moments()
 
             amplitudes, positions, variances = bnse.get_freq_peaks()
+            # TODO: sqrt of amplitudes? vs LS?
             if len(positions) == 0:
                 continue
 
@@ -977,6 +1043,7 @@ class Data:
             A[i,:] = amplitudes[:Q]
             B[i,:] = positions[:Q]
             C[i,:] = variances[:Q]
+
         return A, B, C
 
     def get_ls_estimation(self, Q=1, n=50000):
@@ -989,8 +1056,8 @@ class Data:
 
         Returns:
             numpy.ndarray: Amplitude array of shape (input_dims,Q).
-            numpy.ndarray: Frequency array of shape (input_dims,Q).
-            numpy.ndarray: Variance array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+            numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
         Examples:
             >>> amplitudes, means, variances = data.get_ls_estimation()
@@ -1008,7 +1075,7 @@ class Data:
             x = np.linspace(0, nyquist[i], n+1)[1:]
             dx = x[1]-x[0]
 
-            y = signal.lombscargle(self.X[:,i], self.Y, x)
+            y = signal.lombscargle(self.X[self.mask,i], self.Y[self.mask], x)
             ind, _ = signal.find_peaks(y)
             ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
@@ -1033,10 +1100,6 @@ class Data:
             B[i,:] = positions[:Q]
             C[i,:] = variances[:Q]
         return A, B, C
-    
-    #def get_gm_estimation(self):
-    #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
-    #    pass
 
     def plot(self, ax=None):
         """
@@ -1057,25 +1120,28 @@ class Data:
         if ax == None:
             ax = plt.gca()
         
+        X = self.X_offsets + (self.X/self.X_scales)
+        X_pred = self.X_offsets + (self.X_pred/self.X_scales)
+
         legend = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
             if self.Y_mu_pred[name].size != 0:
                 lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
                 upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
-                ax.plot(self.X_pred[:,0], self.Y_mu_pred[name], ls='-', color=colors[i], lw=2)
-                ax.fill_between(self.X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
-                ax.plot(self.X_pred[:,0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
-                ax.plot(self.X_pred[:,0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
+                ax.plot(X_pred[:,0], self.Y_mu_pred[name], ls='-', color=colors[i], lw=2)
+                ax.fill_between(X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
+                ax.plot(X_pred[:,0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
+                ax.plot(X_pred[:,0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
                 legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label='Prediction '+name))
 
         if self.F != None:
-            n = len(self.X[:,0])*10
-            x_min = np.min(self.X[:,0])
-            x_max = np.max(self.X[:,0])
-            if len(self.X_pred) != 0:
-                x_min = min(x_min, np.min(self.X_pred))
-                x_max = max(x_max, np.max(self.X_pred))
+            n = len(X[:,0])*10
+            x_min = np.min(X[:,0])
+            x_max = np.max(X[:,0])
+            if len(X_pred) != 0:
+                x_min = min(x_min, np.min(X_pred))
+                x_max = max(x_max, np.max(X_pred))
 
             x = np.empty((n, 1))
             x[:,0] = np.linspace(x_min, x_max, n)
@@ -1084,16 +1150,16 @@ class Data:
             ax.plot(x[:,0], y, 'r--', lw=1)
             legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent function'))
 
-        ax.plot(self.X[:,0], self.Y, 'k-', alpha=0.7)
+        ax.plot(X[:,0], self.Y, 'k-', alpha=0.7)
         legend.append(plt.Line2D([0], [0], ls='-', color='k', label='Data'))
 
         if self.has_removed_obs():
-            X, Y = self.X[self.mask,:], self.Y[self.mask]
-            ax.plot(X[:,0], Y, 'k.', mew=.5, ms=8, markeredgecolor='white')
+            x, y = X[self.mask,:], self.Y[self.mask]
+            ax.plot(x[:,0], y, 'k.', mew=.5, ms=8, markeredgecolor='white')
             legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))
 
-        ax.set_xlabel(self.x_labels[0])
-        ax.set_ylabel(self.y_label)
+        ax.set_xlabel(self.X_labels[0])
+        ax.set_ylabel(self.Y_label)
         ax.set_title(self.name)
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
         ax.xaxis.set_major_formatter(formatter)
@@ -1133,7 +1199,8 @@ class Data:
         else:
             ax.set_xlabel('Frequency')
 
-        X_space = self.X[:,0].copy() / factor
+        X_space = (self.X_offsets + (self.X/self.X_scales)) / factor
+
         freq = maxfreq
         if freq == None:
             dist = np.abs(X_space[1:]-X_space[:-1])
@@ -1150,6 +1217,7 @@ class Data:
             bnse.set_freqspace(freq/2.0/np.pi, 10001)
             bnse.train()
             bnse.compute_moments()
+
             Y = bnse.post_mean_r**2 + bnse.post_mean_i**2
             Y_err = 2 * np.sqrt(np.diag(bnse.post_cov_r**2 + bnse.post_cov_i**2))
             Y = Y[1:]
