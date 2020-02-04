@@ -33,6 +33,8 @@ import tensorflow as tf
 from .dataset import DataSet
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from IPython.display import display, HTML
 from tabulate import tabulate
@@ -41,19 +43,22 @@ import logging
 logging.getLogger(&#39;tensorflow&#39;).propagate = False
 logging.getLogger(&#39;tensorflow&#39;).setLevel(logging.ERROR)
 
+tf.autograph.set_verbosity(0) # TODO: remove and fix problem
+
 gpflow.config.set_default_positive_minimum(1e-6)
-#gpflow.config.set_default_positive_bijector(&#34;exp&#34;)
+
+logger = logging.getLogger(&#39;mogptk&#39;)
 
 class model:
     def __init__(self, name, dataset):
-        #&#34;&#34;&#34;
-        #Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
-        #    
-        #Args:
-        #    name (str): Name of the model.
-        #    dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels.
-        #    When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
-        #&#34;&#34;&#34;
+        &#34;&#34;&#34;
+        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+
+        Args:
+            name (str): Name of the model.
+            dataset (mogptk.dataset.DataSet, mogptk.data.Data): DataSet with Data objects for all the channels.
+            When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+        &#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
@@ -63,6 +68,14 @@ class model:
             raise Exception(&#34;all data channels must have unique names&#34;)
         if len(set(dataset.get_input_dims())) != 1:
             raise Exception(&#34;all data channels must have the same amount of input dimensions&#34;)
+
+        for channel in dataset:
+            for dim in range(channel.X.shape[1]):
+                xran = np.max(channel.X[:,dim]) - np.min(channel.X[:,dim])
+                if xran &lt; 1e-3:
+                    logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X-axis&#34;)
+                elif 1e4 &lt; xran:
+                    logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X-axis&#34;)
 
         self.name = name
         self.dataset = dataset
@@ -81,7 +94,7 @@ class model:
             like_params (dict): Parameters to GPflow likelihood.
         &#34;&#34;&#34;
 
-        x, y = self.dataset.to_kernel()
+        x, y = self.dataset._to_kernel()
         # Gaussian likelihood
         if likelihood == None:
             if not sparse:
@@ -111,94 +124,118 @@ class model:
 
     ################################################################
 
-    def print_params(self):
+    def print_parameters(self):
         &#34;&#34;&#34;
         Print the parameters of the model in a table.
 
         Examples:
-            &gt;&gt;&gt; model.print_params()
+            &gt;&gt;&gt; model.print_parameters()
         &#34;&#34;&#34;
         with np.printoptions(precision=3, floatmode=&#39;fixed&#39;):
             try:
-                get_ipython
-                table = &#39;&#39;
-                for q, params in enumerate(self.get_params()):
-                    contents = []
-                    output_dims = self.dataset.get_output_dims()
-                    for j in range(output_dims):
-                        content = &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (self.dataset[j].get_name(),)
+                get_ipython # fails if we&#39;re not in a notebook
 
-                        values = []
-                        for key in params.keys():
-                            val = params[key]
-                            if val.ndim == 1 and val.shape[0] == output_dims:
-                                values.append(&#39;%.3f&#39; % (val[j],))
-                            elif val.ndim == 2 and val.shape[1] == output_dims:
-                                values.append(str(val[:,j]))
-                            else:
-                                values.append(str(val))
-                        content += &#39;&lt;td&gt;&#39; + &#39;&lt;/td&gt;&lt;td&gt;&#39;.join(values) + &#39;&lt;/td&gt;&#39;
-                        contents.append(content)
-
-                    header = &#39;&lt;tr&gt;&lt;th&gt;Q=%d&lt;/th&gt;&lt;th&gt;&#39; % (q,) + &#39;&lt;/th&gt;&lt;th&gt;&#39;.join(params.keys()) + &#39;&lt;/th&gt;&lt;/tr&gt;&#39;
-                    contents = &#39;&lt;tr&gt;&#39; + &#39;&lt;/tr&gt;&lt;tr&gt;&#39;.join(contents) + &#39;&lt;/tr&gt;&#39;
-                    table += header + contents
-                display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
-
-                likelihood = self.get_likelihood_params()
-                table = &#39;&lt;tr&gt;&lt;th&gt;Likelihood&lt;/th&gt;&#39;
-                for key in likelihood:
-                    table += &#39;&lt;th&gt;%s&lt;/th&gt;&#39; % (key,)
-                table += &#39;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;/td&gt;&#39;
-                for key in likelihood:
-                    table += &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (likelihood[key],)
-                table += &#39;&lt;/tr&gt;&#39;
-                display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
-            except:
-                table = &#39;&#39;
-                for q, params in enumerate(self.get_params()):
-                    contents = []
-                    output_dims = self.dataset.get_output_dims()
-                    for j in range(output_dims):
-                        content = [self.dataset[j].get_name()]
-                        for key in params.keys():
-                            val = params[key]
-                            if val.ndim == 1 and val.shape[0] == output_dims:
-                                content.append(&#39;%.3f&#39; % (val[j],))
-                            elif val.ndim == 2 and val.shape[1] == output_dims:
-                                content.append(str(val[:,j]))
-                            else:
-                                content.append(str(val))
-                        contents.append(content)
-
-                    headers = [&#34;Q=%d&#34; % (q,)]
-                    for key in params.keys():
-                        headers.append(key)
-                    print(tabulate(contents, headers=headers))
-                    print()
-
-                likelihood = self.get_likelihood_params()
-                content = [&#39;&#39;]
-                for key in likelihood.keys():
-                    val = likelihood[key]
-                    if val.ndim == 1 and val.shape[0] == output_dims:
-                        content.append(&#39;%.3f&#39; % (val[j],))
-                    elif val.ndim == 2 and val.shape[1] == output_dims:
-                        content.append(str(val[:,j]))
+                table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th&gt;Kernel&lt;/th&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;Train&lt;/th&gt;&lt;th&gt;Shape&lt;/th&gt;&lt;th&gt;Dtype&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
+                for q, params in enumerate(self.get_parameters()):
+                    kernel = None
+                    if hasattr(self.model.kernel, &#39;kernels&#39;):
+                        kernel = self.model.kernel.kernels[q]
                     else:
-                        content.append(str(val))
+                        kernel = self.model.kernel
 
-                headers = [&#34;Likelihood&#34;]
-                for key in likelihood.keys():
-                    headers.append(key)
-                print(tabulate([content], headers=headers))
+                    first = True
+                    for key in params.keys():
+                        param = getattr(kernel, key)
 
-    def get_params(self):
+                        val = params[key]
+                        if val.ndim == 0:
+                            val = &#39;%.3f&#39; % (val,)
+                        else:
+                            val = str(val)
+
+                        tr_style = &#39;&#39;
+                        name = &#39;&#39;
+                        if first:
+                            if q != 0:
+                                tr_style = &#39; style=&#34;border-top:1px solid darkgrey&#34;&#39;
+                            name = &#39;&lt;th rowspan=&#34;%d&#34; style=&#34;text-align:center&#34;&gt;%s&lt;br&gt;Q=%d&lt;/th&gt;&#39; % (len(params.keys()), kernel.name, q)
+                            first = False
+
+                        table += &#39;&lt;tr%s&gt;%s&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
+
+                first = True
+                params = self.get_likelihood_parameters()
+                for key in params:
+                    param = getattr(self.model.likelihood, key)
+
+                    val = params[key]
+                    if val.ndim == 0:
+                        val = &#39;%.3f&#39; % (val,)
+                    else:
+                        val = str(val)
+
+                    name = &#39;&#39;
+                    tr_style = &#39;&#39;
+                    if first:
+                        tr_style = &#39; style=&#34;border-top:1px solid darkgrey&#34;&#39;
+                        name = &#39;&lt;th rowspan=&#34;%d&#34; style=&#34;text-align:center&#34;&gt;%s&lt;br&gt;likelihood&lt;/th&gt;&#39; % (len(params.keys()), self.model.likelihood.name)
+                        first = False
+
+                    table += &#39;&lt;tr%s&gt;%s&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
+                table += &#39;&lt;/table&gt;&#39;
+                display(HTML(table))
+            except Exception as e:
+                contents = []
+                for q, params in enumerate(self.get_parameters()):
+                    kernel = None
+                    if hasattr(self.model.kernel, &#39;kernels&#39;):
+                        kernel = self.model.kernel.kernels[q]
+                    else:
+                        kernel = self.model.kernel
+
+                    first = True
+                    for key in params.keys():
+                        param = getattr(kernel, key)
+
+                        val = params[key]
+                        if val.ndim == 0:
+                            val = &#39;%.3f&#39; % (val,)
+                        else:
+                            val = str(val)
+
+                        name = &#39;&#39;
+                        if first:
+                            name = &#39;%s Q=%d&#39; % (kernel.name, q)
+                            first = False
+
+                        contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
+
+                first = True
+                params = self.get_likelihood_parameters()
+                for key in params.keys():
+                    param = getattr(self.model.likelihood, key)
+
+                    val = params[key]
+                    if val.ndim == 0:
+                        val = &#39;%.3f&#39; % (val,)
+                    else:
+                        val = str(val)
+
+                    name = &#39;&#39;
+                    if first:
+                        name = &#39;%s likelihood&#39; % (self.model.likelihood.name,)
+                        first = False
+
+                    contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
+
+                print(tabulate(contents, headers=[&#39;Kernel&#39;, &#39;Name&#39;, &#39;Train&#39;, &#39;Shape&#39;, &#39;Dtype&#39;, &#39;Value&#39;]))
+
+    def get_parameters(self):
         &#34;&#34;&#34;
         Returns all parameters set for the kernel per component.
 
         Examples:
-            &gt;&gt;&gt; params = model.get_params()
+            &gt;&gt;&gt; params = model.get_parameters()
         &#34;&#34;&#34;
 
         params = []
@@ -215,12 +252,12 @@ class model:
                     params[0][param_name] = param_val.read_value().numpy()
         return params
 
-    def get_likelihood_params(self):
+    def get_likelihood_parameters(self):
         &#34;&#34;&#34;
         Returns all parameters set for the likelihood.
 
         Examples:
-            &gt;&gt;&gt; params = model.get_likelihood_params()
+            &gt;&gt;&gt; params = model.get_likelihood_parameters()
         &#34;&#34;&#34;
         params = {}
         for param_name, param_val in self.model.likelihood.__dict__.items():
@@ -228,7 +265,7 @@ class model:
                 params[param_name] = param_val.read_value().numpy()
         return params
 
-    def get_param(self, q, key):
+    def get_parameter(self, q, key):
         &#34;&#34;&#34;
         Gets a kernel parameter for component &#39;q&#39; with key the parameter name.
 
@@ -240,7 +277,7 @@ class model:
             val (numpy.ndarray): Value of parameter.
 
         Examples:
-            &gt;&gt;&gt; val = model.get_param(0, &#39;variance&#39;) # for Q=0 get the parameter called &#39;variance&#39;
+            &gt;&gt;&gt; val = model.get_parameter(0, &#39;variance&#39;) # for Q=0 get the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if hasattr(self.model.kernel, &#39;kernels&#39;):
             if q &lt; 0 or len(self.model.kernel.kernels) &lt;= q:
@@ -256,7 +293,7 @@ class model:
     
         return kern[key].read_value().numpy()
 
-    def set_param(self, q, key, val):
+    def set_parameter(self, q, key, val):
         &#34;&#34;&#34;
         Sets a kernel parameter for component &#39;q&#39; with key the parameter name.
 
@@ -266,7 +303,7 @@ class model:
             val (float, numpy.ndarray): Value of parameter.
 
         Examples:
-            &gt;&gt;&gt; model.set_param(0, &#39;variance&#39;, np.array([5.0, 3.0])) # for Q=0 set the parameter called &#39;variance&#39;
+            &gt;&gt;&gt; model.set_parameter(0, &#39;variance&#39;, np.array([5.0, 3.0])) # for Q=0 set the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -294,7 +331,7 @@ class model:
 
         kern[key].assign(val)
 
-    def set_likelihood_param(self, key, val):
+    def set_likelihood_parameter(self, key, val):
         &#34;&#34;&#34;
         Sets a likelihood parameter with key the parameter name.
 
@@ -303,7 +340,7 @@ class model:
             val (float, ndarray): Value of parameter.
 
         Examples:
-            &gt;&gt;&gt; model.set_likelihood_param(&#39;variance&#39;, np.array([5.0, 3.0])) # set the parameter called &#39;variance&#39;
+            &gt;&gt;&gt; model.set_likelihood_parameter(&#39;variance&#39;, np.array([5.0, 3.0])) # set the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -323,18 +360,24 @@ class model:
 
         likelihood[key].assign(val)
 
-    def fix_param(self, key):
+    def fix_parameter(self, q, key):
         &#34;&#34;&#34;
-        Make parameter untrainable (undo with `unfix_param`).
+        Make parameter untrainable (undo with `unfix_parameter`).
 
         Args:
+            q: (int, list or array-like of ints): components to fix.
             key (str): Name of the parameter.
 
         Examples:
-            &gt;&gt;&gt; model.fix_param(&#39;variance&#39;)
+            &gt;&gt;&gt; model.fix_parameter([0, 1], &#39;variance&#39;)
         &#34;&#34;&#34;
+
+        if isinstance(q, int):
+            q = [q]
+
         if hasattr(self.model.kernel, &#39;kernels&#39;):
-            for kernel_i, kernel in enumerate(self.model.kernel.kernels):
+            for kernel_i in q:
+                kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                         getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = False
@@ -343,18 +386,24 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                     getattr(self.model.kernel, param_name).trainable = False
 
-    def unfix_param(self, key):
+    def unfix_parameter(self, q, key):
         &#34;&#34;&#34;
         Make parameter trainable (that was previously fixed, see `fix_param`).
 
         Args:
+        q: (int, list or array-like of ints): components to unfix.
             key (str): Name of the parameter.
 
         Examples:
-            &gt;&gt;&gt; model.unfix_param(&#39;variance&#39;)
+            &gt;&gt;&gt; model.unfix_parameter(&#39;variance&#39;)
         &#34;&#34;&#34;
+
+        if isinstance(q, int):
+            q = [q]
+
         if hasattr(self.model.kernel, &#39;kernels&#39;):
-            for kernel_i, kernel in enumerate(self.model.kernel.kernels):
+             for kernel_i in q:
+                kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                         getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = True
@@ -363,15 +412,15 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                     getattr(self.model.kernel, param_name).trainable = True
 
-    def save_params(self, filename):
+    def save_parameters(self, filename):
         &#34;&#34;&#34;
-        Save model parameters to a given file that can then be loaded with `load_params()`.
+        Save model parameters to a given file that can then be loaded with `load_parameters()`.
 
         Args:
             filename (str): Filename to save to, automatically appends &#39;.params&#39;.
 
         Examples:
-            &gt;&gt;&gt; model.save_params(&#39;filename&#39;)
+            &gt;&gt;&gt; model.save_parameters(&#39;filename&#39;)
         &#34;&#34;&#34;
         filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -388,21 +437,21 @@ class model:
 
         data = {
             &#39;model&#39;: self.__class__.__name__,
-            &#39;likelihood&#39;: self.get_likelihood_params(),
-            &#39;params&#39;: self.get_params()
+            &#39;likelihood&#39;: self.get_likelihood_parameters(),
+            &#39;params&#39;: self.get_parameters()
         }
         with open(filename, &#39;w&#39;) as w:
             json.dump(data, w, cls=NumpyEncoder)
 
-    def load_params(self, filename):
+    def load_parameters(self, filename):
         &#34;&#34;&#34;
-        Load model parameters from a given file that was previously saved with `save_params()`.
+        Load model parameters from a given file that was previously saved with `save_parameters()`.
 
         Args:
             filename (str): Filename to load from, automatically appends &#39;.params&#39;.
 
         Examples:
-            &gt;&gt;&gt; model.load_params(&#39;filename&#39;)
+            &gt;&gt;&gt; model.load_parameters(&#39;filename&#39;)
         &#34;&#34;&#34;
         filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -417,23 +466,24 @@ class model:
             if data[&#39;model&#39;] != self.__class__.__name__:
                 raise Exception(&#34;parameter file uses model &#39;%s&#39; which is different from current model &#39;%s&#39;&#34; % (data[&#39;model&#39;], self.__class__.__name__))
 
-            cur_params = self.get_params()
+            cur_params = self.get_parameters()
             if len(data[&#39;params&#39;]) != len(cur_params):
                 raise Exception(&#34;parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model&#39;s Q different?&#34; % (len(data[&#39;params&#39;]), len(cur_params)))
 
             for key, val in data[&#39;likelihood&#39;].items():
-                self.set_likelihood_param(key, val)
+                self.set_likelihood_parameter(key, val)
 
             for q, param in enumerate(data[&#39;params&#39;]):
                 for key, val in param.items():
-                    self.set_param(q, key, val)
+                    self.set_parameter(q, key, val)
 
     def train(
         self,
         method=&#39;L-BFGS-B&#39;,
         tol=1e-6,
         maxiter=2000,
-        params={}):
+        params={},
+        verbose=False):
         &#34;&#34;&#34;
         Trains the model using the kernel and its parameters.
 
@@ -449,24 +499,26 @@ class model:
             tol (float): Tolerance for optimizer. Defaults to 1e-6.
             maxiter (int): Maximum number of iterations. Defaults to 2000.
             params (dict): Additional dictionary with parameters to minimize. 
+            verbose (bool): Print verbose output about the state of the optimizer.
 
         Examples:
             &gt;&gt;&gt; model.train(tol=1e-6, maxiter=1e5)
             
             &gt;&gt;&gt; model.train(method=&#39;Adam&#39;, opt_params={...})
         &#34;&#34;&#34;
+        inital_time = time.time()
+        if verbose:
+            print(&#39;Starting optimization\n &gt;Model: {} \n &gt;Channels: {} \
+                \n &gt;Components: {} \n &gt;Training points:{} \n &gt;Initial NLL: {:.3f}&#39;.format(
+                    self.name,
+                    len(self.dataset),
+                    self.Q,
+                    sum([len(data.mask) for data in self.dataset]),
+                    self.model.log_marginal_likelihood().numpy()))
 
+        @tf.function  # optimize TF
         def loss():
-            #x, y = self.model.data
-            #K = self.model.kernel(x)
-            #num_data = x.shape[0]
-            #k_diag = tf.linalg.diag_part(K)
-            #s_diag = tf.fill([num_data], self.model.likelihood.variance)
-            #ks = tf.linalg.set_diag(K, k_diag + s_diag)
-            #tf.debugging.check_numerics(ks, &#34;ks&#34;)
-            #if not np.all(np.linalg.eigvals(ks) &gt; 0):
-            #    print(&#34;NOT POSITIVE DEFINITE:&#34;)
-            #    print(ks)
+
             return -self.model.log_marginal_likelihood()
 
         if method.lower() == &#34;adam&#34;:
@@ -475,6 +527,10 @@ class model:
         else:
             opt = gpflow.optimizers.Scipy()
             opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={&#39;maxiter&#39;: maxiter, &#39;disp&#39;: True}, **params)
+
+        elapsed_time = time.time() - inital_time
+        if verbose:
+            print(&#39;Optimization finished in {:.2f} minutes\n &gt;Final NLL: {:.3f} \n&#39;.format(elapsed_time / 60, self.model.log_marginal_likelihood().numpy()))
 
     ################################################################################
     # Predictions ##################################################################
@@ -491,23 +547,38 @@ class model:
         Args:
             x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
+        returns :
+            mu (ndarray): Posterior mean.
+            lower (ndarray): Lower confidence interval.
+            upper (ndarray): Upper confidence interval.
+
         Examples:
             &gt;&gt;&gt; model.predict(plot=True)
         &#34;&#34;&#34;
         if x is not None:
-            self.dataset.set_pred(x)
+            self.dataset.set_prediction_x(x)
 
-        x = self.dataset.to_kernel_pred()
+        x = self.dataset._to_kernel_prediction()
         if len(x) == 0:
-            raise Exception(&#39;no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()&#39;)
+            raise Exception(&#39;no prediction x range set, use x argument or set manually using DataSet.set_prediction_x() or Data.set_prediction_x()&#39;)
+
+        #x_data = self.model.data[0]
+        #Kmm = self.model.kernel(x_data)
+        #s = tf.linalg.diag(tf.fill([x_data.shape[0]], self.model.likelihood.variance))
+        #Kmm += s
+
+        #print(np.isfinite(Kmm).all(), np.isfinite(s).all(), np.all(np.linalg.eigvals(Kmm) &gt; 0))
+        #np.set_printoptions(threshold=np.inf)
+        #print(Kmm)
+        #print(np.linalg.eigvals(Kmm))
 
         mu, var = self.model.predict_f(x)
-        self.dataset.from_kernel_pred(self.name, mu, var)
+        self.dataset._from_kernel_prediction(self.name, mu, var)
         
         if plot:
             self.plot_prediction()
 
-        _, mu, lower, upper = self.dataset.get_pred(self.name)
+        _, mu, lower, upper = self.dataset.get_prediction(self.name)
         return mu, lower, upper
 
     # TODO
@@ -529,9 +600,9 @@ class model:
         TODO: Add case for single output SM kernel.
         &#34;&#34;&#34;
         # get data
-        x_train, y_train = self.dataset.get_data()
-        x_all, y_all = self.dataset.get_all()
-        x_pred, mu, lower, upper = self.dataset.get_pred(self.name)
+        x_train, y_train = self.dataset.get_train_data()
+        x_all, y_all = self.dataset.get_data()
+        x_pred, mu, lower, upper = self.dataset.get_prediction(self.name)
 
         n_dim = self.dataset.get_output_dims()
         if n_dim == 1:
@@ -552,10 +623,11 @@ class model:
                 upper[i],
                 label=&#39;95% c.i&#39;,
                 color=colors[i%len(colors)],
-                alpha=0.4)
-            axes[i].plot(x_pred[i][:,0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i%len(colors)])
-            axes[i].plot(x_all[i][:,0], y_all[i], &#39;--k&#39;, label=&#39;Test&#39;, lw=1)
-            axes[i].plot(x_train[i][:,0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
+                alpha=0.4,
+                zorder=1)
+            axes[i].plot(x_pred[i][:,0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i%len(colors)], zorder=3)
+            axes[i].plot(x_all[i][:,0], y_all[i], &#39;--k&#39;, label=&#39;Test&#39;, lw=1, alpha=0.8, zorder=2)
+            axes[i].plot(x_train[i][:,0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=10, mew=0.5, markeredgecolor=&#39;white&#39;, zorder=4)
             
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
@@ -581,7 +653,71 @@ class model:
         plt.suptitle(title, y=1.02, fontsize=20)
         plt.tight_layout()
         
-        return fig, axes</code></pre>
+        return fig, axes
+
+
+    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=&#39;&#39;):
+        &#34;&#34;&#34;
+        Plot the gram matrix of associated kernel.
+
+        The gram matrix is evaluated depending a equaly spaced grid 
+        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
+
+        Args:
+            xmin (float, list, array): 
+            xmax (float, list, array):
+            n_points (int): Number of points per channel
+            figsize (2-tuple of ints): Figure size.
+            title (str): Figure title.
+        Returns:
+            fig : Matplotlib figure
+            ax : Matplotlib axis
+
+        &#34;&#34;&#34;
+        if xmin is None:
+            xmin = [data.X.min() for data in self.dataset]
+
+        if xmax is None:
+            xmax = [data.X.max() for data in self.dataset]
+
+
+        M = len(self.dataset)
+
+        if not isinstance(xmin, (list, np.ndarray)):
+            xmin = [xmin] * M
+
+        if not isinstance(xmax, (list, np.ndarray)):
+            xmax = [xmax] * M
+
+        xx = np.zeros((M * n_points, 2))
+        xx[:, 0] = np.repeat(np.arange(M), n_points)
+
+        for m in range(M):
+            xx[m * n_points: (m + 1) * n_points, 1] = np.linspace(xmin[m], xmax[m], n_points)
+            
+        K_gram = self.model.kernel.K(xx)
+        
+        fig, ax = plt.subplots(figsize=figsize)
+        color_range = np.abs(K_gram).max()
+        norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
+        im = ax.matshow(K_gram, cmap=&#39;coolwarm&#39;, norm=norm)
+
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes(&#34;right&#34;, size=&#34;5%&#34;, pad=0.3)
+        fig.colorbar(im, cax=cax)
+
+        # Major ticks every 20, minor ticks every 5
+        major_ticks = np.arange(-0.5, M * n_points, n_points)
+        minor_ticks = np.arange(-0.5, M * n_points, 2)
+
+        ax.set_xticks(major_ticks)
+        ax.set_yticks(major_ticks)
+        ax.grid(which=&#39;major&#39;, alpha=.8, linewidth=1.5, color=&#39;k&#39;)
+        ax.set_xticklabels([]);
+        ax.set_yticklabels([]);
+        ax.set_title(title)
+
+        return fig, ax</code></pre>
 </details>
 </section>
 <section>
@@ -598,21 +734,29 @@ class model:
 <span>(</span><span>name, dataset)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the model.</dd>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a>, <a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a></dt>
+<dd>DataSet with Data objects for all the channels.</dd>
+</dl>
+<p>When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class model:
     def __init__(self, name, dataset):
-        #&#34;&#34;&#34;
-        #Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
-        #    
-        #Args:
-        #    name (str): Name of the model.
-        #    dataset (mogptk.dataset.DataSet): DataSet with Data objects for all the channels.
-        #    When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
-        #&#34;&#34;&#34;
+        &#34;&#34;&#34;
+        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+
+        Args:
+            name (str): Name of the model.
+            dataset (mogptk.dataset.DataSet, mogptk.data.Data): DataSet with Data objects for all the channels.
+            When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+        &#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
@@ -622,6 +766,14 @@ class model:
             raise Exception(&#34;all data channels must have unique names&#34;)
         if len(set(dataset.get_input_dims())) != 1:
             raise Exception(&#34;all data channels must have the same amount of input dimensions&#34;)
+
+        for channel in dataset:
+            for dim in range(channel.X.shape[1]):
+                xran = np.max(channel.X[:,dim]) - np.min(channel.X[:,dim])
+                if xran &lt; 1e-3:
+                    logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X-axis&#34;)
+                elif 1e4 &lt; xran:
+                    logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X-axis&#34;)
 
         self.name = name
         self.dataset = dataset
@@ -640,7 +792,7 @@ class model:
             like_params (dict): Parameters to GPflow likelihood.
         &#34;&#34;&#34;
 
-        x, y = self.dataset.to_kernel()
+        x, y = self.dataset._to_kernel()
         # Gaussian likelihood
         if likelihood == None:
             if not sparse:
@@ -670,94 +822,118 @@ class model:
 
     ################################################################
 
-    def print_params(self):
+    def print_parameters(self):
         &#34;&#34;&#34;
         Print the parameters of the model in a table.
 
         Examples:
-            &gt;&gt;&gt; model.print_params()
+            &gt;&gt;&gt; model.print_parameters()
         &#34;&#34;&#34;
         with np.printoptions(precision=3, floatmode=&#39;fixed&#39;):
             try:
-                get_ipython
-                table = &#39;&#39;
-                for q, params in enumerate(self.get_params()):
-                    contents = []
-                    output_dims = self.dataset.get_output_dims()
-                    for j in range(output_dims):
-                        content = &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (self.dataset[j].get_name(),)
+                get_ipython # fails if we&#39;re not in a notebook
 
-                        values = []
-                        for key in params.keys():
-                            val = params[key]
-                            if val.ndim == 1 and val.shape[0] == output_dims:
-                                values.append(&#39;%.3f&#39; % (val[j],))
-                            elif val.ndim == 2 and val.shape[1] == output_dims:
-                                values.append(str(val[:,j]))
-                            else:
-                                values.append(str(val))
-                        content += &#39;&lt;td&gt;&#39; + &#39;&lt;/td&gt;&lt;td&gt;&#39;.join(values) + &#39;&lt;/td&gt;&#39;
-                        contents.append(content)
-
-                    header = &#39;&lt;tr&gt;&lt;th&gt;Q=%d&lt;/th&gt;&lt;th&gt;&#39; % (q,) + &#39;&lt;/th&gt;&lt;th&gt;&#39;.join(params.keys()) + &#39;&lt;/th&gt;&lt;/tr&gt;&#39;
-                    contents = &#39;&lt;tr&gt;&#39; + &#39;&lt;/tr&gt;&lt;tr&gt;&#39;.join(contents) + &#39;&lt;/tr&gt;&#39;
-                    table += header + contents
-                display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
-
-                likelihood = self.get_likelihood_params()
-                table = &#39;&lt;tr&gt;&lt;th&gt;Likelihood&lt;/th&gt;&#39;
-                for key in likelihood:
-                    table += &#39;&lt;th&gt;%s&lt;/th&gt;&#39; % (key,)
-                table += &#39;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;/td&gt;&#39;
-                for key in likelihood:
-                    table += &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (likelihood[key],)
-                table += &#39;&lt;/tr&gt;&#39;
-                display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
-            except:
-                table = &#39;&#39;
-                for q, params in enumerate(self.get_params()):
-                    contents = []
-                    output_dims = self.dataset.get_output_dims()
-                    for j in range(output_dims):
-                        content = [self.dataset[j].get_name()]
-                        for key in params.keys():
-                            val = params[key]
-                            if val.ndim == 1 and val.shape[0] == output_dims:
-                                content.append(&#39;%.3f&#39; % (val[j],))
-                            elif val.ndim == 2 and val.shape[1] == output_dims:
-                                content.append(str(val[:,j]))
-                            else:
-                                content.append(str(val))
-                        contents.append(content)
-
-                    headers = [&#34;Q=%d&#34; % (q,)]
-                    for key in params.keys():
-                        headers.append(key)
-                    print(tabulate(contents, headers=headers))
-                    print()
-
-                likelihood = self.get_likelihood_params()
-                content = [&#39;&#39;]
-                for key in likelihood.keys():
-                    val = likelihood[key]
-                    if val.ndim == 1 and val.shape[0] == output_dims:
-                        content.append(&#39;%.3f&#39; % (val[j],))
-                    elif val.ndim == 2 and val.shape[1] == output_dims:
-                        content.append(str(val[:,j]))
+                table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th&gt;Kernel&lt;/th&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;Train&lt;/th&gt;&lt;th&gt;Shape&lt;/th&gt;&lt;th&gt;Dtype&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
+                for q, params in enumerate(self.get_parameters()):
+                    kernel = None
+                    if hasattr(self.model.kernel, &#39;kernels&#39;):
+                        kernel = self.model.kernel.kernels[q]
                     else:
-                        content.append(str(val))
+                        kernel = self.model.kernel
 
-                headers = [&#34;Likelihood&#34;]
-                for key in likelihood.keys():
-                    headers.append(key)
-                print(tabulate([content], headers=headers))
+                    first = True
+                    for key in params.keys():
+                        param = getattr(kernel, key)
 
-    def get_params(self):
+                        val = params[key]
+                        if val.ndim == 0:
+                            val = &#39;%.3f&#39; % (val,)
+                        else:
+                            val = str(val)
+
+                        tr_style = &#39;&#39;
+                        name = &#39;&#39;
+                        if first:
+                            if q != 0:
+                                tr_style = &#39; style=&#34;border-top:1px solid darkgrey&#34;&#39;
+                            name = &#39;&lt;th rowspan=&#34;%d&#34; style=&#34;text-align:center&#34;&gt;%s&lt;br&gt;Q=%d&lt;/th&gt;&#39; % (len(params.keys()), kernel.name, q)
+                            first = False
+
+                        table += &#39;&lt;tr%s&gt;%s&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
+
+                first = True
+                params = self.get_likelihood_parameters()
+                for key in params:
+                    param = getattr(self.model.likelihood, key)
+
+                    val = params[key]
+                    if val.ndim == 0:
+                        val = &#39;%.3f&#39; % (val,)
+                    else:
+                        val = str(val)
+
+                    name = &#39;&#39;
+                    tr_style = &#39;&#39;
+                    if first:
+                        tr_style = &#39; style=&#34;border-top:1px solid darkgrey&#34;&#39;
+                        name = &#39;&lt;th rowspan=&#34;%d&#34; style=&#34;text-align:center&#34;&gt;%s&lt;br&gt;likelihood&lt;/th&gt;&#39; % (len(params.keys()), self.model.likelihood.name)
+                        first = False
+
+                    table += &#39;&lt;tr%s&gt;%s&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
+                table += &#39;&lt;/table&gt;&#39;
+                display(HTML(table))
+            except Exception as e:
+                contents = []
+                for q, params in enumerate(self.get_parameters()):
+                    kernel = None
+                    if hasattr(self.model.kernel, &#39;kernels&#39;):
+                        kernel = self.model.kernel.kernels[q]
+                    else:
+                        kernel = self.model.kernel
+
+                    first = True
+                    for key in params.keys():
+                        param = getattr(kernel, key)
+
+                        val = params[key]
+                        if val.ndim == 0:
+                            val = &#39;%.3f&#39; % (val,)
+                        else:
+                            val = str(val)
+
+                        name = &#39;&#39;
+                        if first:
+                            name = &#39;%s Q=%d&#39; % (kernel.name, q)
+                            first = False
+
+                        contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
+
+                first = True
+                params = self.get_likelihood_parameters()
+                for key in params.keys():
+                    param = getattr(self.model.likelihood, key)
+
+                    val = params[key]
+                    if val.ndim == 0:
+                        val = &#39;%.3f&#39; % (val,)
+                    else:
+                        val = str(val)
+
+                    name = &#39;&#39;
+                    if first:
+                        name = &#39;%s likelihood&#39; % (self.model.likelihood.name,)
+                        first = False
+
+                    contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
+
+                print(tabulate(contents, headers=[&#39;Kernel&#39;, &#39;Name&#39;, &#39;Train&#39;, &#39;Shape&#39;, &#39;Dtype&#39;, &#39;Value&#39;]))
+
+    def get_parameters(self):
         &#34;&#34;&#34;
         Returns all parameters set for the kernel per component.
 
         Examples:
-            &gt;&gt;&gt; params = model.get_params()
+            &gt;&gt;&gt; params = model.get_parameters()
         &#34;&#34;&#34;
 
         params = []
@@ -774,12 +950,12 @@ class model:
                     params[0][param_name] = param_val.read_value().numpy()
         return params
 
-    def get_likelihood_params(self):
+    def get_likelihood_parameters(self):
         &#34;&#34;&#34;
         Returns all parameters set for the likelihood.
 
         Examples:
-            &gt;&gt;&gt; params = model.get_likelihood_params()
+            &gt;&gt;&gt; params = model.get_likelihood_parameters()
         &#34;&#34;&#34;
         params = {}
         for param_name, param_val in self.model.likelihood.__dict__.items():
@@ -787,7 +963,7 @@ class model:
                 params[param_name] = param_val.read_value().numpy()
         return params
 
-    def get_param(self, q, key):
+    def get_parameter(self, q, key):
         &#34;&#34;&#34;
         Gets a kernel parameter for component &#39;q&#39; with key the parameter name.
 
@@ -799,7 +975,7 @@ class model:
             val (numpy.ndarray): Value of parameter.
 
         Examples:
-            &gt;&gt;&gt; val = model.get_param(0, &#39;variance&#39;) # for Q=0 get the parameter called &#39;variance&#39;
+            &gt;&gt;&gt; val = model.get_parameter(0, &#39;variance&#39;) # for Q=0 get the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if hasattr(self.model.kernel, &#39;kernels&#39;):
             if q &lt; 0 or len(self.model.kernel.kernels) &lt;= q:
@@ -815,7 +991,7 @@ class model:
     
         return kern[key].read_value().numpy()
 
-    def set_param(self, q, key, val):
+    def set_parameter(self, q, key, val):
         &#34;&#34;&#34;
         Sets a kernel parameter for component &#39;q&#39; with key the parameter name.
 
@@ -825,7 +1001,7 @@ class model:
             val (float, numpy.ndarray): Value of parameter.
 
         Examples:
-            &gt;&gt;&gt; model.set_param(0, &#39;variance&#39;, np.array([5.0, 3.0])) # for Q=0 set the parameter called &#39;variance&#39;
+            &gt;&gt;&gt; model.set_parameter(0, &#39;variance&#39;, np.array([5.0, 3.0])) # for Q=0 set the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -853,7 +1029,7 @@ class model:
 
         kern[key].assign(val)
 
-    def set_likelihood_param(self, key, val):
+    def set_likelihood_parameter(self, key, val):
         &#34;&#34;&#34;
         Sets a likelihood parameter with key the parameter name.
 
@@ -862,7 +1038,7 @@ class model:
             val (float, ndarray): Value of parameter.
 
         Examples:
-            &gt;&gt;&gt; model.set_likelihood_param(&#39;variance&#39;, np.array([5.0, 3.0])) # set the parameter called &#39;variance&#39;
+            &gt;&gt;&gt; model.set_likelihood_parameter(&#39;variance&#39;, np.array([5.0, 3.0])) # set the parameter called &#39;variance&#39;
         &#34;&#34;&#34;
         if isinstance(val, (int, float, list)):
             val = np.array(val)
@@ -882,18 +1058,24 @@ class model:
 
         likelihood[key].assign(val)
 
-    def fix_param(self, key):
+    def fix_parameter(self, q, key):
         &#34;&#34;&#34;
-        Make parameter untrainable (undo with `unfix_param`).
+        Make parameter untrainable (undo with `unfix_parameter`).
 
         Args:
+            q: (int, list or array-like of ints): components to fix.
             key (str): Name of the parameter.
 
         Examples:
-            &gt;&gt;&gt; model.fix_param(&#39;variance&#39;)
+            &gt;&gt;&gt; model.fix_parameter([0, 1], &#39;variance&#39;)
         &#34;&#34;&#34;
+
+        if isinstance(q, int):
+            q = [q]
+
         if hasattr(self.model.kernel, &#39;kernels&#39;):
-            for kernel_i, kernel in enumerate(self.model.kernel.kernels):
+            for kernel_i in q:
+                kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                         getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = False
@@ -902,18 +1084,24 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                     getattr(self.model.kernel, param_name).trainable = False
 
-    def unfix_param(self, key):
+    def unfix_parameter(self, q, key):
         &#34;&#34;&#34;
         Make parameter trainable (that was previously fixed, see `fix_param`).
 
         Args:
+        q: (int, list or array-like of ints): components to unfix.
             key (str): Name of the parameter.
 
         Examples:
-            &gt;&gt;&gt; model.unfix_param(&#39;variance&#39;)
+            &gt;&gt;&gt; model.unfix_parameter(&#39;variance&#39;)
         &#34;&#34;&#34;
+
+        if isinstance(q, int):
+            q = [q]
+
         if hasattr(self.model.kernel, &#39;kernels&#39;):
-            for kernel_i, kernel in enumerate(self.model.kernel.kernels):
+             for kernel_i in q:
+                kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                         getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = True
@@ -922,15 +1110,15 @@ class model:
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                     getattr(self.model.kernel, param_name).trainable = True
 
-    def save_params(self, filename):
+    def save_parameters(self, filename):
         &#34;&#34;&#34;
-        Save model parameters to a given file that can then be loaded with `load_params()`.
+        Save model parameters to a given file that can then be loaded with `load_parameters()`.
 
         Args:
             filename (str): Filename to save to, automatically appends &#39;.params&#39;.
 
         Examples:
-            &gt;&gt;&gt; model.save_params(&#39;filename&#39;)
+            &gt;&gt;&gt; model.save_parameters(&#39;filename&#39;)
         &#34;&#34;&#34;
         filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -947,21 +1135,21 @@ class model:
 
         data = {
             &#39;model&#39;: self.__class__.__name__,
-            &#39;likelihood&#39;: self.get_likelihood_params(),
-            &#39;params&#39;: self.get_params()
+            &#39;likelihood&#39;: self.get_likelihood_parameters(),
+            &#39;params&#39;: self.get_parameters()
         }
         with open(filename, &#39;w&#39;) as w:
             json.dump(data, w, cls=NumpyEncoder)
 
-    def load_params(self, filename):
+    def load_parameters(self, filename):
         &#34;&#34;&#34;
-        Load model parameters from a given file that was previously saved with `save_params()`.
+        Load model parameters from a given file that was previously saved with `save_parameters()`.
 
         Args:
             filename (str): Filename to load from, automatically appends &#39;.params&#39;.
 
         Examples:
-            &gt;&gt;&gt; model.load_params(&#39;filename&#39;)
+            &gt;&gt;&gt; model.load_parameters(&#39;filename&#39;)
         &#34;&#34;&#34;
         filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -976,23 +1164,24 @@ class model:
             if data[&#39;model&#39;] != self.__class__.__name__:
                 raise Exception(&#34;parameter file uses model &#39;%s&#39; which is different from current model &#39;%s&#39;&#34; % (data[&#39;model&#39;], self.__class__.__name__))
 
-            cur_params = self.get_params()
+            cur_params = self.get_parameters()
             if len(data[&#39;params&#39;]) != len(cur_params):
                 raise Exception(&#34;parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model&#39;s Q different?&#34; % (len(data[&#39;params&#39;]), len(cur_params)))
 
             for key, val in data[&#39;likelihood&#39;].items():
-                self.set_likelihood_param(key, val)
+                self.set_likelihood_parameter(key, val)
 
             for q, param in enumerate(data[&#39;params&#39;]):
                 for key, val in param.items():
-                    self.set_param(q, key, val)
+                    self.set_parameter(q, key, val)
 
     def train(
         self,
         method=&#39;L-BFGS-B&#39;,
         tol=1e-6,
         maxiter=2000,
-        params={}):
+        params={},
+        verbose=False):
         &#34;&#34;&#34;
         Trains the model using the kernel and its parameters.
 
@@ -1008,24 +1197,26 @@ class model:
             tol (float): Tolerance for optimizer. Defaults to 1e-6.
             maxiter (int): Maximum number of iterations. Defaults to 2000.
             params (dict): Additional dictionary with parameters to minimize. 
+            verbose (bool): Print verbose output about the state of the optimizer.
 
         Examples:
             &gt;&gt;&gt; model.train(tol=1e-6, maxiter=1e5)
             
             &gt;&gt;&gt; model.train(method=&#39;Adam&#39;, opt_params={...})
         &#34;&#34;&#34;
+        inital_time = time.time()
+        if verbose:
+            print(&#39;Starting optimization\n &gt;Model: {} \n &gt;Channels: {} \
+                \n &gt;Components: {} \n &gt;Training points:{} \n &gt;Initial NLL: {:.3f}&#39;.format(
+                    self.name,
+                    len(self.dataset),
+                    self.Q,
+                    sum([len(data.mask) for data in self.dataset]),
+                    self.model.log_marginal_likelihood().numpy()))
 
+        @tf.function  # optimize TF
         def loss():
-            #x, y = self.model.data
-            #K = self.model.kernel(x)
-            #num_data = x.shape[0]
-            #k_diag = tf.linalg.diag_part(K)
-            #s_diag = tf.fill([num_data], self.model.likelihood.variance)
-            #ks = tf.linalg.set_diag(K, k_diag + s_diag)
-            #tf.debugging.check_numerics(ks, &#34;ks&#34;)
-            #if not np.all(np.linalg.eigvals(ks) &gt; 0):
-            #    print(&#34;NOT POSITIVE DEFINITE:&#34;)
-            #    print(ks)
+
             return -self.model.log_marginal_likelihood()
 
         if method.lower() == &#34;adam&#34;:
@@ -1034,6 +1225,10 @@ class model:
         else:
             opt = gpflow.optimizers.Scipy()
             opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={&#39;maxiter&#39;: maxiter, &#39;disp&#39;: True}, **params)
+
+        elapsed_time = time.time() - inital_time
+        if verbose:
+            print(&#39;Optimization finished in {:.2f} minutes\n &gt;Final NLL: {:.3f} \n&#39;.format(elapsed_time / 60, self.model.log_marginal_likelihood().numpy()))
 
     ################################################################################
     # Predictions ##################################################################
@@ -1050,23 +1245,38 @@ class model:
         Args:
             x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
+        returns :
+            mu (ndarray): Posterior mean.
+            lower (ndarray): Lower confidence interval.
+            upper (ndarray): Upper confidence interval.
+
         Examples:
             &gt;&gt;&gt; model.predict(plot=True)
         &#34;&#34;&#34;
         if x is not None:
-            self.dataset.set_pred(x)
+            self.dataset.set_prediction_x(x)
 
-        x = self.dataset.to_kernel_pred()
+        x = self.dataset._to_kernel_prediction()
         if len(x) == 0:
-            raise Exception(&#39;no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()&#39;)
+            raise Exception(&#39;no prediction x range set, use x argument or set manually using DataSet.set_prediction_x() or Data.set_prediction_x()&#39;)
+
+        #x_data = self.model.data[0]
+        #Kmm = self.model.kernel(x_data)
+        #s = tf.linalg.diag(tf.fill([x_data.shape[0]], self.model.likelihood.variance))
+        #Kmm += s
+
+        #print(np.isfinite(Kmm).all(), np.isfinite(s).all(), np.all(np.linalg.eigvals(Kmm) &gt; 0))
+        #np.set_printoptions(threshold=np.inf)
+        #print(Kmm)
+        #print(np.linalg.eigvals(Kmm))
 
         mu, var = self.model.predict_f(x)
-        self.dataset.from_kernel_pred(self.name, mu, var)
+        self.dataset._from_kernel_prediction(self.name, mu, var)
         
         if plot:
             self.plot_prediction()
 
-        _, mu, lower, upper = self.dataset.get_pred(self.name)
+        _, mu, lower, upper = self.dataset.get_prediction(self.name)
         return mu, lower, upper
 
     # TODO
@@ -1088,9 +1298,9 @@ class model:
         TODO: Add case for single output SM kernel.
         &#34;&#34;&#34;
         # get data
-        x_train, y_train = self.dataset.get_data()
-        x_all, y_all = self.dataset.get_all()
-        x_pred, mu, lower, upper = self.dataset.get_pred(self.name)
+        x_train, y_train = self.dataset.get_train_data()
+        x_all, y_all = self.dataset.get_data()
+        x_pred, mu, lower, upper = self.dataset.get_prediction(self.name)
 
         n_dim = self.dataset.get_output_dims()
         if n_dim == 1:
@@ -1111,10 +1321,11 @@ class model:
                 upper[i],
                 label=&#39;95% c.i&#39;,
                 color=colors[i%len(colors)],
-                alpha=0.4)
-            axes[i].plot(x_pred[i][:,0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i%len(colors)])
-            axes[i].plot(x_all[i][:,0], y_all[i], &#39;--k&#39;, label=&#39;Test&#39;, lw=1)
-            axes[i].plot(x_train[i][:,0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
+                alpha=0.4,
+                zorder=1)
+            axes[i].plot(x_pred[i][:,0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i%len(colors)], zorder=3)
+            axes[i].plot(x_all[i][:,0], y_all[i], &#39;--k&#39;, label=&#39;Test&#39;, lw=1, alpha=0.8, zorder=2)
+            axes[i].plot(x_train[i][:,0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=10, mew=0.5, markeredgecolor=&#39;white&#39;, zorder=4)
             
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
@@ -1140,7 +1351,71 @@ class model:
         plt.suptitle(title, y=1.02, fontsize=20)
         plt.tight_layout()
         
-        return fig, axes</code></pre>
+        return fig, axes
+
+
+    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=&#39;&#39;):
+        &#34;&#34;&#34;
+        Plot the gram matrix of associated kernel.
+
+        The gram matrix is evaluated depending a equaly spaced grid 
+        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
+
+        Args:
+            xmin (float, list, array): 
+            xmax (float, list, array):
+            n_points (int): Number of points per channel
+            figsize (2-tuple of ints): Figure size.
+            title (str): Figure title.
+        Returns:
+            fig : Matplotlib figure
+            ax : Matplotlib axis
+
+        &#34;&#34;&#34;
+        if xmin is None:
+            xmin = [data.X.min() for data in self.dataset]
+
+        if xmax is None:
+            xmax = [data.X.max() for data in self.dataset]
+
+
+        M = len(self.dataset)
+
+        if not isinstance(xmin, (list, np.ndarray)):
+            xmin = [xmin] * M
+
+        if not isinstance(xmax, (list, np.ndarray)):
+            xmax = [xmax] * M
+
+        xx = np.zeros((M * n_points, 2))
+        xx[:, 0] = np.repeat(np.arange(M), n_points)
+
+        for m in range(M):
+            xx[m * n_points: (m + 1) * n_points, 1] = np.linspace(xmin[m], xmax[m], n_points)
+            
+        K_gram = self.model.kernel.K(xx)
+        
+        fig, ax = plt.subplots(figsize=figsize)
+        color_range = np.abs(K_gram).max()
+        norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
+        im = ax.matshow(K_gram, cmap=&#39;coolwarm&#39;, norm=norm)
+
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes(&#34;right&#34;, size=&#34;5%&#34;, pad=0.3)
+        fig.colorbar(im, cax=cax)
+
+        # Major ticks every 20, minor ticks every 5
+        major_ticks = np.arange(-0.5, M * n_points, n_points)
+        minor_ticks = np.arange(-0.5, M * n_points, 2)
+
+        ax.set_xticks(major_ticks)
+        ax.set_yticks(major_ticks)
+        ax.grid(which=&#39;major&#39;, alpha=.8, linewidth=1.5, color=&#39;k&#39;)
+        ax.set_xticklabels([]);
+        ax.set_yticklabels([]);
+        ax.set_title(title)
+
+        return fig, ax</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1152,35 +1427,43 @@ class model:
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.model.model.fix_param"><code class="name flex">
-<span>def <span class="ident">fix_param</span></span>(<span>self, key)</span>
+<dt id="mogptk.model.model.fix_parameter"><code class="name flex">
+<span>def <span class="ident">fix_parameter</span></span>(<span>self, q, key)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Make parameter untrainable (undo with <code>unfix_param</code>).</p>
+<section class="desc"><p>Make parameter untrainable (undo with <code>unfix_parameter</code>).</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>q</code></strong></dt>
+<dd>(int, list or array-like of ints): components to fix.</dd>
 <dt><strong><code>key</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the parameter.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; model.fix_param('variance')
+<pre><code>&gt;&gt;&gt; model.fix_parameter([0, 1], 'variance')
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def fix_param(self, key):
+<pre><code class="python">def fix_parameter(self, q, key):
     &#34;&#34;&#34;
-    Make parameter untrainable (undo with `unfix_param`).
+    Make parameter untrainable (undo with `unfix_parameter`).
 
     Args:
+        q: (int, list or array-like of ints): components to fix.
         key (str): Name of the parameter.
 
     Examples:
-        &gt;&gt;&gt; model.fix_param(&#39;variance&#39;)
+        &gt;&gt;&gt; model.fix_parameter([0, 1], &#39;variance&#39;)
     &#34;&#34;&#34;
+
+    if isinstance(q, int):
+        q = [q]
+
     if hasattr(self.model.kernel, &#39;kernels&#39;):
-        for kernel_i, kernel in enumerate(self.model.kernel.kernels):
+        for kernel_i in q:
+            kernel = self.model.kernel.kernels[kernel_i]
             for param_name, param_val in kernel.__dict__.items():
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                     getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = False
@@ -1190,24 +1473,24 @@ class model:
                 getattr(self.model.kernel, param_name).trainable = False</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.get_likelihood_params"><code class="name flex">
-<span>def <span class="ident">get_likelihood_params</span></span>(<span>self)</span>
+<dt id="mogptk.model.model.get_likelihood_parameters"><code class="name flex">
+<span>def <span class="ident">get_likelihood_parameters</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Returns all parameters set for the likelihood.</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; params = model.get_likelihood_params()
+<pre><code>&gt;&gt;&gt; params = model.get_likelihood_parameters()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_likelihood_params(self):
+<pre><code class="python">def get_likelihood_parameters(self):
     &#34;&#34;&#34;
     Returns all parameters set for the likelihood.
 
     Examples:
-        &gt;&gt;&gt; params = model.get_likelihood_params()
+        &gt;&gt;&gt; params = model.get_likelihood_parameters()
     &#34;&#34;&#34;
     params = {}
     for param_name, param_val in self.model.likelihood.__dict__.items():
@@ -1216,8 +1499,8 @@ class model:
     return params</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.get_param"><code class="name flex">
-<span>def <span class="ident">get_param</span></span>(<span>self, q, key)</span>
+<dt id="mogptk.model.model.get_parameter"><code class="name flex">
+<span>def <span class="ident">get_parameter</span></span>(<span>self, q, key)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Gets a kernel parameter for component 'q' with key the parameter name.</p>
@@ -1234,13 +1517,13 @@ class model:
 <dd>Value of parameter.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; val = model.get_param(0, 'variance') # for Q=0 get the parameter called 'variance'
+<pre><code>&gt;&gt;&gt; val = model.get_parameter(0, 'variance') # for Q=0 get the parameter called 'variance'
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_param(self, q, key):
+<pre><code class="python">def get_parameter(self, q, key):
     &#34;&#34;&#34;
     Gets a kernel parameter for component &#39;q&#39; with key the parameter name.
 
@@ -1252,7 +1535,7 @@ class model:
         val (numpy.ndarray): Value of parameter.
 
     Examples:
-        &gt;&gt;&gt; val = model.get_param(0, &#39;variance&#39;) # for Q=0 get the parameter called &#39;variance&#39;
+        &gt;&gt;&gt; val = model.get_parameter(0, &#39;variance&#39;) # for Q=0 get the parameter called &#39;variance&#39;
     &#34;&#34;&#34;
     if hasattr(self.model.kernel, &#39;kernels&#39;):
         if q &lt; 0 or len(self.model.kernel.kernels) &lt;= q:
@@ -1269,24 +1552,24 @@ class model:
     return kern[key].read_value().numpy()</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.get_params"><code class="name flex">
-<span>def <span class="ident">get_params</span></span>(<span>self)</span>
+<dt id="mogptk.model.model.get_parameters"><code class="name flex">
+<span>def <span class="ident">get_parameters</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Returns all parameters set for the kernel per component.</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; params = model.get_params()
+<pre><code>&gt;&gt;&gt; params = model.get_parameters()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_params(self):
+<pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
     Returns all parameters set for the kernel per component.
 
     Examples:
-        &gt;&gt;&gt; params = model.get_params()
+        &gt;&gt;&gt; params = model.get_parameters()
     &#34;&#34;&#34;
 
     params = []
@@ -1304,32 +1587,32 @@ class model:
     return params</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.load_params"><code class="name flex">
-<span>def <span class="ident">load_params</span></span>(<span>self, filename)</span>
+<dt id="mogptk.model.model.load_parameters"><code class="name flex">
+<span>def <span class="ident">load_parameters</span></span>(<span>self, filename)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Load model parameters from a given file that was previously saved with <code>save_params()</code>.</p>
+<section class="desc"><p>Load model parameters from a given file that was previously saved with <code>save_parameters()</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
 <dd>Filename to load from, automatically appends '.params'.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; model.load_params('filename')
+<pre><code>&gt;&gt;&gt; model.load_parameters('filename')
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def load_params(self, filename):
+<pre><code class="python">def load_parameters(self, filename):
     &#34;&#34;&#34;
-    Load model parameters from a given file that was previously saved with `save_params()`.
+    Load model parameters from a given file that was previously saved with `save_parameters()`.
 
     Args:
         filename (str): Filename to load from, automatically appends &#39;.params&#39;.
 
     Examples:
-        &gt;&gt;&gt; model.load_params(&#39;filename&#39;)
+        &gt;&gt;&gt; model.load_parameters(&#39;filename&#39;)
     &#34;&#34;&#34;
     filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -1344,16 +1627,109 @@ class model:
         if data[&#39;model&#39;] != self.__class__.__name__:
             raise Exception(&#34;parameter file uses model &#39;%s&#39; which is different from current model &#39;%s&#39;&#34; % (data[&#39;model&#39;], self.__class__.__name__))
 
-        cur_params = self.get_params()
+        cur_params = self.get_parameters()
         if len(data[&#39;params&#39;]) != len(cur_params):
             raise Exception(&#34;parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model&#39;s Q different?&#34; % (len(data[&#39;params&#39;]), len(cur_params)))
 
         for key, val in data[&#39;likelihood&#39;].items():
-            self.set_likelihood_param(key, val)
+            self.set_likelihood_parameter(key, val)
 
         for q, param in enumerate(data[&#39;params&#39;]):
             for key, val in param.items():
-                self.set_param(q, key, val)</code></pre>
+                self.set_parameter(q, key, val)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.model.plot_gram_matrix"><code class="name flex">
+<span>def <span class="ident">plot_gram_matrix</span></span>(<span>self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title='')</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Plot the gram matrix of associated kernel.</p>
+<p>The gram matrix is evaluated depending a equaly spaced grid
+between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>xmin</code></strong> :&ensp;<code>float</code>, <code>list</code>, <code>array</code></dt>
+<dd>&nbsp;</dd>
+<dt>xmax (float, list, array):</dt>
+<dt><strong><code>n_points</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of points per channel</dd>
+<dt>figsize (2-tuple of ints): Figure size.</dt>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
+<dd>Figure title.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>fig</code></strong> :&ensp;<code>Matplotlib</code> <code>figure</code></dt>
+<dd>&nbsp;</dd>
+<dt><strong><code>ax</code></strong> :&ensp;<code>Matplotlib</code> <code>axis</code></dt>
+<dd>&nbsp;</dd>
+</dl></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=&#39;&#39;):
+    &#34;&#34;&#34;
+    Plot the gram matrix of associated kernel.
+
+    The gram matrix is evaluated depending a equaly spaced grid 
+    between [xmin_i, xmax_i] for i = 0, ..., n_channels.
+
+    Args:
+        xmin (float, list, array): 
+        xmax (float, list, array):
+        n_points (int): Number of points per channel
+        figsize (2-tuple of ints): Figure size.
+        title (str): Figure title.
+    Returns:
+        fig : Matplotlib figure
+        ax : Matplotlib axis
+
+    &#34;&#34;&#34;
+    if xmin is None:
+        xmin = [data.X.min() for data in self.dataset]
+
+    if xmax is None:
+        xmax = [data.X.max() for data in self.dataset]
+
+
+    M = len(self.dataset)
+
+    if not isinstance(xmin, (list, np.ndarray)):
+        xmin = [xmin] * M
+
+    if not isinstance(xmax, (list, np.ndarray)):
+        xmax = [xmax] * M
+
+    xx = np.zeros((M * n_points, 2))
+    xx[:, 0] = np.repeat(np.arange(M), n_points)
+
+    for m in range(M):
+        xx[m * n_points: (m + 1) * n_points, 1] = np.linspace(xmin[m], xmax[m], n_points)
+        
+    K_gram = self.model.kernel.K(xx)
+    
+    fig, ax = plt.subplots(figsize=figsize)
+    color_range = np.abs(K_gram).max()
+    norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
+    im = ax.matshow(K_gram, cmap=&#39;coolwarm&#39;, norm=norm)
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes(&#34;right&#34;, size=&#34;5%&#34;, pad=0.3)
+    fig.colorbar(im, cax=cax)
+
+    # Major ticks every 20, minor ticks every 5
+    major_ticks = np.arange(-0.5, M * n_points, n_points)
+    minor_ticks = np.arange(-0.5, M * n_points, 2)
+
+    ax.set_xticks(major_ticks)
+    ax.set_yticks(major_ticks)
+    ax.grid(which=&#39;major&#39;, alpha=.8, linewidth=1.5, color=&#39;k&#39;)
+    ax.set_xticklabels([]);
+    ax.set_yticklabels([]);
+    ax.set_title(title)
+
+    return fig, ax</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.plot_prediction"><code class="name flex">
@@ -1393,9 +1769,9 @@ TODO: Add case for single output SM kernel.</p></section>
     TODO: Add case for single output SM kernel.
     &#34;&#34;&#34;
     # get data
-    x_train, y_train = self.dataset.get_data()
-    x_all, y_all = self.dataset.get_all()
-    x_pred, mu, lower, upper = self.dataset.get_pred(self.name)
+    x_train, y_train = self.dataset.get_train_data()
+    x_all, y_all = self.dataset.get_data()
+    x_pred, mu, lower, upper = self.dataset.get_prediction(self.name)
 
     n_dim = self.dataset.get_output_dims()
     if n_dim == 1:
@@ -1416,10 +1792,11 @@ TODO: Add case for single output SM kernel.</p></section>
             upper[i],
             label=&#39;95% c.i&#39;,
             color=colors[i%len(colors)],
-            alpha=0.4)
-        axes[i].plot(x_pred[i][:,0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i%len(colors)])
-        axes[i].plot(x_all[i][:,0], y_all[i], &#39;--k&#39;, label=&#39;Test&#39;, lw=1)
-        axes[i].plot(x_train[i][:,0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=5)
+            alpha=0.4,
+            zorder=1)
+        axes[i].plot(x_pred[i][:,0], mu[i], label=&#39;Post.Mean&#39;, c=colors[i%len(colors)], zorder=3)
+        axes[i].plot(x_all[i][:,0], y_all[i], &#39;--k&#39;, label=&#39;Test&#39;, lw=1, alpha=0.8, zorder=2)
+        axes[i].plot(x_train[i][:,0], y_train[i], &#39;.k&#39;, label=&#39;Train&#39;, ms=10, mew=0.5, markeredgecolor=&#39;white&#39;, zorder=4)
         
         axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
 
@@ -1461,6 +1838,10 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <dt><strong><code>x_pred</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
 <dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs.</dd>
 </dl>
+<p>returns :
+mu (ndarray): Posterior mean.
+lower (ndarray): Lower confidence interval.
+upper (ndarray): Upper confidence interval.</p>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; model.predict(plot=True)
 </code></pre></section>
@@ -1479,147 +1860,186 @@ It returns the X, Y_mu, Y_var values per channel.</p>
     Args:
         x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
 
+    returns :
+        mu (ndarray): Posterior mean.
+        lower (ndarray): Lower confidence interval.
+        upper (ndarray): Upper confidence interval.
+
     Examples:
         &gt;&gt;&gt; model.predict(plot=True)
     &#34;&#34;&#34;
     if x is not None:
-        self.dataset.set_pred(x)
+        self.dataset.set_prediction_x(x)
 
-    x = self.dataset.to_kernel_pred()
+    x = self.dataset._to_kernel_prediction()
     if len(x) == 0:
-        raise Exception(&#39;no prediction x range set, use pred_x argument or set manually using DataSet.set_pred() or Data.set_pred()&#39;)
+        raise Exception(&#39;no prediction x range set, use x argument or set manually using DataSet.set_prediction_x() or Data.set_prediction_x()&#39;)
+
+    #x_data = self.model.data[0]
+    #Kmm = self.model.kernel(x_data)
+    #s = tf.linalg.diag(tf.fill([x_data.shape[0]], self.model.likelihood.variance))
+    #Kmm += s
+
+    #print(np.isfinite(Kmm).all(), np.isfinite(s).all(), np.all(np.linalg.eigvals(Kmm) &gt; 0))
+    #np.set_printoptions(threshold=np.inf)
+    #print(Kmm)
+    #print(np.linalg.eigvals(Kmm))
 
     mu, var = self.model.predict_f(x)
-    self.dataset.from_kernel_pred(self.name, mu, var)
+    self.dataset._from_kernel_prediction(self.name, mu, var)
     
     if plot:
         self.plot_prediction()
 
-    _, mu, lower, upper = self.dataset.get_pred(self.name)
+    _, mu, lower, upper = self.dataset.get_prediction(self.name)
     return mu, lower, upper</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.print_params"><code class="name flex">
-<span>def <span class="ident">print_params</span></span>(<span>self)</span>
+<dt id="mogptk.model.model.print_parameters"><code class="name flex">
+<span>def <span class="ident">print_parameters</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Print the parameters of the model in a table.</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; model.print_params()
+<pre><code>&gt;&gt;&gt; model.print_parameters()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def print_params(self):
+<pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
     Print the parameters of the model in a table.
 
     Examples:
-        &gt;&gt;&gt; model.print_params()
+        &gt;&gt;&gt; model.print_parameters()
     &#34;&#34;&#34;
     with np.printoptions(precision=3, floatmode=&#39;fixed&#39;):
         try:
-            get_ipython
-            table = &#39;&#39;
-            for q, params in enumerate(self.get_params()):
-                contents = []
-                output_dims = self.dataset.get_output_dims()
-                for j in range(output_dims):
-                    content = &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (self.dataset[j].get_name(),)
+            get_ipython # fails if we&#39;re not in a notebook
 
-                    values = []
-                    for key in params.keys():
-                        val = params[key]
-                        if val.ndim == 1 and val.shape[0] == output_dims:
-                            values.append(&#39;%.3f&#39; % (val[j],))
-                        elif val.ndim == 2 and val.shape[1] == output_dims:
-                            values.append(str(val[:,j]))
-                        else:
-                            values.append(str(val))
-                    content += &#39;&lt;td&gt;&#39; + &#39;&lt;/td&gt;&lt;td&gt;&#39;.join(values) + &#39;&lt;/td&gt;&#39;
-                    contents.append(content)
-
-                header = &#39;&lt;tr&gt;&lt;th&gt;Q=%d&lt;/th&gt;&lt;th&gt;&#39; % (q,) + &#39;&lt;/th&gt;&lt;th&gt;&#39;.join(params.keys()) + &#39;&lt;/th&gt;&lt;/tr&gt;&#39;
-                contents = &#39;&lt;tr&gt;&#39; + &#39;&lt;/tr&gt;&lt;tr&gt;&#39;.join(contents) + &#39;&lt;/tr&gt;&#39;
-                table += header + contents
-            display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
-
-            likelihood = self.get_likelihood_params()
-            table = &#39;&lt;tr&gt;&lt;th&gt;Likelihood&lt;/th&gt;&#39;
-            for key in likelihood:
-                table += &#39;&lt;th&gt;%s&lt;/th&gt;&#39; % (key,)
-            table += &#39;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;&lt;/td&gt;&#39;
-            for key in likelihood:
-                table += &#39;&lt;td&gt;%s&lt;/td&gt;&#39; % (likelihood[key],)
-            table += &#39;&lt;/tr&gt;&#39;
-            display(HTML(&#39;&lt;table&gt;%s&lt;/table&gt;&#39; % (table)))
-        except:
-            table = &#39;&#39;
-            for q, params in enumerate(self.get_params()):
-                contents = []
-                output_dims = self.dataset.get_output_dims()
-                for j in range(output_dims):
-                    content = [self.dataset[j].get_name()]
-                    for key in params.keys():
-                        val = params[key]
-                        if val.ndim == 1 and val.shape[0] == output_dims:
-                            content.append(&#39;%.3f&#39; % (val[j],))
-                        elif val.ndim == 2 and val.shape[1] == output_dims:
-                            content.append(str(val[:,j]))
-                        else:
-                            content.append(str(val))
-                    contents.append(content)
-
-                headers = [&#34;Q=%d&#34; % (q,)]
-                for key in params.keys():
-                    headers.append(key)
-                print(tabulate(contents, headers=headers))
-                print()
-
-            likelihood = self.get_likelihood_params()
-            content = [&#39;&#39;]
-            for key in likelihood.keys():
-                val = likelihood[key]
-                if val.ndim == 1 and val.shape[0] == output_dims:
-                    content.append(&#39;%.3f&#39; % (val[j],))
-                elif val.ndim == 2 and val.shape[1] == output_dims:
-                    content.append(str(val[:,j]))
+            table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th&gt;Kernel&lt;/th&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;Train&lt;/th&gt;&lt;th&gt;Shape&lt;/th&gt;&lt;th&gt;Dtype&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
+            for q, params in enumerate(self.get_parameters()):
+                kernel = None
+                if hasattr(self.model.kernel, &#39;kernels&#39;):
+                    kernel = self.model.kernel.kernels[q]
                 else:
-                    content.append(str(val))
+                    kernel = self.model.kernel
 
-            headers = [&#34;Likelihood&#34;]
-            for key in likelihood.keys():
-                headers.append(key)
-            print(tabulate([content], headers=headers))</code></pre>
+                first = True
+                for key in params.keys():
+                    param = getattr(kernel, key)
+
+                    val = params[key]
+                    if val.ndim == 0:
+                        val = &#39;%.3f&#39; % (val,)
+                    else:
+                        val = str(val)
+
+                    tr_style = &#39;&#39;
+                    name = &#39;&#39;
+                    if first:
+                        if q != 0:
+                            tr_style = &#39; style=&#34;border-top:1px solid darkgrey&#34;&#39;
+                        name = &#39;&lt;th rowspan=&#34;%d&#34; style=&#34;text-align:center&#34;&gt;%s&lt;br&gt;Q=%d&lt;/th&gt;&#39; % (len(params.keys()), kernel.name, q)
+                        first = False
+
+                    table += &#39;&lt;tr%s&gt;%s&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
+
+            first = True
+            params = self.get_likelihood_parameters()
+            for key in params:
+                param = getattr(self.model.likelihood, key)
+
+                val = params[key]
+                if val.ndim == 0:
+                    val = &#39;%.3f&#39; % (val,)
+                else:
+                    val = str(val)
+
+                name = &#39;&#39;
+                tr_style = &#39;&#39;
+                if first:
+                    tr_style = &#39; style=&#34;border-top:1px solid darkgrey&#34;&#39;
+                    name = &#39;&lt;th rowspan=&#34;%d&#34; style=&#34;text-align:center&#34;&gt;%s&lt;br&gt;likelihood&lt;/th&gt;&#39; % (len(params.keys()), self.model.likelihood.name)
+                    first = False
+
+                table += &#39;&lt;tr%s&gt;%s&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
+            table += &#39;&lt;/table&gt;&#39;
+            display(HTML(table))
+        except Exception as e:
+            contents = []
+            for q, params in enumerate(self.get_parameters()):
+                kernel = None
+                if hasattr(self.model.kernel, &#39;kernels&#39;):
+                    kernel = self.model.kernel.kernels[q]
+                else:
+                    kernel = self.model.kernel
+
+                first = True
+                for key in params.keys():
+                    param = getattr(kernel, key)
+
+                    val = params[key]
+                    if val.ndim == 0:
+                        val = &#39;%.3f&#39; % (val,)
+                    else:
+                        val = str(val)
+
+                    name = &#39;&#39;
+                    if first:
+                        name = &#39;%s Q=%d&#39; % (kernel.name, q)
+                        first = False
+
+                    contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
+
+            first = True
+            params = self.get_likelihood_parameters()
+            for key in params.keys():
+                param = getattr(self.model.likelihood, key)
+
+                val = params[key]
+                if val.ndim == 0:
+                    val = &#39;%.3f&#39; % (val,)
+                else:
+                    val = str(val)
+
+                name = &#39;&#39;
+                if first:
+                    name = &#39;%s likelihood&#39; % (self.model.likelihood.name,)
+                    first = False
+
+                contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
+
+            print(tabulate(contents, headers=[&#39;Kernel&#39;, &#39;Name&#39;, &#39;Train&#39;, &#39;Shape&#39;, &#39;Dtype&#39;, &#39;Value&#39;]))</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.save_params"><code class="name flex">
-<span>def <span class="ident">save_params</span></span>(<span>self, filename)</span>
+<dt id="mogptk.model.model.save_parameters"><code class="name flex">
+<span>def <span class="ident">save_parameters</span></span>(<span>self, filename)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Save model parameters to a given file that can then be loaded with <code>load_params()</code>.</p>
+<section class="desc"><p>Save model parameters to a given file that can then be loaded with <code>load_parameters()</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
 <dd>Filename to save to, automatically appends '.params'.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; model.save_params('filename')
+<pre><code>&gt;&gt;&gt; model.save_parameters('filename')
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def save_params(self, filename):
+<pre><code class="python">def save_parameters(self, filename):
     &#34;&#34;&#34;
-    Save model parameters to a given file that can then be loaded with `load_params()`.
+    Save model parameters to a given file that can then be loaded with `load_parameters()`.
 
     Args:
         filename (str): Filename to save to, automatically appends &#39;.params&#39;.
 
     Examples:
-        &gt;&gt;&gt; model.save_params(&#39;filename&#39;)
+        &gt;&gt;&gt; model.save_parameters(&#39;filename&#39;)
     &#34;&#34;&#34;
     filename += &#34;.&#34; + self.name + &#34;.params&#34;
 
@@ -1636,15 +2056,15 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 
     data = {
         &#39;model&#39;: self.__class__.__name__,
-        &#39;likelihood&#39;: self.get_likelihood_params(),
-        &#39;params&#39;: self.get_params()
+        &#39;likelihood&#39;: self.get_likelihood_parameters(),
+        &#39;params&#39;: self.get_parameters()
     }
     with open(filename, &#39;w&#39;) as w:
         json.dump(data, w, cls=NumpyEncoder)</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.set_likelihood_param"><code class="name flex">
-<span>def <span class="ident">set_likelihood_param</span></span>(<span>self, key, val)</span>
+<dt id="mogptk.model.model.set_likelihood_parameter"><code class="name flex">
+<span>def <span class="ident">set_likelihood_parameter</span></span>(<span>self, key, val)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Sets a likelihood parameter with key the parameter name.</p>
@@ -1656,13 +2076,13 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <dd>Value of parameter.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; model.set_likelihood_param('variance', np.array([5.0, 3.0])) # set the parameter called 'variance'
+<pre><code>&gt;&gt;&gt; model.set_likelihood_parameter('variance', np.array([5.0, 3.0])) # set the parameter called 'variance'
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def set_likelihood_param(self, key, val):
+<pre><code class="python">def set_likelihood_parameter(self, key, val):
     &#34;&#34;&#34;
     Sets a likelihood parameter with key the parameter name.
 
@@ -1671,7 +2091,7 @@ It returns the X, Y_mu, Y_var values per channel.</p>
         val (float, ndarray): Value of parameter.
 
     Examples:
-        &gt;&gt;&gt; model.set_likelihood_param(&#39;variance&#39;, np.array([5.0, 3.0])) # set the parameter called &#39;variance&#39;
+        &gt;&gt;&gt; model.set_likelihood_parameter(&#39;variance&#39;, np.array([5.0, 3.0])) # set the parameter called &#39;variance&#39;
     &#34;&#34;&#34;
     if isinstance(val, (int, float, list)):
         val = np.array(val)
@@ -1692,8 +2112,8 @@ It returns the X, Y_mu, Y_var values per channel.</p>
     likelihood[key].assign(val)</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.set_param"><code class="name flex">
-<span>def <span class="ident">set_param</span></span>(<span>self, q, key, val)</span>
+<dt id="mogptk.model.model.set_parameter"><code class="name flex">
+<span>def <span class="ident">set_parameter</span></span>(<span>self, q, key, val)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Sets a kernel parameter for component 'q' with key the parameter name.</p>
@@ -1707,13 +2127,13 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 <dd>Value of parameter.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; model.set_param(0, 'variance', np.array([5.0, 3.0])) # for Q=0 set the parameter called 'variance'
+<pre><code>&gt;&gt;&gt; model.set_parameter(0, 'variance', np.array([5.0, 3.0])) # for Q=0 set the parameter called 'variance'
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def set_param(self, q, key, val):
+<pre><code class="python">def set_parameter(self, q, key, val):
     &#34;&#34;&#34;
     Sets a kernel parameter for component &#39;q&#39; with key the parameter name.
 
@@ -1723,7 +2143,7 @@ It returns the X, Y_mu, Y_var values per channel.</p>
         val (float, numpy.ndarray): Value of parameter.
 
     Examples:
-        &gt;&gt;&gt; model.set_param(0, &#39;variance&#39;, np.array([5.0, 3.0])) # for Q=0 set the parameter called &#39;variance&#39;
+        &gt;&gt;&gt; model.set_parameter(0, &#39;variance&#39;, np.array([5.0, 3.0])) # for Q=0 set the parameter called &#39;variance&#39;
     &#34;&#34;&#34;
     if isinstance(val, (int, float, list)):
         val = np.array(val)
@@ -1753,7 +2173,7 @@ It returns the X, Y_mu, Y_var values per channel.</p>
 </details>
 </dd>
 <dt id="mogptk.model.model.train"><code class="name flex">
-<span>def <span class="ident">train</span></span>(<span>self, method='L-BFGS-B', tol=1e-06, maxiter=2000, params={})</span>
+<span>def <span class="ident">train</span></span>(<span>self, method='L-BFGS-B', tol=1e-06, maxiter=2000, params={}, verbose=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Trains the model using the kernel and its parameters.</p>
@@ -1773,6 +2193,8 @@ optimizer is used. Defaults to scipy 'L-BFGS-B'.</dd>
 <dd>Maximum number of iterations. Defaults to 2000.</dd>
 <dt><strong><code>params</code></strong> :&ensp;<code>dict</code></dt>
 <dd>Additional dictionary with parameters to minimize. </dd>
+<dt><strong><code>verbose</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Print verbose output about the state of the optimizer.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; model.train(tol=1e-6, maxiter=1e5)
@@ -1788,7 +2210,8 @@ optimizer is used. Defaults to scipy 'L-BFGS-B'.</dd>
     method=&#39;L-BFGS-B&#39;,
     tol=1e-6,
     maxiter=2000,
-    params={}):
+    params={},
+    verbose=False):
     &#34;&#34;&#34;
     Trains the model using the kernel and its parameters.
 
@@ -1804,24 +2227,26 @@ optimizer is used. Defaults to scipy 'L-BFGS-B'.</dd>
         tol (float): Tolerance for optimizer. Defaults to 1e-6.
         maxiter (int): Maximum number of iterations. Defaults to 2000.
         params (dict): Additional dictionary with parameters to minimize. 
+        verbose (bool): Print verbose output about the state of the optimizer.
 
     Examples:
         &gt;&gt;&gt; model.train(tol=1e-6, maxiter=1e5)
         
         &gt;&gt;&gt; model.train(method=&#39;Adam&#39;, opt_params={...})
     &#34;&#34;&#34;
+    inital_time = time.time()
+    if verbose:
+        print(&#39;Starting optimization\n &gt;Model: {} \n &gt;Channels: {} \
+            \n &gt;Components: {} \n &gt;Training points:{} \n &gt;Initial NLL: {:.3f}&#39;.format(
+                self.name,
+                len(self.dataset),
+                self.Q,
+                sum([len(data.mask) for data in self.dataset]),
+                self.model.log_marginal_likelihood().numpy()))
 
+    @tf.function  # optimize TF
     def loss():
-        #x, y = self.model.data
-        #K = self.model.kernel(x)
-        #num_data = x.shape[0]
-        #k_diag = tf.linalg.diag_part(K)
-        #s_diag = tf.fill([num_data], self.model.likelihood.variance)
-        #ks = tf.linalg.set_diag(K, k_diag + s_diag)
-        #tf.debugging.check_numerics(ks, &#34;ks&#34;)
-        #if not np.all(np.linalg.eigvals(ks) &gt; 0):
-        #    print(&#34;NOT POSITIVE DEFINITE:&#34;)
-        #    print(ks)
+
         return -self.model.log_marginal_likelihood()
 
     if method.lower() == &#34;adam&#34;:
@@ -1829,38 +2254,46 @@ optimizer is used. Defaults to scipy 'L-BFGS-B'.</dd>
         opt.minimize(loss, self.model.trainable_variables)
     else:
         opt = gpflow.optimizers.Scipy()
-        opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={&#39;maxiter&#39;: maxiter, &#39;disp&#39;: True}, **params)</code></pre>
+        opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={&#39;maxiter&#39;: maxiter, &#39;disp&#39;: True}, **params)
+
+    elapsed_time = time.time() - inital_time
+    if verbose:
+        print(&#39;Optimization finished in {:.2f} minutes\n &gt;Final NLL: {:.3f} \n&#39;.format(elapsed_time / 60, self.model.log_marginal_likelihood().numpy()))</code></pre>
 </details>
 </dd>
-<dt id="mogptk.model.model.unfix_param"><code class="name flex">
-<span>def <span class="ident">unfix_param</span></span>(<span>self, key)</span>
+<dt id="mogptk.model.model.unfix_parameter"><code class="name flex">
+<span>def <span class="ident">unfix_parameter</span></span>(<span>self, q, key)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Make parameter trainable (that was previously fixed, see <code>fix_param</code>).</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>key</code></strong> :&ensp;<code>str</code></dt>
-<dd>Name of the parameter.</dd>
-</dl>
+<p>Args:
+q: (int, list or array-like of ints): components to unfix.
+key (str): Name of the parameter.</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; model.unfix_param('variance')
+<pre><code>&gt;&gt;&gt; model.unfix_parameter('variance')
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unfix_param(self, key):
+<pre><code class="python">def unfix_parameter(self, q, key):
     &#34;&#34;&#34;
     Make parameter trainable (that was previously fixed, see `fix_param`).
 
     Args:
+    q: (int, list or array-like of ints): components to unfix.
         key (str): Name of the parameter.
 
     Examples:
-        &gt;&gt;&gt; model.unfix_param(&#39;variance&#39;)
+        &gt;&gt;&gt; model.unfix_parameter(&#39;variance&#39;)
     &#34;&#34;&#34;
+
+    if isinstance(q, int):
+        q = [q]
+
     if hasattr(self.model.kernel, &#39;kernels&#39;):
-        for kernel_i, kernel in enumerate(self.model.kernel.kernels):
+         for kernel_i in q:
+            kernel = self.model.kernel.kernels[kernel_i]
             for param_name, param_val in kernel.__dict__.items():
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
                     getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = True
@@ -1891,19 +2324,20 @@ optimizer is used. Defaults to scipy 'L-BFGS-B'.</dd>
 <li>
 <h4><code><a title="mogptk.model.model" href="#mogptk.model.model">model</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.model.model.fix_param" href="#mogptk.model.model.fix_param">fix_param</a></code></li>
-<li><code><a title="mogptk.model.model.get_likelihood_params" href="#mogptk.model.model.get_likelihood_params">get_likelihood_params</a></code></li>
-<li><code><a title="mogptk.model.model.get_param" href="#mogptk.model.model.get_param">get_param</a></code></li>
-<li><code><a title="mogptk.model.model.get_params" href="#mogptk.model.model.get_params">get_params</a></code></li>
-<li><code><a title="mogptk.model.model.load_params" href="#mogptk.model.model.load_params">load_params</a></code></li>
+<li><code><a title="mogptk.model.model.fix_parameter" href="#mogptk.model.model.fix_parameter">fix_parameter</a></code></li>
+<li><code><a title="mogptk.model.model.get_likelihood_parameters" href="#mogptk.model.model.get_likelihood_parameters">get_likelihood_parameters</a></code></li>
+<li><code><a title="mogptk.model.model.get_parameter" href="#mogptk.model.model.get_parameter">get_parameter</a></code></li>
+<li><code><a title="mogptk.model.model.get_parameters" href="#mogptk.model.model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.model.model.load_parameters" href="#mogptk.model.model.load_parameters">load_parameters</a></code></li>
+<li><code><a title="mogptk.model.model.plot_gram_matrix" href="#mogptk.model.model.plot_gram_matrix">plot_gram_matrix</a></code></li>
 <li><code><a title="mogptk.model.model.plot_prediction" href="#mogptk.model.model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.model.predict" href="#mogptk.model.model.predict">predict</a></code></li>
-<li><code><a title="mogptk.model.model.print_params" href="#mogptk.model.model.print_params">print_params</a></code></li>
-<li><code><a title="mogptk.model.model.save_params" href="#mogptk.model.model.save_params">save_params</a></code></li>
-<li><code><a title="mogptk.model.model.set_likelihood_param" href="#mogptk.model.model.set_likelihood_param">set_likelihood_param</a></code></li>
-<li><code><a title="mogptk.model.model.set_param" href="#mogptk.model.model.set_param">set_param</a></code></li>
+<li><code><a title="mogptk.model.model.print_parameters" href="#mogptk.model.model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.model.model.save_parameters" href="#mogptk.model.model.save_parameters">save_parameters</a></code></li>
+<li><code><a title="mogptk.model.model.set_likelihood_parameter" href="#mogptk.model.model.set_likelihood_parameter">set_likelihood_parameter</a></code></li>
+<li><code><a title="mogptk.model.model.set_parameter" href="#mogptk.model.model.set_parameter">set_parameter</a></code></li>
 <li><code><a title="mogptk.model.model.train" href="#mogptk.model.model.train">train</a></code></li>
-<li><code><a title="mogptk.model.model.unfix_param" href="#mogptk.model.model.unfix_param">unfix_param</a></code></li>
+<li><code><a title="mogptk.model.model.unfix_parameter" href="#mogptk.model.model.unfix_parameter">unfix_parameter</a></code></li>
 </ul>
 </li>
 </ul>

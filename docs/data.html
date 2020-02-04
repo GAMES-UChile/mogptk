@@ -35,14 +35,23 @@ import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 import re
+import logging
+
+logger = logging.getLogger(&#39;mogptk&#39;)
 
 class FormatNumber:
     &#34;&#34;&#34;
     FormatNumber is the default formatter and takes regular floating point values as input.
     &#34;&#34;&#34;
+    def __init__(self):
+        self.category = &#39;num&#39;
+
     def _parse(self, val):
+        if np.isnan(val):
+            raise ValueError(&#34;number cannot be NaN&#34;)
         return float(val)
 
+    # TODO: rename parse_delta?
     def _parse_duration(self, val):
         return self._parse(val)
 
@@ -56,8 +65,15 @@ class FormatDate:
     &#34;&#34;&#34;
     FormatDate is a formatter that takes date values as input, such as &#39;2019-03-01&#39;, and stores values internally as days since 1970-01-01.
     &#34;&#34;&#34;
+    def __init__(self):
+        self.category = &#39;date&#39;
+
     def _parse(self, val):
-        return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()/3600/24
+        if isinstance(val, np.datetime64):
+            dt = pd.Timestamp(val).to_pydatetime()
+        else:
+            dt = dateutil.parser.parse(val)
+        return (dt - datetime.datetime(1970,1,1)).total_seconds()/3600/24
 
     def _parse_duration(self, val):
         if isinstance(val, int):
@@ -87,8 +103,15 @@ class FormatDateTime:
     &#34;&#34;&#34;
     FormatDateTime is a formatter that takes date and time values as input, such as &#39;2019-03-01 12:30&#39;, and stores values internally as seconds since 1970-01-01.
     &#34;&#34;&#34;
+    def __init__(self):
+        self.category = &#39;date&#39;
+
     def _parse(self, val):
-        return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()
+        if isinstance(val, np.datetime64):
+            dt = pd.Timestamp(val).to_pydatetime()
+        else:
+            dt = dateutil.parser.parse(val)
+        return (dt - datetime.datetime(1970,1,1)).total_seconds()
 
     def _parse_duration(self, val):
         if isinstance(val, int):
@@ -133,7 +156,7 @@ class TransformDetrend:
         if data.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
-        self.coef = np.polyfit(data.X[:,0], data.Y, self.degree)
+        self.coef = np.polyfit(data.X[data.mask,0], data.Y[data.mask], self.degree)
         # reg = Ridge(alpha=0.1, fit_intercept=True)
         # reg.fit(data.X, data.Y)
         # self.trend = reg
@@ -146,22 +169,39 @@ class TransformDetrend:
         return y + np.polyval(self.coef, x[:, 0])
         # return y + self.trend.predict(x)
 
+class TransformLinear:
+    &#34;&#34;&#34;
+    TransformLinear transforms the data linearly so that y =&gt; (y-offset)/scale.
+    &#34;&#34;&#34;
+    def __init__(self, scale=1.0, offset=0.0):
+        self.scale = scale
+        self.offset = offset
+
+    def _data(self, data):
+        pass
+
+    def _forward(self, x, y):
+        return (y-self.offset)/self.scale
+
+    def _backward(self, x, y):
+        return self.scale*y + self.offset
+
 class TransformNormalize:
     &#34;&#34;&#34;
-    TransformNormalize is a transformer that normalizes the data so that the y-axis is between 0 and 1.
+    TransformNormalize is a transformer that normalizes the data so that the y-axis is between -1 and 1.
     &#34;&#34;&#34;
     def __init__(self):
         pass
 
     def _data(self, data):
-        self.ymin = np.amin(data.Y)
-        self.ymax = np.amax(data.Y)
+        self.ymin = np.amin(data.Y[data.mask])
+        self.ymax = np.amax(data.Y[data.mask])
 
     def _forward(self, x, y):
-        return (y-self.ymin)/(self.ymax-self.ymin)
+        return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
     
     def _backward(self, x, y):
-        return y*(self.ymax-self.ymin)+self.ymin
+        return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin
 
 class TransformLog:
     &#34;&#34;&#34;
@@ -171,14 +211,32 @@ class TransformLog:
         pass
 
     def _data(self, data):
-        self.shift = 1 - np.amin(data.Y)
-        self.mean = np.log(data.Y + self.shift).mean()
+        self.shift = 1 - np.amin(data.Y[data.mask])
+        self.mean = np.log(data.Y[data.mask] + self.shift).mean()
 
     def _forward(self, x, y):
         return np.log(y + self.shift) - self.mean
     
     def _backward(self, x, y):
         return np.exp(y + self.mean) - self.shift
+
+class TransformWhiten:
+    &#34;&#34;&#34;
+    Transform the data so it has mean 0 and variance 1
+    &#34;&#34;&#34;
+    def __init__(self):
+        pass
+    
+    def _data(self, data):
+        # take only the non-removed observations
+        self.mean = data.Y[data.mask].mean()
+        self.std = data.Y[data.mask].std()
+        
+    def _forward(self, x, y):
+        return (y - self.mean) / self.std
+    
+    def _backward(self, x, y):
+        return (y * self.std) + self.mean
 
 ################################################################
 ################################################################
@@ -243,7 +301,7 @@ def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
 ################################################################
 
 class Data:
-    def __init__(self, X, Y, name=&#34;&#34;, formats=None, x_labels=None, y_label=None):
+    def __init__(self, X, Y, name=None, formats=None, x_labels=None, y_label=None):
         &#34;&#34;&#34;
         Data class holds all the observations, latent functions and prediction data.
 
@@ -257,7 +315,7 @@ class Data:
             X (list, numpy.ndarray, dict): Independent variable data of shape (n) or (n,input_dims).
             Y (list, numpy.ndarray): Dependent variable data of shape (n).
             name (str, optional): Name of data.
-            formats (list, dict, optional): List or dict of formatters (such as FormatNumber (default), FormatDate,
+            formats (dict, optional): List or dict of formatters (such as FormatNumber (default), FormatDate,
                 FormatDateTime, ...) for each input dimension.
             x_labels (str, list of str, optional): Name or names of input dimensions.
             y_label (str, optional): Name of output dimension.
@@ -306,17 +364,22 @@ class Data:
                     raise ValueError(&#34;X dict must contain all keys listed in x_labels&#34;)
                 X = list(map(list, zip(*[X[key] for key in x_labels])))
 
-            if formats != None and isinstance(formats, dict):
-                formats = list(formats.values())
+            if isinstance(formats, dict):
+                formats_list = []
+                for col in x_labels:
+                    formats_list.append(formats[col])
+                if y_label != None:
+                    formats_list.append(formats[y_label])
+                formats = formats_list
 
         # format X columns
         if formats == None:
-            formats = [FormatNumber()] * input_dims
+            formats = [FormatNumber()] * (input_dims+1)
 
-        if not isinstance(formats, (list, dict)):
+        if not isinstance(formats, list):
             raise ValueError(&#34;formats should be list or dict for each input dimension, when a dict is passed than x_labels must also be set&#34;)
 
-        for col in range(input_dims):
+        for col in range(input_dims+1):
             if len(formats) &lt;= col:
                 formats.append(FormatNumber())
             elif isinstance(formats[col], type):
@@ -343,15 +406,18 @@ class Data:
         Y = np.empty((n,))
         for row, val in enumerate(Y_raw):
             try:
-                Y[row] = FormatNumber()._parse(val)
+                Y[row] = formats[-1]._parse(val)
             except ValueError:
                 bad_rows.add(row)
 
         if 0 &lt; len(bad_rows):
             bad_rows = list(bad_rows)
-            print(&#34;Warning: could not parse values for %d rows, removing data points&#34; % (len(bad_rows),))
-            np.delete(X, bad_rows)
-            np.delete(Y, bad_rows)
+            logger.info(&#34;could not parse values for %d rows, removing data points&#34;, len(bad_rows))
+            if len(bad_rows) == n:
+                raise ValueError(&#34;none of the data points could be parsed, are they valid numbers or is an appropriate formatter set?&#34;)
+            X = np.delete(X, bad_rows)
+            Y = np.delete(Y, bad_rows)
+            n -= len(bad_rows)
 
         # check if X and Y are correct inputs
         if isinstance(X, list):
@@ -389,15 +455,7 @@ class Data:
             ind = np.argsort(X, axis=0)
             X = np.take_along_axis(X, ind, axis=0)
             Y = np.take_along_axis(Y, ind[:,0], axis=0)
-
-        for dim in range(X.shape[1]):
-            xran = np.max(X[:,dim]) - np.min(X[:,dim])
-            if xran &lt; 1e-3:
-                print(&#34;Warning: very small X range may give problems, it is suggested to scale up your X-axis&#34;)
-            elif 1e4 &lt; xran:
-                print(&#34;Warning: very large X range may give problems, it is suggested to scale down your X-axis&#34;)
         
-        self.name = name
         self.X = X # shape (n, input_dims)
         self.Y = Y # shape (n)
         self.mask = np.array([True] * n)
@@ -406,25 +464,32 @@ class Data:
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-        if x_labels != None and isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
-            self.x_labels = x_labels
-        else:
-            self.x_labels = [&#39;&#39;] * input_dims
+        self.X_labels = [&#39;&#39;] * input_dims
+        if isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
+            self.X_labels = x_labels
 
-        if y_label != None and isinstance(y_label, str):
-            self.y_label = y_label
-        else:
-            self.y_label = &#39;&#39;
+        self.name = &#39;&#39;
+        if isinstance(name, str):
+            self.name = name
+        elif isinstance(y_label, str):
+            self.name = y_label
 
-        if formats != None and isinstance(formats, list):
-            self.formatters = formats
-        else:
-            self.formatters = [FormatNumber()] * input_dims
-        self.transformations = []
+        self.Y_label = &#39;&#39;
+        if isinstance(y_label, str):
+            self.Y_label = y_label
+
+        self.formatters = formats # list of formatters for all input dimensions, the last element is for the output dimension
+        self.transformations = [] # transformers for Y coordinates
+
+        self.X_offsets = np.array([0.0] * input_dims)
+        self.X_scales = np.array([1.0] * input_dims)
 
     def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
         data = np.concatenate((self.X, self.Y.reshape(-1,1)), axis=1)
-        return str(pd.DataFrame(data, columns=(self.x_labels + [self.y_label])))
+        return repr(pd.DataFrame(data, columns=(self.X_labels + [self.Y_label])))
 
     def set_name(self, name):
         &#34;&#34;&#34;
@@ -458,8 +523,8 @@ class Data:
         if len(x_labels) != self.get_input_dims():
             raise ValueError(&#34;x_labels must have the same input dimensions as the data&#34;)
 
-        self.x_labels = x_labels
-        self.y_label = y_label
+        self.X_labels = x_labels
+        self.Y_label = y_label
 
     def set_function(self, f):
         &#34;&#34;&#34;
@@ -475,6 +540,41 @@ class Data:
         &#34;&#34;&#34;
         _check_function(f, self.get_input_dims())
         self.F = f
+
+    def set_x_scaling(self, offsets, scales):
+        &#34;&#34;&#34;
+        Set offset and scaling of X axis for each input dimension.
+
+        Args:
+            offsets (float, list or np.ndarray of floats): X offsets per input dimension.
+            scales (float, list or np.ndarray of floats): X scales per input dimension.
+
+        Examples:
+            &gt;&gt;&gt; data.set_x_scaling([[&#39;X&#39;, &#39;Y&#39;], &#39;Cd&#39;)
+        &#34;&#34;&#34;
+
+        if isinstance(offsets, float):
+            offsets = [offsets]
+        elif isinstance(offsets, np.ndarray):
+            offsets = list(offsets)
+        if not isinstance(offsets, list) or not all(isinstance(item, float) for item in offsets) or len(offsets) != self.get_input_dims():
+            raise ValueError(&#34;offsets must be a float, list or np.ndarray of floats and have the same input dimensions as the data&#34;)
+
+        if isinstance(scales, float):
+            scales = [scales]
+        elif isinstance(scales, np.ndarray):
+            scales = list(scales)
+        if not isinstance(scales, list) or not all(isinstance(item, float) for item in scales) or len(scales) != self.get_input_dims():
+            raise ValueError(&#34;scales must be a float, list or np.ndarray of floats and have the same input dimensions as the data&#34;)
+
+        self.X = self.X_offsets + (self.X/self.X_scales)
+        self.X_pred = self.X_offsets + (self.X_pred/self.X_scales)
+
+        self.X_offsets = offsets
+        self.X_scales = scales
+
+        self.X = self.X_scales*(self.X-self.X_offsets)
+        self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
 
     def copy(self):
         &#34;&#34;&#34;
@@ -509,6 +609,7 @@ class Data:
             self.F = lambda x: t._forward(x, f(x))
         self.transformations.append(t)
     
+    # TODO: remove?
     def filter(self, start, end):
         &#34;&#34;&#34;
         Filter the data range to be between start and end. Start and end can be strings if a proper formatter is set for the independent variable.
@@ -527,14 +628,15 @@ class Data:
         if self.get_input_dims() != 1:
             raise ValueError(&#34;can only filter on one dimensional input data&#34;)
         
-        start = self.formatters[0]._parse(start)
-        end = self.formatters[0]._parse(end)
+        start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
+        end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
         ind = (self.X[:,0] &gt;= start) &amp; (self.X[:,0] &lt; end)
 
         self.X = np.expand_dims(self.X[ind,0], 1)
         self.Y = self.Y[ind]
         self.mask = self.mask[ind]
 
+    # TODO: remove?
     def aggregate(self, duration, f=np.mean):
         &#34;&#34;&#34;
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
@@ -561,7 +663,7 @@ class Data:
         
         start = self.X[0,0]
         end = self.X[-1,0]
-        step = self.formatters[0]._parse_duration(duration)
+        step = self.X_scales[0] * self.formatters[0]._parse_duration(duration)
 
         X = np.arange(start+step/2, end+step/2, step)
         Y = np.empty((len(X)))
@@ -588,7 +690,7 @@ class Data:
         &#34;&#34;&#34;
         return self.name
 
-    def has_removed_obs(self):
+    def has_test_data(self):
         &#34;&#34;&#34;
         Returns True if observations have been removed using the remove_* methods.
 
@@ -596,7 +698,7 @@ class Data:
             boolean
 
         Examples:
-            &gt;&gt;&gt; data.has_removed_obs()
+            &gt;&gt;&gt; data.has_test_data()
             True
         &#34;&#34;&#34;
         return False in self.mask
@@ -614,9 +716,24 @@ class Data:
         &#34;&#34;&#34;
         return self.X.shape[1]
 
+    def get_train_data(self):
+        &#34;&#34;&#34;
+        Returns the observations used for training.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            &gt;&gt;&gt; x, y = data.get_train_data()
+        &#34;&#34;&#34;
+        x = self.X[self.mask,:]
+        y = self.Y[self.mask]
+        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+    
     def get_data(self):
         &#34;&#34;&#34;
-        Returns the observations.
+        Returns all observations, train and test.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -625,39 +742,24 @@ class Data:
         Examples:
             &gt;&gt;&gt; x, y = data.get_data()
         &#34;&#34;&#34;
-        x = self.X[self.mask,:]
-        y = self.Y[self.mask]
-        return x, self._detransform(x, y)
-    
-    def get_all(self):
-        &#34;&#34;&#34;
-        Returns all observations (including removed observations).
-
-        Returns:
-            numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
-
-        Examples:
-            &gt;&gt;&gt; x, y = data.get_all()
-        &#34;&#34;&#34;
         x = self.X
         y = self.Y
-        return x, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
 
-    def get_removed(self):
+    def get_test_data(self):
         &#34;&#34;&#34;
-        Returns the removed observations.
+        Returns the observations used for testing.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
             numpy.ndarray: Y data of shape (n).
 
         Examples:
-            &gt;&gt;&gt; x, y = data.get_removed()
+            &gt;&gt;&gt; x, y = data.get_test_data()
         &#34;&#34;&#34;
         x = self.X[~self.mask,:]
         y = self.Y[~self.mask]
-        return x, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
 
     ################################################################
     
@@ -704,16 +806,16 @@ class Data:
         if start == None:
             start = np.min(self.X[:,0])
         else:
-            start = self.formatters[0]._parse(start)
+            start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
         if end == None:
             end = np.max(self.X[:,0])
         else:
-            end = self.formatters[0]._parse(end)
+            end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
 
         idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
         self.mask[idx] = False
     
-    def remove_rel_range(self, start, end):
+    def remove_relative_range(self, start=None, end=None):
         &#34;&#34;&#34;
         Removes observations between start and end as a percentage of the number of observations. So &#39;0&#39; is the first observation, &#39;0.5&#39; is the middle observation, and &#39;1&#39; is the last observation.
 
@@ -723,6 +825,12 @@ class Data:
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+        if end is None:
+            end = 1
+        if start is None:
+            start = 0
+
 
         x_min = np.min(self.X[:,0])
         x_max = np.max(self.X[:,0])
@@ -765,7 +873,7 @@ class Data:
     
     ################################################################
     
-    def get_pred(self, name, sigma=2):
+    def get_prediction(self, name, sigma=2):
         &#34;&#34;&#34;
         Returns the prediction of a given name with a normal variance of sigma.
 
@@ -780,7 +888,7 @@ class Data:
             numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
 
         Examples:
-            &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_pred(&#39;MOSM&#39;, sigma=1)
+            &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction(&#39;MOSM&#39;, sigma=1)
         &#34;&#34;&#34;
         if name not in self.Y_mu_pred:
             raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
@@ -792,9 +900,9 @@ class Data:
         mu = self._detransform(self.X_pred, mu)
         lower = self._detransform(self.X_pred, lower)
         upper = self._detransform(self.X_pred, upper)
-        return self.X_pred, mu, lower, upper
+        return self.X_scales*(self.X_pred-self.X_offsets), mu, lower, upper
 
-    def set_pred_range(self, start=None, end=None, n=None, step=None):
+    def set_prediction_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
         Sets the prediction range.
 
@@ -812,10 +920,10 @@ class Data:
 
         Examples:
             &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
-            &gt;&gt;&gt; data.set_pred_range(3, 8, 200)
+            &gt;&gt;&gt; data.set_prediction_range(3, 8, 200)
         
-            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
-            &gt;&gt;&gt; data.set_pred_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
+            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, formats={&#39;Date&#39;: mogptk.FormatDate})
+            &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only set prediction range on one dimensional input data&#34;)
@@ -857,8 +965,10 @@ class Data:
             else:
                 step = self.formatters[0]._parse_duration(step)
             self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
+
+        self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
     
-    def set_pred(self, x):
+    def set_prediction_X(self, x):
         &#34;&#34;&#34;
         Set the prediction range directly.
 
@@ -866,7 +976,7 @@ class Data:
             x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
 
         Examples:
-            &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+            &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
         &#34;&#34;&#34;
         if isinstance(x, list):
             x = np.array(x)
@@ -880,7 +990,7 @@ class Data:
         if x.ndim != 2 or x.shape[1] != self.get_input_dims():
             raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
 
-        self.X_pred = x
+        self.X_pred = self.X_scales*(x-self.X_offsets)
 
         # clear old prediction data now that X_pred has been updated
         self.Y_mu_pred = {}
@@ -902,7 +1012,7 @@ class Data:
 
         nyquist = np.empty((input_dims))
         for i in range(self.get_input_dims()):
-            x = np.sort(self.X[:,i])
+            x = np.sort(self.X[self.mask,i])
             dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
             dist = np.min(dist[np.nonzero(dist)])
             nyquist[i] = 0.5/dist
@@ -918,8 +1028,8 @@ class Data:
 
         Returns:
             numpy.ndarray: Amplitude array of shape (input_dims,Q).
-            numpy.ndarray: Frequency array of shape (input_dims,Q).
-            numpy.ndarray: Variance array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+            numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
         Examples:
             &gt;&gt;&gt; amplitudes, means, variances = data.get_bnse_estimation()
@@ -934,14 +1044,15 @@ class Data:
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x = self.X[:,i]
-            y = self.Y
+            x = self.X[self.mask, i]
+            y = self.Y[self.mask]
             bnse = bse(x, y)
             bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
             bnse.compute_moments()
 
             amplitudes, positions, variances = bnse.get_freq_peaks()
+            # TODO: sqrt of amplitudes? vs LS?
             if len(positions) == 0:
                 continue
 
@@ -958,9 +1069,10 @@ class Data:
             A[i,:] = amplitudes[:Q]
             B[i,:] = positions[:Q]
             C[i,:] = variances[:Q]
+
         return A, B, C
 
-    def get_ls_estimation(self, Q=1, n=50000):
+    def get_lombscargle_estimation(self, Q=1, n=50000):
         &#34;&#34;&#34;
         Peak estimation using Lomb Scargle.
 
@@ -970,11 +1082,11 @@ class Data:
 
         Returns:
             numpy.ndarray: Amplitude array of shape (input_dims,Q).
-            numpy.ndarray: Frequency array of shape (input_dims,Q).
-            numpy.ndarray: Variance array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+            numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
         Examples:
-            &gt;&gt;&gt; amplitudes, means, variances = data.get_ls_estimation()
+            &gt;&gt;&gt; amplitudes, means, variances = data.get_lombscargle_estimation()
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -989,7 +1101,7 @@ class Data:
             x = np.linspace(0, nyquist[i], n+1)[1:]
             dx = x[1]-x[0]
 
-            y = signal.lombscargle(self.X[:,i], self.Y, x)
+            y = signal.lombscargle(self.X[self.mask,i], self.Y[self.mask], x)
             ind, _ = signal.find_peaks(y)
             ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
@@ -1014,10 +1126,6 @@ class Data:
             B[i,:] = positions[:Q]
             C[i,:] = variances[:Q]
         return A, B, C
-    
-    #def get_gm_estimation(self):
-    #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
-    #    pass
 
     def plot(self, ax=None):
         &#34;&#34;&#34;
@@ -1038,25 +1146,28 @@ class Data:
         if ax == None:
             ax = plt.gca()
         
+        X = self.X_offsets + (self.X/self.X_scales)
+        X_pred = self.X_offsets + (self.X_pred/self.X_scales)
+
         legend = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
             if self.Y_mu_pred[name].size != 0:
                 lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
                 upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
-                ax.plot(self.X_pred[:,0], self.Y_mu_pred[name], ls=&#39;-&#39;, color=colors[i], lw=2)
-                ax.fill_between(self.X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
-                ax.plot(self.X_pred[:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-                ax.plot(self.X_pred[:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+                ax.plot(X_pred[:,0], self.Y_mu_pred[name], ls=&#39;-&#39;, color=colors[i], lw=2)
+                ax.fill_between(X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
+                ax.plot(X_pred[:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+                ax.plot(X_pred[:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
                 legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=&#39;Prediction &#39;+name))
 
         if self.F != None:
-            n = len(self.X[:,0])*10
-            x_min = np.min(self.X[:,0])
-            x_max = np.max(self.X[:,0])
-            if len(self.X_pred) != 0:
-                x_min = min(x_min, np.min(self.X_pred))
-                x_max = max(x_max, np.max(self.X_pred))
+            n = len(X[:,0])*10
+            x_min = np.min(X[:,0])
+            x_max = np.max(X[:,0])
+            if len(X_pred) != 0:
+                x_min = min(x_min, np.min(X_pred))
+                x_max = max(x_max, np.max(X_pred))
 
             x = np.empty((n, 1))
             x[:,0] = np.linspace(x_min, x_max, n)
@@ -1065,16 +1176,16 @@ class Data:
             ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
             legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
 
-        ax.plot(self.X[:,0], self.Y, &#39;k-&#39;, alpha=0.7)
+        ax.plot(X[:,0], self.Y, &#39;k-&#39;, alpha=0.7)
         legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
 
-        if self.has_removed_obs():
-            X, Y = self.X[self.mask,:], self.Y[self.mask]
-            ax.plot(X[:,0], Y, &#39;k.&#39;, mew=.5, ms=8, markeredgecolor=&#39;white&#39;)
+        if self.has_test_data():
+            x, y = X[self.mask,:], self.Y[self.mask]
+            ax.plot(x[:,0], y, &#39;k.&#39;, mew=.5, ms=8, markeredgecolor=&#39;white&#39;)
             legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
 
-        ax.set_xlabel(self.x_labels[0])
-        ax.set_ylabel(self.y_label)
+        ax.set_xlabel(self.X_labels[0])
+        ax.set_ylabel(self.Y_label)
         ax.set_title(self.name)
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
         ax.xaxis.set_major_formatter(formatter)
@@ -1114,7 +1225,8 @@ class Data:
         else:
             ax.set_xlabel(&#39;Frequency&#39;)
 
-        X_space = self.X[:,0].copy() / factor
+        X_space = (self.X_offsets + (self.X/self.X_scales)) / factor
+
         freq = maxfreq
         if freq == None:
             dist = np.abs(X_space[1:]-X_space[:-1])
@@ -1131,6 +1243,7 @@ class Data:
             bnse.set_freqspace(freq/2.0/np.pi, 10001)
             bnse.train()
             bnse.compute_moments()
+
             Y = bnse.post_mean_r**2 + bnse.post_mean_i**2
             Y_err = 2 * np.sqrt(np.diag(bnse.post_cov_r**2 + bnse.post_cov_i**2))
             Y = Y[1:]
@@ -1325,7 +1438,7 @@ def _parse_duration_to_sec(s):
 <dl>
 <dt id="mogptk.data.Data"><code class="flex name class">
 <span>class <span class="ident">Data</span></span>
-<span>(</span><span>X, Y, name='', formats=None, x_labels=None, y_label=None)</span>
+<span>(</span><span>X, Y, name=None, formats=None, x_labels=None, y_label=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Data class holds all the observations, latent functions and prediction data.</p>
@@ -1342,7 +1455,7 @@ weekly data. Additionally, we also use this class to set the range we want to pr
 <dd>Dependent variable data of shape (n).</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Name of data.</dd>
-<dt><strong><code>formats</code></strong> :&ensp;<code>list</code>, <code>dict</code>, optional</dt>
+<dt><strong><code>formats</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>List or dict of formatters (such as FormatNumber (default), FormatDate,
 FormatDateTime, &hellip;) for each input dimension.</dd>
 <dt><strong><code>x_labels</code></strong> :&ensp;<code>str</code>, <code>list</code> of <code>str</code>, optional</dt>
@@ -1358,7 +1471,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Data:
-    def __init__(self, X, Y, name=&#34;&#34;, formats=None, x_labels=None, y_label=None):
+    def __init__(self, X, Y, name=None, formats=None, x_labels=None, y_label=None):
         &#34;&#34;&#34;
         Data class holds all the observations, latent functions and prediction data.
 
@@ -1372,7 +1485,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             X (list, numpy.ndarray, dict): Independent variable data of shape (n) or (n,input_dims).
             Y (list, numpy.ndarray): Dependent variable data of shape (n).
             name (str, optional): Name of data.
-            formats (list, dict, optional): List or dict of formatters (such as FormatNumber (default), FormatDate,
+            formats (dict, optional): List or dict of formatters (such as FormatNumber (default), FormatDate,
                 FormatDateTime, ...) for each input dimension.
             x_labels (str, list of str, optional): Name or names of input dimensions.
             y_label (str, optional): Name of output dimension.
@@ -1421,17 +1534,22 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
                     raise ValueError(&#34;X dict must contain all keys listed in x_labels&#34;)
                 X = list(map(list, zip(*[X[key] for key in x_labels])))
 
-            if formats != None and isinstance(formats, dict):
-                formats = list(formats.values())
+            if isinstance(formats, dict):
+                formats_list = []
+                for col in x_labels:
+                    formats_list.append(formats[col])
+                if y_label != None:
+                    formats_list.append(formats[y_label])
+                formats = formats_list
 
         # format X columns
         if formats == None:
-            formats = [FormatNumber()] * input_dims
+            formats = [FormatNumber()] * (input_dims+1)
 
-        if not isinstance(formats, (list, dict)):
+        if not isinstance(formats, list):
             raise ValueError(&#34;formats should be list or dict for each input dimension, when a dict is passed than x_labels must also be set&#34;)
 
-        for col in range(input_dims):
+        for col in range(input_dims+1):
             if len(formats) &lt;= col:
                 formats.append(FormatNumber())
             elif isinstance(formats[col], type):
@@ -1458,15 +1576,18 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Y = np.empty((n,))
         for row, val in enumerate(Y_raw):
             try:
-                Y[row] = FormatNumber()._parse(val)
+                Y[row] = formats[-1]._parse(val)
             except ValueError:
                 bad_rows.add(row)
 
         if 0 &lt; len(bad_rows):
             bad_rows = list(bad_rows)
-            print(&#34;Warning: could not parse values for %d rows, removing data points&#34; % (len(bad_rows),))
-            np.delete(X, bad_rows)
-            np.delete(Y, bad_rows)
+            logger.info(&#34;could not parse values for %d rows, removing data points&#34;, len(bad_rows))
+            if len(bad_rows) == n:
+                raise ValueError(&#34;none of the data points could be parsed, are they valid numbers or is an appropriate formatter set?&#34;)
+            X = np.delete(X, bad_rows)
+            Y = np.delete(Y, bad_rows)
+            n -= len(bad_rows)
 
         # check if X and Y are correct inputs
         if isinstance(X, list):
@@ -1504,15 +1625,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             ind = np.argsort(X, axis=0)
             X = np.take_along_axis(X, ind, axis=0)
             Y = np.take_along_axis(Y, ind[:,0], axis=0)
-
-        for dim in range(X.shape[1]):
-            xran = np.max(X[:,dim]) - np.min(X[:,dim])
-            if xran &lt; 1e-3:
-                print(&#34;Warning: very small X range may give problems, it is suggested to scale up your X-axis&#34;)
-            elif 1e4 &lt; xran:
-                print(&#34;Warning: very large X range may give problems, it is suggested to scale down your X-axis&#34;)
         
-        self.name = name
         self.X = X # shape (n, input_dims)
         self.Y = Y # shape (n)
         self.mask = np.array([True] * n)
@@ -1521,25 +1634,32 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-        if x_labels != None and isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
-            self.x_labels = x_labels
-        else:
-            self.x_labels = [&#39;&#39;] * input_dims
+        self.X_labels = [&#39;&#39;] * input_dims
+        if isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
+            self.X_labels = x_labels
 
-        if y_label != None and isinstance(y_label, str):
-            self.y_label = y_label
-        else:
-            self.y_label = &#39;&#39;
+        self.name = &#39;&#39;
+        if isinstance(name, str):
+            self.name = name
+        elif isinstance(y_label, str):
+            self.name = y_label
 
-        if formats != None and isinstance(formats, list):
-            self.formatters = formats
-        else:
-            self.formatters = [FormatNumber()] * input_dims
-        self.transformations = []
+        self.Y_label = &#39;&#39;
+        if isinstance(y_label, str):
+            self.Y_label = y_label
+
+        self.formatters = formats # list of formatters for all input dimensions, the last element is for the output dimension
+        self.transformations = [] # transformers for Y coordinates
+
+        self.X_offsets = np.array([0.0] * input_dims)
+        self.X_scales = np.array([1.0] * input_dims)
 
     def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
         data = np.concatenate((self.X, self.Y.reshape(-1,1)), axis=1)
-        return str(pd.DataFrame(data, columns=(self.x_labels + [self.y_label])))
+        return repr(pd.DataFrame(data, columns=(self.X_labels + [self.Y_label])))
 
     def set_name(self, name):
         &#34;&#34;&#34;
@@ -1573,8 +1693,8 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if len(x_labels) != self.get_input_dims():
             raise ValueError(&#34;x_labels must have the same input dimensions as the data&#34;)
 
-        self.x_labels = x_labels
-        self.y_label = y_label
+        self.X_labels = x_labels
+        self.Y_label = y_label
 
     def set_function(self, f):
         &#34;&#34;&#34;
@@ -1590,6 +1710,41 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         &#34;&#34;&#34;
         _check_function(f, self.get_input_dims())
         self.F = f
+
+    def set_x_scaling(self, offsets, scales):
+        &#34;&#34;&#34;
+        Set offset and scaling of X axis for each input dimension.
+
+        Args:
+            offsets (float, list or np.ndarray of floats): X offsets per input dimension.
+            scales (float, list or np.ndarray of floats): X scales per input dimension.
+
+        Examples:
+            &gt;&gt;&gt; data.set_x_scaling([[&#39;X&#39;, &#39;Y&#39;], &#39;Cd&#39;)
+        &#34;&#34;&#34;
+
+        if isinstance(offsets, float):
+            offsets = [offsets]
+        elif isinstance(offsets, np.ndarray):
+            offsets = list(offsets)
+        if not isinstance(offsets, list) or not all(isinstance(item, float) for item in offsets) or len(offsets) != self.get_input_dims():
+            raise ValueError(&#34;offsets must be a float, list or np.ndarray of floats and have the same input dimensions as the data&#34;)
+
+        if isinstance(scales, float):
+            scales = [scales]
+        elif isinstance(scales, np.ndarray):
+            scales = list(scales)
+        if not isinstance(scales, list) or not all(isinstance(item, float) for item in scales) or len(scales) != self.get_input_dims():
+            raise ValueError(&#34;scales must be a float, list or np.ndarray of floats and have the same input dimensions as the data&#34;)
+
+        self.X = self.X_offsets + (self.X/self.X_scales)
+        self.X_pred = self.X_offsets + (self.X_pred/self.X_scales)
+
+        self.X_offsets = offsets
+        self.X_scales = scales
+
+        self.X = self.X_scales*(self.X-self.X_offsets)
+        self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
 
     def copy(self):
         &#34;&#34;&#34;
@@ -1624,6 +1779,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             self.F = lambda x: t._forward(x, f(x))
         self.transformations.append(t)
     
+    # TODO: remove?
     def filter(self, start, end):
         &#34;&#34;&#34;
         Filter the data range to be between start and end. Start and end can be strings if a proper formatter is set for the independent variable.
@@ -1642,14 +1798,15 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if self.get_input_dims() != 1:
             raise ValueError(&#34;can only filter on one dimensional input data&#34;)
         
-        start = self.formatters[0]._parse(start)
-        end = self.formatters[0]._parse(end)
+        start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
+        end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
         ind = (self.X[:,0] &gt;= start) &amp; (self.X[:,0] &lt; end)
 
         self.X = np.expand_dims(self.X[ind,0], 1)
         self.Y = self.Y[ind]
         self.mask = self.mask[ind]
 
+    # TODO: remove?
     def aggregate(self, duration, f=np.mean):
         &#34;&#34;&#34;
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
@@ -1676,7 +1833,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         
         start = self.X[0,0]
         end = self.X[-1,0]
-        step = self.formatters[0]._parse_duration(duration)
+        step = self.X_scales[0] * self.formatters[0]._parse_duration(duration)
 
         X = np.arange(start+step/2, end+step/2, step)
         Y = np.empty((len(X)))
@@ -1703,7 +1860,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         &#34;&#34;&#34;
         return self.name
 
-    def has_removed_obs(self):
+    def has_test_data(self):
         &#34;&#34;&#34;
         Returns True if observations have been removed using the remove_* methods.
 
@@ -1711,7 +1868,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             boolean
 
         Examples:
-            &gt;&gt;&gt; data.has_removed_obs()
+            &gt;&gt;&gt; data.has_test_data()
             True
         &#34;&#34;&#34;
         return False in self.mask
@@ -1729,9 +1886,24 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         &#34;&#34;&#34;
         return self.X.shape[1]
 
+    def get_train_data(self):
+        &#34;&#34;&#34;
+        Returns the observations used for training.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            &gt;&gt;&gt; x, y = data.get_train_data()
+        &#34;&#34;&#34;
+        x = self.X[self.mask,:]
+        y = self.Y[self.mask]
+        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+    
     def get_data(self):
         &#34;&#34;&#34;
-        Returns the observations.
+        Returns all observations, train and test.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -1740,39 +1912,24 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Examples:
             &gt;&gt;&gt; x, y = data.get_data()
         &#34;&#34;&#34;
-        x = self.X[self.mask,:]
-        y = self.Y[self.mask]
-        return x, self._detransform(x, y)
-    
-    def get_all(self):
-        &#34;&#34;&#34;
-        Returns all observations (including removed observations).
-
-        Returns:
-            numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
-
-        Examples:
-            &gt;&gt;&gt; x, y = data.get_all()
-        &#34;&#34;&#34;
         x = self.X
         y = self.Y
-        return x, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
 
-    def get_removed(self):
+    def get_test_data(self):
         &#34;&#34;&#34;
-        Returns the removed observations.
+        Returns the observations used for testing.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
             numpy.ndarray: Y data of shape (n).
 
         Examples:
-            &gt;&gt;&gt; x, y = data.get_removed()
+            &gt;&gt;&gt; x, y = data.get_test_data()
         &#34;&#34;&#34;
         x = self.X[~self.mask,:]
         y = self.Y[~self.mask]
-        return x, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
 
     ################################################################
     
@@ -1819,16 +1976,16 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if start == None:
             start = np.min(self.X[:,0])
         else:
-            start = self.formatters[0]._parse(start)
+            start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
         if end == None:
             end = np.max(self.X[:,0])
         else:
-            end = self.formatters[0]._parse(end)
+            end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
 
         idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
         self.mask[idx] = False
     
-    def remove_rel_range(self, start, end):
+    def remove_relative_range(self, start=None, end=None):
         &#34;&#34;&#34;
         Removes observations between start and end as a percentage of the number of observations. So &#39;0&#39; is the first observation, &#39;0.5&#39; is the middle observation, and &#39;1&#39; is the last observation.
 
@@ -1838,6 +1995,12 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+        if end is None:
+            end = 1
+        if start is None:
+            start = 0
+
 
         x_min = np.min(self.X[:,0])
         x_max = np.max(self.X[:,0])
@@ -1880,7 +2043,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
     
     ################################################################
     
-    def get_pred(self, name, sigma=2):
+    def get_prediction(self, name, sigma=2):
         &#34;&#34;&#34;
         Returns the prediction of a given name with a normal variance of sigma.
 
@@ -1895,7 +2058,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
 
         Examples:
-            &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_pred(&#39;MOSM&#39;, sigma=1)
+            &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction(&#39;MOSM&#39;, sigma=1)
         &#34;&#34;&#34;
         if name not in self.Y_mu_pred:
             raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
@@ -1907,9 +2070,9 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         mu = self._detransform(self.X_pred, mu)
         lower = self._detransform(self.X_pred, lower)
         upper = self._detransform(self.X_pred, upper)
-        return self.X_pred, mu, lower, upper
+        return self.X_scales*(self.X_pred-self.X_offsets), mu, lower, upper
 
-    def set_pred_range(self, start=None, end=None, n=None, step=None):
+    def set_prediction_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
         Sets the prediction range.
 
@@ -1927,10 +2090,10 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
         Examples:
             &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
-            &gt;&gt;&gt; data.set_pred_range(3, 8, 200)
+            &gt;&gt;&gt; data.set_prediction_range(3, 8, 200)
         
-            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
-            &gt;&gt;&gt; data.set_pred_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
+            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, formats={&#39;Date&#39;: mogptk.FormatDate})
+            &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only set prediction range on one dimensional input data&#34;)
@@ -1972,8 +2135,10 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             else:
                 step = self.formatters[0]._parse_duration(step)
             self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
+
+        self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
     
-    def set_pred(self, x):
+    def set_prediction_X(self, x):
         &#34;&#34;&#34;
         Set the prediction range directly.
 
@@ -1981,7 +2146,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
 
         Examples:
-            &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+            &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
         &#34;&#34;&#34;
         if isinstance(x, list):
             x = np.array(x)
@@ -1995,7 +2160,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if x.ndim != 2 or x.shape[1] != self.get_input_dims():
             raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
 
-        self.X_pred = x
+        self.X_pred = self.X_scales*(x-self.X_offsets)
 
         # clear old prediction data now that X_pred has been updated
         self.Y_mu_pred = {}
@@ -2017,7 +2182,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
         nyquist = np.empty((input_dims))
         for i in range(self.get_input_dims()):
-            x = np.sort(self.X[:,i])
+            x = np.sort(self.X[self.mask,i])
             dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
             dist = np.min(dist[np.nonzero(dist)])
             nyquist[i] = 0.5/dist
@@ -2033,8 +2198,8 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
         Returns:
             numpy.ndarray: Amplitude array of shape (input_dims,Q).
-            numpy.ndarray: Frequency array of shape (input_dims,Q).
-            numpy.ndarray: Variance array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+            numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
         Examples:
             &gt;&gt;&gt; amplitudes, means, variances = data.get_bnse_estimation()
@@ -2049,14 +2214,15 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x = self.X[:,i]
-            y = self.Y
+            x = self.X[self.mask, i]
+            y = self.Y[self.mask]
             bnse = bse(x, y)
             bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
             bnse.compute_moments()
 
             amplitudes, positions, variances = bnse.get_freq_peaks()
+            # TODO: sqrt of amplitudes? vs LS?
             if len(positions) == 0:
                 continue
 
@@ -2073,9 +2239,10 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             A[i,:] = amplitudes[:Q]
             B[i,:] = positions[:Q]
             C[i,:] = variances[:Q]
+
         return A, B, C
 
-    def get_ls_estimation(self, Q=1, n=50000):
+    def get_lombscargle_estimation(self, Q=1, n=50000):
         &#34;&#34;&#34;
         Peak estimation using Lomb Scargle.
 
@@ -2085,11 +2252,11 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
 
         Returns:
             numpy.ndarray: Amplitude array of shape (input_dims,Q).
-            numpy.ndarray: Frequency array of shape (input_dims,Q).
-            numpy.ndarray: Variance array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+            numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
         Examples:
-            &gt;&gt;&gt; amplitudes, means, variances = data.get_ls_estimation()
+            &gt;&gt;&gt; amplitudes, means, variances = data.get_lombscargle_estimation()
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
@@ -2104,7 +2271,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             x = np.linspace(0, nyquist[i], n+1)[1:]
             dx = x[1]-x[0]
 
-            y = signal.lombscargle(self.X[:,i], self.Y, x)
+            y = signal.lombscargle(self.X[self.mask,i], self.Y[self.mask], x)
             ind, _ = signal.find_peaks(y)
             ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
@@ -2129,10 +2296,6 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             B[i,:] = positions[:Q]
             C[i,:] = variances[:Q]
         return A, B, C
-    
-    #def get_gm_estimation(self):
-    #    # TODO: use sklearn.mixture.GaussianMixture to retrieve fitted gaussian mixtures to spectral data
-    #    pass
 
     def plot(self, ax=None):
         &#34;&#34;&#34;
@@ -2153,25 +2316,28 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if ax == None:
             ax = plt.gca()
         
+        X = self.X_offsets + (self.X/self.X_scales)
+        X_pred = self.X_offsets + (self.X_pred/self.X_scales)
+
         legend = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
             if self.Y_mu_pred[name].size != 0:
                 lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
                 upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
-                ax.plot(self.X_pred[:,0], self.Y_mu_pred[name], ls=&#39;-&#39;, color=colors[i], lw=2)
-                ax.fill_between(self.X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
-                ax.plot(self.X_pred[:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-                ax.plot(self.X_pred[:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+                ax.plot(X_pred[:,0], self.Y_mu_pred[name], ls=&#39;-&#39;, color=colors[i], lw=2)
+                ax.fill_between(X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
+                ax.plot(X_pred[:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+                ax.plot(X_pred[:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
                 legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=&#39;Prediction &#39;+name))
 
         if self.F != None:
-            n = len(self.X[:,0])*10
-            x_min = np.min(self.X[:,0])
-            x_max = np.max(self.X[:,0])
-            if len(self.X_pred) != 0:
-                x_min = min(x_min, np.min(self.X_pred))
-                x_max = max(x_max, np.max(self.X_pred))
+            n = len(X[:,0])*10
+            x_min = np.min(X[:,0])
+            x_max = np.max(X[:,0])
+            if len(X_pred) != 0:
+                x_min = min(x_min, np.min(X_pred))
+                x_max = max(x_max, np.max(X_pred))
 
             x = np.empty((n, 1))
             x[:,0] = np.linspace(x_min, x_max, n)
@@ -2180,16 +2346,16 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
             legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
 
-        ax.plot(self.X[:,0], self.Y, &#39;k-&#39;, alpha=0.7)
+        ax.plot(X[:,0], self.Y, &#39;k-&#39;, alpha=0.7)
         legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
 
-        if self.has_removed_obs():
-            X, Y = self.X[self.mask,:], self.Y[self.mask]
-            ax.plot(X[:,0], Y, &#39;k.&#39;, mew=.5, ms=8, markeredgecolor=&#39;white&#39;)
+        if self.has_test_data():
+            x, y = X[self.mask,:], self.Y[self.mask]
+            ax.plot(x[:,0], y, &#39;k.&#39;, mew=.5, ms=8, markeredgecolor=&#39;white&#39;)
             legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
 
-        ax.set_xlabel(self.x_labels[0])
-        ax.set_ylabel(self.y_label)
+        ax.set_xlabel(self.X_labels[0])
+        ax.set_ylabel(self.Y_label)
         ax.set_title(self.name)
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
         ax.xaxis.set_major_formatter(formatter)
@@ -2229,7 +2395,8 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         else:
             ax.set_xlabel(&#39;Frequency&#39;)
 
-        X_space = self.X[:,0].copy() / factor
+        X_space = (self.X_offsets + (self.X/self.X_scales)) / factor
+
         freq = maxfreq
         if freq == None:
             dist = np.abs(X_space[1:]-X_space[:-1])
@@ -2246,6 +2413,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             bnse.set_freqspace(freq/2.0/np.pi, 10001)
             bnse.train()
             bnse.compute_moments()
+
             Y = bnse.post_mean_r**2 + bnse.post_mean_i**2
             Y_err = 2 * np.sqrt(np.diag(bnse.post_cov_r**2 + bnse.post_cov_i**2))
             Y = Y[1:]
@@ -2328,7 +2496,7 @@ while with FormatDateTime it is per second.</p>
     
     start = self.X[0,0]
     end = self.X[-1,0]
-    step = self.formatters[0]._parse_duration(duration)
+    step = self.X_scales[0] * self.formatters[0]._parse_duration(duration)
 
     X = np.arange(start+step/2, end+step/2, step)
     Y = np.empty((len(X)))
@@ -2412,44 +2580,13 @@ while with FormatDateTime it is per second.</p>
     if self.get_input_dims() != 1:
         raise ValueError(&#34;can only filter on one dimensional input data&#34;)
     
-    start = self.formatters[0]._parse(start)
-    end = self.formatters[0]._parse(end)
+    start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
+    end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
     ind = (self.X[:,0] &gt;= start) &amp; (self.X[:,0] &lt; end)
 
     self.X = np.expand_dims(self.X[ind,0], 1)
     self.Y = self.Y[ind]
     self.mask = self.mask[ind]</code></pre>
-</details>
-</dd>
-<dt id="mogptk.data.Data.get_all"><code class="name flex">
-<span>def <span class="ident">get_all</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<section class="desc"><p>Returns all observations (including removed observations).</p>
-<h2 id="returns">Returns</h2>
-<p>numpy.ndarray: X data of shape (n,input_dims).
-numpy.ndarray: Y data of shape (n).</p>
-<h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; x, y = data.get_all()
-</code></pre></section>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def get_all(self):
-    &#34;&#34;&#34;
-    Returns all observations (including removed observations).
-
-    Returns:
-        numpy.ndarray: X data of shape (n,input_dims).
-        numpy.ndarray: Y data of shape (n).
-
-    Examples:
-        &gt;&gt;&gt; x, y = data.get_all()
-    &#34;&#34;&#34;
-    x = self.X
-    y = self.Y
-    return x, self._detransform(x, y)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_bnse_estimation"><code class="name flex">
@@ -2466,8 +2603,8 @@ numpy.ndarray: Y data of shape (n).</p>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: Amplitude array of shape (input_dims,Q).
-numpy.ndarray: Frequency array of shape (input_dims,Q).
-numpy.ndarray: Variance array of shape (input_dims,Q).</p>
+numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+numpy.ndarray: Variance array of shape (input_dims,Q) in radians.</p>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; amplitudes, means, variances = data.get_bnse_estimation()
 </code></pre></section>
@@ -2485,8 +2622,8 @@ numpy.ndarray: Variance array of shape (input_dims,Q).</p>
 
     Returns:
         numpy.ndarray: Amplitude array of shape (input_dims,Q).
-        numpy.ndarray: Frequency array of shape (input_dims,Q).
-        numpy.ndarray: Variance array of shape (input_dims,Q).
+        numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+        numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
     Examples:
         &gt;&gt;&gt; amplitudes, means, variances = data.get_bnse_estimation()
@@ -2501,14 +2638,15 @@ numpy.ndarray: Variance array of shape (input_dims,Q).</p>
 
     nyquist = self.get_nyquist_estimation()
     for i in range(input_dims):
-        x = self.X[:,i]
-        y = self.Y
+        x = self.X[self.mask, i]
+        y = self.Y[self.mask]
         bnse = bse(x, y)
         bnse.set_freqspace(nyquist[i], dimension=n)
         bnse.train()
         bnse.compute_moments()
 
         amplitudes, positions, variances = bnse.get_freq_peaks()
+        # TODO: sqrt of amplitudes? vs LS?
         if len(positions) == 0:
             continue
 
@@ -2525,6 +2663,7 @@ numpy.ndarray: Variance array of shape (input_dims,Q).</p>
         A[i,:] = amplitudes[:Q]
         B[i,:] = positions[:Q]
         C[i,:] = variances[:Q]
+
     return A, B, C</code></pre>
 </details>
 </dd>
@@ -2532,7 +2671,7 @@ numpy.ndarray: Variance array of shape (input_dims,Q).</p>
 <span>def <span class="ident">get_data</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the observations.</p>
+<section class="desc"><p>Returns all observations, train and test.</p>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: X data of shape (n,input_dims).
 numpy.ndarray: Y data of shape (n).</p>
@@ -2545,7 +2684,7 @@ numpy.ndarray: Y data of shape (n).</p>
 </summary>
 <pre><code class="python">def get_data(self):
     &#34;&#34;&#34;
-    Returns the observations.
+    Returns all observations, train and test.
 
     Returns:
         numpy.ndarray: X data of shape (n,input_dims).
@@ -2554,9 +2693,9 @@ numpy.ndarray: Y data of shape (n).</p>
     Examples:
         &gt;&gt;&gt; x, y = data.get_data()
     &#34;&#34;&#34;
-    x = self.X[self.mask,:]
-    y = self.Y[self.mask]
-    return x, self._detransform(x, y)</code></pre>
+    x = self.X
+    y = self.Y
+    return self.X_offsets + x/self.X_scales, self._detransform(x, y)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_input_dims"><code class="name flex">
@@ -2594,8 +2733,8 @@ numpy.ndarray: Y data of shape (n).</p>
     return self.X.shape[1]</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.get_ls_estimation"><code class="name flex">
-<span>def <span class="ident">get_ls_estimation</span></span>(<span>self, Q=1, n=50000)</span>
+<dt id="mogptk.data.Data.get_lombscargle_estimation"><code class="name flex">
+<span>def <span class="ident">get_lombscargle_estimation</span></span>(<span>self, Q=1, n=50000)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Peak estimation using Lomb Scargle.</p>
@@ -2608,16 +2747,16 @@ numpy.ndarray: Y data of shape (n).</p>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: Amplitude array of shape (input_dims,Q).
-numpy.ndarray: Frequency array of shape (input_dims,Q).
-numpy.ndarray: Variance array of shape (input_dims,Q).</p>
+numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+numpy.ndarray: Variance array of shape (input_dims,Q) in radians.</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; amplitudes, means, variances = data.get_ls_estimation()
+<pre><code>&gt;&gt;&gt; amplitudes, means, variances = data.get_lombscargle_estimation()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_ls_estimation(self, Q=1, n=50000):
+<pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=50000):
     &#34;&#34;&#34;
     Peak estimation using Lomb Scargle.
 
@@ -2627,11 +2766,11 @@ numpy.ndarray: Variance array of shape (input_dims,Q).</p>
 
     Returns:
         numpy.ndarray: Amplitude array of shape (input_dims,Q).
-        numpy.ndarray: Frequency array of shape (input_dims,Q).
-        numpy.ndarray: Variance array of shape (input_dims,Q).
+        numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+        numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
     Examples:
-        &gt;&gt;&gt; amplitudes, means, variances = data.get_ls_estimation()
+        &gt;&gt;&gt; amplitudes, means, variances = data.get_lombscargle_estimation()
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
 
@@ -2646,7 +2785,7 @@ numpy.ndarray: Variance array of shape (input_dims,Q).</p>
         x = np.linspace(0, nyquist[i], n+1)[1:]
         dx = x[1]-x[0]
 
-        y = signal.lombscargle(self.X[:,i], self.Y, x)
+        y = signal.lombscargle(self.X[self.mask,i], self.Y[self.mask], x)
         ind, _ = signal.find_peaks(y)
         ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
@@ -2730,15 +2869,15 @@ numpy.ndarray: Variance array of shape (input_dims,Q).</p>
 
     nyquist = np.empty((input_dims))
     for i in range(self.get_input_dims()):
-        x = np.sort(self.X[:,i])
+        x = np.sort(self.X[self.mask,i])
         dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
         dist = np.min(dist[np.nonzero(dist)])
         nyquist[i] = 0.5/dist
     return nyquist</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.get_pred"><code class="name flex">
-<span>def <span class="ident">get_pred</span></span>(<span>self, name, sigma=2)</span>
+<dt id="mogptk.data.Data.get_prediction"><code class="name flex">
+<span>def <span class="ident">get_prediction</span></span>(<span>self, name, sigma=2)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Returns the prediction of a given name with a normal variance of sigma.</p>
@@ -2755,13 +2894,13 @@ numpy.ndarray: Y mean prediction of shape (n,).
 numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
 numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_pred('MOSM', sigma=1)
+<pre><code>&gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction('MOSM', sigma=1)
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_pred(self, name, sigma=2):
+<pre><code class="python">def get_prediction(self, name, sigma=2):
     &#34;&#34;&#34;
     Returns the prediction of a given name with a normal variance of sigma.
 
@@ -2776,7 +2915,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
         numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
 
     Examples:
-        &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_pred(&#39;MOSM&#39;, sigma=1)
+        &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction(&#39;MOSM&#39;, sigma=1)
     &#34;&#34;&#34;
     if name not in self.Y_mu_pred:
         raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
@@ -2788,42 +2927,73 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
     mu = self._detransform(self.X_pred, mu)
     lower = self._detransform(self.X_pred, lower)
     upper = self._detransform(self.X_pred, upper)
-    return self.X_pred, mu, lower, upper</code></pre>
+    return self.X_scales*(self.X_pred-self.X_offsets), mu, lower, upper</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.get_removed"><code class="name flex">
-<span>def <span class="ident">get_removed</span></span>(<span>self)</span>
+<dt id="mogptk.data.Data.get_test_data"><code class="name flex">
+<span>def <span class="ident">get_test_data</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the removed observations.</p>
+<section class="desc"><p>Returns the observations used for testing.</p>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: X data of shape (n,input_dims).
 numpy.ndarray: Y data of shape (n).</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; x, y = data.get_removed()
+<pre><code>&gt;&gt;&gt; x, y = data.get_test_data()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_removed(self):
+<pre><code class="python">def get_test_data(self):
     &#34;&#34;&#34;
-    Returns the removed observations.
+    Returns the observations used for testing.
 
     Returns:
         numpy.ndarray: X data of shape (n,input_dims).
         numpy.ndarray: Y data of shape (n).
 
     Examples:
-        &gt;&gt;&gt; x, y = data.get_removed()
+        &gt;&gt;&gt; x, y = data.get_test_data()
     &#34;&#34;&#34;
     x = self.X[~self.mask,:]
     y = self.Y[~self.mask]
-    return x, self._detransform(x, y)</code></pre>
+    return self.X_offsets + x/self.X_scales, self._detransform(x, y)</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.has_removed_obs"><code class="name flex">
-<span>def <span class="ident">has_removed_obs</span></span>(<span>self)</span>
+<dt id="mogptk.data.Data.get_train_data"><code class="name flex">
+<span>def <span class="ident">get_train_data</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the observations used for training.</p>
+<h2 id="returns">Returns</h2>
+<p>numpy.ndarray: X data of shape (n,input_dims).
+numpy.ndarray: Y data of shape (n).</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; x, y = data.get_train_data()
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_train_data(self):
+    &#34;&#34;&#34;
+    Returns the observations used for training.
+
+    Returns:
+        numpy.ndarray: X data of shape (n,input_dims).
+        numpy.ndarray: Y data of shape (n).
+
+    Examples:
+        &gt;&gt;&gt; x, y = data.get_train_data()
+    &#34;&#34;&#34;
+    x = self.X[self.mask,:]
+    y = self.Y[self.mask]
+    return self.X_offsets + x/self.X_scales, self._detransform(x, y)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.has_test_data"><code class="name flex">
+<span>def <span class="ident">has_test_data</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Returns True if observations have been removed using the remove_* methods.</p>
@@ -2833,7 +3003,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <dd>&nbsp;</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; data.has_removed_obs()
+<pre><code>&gt;&gt;&gt; data.has_test_data()
 **`True`**
 </code></pre>
 <dl>
@@ -2843,7 +3013,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def has_removed_obs(self):
+<pre><code class="python">def has_test_data(self):
     &#34;&#34;&#34;
     Returns True if observations have been removed using the remove_* methods.
 
@@ -2851,7 +3021,7 @@ numpy.ndarray: Y data of shape (n).</p>
         boolean
 
     Examples:
-        &gt;&gt;&gt; data.has_removed_obs()
+        &gt;&gt;&gt; data.has_test_data()
         True
     &#34;&#34;&#34;
     return False in self.mask</code></pre>
@@ -2895,25 +3065,28 @@ numpy.ndarray: Y data of shape (n).</p>
     if ax == None:
         ax = plt.gca()
     
+    X = self.X_offsets + (self.X/self.X_scales)
+    X_pred = self.X_offsets + (self.X_pred/self.X_scales)
+
     legend = []
     colors = list(matplotlib.colors.TABLEAU_COLORS)
     for i, name in enumerate(self.Y_mu_pred):
         if self.Y_mu_pred[name].size != 0:
             lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
             upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
-            ax.plot(self.X_pred[:,0], self.Y_mu_pred[name], ls=&#39;-&#39;, color=colors[i], lw=2)
-            ax.fill_between(self.X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
-            ax.plot(self.X_pred[:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-            ax.plot(self.X_pred[:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+            ax.plot(X_pred[:,0], self.Y_mu_pred[name], ls=&#39;-&#39;, color=colors[i], lw=2)
+            ax.fill_between(X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
+            ax.plot(X_pred[:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
+            ax.plot(X_pred[:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
             legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=&#39;Prediction &#39;+name))
 
     if self.F != None:
-        n = len(self.X[:,0])*10
-        x_min = np.min(self.X[:,0])
-        x_max = np.max(self.X[:,0])
-        if len(self.X_pred) != 0:
-            x_min = min(x_min, np.min(self.X_pred))
-            x_max = max(x_max, np.max(self.X_pred))
+        n = len(X[:,0])*10
+        x_min = np.min(X[:,0])
+        x_max = np.max(X[:,0])
+        if len(X_pred) != 0:
+            x_min = min(x_min, np.min(X_pred))
+            x_max = max(x_max, np.max(X_pred))
 
         x = np.empty((n, 1))
         x[:,0] = np.linspace(x_min, x_max, n)
@@ -2922,16 +3095,16 @@ numpy.ndarray: Y data of shape (n).</p>
         ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
         legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
 
-    ax.plot(self.X[:,0], self.Y, &#39;k-&#39;, alpha=0.7)
+    ax.plot(X[:,0], self.Y, &#39;k-&#39;, alpha=0.7)
     legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
 
-    if self.has_removed_obs():
-        X, Y = self.X[self.mask,:], self.Y[self.mask]
-        ax.plot(X[:,0], Y, &#39;k.&#39;, mew=.5, ms=8, markeredgecolor=&#39;white&#39;)
+    if self.has_test_data():
+        x, y = X[self.mask,:], self.Y[self.mask]
+        ax.plot(x[:,0], y, &#39;k.&#39;, mew=.5, ms=8, markeredgecolor=&#39;white&#39;)
         legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
 
-    ax.set_xlabel(self.x_labels[0])
-    ax.set_ylabel(self.y_label)
+    ax.set_xlabel(self.X_labels[0])
+    ax.set_ylabel(self.Y_label)
     ax.set_title(self.name)
     formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
     ax.xaxis.set_major_formatter(formatter)
@@ -2997,7 +3170,8 @@ numpy.ndarray: Y data of shape (n).</p>
     else:
         ax.set_xlabel(&#39;Frequency&#39;)
 
-    X_space = self.X[:,0].copy() / factor
+    X_space = (self.X_offsets + (self.X/self.X_scales)) / factor
+
     freq = maxfreq
     if freq == None:
         dist = np.abs(X_space[1:]-X_space[:-1])
@@ -3014,6 +3188,7 @@ numpy.ndarray: Y data of shape (n).</p>
         bnse.set_freqspace(freq/2.0/np.pi, 10001)
         bnse.train()
         bnse.compute_moments()
+
         Y = bnse.post_mean_r**2 + bnse.post_mean_i**2
         Y_err = 2 * np.sqrt(np.diag(bnse.post_cov_r**2 + bnse.post_cov_i**2))
         Y = Y[1:]
@@ -3172,18 +3347,18 @@ numpy.ndarray: Y data of shape (n).</p>
     if start == None:
         start = np.min(self.X[:,0])
     else:
-        start = self.formatters[0]._parse(start)
+        start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
     if end == None:
         end = np.max(self.X[:,0])
     else:
-        end = self.formatters[0]._parse(end)
+        end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
 
     idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
     self.mask[idx] = False</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.remove_rel_range"><code class="name flex">
-<span>def <span class="ident">remove_rel_range</span></span>(<span>self, start, end)</span>
+<dt id="mogptk.data.Data.remove_relative_range"><code class="name flex">
+<span>def <span class="ident">remove_relative_range</span></span>(<span>self, start=None, end=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Removes observations between start and end as a percentage of the number of observations. So '0' is the first observation, '0.5' is the middle observation, and '1' is the last observation.</p>
@@ -3198,7 +3373,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def remove_rel_range(self, start, end):
+<pre><code class="python">def remove_relative_range(self, start=None, end=None):
     &#34;&#34;&#34;
     Removes observations between start and end as a percentage of the number of observations. So &#39;0&#39; is the first observation, &#39;0.5&#39; is the middle observation, and &#39;1&#39; is the last observation.
 
@@ -3208,6 +3383,12 @@ numpy.ndarray: Y data of shape (n).</p>
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
         raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+    if end is None:
+        end = 1
+    if start is None:
+        start = 0
+
 
     x_min = np.min(self.X[:,0])
     x_max = np.max(self.X[:,0])
@@ -3291,8 +3472,8 @@ numpy.ndarray: Y data of shape (n).</p>
     if len(x_labels) != self.get_input_dims():
         raise ValueError(&#34;x_labels must have the same input dimensions as the data&#34;)
 
-    self.x_labels = x_labels
-    self.y_label = y_label</code></pre>
+    self.X_labels = x_labels
+    self.Y_label = y_label</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.set_name"><code class="name flex">
@@ -3325,8 +3506,8 @@ numpy.ndarray: Y data of shape (n).</p>
     self.name = name</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.set_pred"><code class="name flex">
-<span>def <span class="ident">set_pred</span></span>(<span>self, x)</span>
+<dt id="mogptk.data.Data.set_prediction_X"><code class="name flex">
+<span>def <span class="ident">set_prediction_X</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Set the prediction range directly.</p>
@@ -3336,13 +3517,13 @@ numpy.ndarray: Y data of shape (n).</p>
 <dd>Array of shape (n) or (n,input_dims) with input values to predict at.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+<pre><code>&gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def set_pred(self, x):
+<pre><code class="python">def set_prediction_X(self, x):
     &#34;&#34;&#34;
     Set the prediction range directly.
 
@@ -3350,7 +3531,7 @@ numpy.ndarray: Y data of shape (n).</p>
         x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
 
     Examples:
-        &gt;&gt;&gt; data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+        &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
     &#34;&#34;&#34;
     if isinstance(x, list):
         x = np.array(x)
@@ -3364,15 +3545,15 @@ numpy.ndarray: Y data of shape (n).</p>
     if x.ndim != 2 or x.shape[1] != self.get_input_dims():
         raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
 
-    self.X_pred = x
+    self.X_pred = self.X_scales*(x-self.X_offsets)
 
     # clear old prediction data now that X_pred has been updated
     self.Y_mu_pred = {}
     self.Y_var_pred = {}</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.set_pred_range"><code class="name flex">
-<span>def <span class="ident">set_pred_range</span></span>(<span>self, start=None, end=None, n=None, step=None)</span>
+<dt id="mogptk.data.Data.set_prediction_range"><code class="name flex">
+<span>def <span class="ident">set_prediction_range</span></span>(<span>self, start=None, end=None, n=None, step=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Sets the prediction range.</p>
@@ -3393,16 +3574,16 @@ step in the duration string format if the proper formatter is set.</p>
 <p>If neither 'step' or 'n' is passed, default number of points is 100.</p>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
-&gt;&gt;&gt; data.set_pred_range(3, 8, 200)
+&gt;&gt;&gt; data.set_prediction_range(3, 8, 200)
 
-&gt;&gt;&gt; data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', format={'Date': mogptk.FormatDate})
-&gt;&gt;&gt; data.set_pred_range('2016-01-15', '2016-06-15', step='1d')
+&gt;&gt;&gt; data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', formats={'Date': mogptk.FormatDate})
+&gt;&gt;&gt; data.set_prediction_range('2016-01-15', '2016-06-15', step='1d')
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def set_pred_range(self, start=None, end=None, n=None, step=None):
+<pre><code class="python">def set_prediction_range(self, start=None, end=None, n=None, step=None):
     &#34;&#34;&#34;
     Sets the prediction range.
 
@@ -3420,10 +3601,10 @@ step in the duration string format if the proper formatter is set.</p>
 
     Examples:
         &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
-        &gt;&gt;&gt; data.set_pred_range(3, 8, 200)
+        &gt;&gt;&gt; data.set_prediction_range(3, 8, 200)
     
-        &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, format={&#39;Date&#39;: mogptk.FormatDate})
-        &gt;&gt;&gt; data.set_pred_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
+        &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;, formats={&#39;Date&#39;: mogptk.FormatDate})
+        &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
         raise Exception(&#34;can only set prediction range on one dimensional input data&#34;)
@@ -3464,7 +3645,64 @@ step in the duration string format if the proper formatter is set.</p>
             step = (end[0]-start[0])/100
         else:
             step = self.formatters[0]._parse_duration(step)
-        self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)</code></pre>
+        self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
+
+    self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.set_x_scaling"><code class="name flex">
+<span>def <span class="ident">set_x_scaling</span></span>(<span>self, offsets, scales)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Set offset and scaling of X axis for each input dimension.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>offsets</code></strong> :&ensp;<code>float</code>, <code>list</code> or <code>np.ndarray</code> of <code>floats</code></dt>
+<dd>X offsets per input dimension.</dd>
+<dt><strong><code>scales</code></strong> :&ensp;<code>float</code>, <code>list</code> or <code>np.ndarray</code> of <code>floats</code></dt>
+<dd>X scales per input dimension.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; data.set_x_scaling([['X', 'Y'], 'Cd')
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_x_scaling(self, offsets, scales):
+    &#34;&#34;&#34;
+    Set offset and scaling of X axis for each input dimension.
+
+    Args:
+        offsets (float, list or np.ndarray of floats): X offsets per input dimension.
+        scales (float, list or np.ndarray of floats): X scales per input dimension.
+
+    Examples:
+        &gt;&gt;&gt; data.set_x_scaling([[&#39;X&#39;, &#39;Y&#39;], &#39;Cd&#39;)
+    &#34;&#34;&#34;
+
+    if isinstance(offsets, float):
+        offsets = [offsets]
+    elif isinstance(offsets, np.ndarray):
+        offsets = list(offsets)
+    if not isinstance(offsets, list) or not all(isinstance(item, float) for item in offsets) or len(offsets) != self.get_input_dims():
+        raise ValueError(&#34;offsets must be a float, list or np.ndarray of floats and have the same input dimensions as the data&#34;)
+
+    if isinstance(scales, float):
+        scales = [scales]
+    elif isinstance(scales, np.ndarray):
+        scales = list(scales)
+    if not isinstance(scales, list) or not all(isinstance(item, float) for item in scales) or len(scales) != self.get_input_dims():
+        raise ValueError(&#34;scales must be a float, list or np.ndarray of floats and have the same input dimensions as the data&#34;)
+
+    self.X = self.X_offsets + (self.X/self.X_scales)
+    self.X_pred = self.X_offsets + (self.X_pred/self.X_scales)
+
+    self.X_offsets = offsets
+    self.X_scales = scales
+
+    self.X = self.X_scales*(self.X-self.X_offsets)
+    self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.transform"><code class="name flex">
@@ -3521,8 +3759,15 @@ step in the duration string format if the proper formatter is set.</p>
     &#34;&#34;&#34;
     FormatDate is a formatter that takes date values as input, such as &#39;2019-03-01&#39;, and stores values internally as days since 1970-01-01.
     &#34;&#34;&#34;
+    def __init__(self):
+        self.category = &#39;date&#39;
+
     def _parse(self, val):
-        return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()/3600/24
+        if isinstance(val, np.datetime64):
+            dt = pd.Timestamp(val).to_pydatetime()
+        else:
+            dt = dateutil.parser.parse(val)
+        return (dt - datetime.datetime(1970,1,1)).total_seconds()/3600/24
 
     def _parse_duration(self, val):
         if isinstance(val, int):
@@ -3562,8 +3807,15 @@ step in the duration string format if the proper formatter is set.</p>
     &#34;&#34;&#34;
     FormatDateTime is a formatter that takes date and time values as input, such as &#39;2019-03-01 12:30&#39;, and stores values internally as seconds since 1970-01-01.
     &#34;&#34;&#34;
+    def __init__(self):
+        self.category = &#39;date&#39;
+
     def _parse(self, val):
-        return (dateutil.parser.parse(val) - datetime.datetime(1970,1,1)).total_seconds()
+        if isinstance(val, np.datetime64):
+            dt = pd.Timestamp(val).to_pydatetime()
+        else:
+            dt = dateutil.parser.parse(val)
+        return (dt - datetime.datetime(1970,1,1)).total_seconds()
 
     def _parse_duration(self, val):
         if isinstance(val, int):
@@ -3603,9 +3855,15 @@ step in the duration string format if the proper formatter is set.</p>
     &#34;&#34;&#34;
     FormatNumber is the default formatter and takes regular floating point values as input.
     &#34;&#34;&#34;
+    def __init__(self):
+        self.category = &#39;num&#39;
+
     def _parse(self, val):
+        if np.isnan(val):
+            raise ValueError(&#34;number cannot be NaN&#34;)
         return float(val)
 
+    # TODO: rename parse_delta?
     def _parse_duration(self, val):
         return self._parse(val)
 
@@ -3646,7 +3904,7 @@ step in the duration string format if the proper formatter is set.</p>
         if data.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
-        self.coef = np.polyfit(data.X[:,0], data.Y, self.degree)
+        self.coef = np.polyfit(data.X[data.mask,0], data.Y[data.mask], self.degree)
         # reg = Ridge(alpha=0.1, fit_intercept=True)
         # reg.fit(data.X, data.Y)
         # self.trend = reg
@@ -3657,6 +3915,34 @@ step in the duration string format if the proper formatter is set.</p>
     
     def _backward(self, x, y):
         return y + np.polyval(self.coef, x[:, 0])</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformLinear"><code class="flex name class">
+<span>class <span class="ident">TransformLinear</span></span>
+<span>(</span><span>scale=1.0, offset=0.0)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>TransformLinear transforms the data linearly so that y =&gt; (y-offset)/scale.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TransformLinear:
+    &#34;&#34;&#34;
+    TransformLinear transforms the data linearly so that y =&gt; (y-offset)/scale.
+    &#34;&#34;&#34;
+    def __init__(self, scale=1.0, offset=0.0):
+        self.scale = scale
+        self.offset = offset
+
+    def _data(self, data):
+        pass
+
+    def _forward(self, x, y):
+        return (y-self.offset)/self.scale
+
+    def _backward(self, x, y):
+        return self.scale*y + self.offset</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.TransformLog"><code class="flex name class">
@@ -3676,8 +3962,8 @@ step in the duration string format if the proper formatter is set.</p>
         pass
 
     def _data(self, data):
-        self.shift = 1 - np.amin(data.Y)
-        self.mean = np.log(data.Y + self.shift).mean()
+        self.shift = 1 - np.amin(data.Y[data.mask])
+        self.mean = np.log(data.Y[data.mask] + self.shift).mean()
 
     def _forward(self, x, y):
         return np.log(y + self.shift) - self.mean
@@ -3690,27 +3976,55 @@ step in the duration string format if the proper formatter is set.</p>
 <span>class <span class="ident">TransformNormalize</span></span>
 </code></dt>
 <dd>
-<section class="desc"><p>TransformNormalize is a transformer that normalizes the data so that the y-axis is between 0 and 1.</p></section>
+<section class="desc"><p>TransformNormalize is a transformer that normalizes the data so that the y-axis is between -1 and 1.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class TransformNormalize:
     &#34;&#34;&#34;
-    TransformNormalize is a transformer that normalizes the data so that the y-axis is between 0 and 1.
+    TransformNormalize is a transformer that normalizes the data so that the y-axis is between -1 and 1.
     &#34;&#34;&#34;
     def __init__(self):
         pass
 
     def _data(self, data):
-        self.ymin = np.amin(data.Y)
-        self.ymax = np.amax(data.Y)
+        self.ymin = np.amin(data.Y[data.mask])
+        self.ymax = np.amax(data.Y[data.mask])
 
     def _forward(self, x, y):
-        return (y-self.ymin)/(self.ymax-self.ymin)
+        return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
     
     def _backward(self, x, y):
-        return y*(self.ymax-self.ymin)+self.ymin</code></pre>
+        return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformWhiten"><code class="flex name class">
+<span>class <span class="ident">TransformWhiten</span></span>
+</code></dt>
+<dd>
+<section class="desc"><p>Transform the data so it has mean 0 and variance 1</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TransformWhiten:
+    &#34;&#34;&#34;
+    Transform the data so it has mean 0 and variance 1
+    &#34;&#34;&#34;
+    def __init__(self):
+        pass
+    
+    def _data(self, data):
+        # take only the non-removed observations
+        self.mean = data.Y[data.mask].mean()
+        self.std = data.Y[data.mask].std()
+        
+    def _forward(self, x, y):
+        return (y - self.mean) / self.std
+    
+    def _backward(self, x, y):
+        return (y * self.std) + self.mean</code></pre>
 </details>
 </dd>
 </dl>
@@ -3740,27 +4054,28 @@ step in the duration string format if the proper formatter is set.</p>
 <li><code><a title="mogptk.data.Data.aggregate" href="#mogptk.data.Data.aggregate">aggregate</a></code></li>
 <li><code><a title="mogptk.data.Data.copy" href="#mogptk.data.Data.copy">copy</a></code></li>
 <li><code><a title="mogptk.data.Data.filter" href="#mogptk.data.Data.filter">filter</a></code></li>
-<li><code><a title="mogptk.data.Data.get_all" href="#mogptk.data.Data.get_all">get_all</a></code></li>
 <li><code><a title="mogptk.data.Data.get_bnse_estimation" href="#mogptk.data.Data.get_bnse_estimation">get_bnse_estimation</a></code></li>
 <li><code><a title="mogptk.data.Data.get_data" href="#mogptk.data.Data.get_data">get_data</a></code></li>
 <li><code><a title="mogptk.data.Data.get_input_dims" href="#mogptk.data.Data.get_input_dims">get_input_dims</a></code></li>
-<li><code><a title="mogptk.data.Data.get_ls_estimation" href="#mogptk.data.Data.get_ls_estimation">get_ls_estimation</a></code></li>
+<li><code><a title="mogptk.data.Data.get_lombscargle_estimation" href="#mogptk.data.Data.get_lombscargle_estimation">get_lombscargle_estimation</a></code></li>
 <li><code><a title="mogptk.data.Data.get_name" href="#mogptk.data.Data.get_name">get_name</a></code></li>
 <li><code><a title="mogptk.data.Data.get_nyquist_estimation" href="#mogptk.data.Data.get_nyquist_estimation">get_nyquist_estimation</a></code></li>
-<li><code><a title="mogptk.data.Data.get_pred" href="#mogptk.data.Data.get_pred">get_pred</a></code></li>
-<li><code><a title="mogptk.data.Data.get_removed" href="#mogptk.data.Data.get_removed">get_removed</a></code></li>
-<li><code><a title="mogptk.data.Data.has_removed_obs" href="#mogptk.data.Data.has_removed_obs">has_removed_obs</a></code></li>
+<li><code><a title="mogptk.data.Data.get_prediction" href="#mogptk.data.Data.get_prediction">get_prediction</a></code></li>
+<li><code><a title="mogptk.data.Data.get_test_data" href="#mogptk.data.Data.get_test_data">get_test_data</a></code></li>
+<li><code><a title="mogptk.data.Data.get_train_data" href="#mogptk.data.Data.get_train_data">get_train_data</a></code></li>
+<li><code><a title="mogptk.data.Data.has_test_data" href="#mogptk.data.Data.has_test_data">has_test_data</a></code></li>
 <li><code><a title="mogptk.data.Data.plot" href="#mogptk.data.Data.plot">plot</a></code></li>
 <li><code><a title="mogptk.data.Data.plot_spectrum" href="#mogptk.data.Data.plot_spectrum">plot_spectrum</a></code></li>
 <li><code><a title="mogptk.data.Data.remove_random_ranges" href="#mogptk.data.Data.remove_random_ranges">remove_random_ranges</a></code></li>
 <li><code><a title="mogptk.data.Data.remove_randomly" href="#mogptk.data.Data.remove_randomly">remove_randomly</a></code></li>
 <li><code><a title="mogptk.data.Data.remove_range" href="#mogptk.data.Data.remove_range">remove_range</a></code></li>
-<li><code><a title="mogptk.data.Data.remove_rel_range" href="#mogptk.data.Data.remove_rel_range">remove_rel_range</a></code></li>
+<li><code><a title="mogptk.data.Data.remove_relative_range" href="#mogptk.data.Data.remove_relative_range">remove_relative_range</a></code></li>
 <li><code><a title="mogptk.data.Data.set_function" href="#mogptk.data.Data.set_function">set_function</a></code></li>
 <li><code><a title="mogptk.data.Data.set_labels" href="#mogptk.data.Data.set_labels">set_labels</a></code></li>
 <li><code><a title="mogptk.data.Data.set_name" href="#mogptk.data.Data.set_name">set_name</a></code></li>
-<li><code><a title="mogptk.data.Data.set_pred" href="#mogptk.data.Data.set_pred">set_pred</a></code></li>
-<li><code><a title="mogptk.data.Data.set_pred_range" href="#mogptk.data.Data.set_pred_range">set_pred_range</a></code></li>
+<li><code><a title="mogptk.data.Data.set_prediction_X" href="#mogptk.data.Data.set_prediction_X">set_prediction_X</a></code></li>
+<li><code><a title="mogptk.data.Data.set_prediction_range" href="#mogptk.data.Data.set_prediction_range">set_prediction_range</a></code></li>
+<li><code><a title="mogptk.data.Data.set_x_scaling" href="#mogptk.data.Data.set_x_scaling">set_x_scaling</a></code></li>
 <li><code><a title="mogptk.data.Data.transform" href="#mogptk.data.Data.transform">transform</a></code></li>
 </ul>
 </li>
@@ -3777,10 +4092,16 @@ step in the duration string format if the proper formatter is set.</p>
 <h4><code><a title="mogptk.data.TransformDetrend" href="#mogptk.data.TransformDetrend">TransformDetrend</a></code></h4>
 </li>
 <li>
+<h4><code><a title="mogptk.data.TransformLinear" href="#mogptk.data.TransformLinear">TransformLinear</a></code></h4>
+</li>
+<li>
 <h4><code><a title="mogptk.data.TransformLog" href="#mogptk.data.TransformLog">TransformLog</a></code></h4>
 </li>
 <li>
 <h4><code><a title="mogptk.data.TransformNormalize" href="#mogptk.data.TransformNormalize">TransformNormalize</a></code></h4>
+</li>
+<li>
+<h4><code><a title="mogptk.data.TransformWhiten" href="#mogptk.data.TransformWhiten">TransformWhiten</a></code></h4>
 </li>
 </ul>
 </li>

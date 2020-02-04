@@ -13,53 +13,66 @@ import logging
 
 logger = logging.getLogger('mogptk')
 
-class FormatNumber:
+class FormatBase:
+    def parse(self, val):
+        raise NotImplementedError
+
+    def parse_delta(self, val):
+        raise NotImplementedError
+
+    def format(self, val):
+        raise NotImplementedError
+
+    def get_scale(self, maxfreq=None):
+        raise NotImplementedError
+
+
+class FormatNumber(FormatBase):
     """
     FormatNumber is the default formatter and takes regular floating point values as input.
     """
     def __init__(self):
         self.category = 'num'
 
-    def _parse(self, val):
+    def parse(self, val):
         if np.isnan(val):
             raise ValueError("number cannot be NaN")
         return float(val)
 
-    # TODO: rename parse_delta?
-    def _parse_duration(self, val):
-        return self._parse(val)
+    def parse_delta(self, val):
+        return self.parse(val)
 
-    def _format(self, val):
+    def format(self, val):
         return '%.6g' % (val,)
 
-    def _scale(self, maxfreq=None):
+    def get_scale(self, maxfreq=None):
         return 1, None
 
-class FormatDate:
+class FormatDate(FormatBase):
     """
     FormatDate is a formatter that takes date values as input, such as '2019-03-01', and stores values internally as days since 1970-01-01.
     """
     def __init__(self):
         self.category = 'date'
 
-    def _parse(self, val):
+    def parse(self, val):
         if isinstance(val, np.datetime64):
             dt = pd.Timestamp(val).to_pydatetime()
         else:
             dt = dateutil.parser.parse(val)
         return (dt - datetime.datetime(1970,1,1)).total_seconds()/3600/24
 
-    def _parse_duration(self, val):
+    def parse_delta(self, val):
         if isinstance(val, int):
             return val
         if isinstance(val, str):
             return _parse_duration_to_sec(val)/24/3600
         raise ValueError("could not convert input to duration")
     
-    def _format(self, val):
+    def format(self, val):
         return datetime.datetime.utcfromtimestamp(val*3600*24).strftime('%Y-%m-%d')
 
-    def _scale(self, maxfreq=None):
+    def get_scale(self, maxfreq=None):
         if maxfreq == 'year':
             return 356.2425, 'year'
         if maxfreq == 'month':
@@ -73,31 +86,31 @@ class FormatDate:
         if maxfreq == 'second':
             return 1/24/3600, 'second'
 
-class FormatDateTime:
+class FormatDateTime(FormatBase):
     """
     FormatDateTime is a formatter that takes date and time values as input, such as '2019-03-01 12:30', and stores values internally as seconds since 1970-01-01.
     """
     def __init__(self):
         self.category = 'date'
 
-    def _parse(self, val):
+    def parse(self, val):
         if isinstance(val, np.datetime64):
             dt = pd.Timestamp(val).to_pydatetime()
         else:
             dt = dateutil.parser.parse(val)
         return (dt - datetime.datetime(1970,1,1)).total_seconds()
 
-    def _parse_duration(self, val):
+    def parse_delta(self, val):
         if isinstance(val, int):
             return val
         if isinstance(val, str):
             return _parse_duration_to_sec(val)
         raise ValueError("could not convert input to duration")
 
-    def _format(self, val):
+    def format(self, val):
         return datetime.datetime.utcfromtimestamp(val).strftime('%Y-%m-%d %H:%M')
 
-    def _scale(self, maxfreq=None):
+    def get_scale(self, maxfreq=None):
         if maxfreq == 'year':
             return 3600*24*356.2425, 'year'
         if maxfreq == 'month':
@@ -115,7 +128,17 @@ class FormatDateTime:
 ################################################################
 ################################################################
 
-class TransformDetrend:
+class TransformBase:
+    def set_data(self, data):
+        pass
+
+    def forward(self, y, x=None):
+        raise NotImplementedError
+    
+    def backward(self, y, x=None):
+        raise NotImplementedError
+
+class TransformDetrend(TransformBase):
     """
     TransformDetrend is a transformer that detrends the data. It uses NumPy `polyfit` to find an `n` degree polynomial that removes the trend.
 
@@ -126,7 +149,7 @@ class TransformDetrend:
     def __init__(self, degree=1):
         self.degree = degree
 
-    def _data(self, data):
+    def set_data(self, data):
         if data.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
@@ -135,15 +158,15 @@ class TransformDetrend:
         # reg.fit(data.X, data.Y)
         # self.trend = reg
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return y - np.polyval(self.coef, x[:, 0])
         # return y - self.trend.predict(x)
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return y + np.polyval(self.coef, x[:, 0])
         # return y + self.trend.predict(x)
 
-class TransformLinear:
+class TransformLinear(TransformBase):
     """
     TransformLinear transforms the data linearly so that y => (y-offset)/scale.
     """
@@ -151,65 +174,65 @@ class TransformLinear:
         self.scale = scale
         self.offset = offset
 
-    def _data(self, data):
+    def set_data(self, data):
         pass
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return (y-self.offset)/self.scale
 
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return self.scale*y + self.offset
 
-class TransformNormalize:
+class TransformNormalize(TransformBase):
     """
     TransformNormalize is a transformer that normalizes the data so that the y-axis is between -1 and 1.
     """
     def __init__(self):
         pass
 
-    def _data(self, data):
+    def set_data(self, data):
         self.ymin = np.amin(data.Y[data.mask])
         self.ymax = np.amax(data.Y[data.mask])
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin
 
-class TransformLog:
+class TransformLog(TransformBase):
     """
     TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the y-axis so that all values are greater than or equal to 1.
     """
     def __init__(self):
         pass
 
-    def _data(self, data):
+    def set_data(self, data):
         self.shift = 1 - np.amin(data.Y[data.mask])
         self.mean = np.log(data.Y[data.mask] + self.shift).mean()
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return np.log(y + self.shift) - self.mean
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return np.exp(y + self.mean) - self.shift
 
-class TransformWhiten:
+class TransformWhiten(TransformBase):
     """
     Transform the data so it has mean 0 and variance 1
     """
     def __init__(self):
         pass
     
-    def _data(self, data):
+    def set_data(self, data):
         # take only the non-removed observations
         self.mean = data.Y[data.mask].mean()
         self.std = data.Y[data.mask].std()
         
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return (y - self.mean) / self.std
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return (y * self.std) + self.mean
 
 ################################################################
@@ -367,12 +390,12 @@ class Data:
             if x_nested_lists:
                 for col in range(input_dims):
                     try:
-                        X[row,col] = formats[col]._parse(val[col])
+                        X[row,col] = formats[col].parse(val[col])
                     except ValueError:
                         bad_rows.add(row)
             else:
                 try:
-                    X[row,0] = formats[col]._parse(val)
+                    X[row,0] = formats[col].parse(val)
                 except ValueError:
                     bad_rows.add(row)
 
@@ -380,7 +403,7 @@ class Data:
         Y = np.empty((n,))
         for row, val in enumerate(Y_raw):
             try:
-                Y[row] = formats[-1]._parse(val)
+                Y[row] = formats[-1].parse(val)
             except ValueError:
                 bad_rows.add(row)
 
@@ -567,7 +590,7 @@ class Data:
         Transform the data by using one of the provided transformers, such as TransformDetrend, TransformNormalize, TransformLog, ...
 
         Args:
-            transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
+            transformer (obj): Transformer object with forward(y, x) and backward(y, x) methods.
 
         Examples:
             >>> data.transform(mogptk.TransformDetrend)
@@ -575,12 +598,12 @@ class Data:
         t = transformer
         if isinstance(t, type):
             t = transformer()
-        t._data(self)
+        t.set_data(self)
 
-        self.Y = t._forward(self.X, self.Y)
+        self.Y = t.forward(self.Y, self.X)
         if self.F != None:
             f = self.F
-            self.F = lambda x: t._forward(x, f(x))
+            self.F = lambda x: t.forward(f(x), x)
         self.transformations.append(t)
     
     # TODO: remove?
@@ -602,8 +625,8 @@ class Data:
         if self.get_input_dims() != 1:
             raise ValueError("can only filter on one dimensional input data")
         
-        start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
-        end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
+        start = self.X_scales[0] * (self.formatters[0].parse(start) - self.X_offsets[0])
+        end = self.X_scales[0] * (self.formatters[0].parse(end) - self.X_offsets[0])
         ind = (self.X[:,0] >= start) & (self.X[:,0] < end)
 
         self.X = np.expand_dims(self.X[ind,0], 1)
@@ -637,7 +660,7 @@ class Data:
         
         start = self.X[0,0]
         end = self.X[-1,0]
-        step = self.X_scales[0] * self.formatters[0]._parse_duration(duration)
+        step = self.X_scales[0] * self.formatters[0].parse_delta(duration)
 
         X = np.arange(start+step/2, end+step/2, step)
         Y = np.empty((len(X)))
@@ -664,7 +687,7 @@ class Data:
         """
         return self.name
 
-    def has_removed_obs(self):
+    def has_test_data(self):
         """
         Returns True if observations have been removed using the remove_* methods.
 
@@ -672,7 +695,7 @@ class Data:
             boolean
 
         Examples:
-            >>> data.has_removed_obs()
+            >>> data.has_test_data()
             True
         """
         return False in self.mask
@@ -690,9 +713,24 @@ class Data:
         """
         return self.X.shape[1]
 
+    def get_train_data(self):
+        """
+        Returns the observations used for training.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            >>> x, y = data.get_train_data()
+        """
+        x = self.X[self.mask,:]
+        y = self.Y[self.mask]
+        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
+    
     def get_data(self):
         """
-        Returns the observations.
+        Returns all observations, train and test.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -701,39 +739,24 @@ class Data:
         Examples:
             >>> x, y = data.get_data()
         """
-        x = self.X[self.mask,:]
-        y = self.Y[self.mask]
-        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
-    
-    def get_all(self):
-        """
-        Returns all observations (including removed observations).
-
-        Returns:
-            numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
-
-        Examples:
-            >>> x, y = data.get_all()
-        """
         x = self.X
         y = self.Y
-        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
 
-    def get_removed(self):
+    def get_test_data(self):
         """
-        Returns the removed observations.
+        Returns the observations used for testing.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
             numpy.ndarray: Y data of shape (n).
 
         Examples:
-            >>> x, y = data.get_removed()
+            >>> x, y = data.get_test_data()
         """
         x = self.X[~self.mask,:]
         y = self.Y[~self.mask]
-        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
 
     ################################################################
     
@@ -780,16 +803,16 @@ class Data:
         if start == None:
             start = np.min(self.X[:,0])
         else:
-            start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
+            start = self.X_scales[0] * (self.formatters[0].parse(start) - self.X_offsets[0])
         if end == None:
             end = np.max(self.X[:,0])
         else:
-            end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
+            end = self.X_scales[0] * (self.formatters[0].parse(end) - self.X_offsets[0])
 
         idx = np.where(np.logical_and(self.X[:,0] >= start, self.X[:,0] <= end))
         self.mask[idx] = False
     
-    def remove_rel_range(self, start=None, end=None):
+    def remove_relative_range(self, start=None, end=None):
         """
         Removes observations between start and end as a percentage of the number of observations. So '0' is the first observation, '0.5' is the middle observation, and '1' is the last observation.
 
@@ -830,7 +853,7 @@ class Data:
         if self.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
-        duration = self.formatters[0]._parse_duration(duration)
+        duration = self.formatters[0].parse_delta(duration)
         if n < 1:
             return
 
@@ -847,7 +870,7 @@ class Data:
     
     ################################################################
     
-    def get_pred(self, name, sigma=2):
+    def get_prediction(self, name, sigma=2):
         """
         Returns the prediction of a given name with a normal variance of sigma.
 
@@ -862,7 +885,7 @@ class Data:
             numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
 
         Examples:
-            >>> x, y_mean, y_var_lower, y_var_upper = data.get_pred('MOSM', sigma=1)
+            >>> x, y_mean, y_var_lower, y_var_upper = data.get_prediction('MOSM', sigma=1)
         """
         if name not in self.Y_mu_pred:
             raise Exception("prediction name '%s' does not exist" % (name))
@@ -871,12 +894,12 @@ class Data:
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
-        mu = self._detransform(self.X_pred, mu)
-        lower = self._detransform(self.X_pred, lower)
-        upper = self._detransform(self.X_pred, upper)
+        mu = self._detransform(mu, self.X_pred)
+        lower = self._detransform(lower, self.X_pred)
+        upper = self._detransform(upper, self.X_pred)
         return self.X_scales*(self.X_pred-self.X_offsets), mu, lower, upper
 
-    def set_pred_range(self, start=None, end=None, n=None, step=None):
+    def set_prediction_range(self, start=None, end=None, n=None, step=None):
         """
         Sets the prediction range.
 
@@ -894,10 +917,10 @@ class Data:
 
         Examples:
             >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
-            >>> data.set_pred_range(3, 8, 200)
+            >>> data.set_prediction_range(3, 8, 200)
         
-            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', format={'Date': mogptk.FormatDate})
-            >>> data.set_pred_range('2016-01-15', '2016-06-15', step='1d')
+            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', formats={'Date': mogptk.FormatDate})
+            >>> data.set_prediction_range('2016-01-15', '2016-06-15', step='1d')
         """
         if self.get_input_dims() != 1:
             raise Exception("can only set prediction range on one dimensional input data")
@@ -906,17 +929,17 @@ class Data:
             start = self.X[0,:]
         elif isinstance(start, list):
             for i in range(self.get_input_dims()):
-                start[i] = self.formatters[i]._parse(start[i])
+                start[i] = self.formatters[i].parse(start[i])
         else:
-            start = self.formatters[0]._parse(start)
+            start = self.formatters[0].parse(start)
 
         if end == None:
             end = self.X[-1,:]
         elif isinstance(end, list):
             for i in range(self.get_input_dims()):
-                end[i] = self.formatters[i]._parse(end[i])
+                end[i] = self.formatters[i].parse(end[i])
         else:
-            end = self.formatters[0]._parse(end)
+            end = self.formatters[0].parse(end)
         
         start = _normalize_input_dims(start, self.get_input_dims())
         end = _normalize_input_dims(end, self.get_input_dims())
@@ -937,12 +960,12 @@ class Data:
             if step == None:
                 step = (end[0]-start[0])/100
             else:
-                step = self.formatters[0]._parse_duration(step)
+                step = self.formatters[0].parse_delta(step)
             self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
 
         self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
     
-    def set_pred(self, x):
+    def set_prediction_x(self, x):
         """
         Set the prediction range directly.
 
@@ -950,7 +973,7 @@ class Data:
             x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
 
         Examples:
-            >>> data.set_pred([5.0, 5.5, 6.0, 6.5, 7.0])
+            >>> data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
         """
         if isinstance(x, list):
             x = np.array(x)
@@ -1046,7 +1069,7 @@ class Data:
 
         return A, B, C
 
-    def get_ls_estimation(self, Q=1, n=50000):
+    def get_lombscargle_estimation(self, Q=1, n=50000):
         """
         Peak estimation using Lomb Scargle.
 
@@ -1060,7 +1083,7 @@ class Data:
             numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
         Examples:
-            >>> amplitudes, means, variances = data.get_ls_estimation()
+            >>> amplitudes, means, variances = data.get_lombscargle_estimation()
         """
         input_dims = self.get_input_dims()
 
@@ -1153,7 +1176,7 @@ class Data:
         ax.plot(X[:,0], self.Y, 'k-', alpha=0.7)
         legend.append(plt.Line2D([0], [0], ls='-', color='k', label='Data'))
 
-        if self.has_removed_obs():
+        if self.has_test_data():
             x, y = X[self.mask,:], self.Y[self.mask]
             ax.plot(x[:,0], y, 'k.', mew=.5, ms=8, markeredgecolor='white')
             legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))
@@ -1161,7 +1184,7 @@ class Data:
         ax.set_xlabel(self.X_labels[0])
         ax.set_ylabel(self.Y_label)
         ax.set_title(self.name)
-        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
+        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0].format(x))
         ax.xaxis.set_major_formatter(formatter)
 
         if 0 < len(legend):
@@ -1193,13 +1216,13 @@ class Data:
         ax.set_title(self.name, fontsize=36)
 
         formatter = self.formatters[0]
-        factor, name = formatter._scale(per)
+        factor, name = formatter.get_scale(per)
         if name != None:
             ax.set_xlabel('Frequency (1/'+name+')')
         else:
             ax.set_xlabel('Frequency')
 
-        X_space = (self.X_offsets + (self.X/self.X_scales)) / factor
+        X_space = np.squeeze((self.X_offsets + (self.X/self.X_scales)) / factor)
 
         freq = maxfreq
         if freq == None:
@@ -1234,14 +1257,14 @@ class Data:
 
         return ax
 
-    def _transform(self, x, y):
+    def _transform(self, y, x=None):
         for t in self.transformations:
-            y = t._forward(x, y)
+            y = t.forward(y, x)
         return y
 
-    def _detransform(self, x, y):
+    def _detransform(self, y, x=None):
         for t in self.transformations[::-1]:
-            y = t._backward(x, y)
+            y = t.backward(y, x)
         return y
 
 def _check_function(f, input_dims):

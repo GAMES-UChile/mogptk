@@ -49,7 +49,7 @@ class CONV(model):
         kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
         self._build(kernel_set, likelihood, variational, sparse, like_params)
 
-    def estimate_params(self, method='SM', sm_method='random', sm_opt='BFGS', sm_maxiter=2000, plot=False):
+    def estimate_parameters(self, method='SM', sm_method='random', sm_opt='BFGS', sm_maxiter=2000, plot=False):
         """
         Estimate kernel parameters, variance and mixture weights. 
 
