@@ -100,7 +100,7 @@ class CSM(model):
 
             # normalize proportional to channel variance
             for channel, data in enumerate(self.dataset):
-                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var()
+                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var() * 2
 
             for q in range(self.Q):
                 self.set_parameter(q, 'constant', constant[q, :, :])
@@ -116,7 +116,7 @@ class CSM(model):
 
             # normalize proportional to channel variance
             for channel, data in enumerate(self.dataset):
-                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var()
+                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var() * 2
                 
             for q in range(self.Q):
                 self.set_parameter(q, 'constant', constant[q, :, :])
@@ -126,4 +126,4 @@ class CSM(model):
         noise = np.empty((self.dataset.get_output_dims()))
         for i, channel in enumerate(self.dataset):
             noise[i] = (channel.Y).var() / 30
-        self.set_param(self.Q, 'noise', noise)
+        self.set_parameter(self.Q, 'noise', noise)

@@ -103,7 +103,7 @@ class SM_LMC(model):
 
             # normalize proportional to channel variance
             for channel, data in enumerate(self.dataset):
-                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var()
+                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var() * 2
 
             for q in range(self.Q):
                 self.set_parameter(q, 'constant', constant[q, :, :])
@@ -122,7 +122,7 @@ class SM_LMC(model):
             for channel, data in enumerate(self.dataset):
                 if constant[:, :, channel].sum()==0:
                     raise Exception("Sum of magnitudes equal to zero")
-                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var()
+                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y[data.mask].var() * 2
                 
             for q in range(self.Q):
                 self.set_parameter(q, 'constant', constant[q, :, :])
