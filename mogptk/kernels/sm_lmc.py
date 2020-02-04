@@ -6,7 +6,7 @@ from .multikernel import MultiKernel
 
 # uses angular freq
 class SpectralMixtureLMC(MultiKernel):
-    def __init__(self, input_dim, output_dim, Rq, active_dims=None):
+    def __init__(self, input_dim, output_dim, Rq, active_dims=None, name='sm_lmc'):
         """
         - input_dim (int): The number of input dimensions.
         - output_dim (int): The number of output dimensions.
@@ -18,7 +18,7 @@ class SpectralMixtureLMC(MultiKernel):
         mean = np.random.random((input_dim))
         variance = np.random.random((input_dim))
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name="sm-lmc")
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=name)
         self.constant = gpflow.Parameter(constant, name="constant")
         self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name="mean")
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name="variance")

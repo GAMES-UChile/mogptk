@@ -19,7 +19,7 @@ import gpflow
 # TODO: means are spatial freqs, optimize by using angular freq
 # TODO: split out the Q part and use kernel + kernel + ... Q times?
 class SpectralMixture(gpflow.kernels.Kernel):
-    def __init__(self, input_dim, Q=1, active_dims=None):
+    def __init__(self, input_dim, Q=1, active_dims=None, name='sm'):
         """
         - Q (int): The number of mixtures.
 
@@ -32,11 +32,11 @@ class SpectralMixture(gpflow.kernels.Kernel):
         mixture_scales = np.random.random((input_dim, Q))
 
         
-        super().__init__(input_dim, active_dims)
+        super().__init__(input_dim, active_dims, name=name)
         self.num_mixtures = int(Q)
-        self.mixture_weights = gpflow.Parameter(mixture_weights, transform=gpflow.utilities.positive())
-        self.mixture_scales = gpflow.Parameter(mixture_scales, transform=gpflow.utilities.positive())
-        self.mixture_means = gpflow.Parameter(mixture_means, transform=gpflow.utilities.positive())
+        self.mixture_weights = gpflow.Parameter(mixture_weights, transform=gpflow.utilities.positive(), name='mixture_weights')
+        self.mixture_scales = gpflow.Parameter(mixture_scales, transform=gpflow.utilities.positive(), name='mixture_scales')
+        self.mixture_means = gpflow.Parameter(mixture_means, transform=gpflow.utilities.positive(), name='mixture_means')
 
     def K(self, X1, X2=None, presliced=False):
         if self.mixture_weights == None or self.mixture_means == None \

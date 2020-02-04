@@ -5,7 +5,7 @@ import tensorflow as tf
 from .multikernel import MultiKernel
 
 class ConvolutionalGaussian(MultiKernel):
-    def __init__(self, input_dim, output_dim, active_dims=None):
+    def __init__(self, input_dim, output_dim, active_dims=None, name='conv'):
         """
         - input_dim (int): The number of input dimensions.
         - output_dim (int): The number of output dimensions.
@@ -15,7 +15,7 @@ class ConvolutionalGaussian(MultiKernel):
         constant = np.random.random((output_dim))
         variance = np.ones((input_dim, output_dim)) * 10
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name="conv")
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=name)
         self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name="constant")
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name="variance")
 

@@ -6,7 +6,7 @@ from .multikernel import MultiKernel
 
 # TODO: dont use angular frequency
 class MultiOutputSpectralMixture(MultiKernel):
-    def __init__(self, input_dim, output_dim, active_dim=None, magnitude_prior=None):
+    def __init__(self, input_dim, output_dim, active_dim=None, magnitude_prior=None, name='mosm'):
         """
         - input_dim (int): The number of input dimensions.
         - output_dim (int): The number of output dimensions.
@@ -20,7 +20,7 @@ class MultiOutputSpectralMixture(MultiKernel):
         delay = np.zeros((input_dim, output_dim))
         phase = np.zeros((output_dim))
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dim, name="mosm")
+        MultiKernel.__init__(self, input_dim, output_dim, active_dim, name=name)
         self.magnitude = gpflow.Parameter(magnitude, prior=magnitude_prior, name="magnitude")
         self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name="mean")
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name="variance")
