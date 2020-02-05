@@ -569,7 +569,7 @@ class DataSet:
             >>> fig, axes = dataset.plot('Title')
         """
         if figsize is None:
-            figsize = (10, 2.5 * len(self))
+            figsize = (12, 2.5 * len(self))
 
 
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)

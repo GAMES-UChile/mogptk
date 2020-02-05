@@ -579,7 +579,7 @@ class model:
             raise Exception('grid not big enough for all channels')
 
         if figsize is None:
-            figsize = (12, 2.8 * grid[1])
+            figsize = (12, 2.6 * grid[0])
 
         fig, axes = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
         axes = np.array(axes).reshape(-1)
