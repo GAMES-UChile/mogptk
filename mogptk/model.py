@@ -455,11 +455,7 @@ class model:
         self,
         method='L-BFGS-B',
         tol=1e-6,
-<<<<<<< HEAD
-        maxiter=1000,
-=======
         maxiter=500,
->>>>>>> 3f46e03475793a67d86facaea699cb6ee8e906fd
         params={},
         verbose=False):
         """
