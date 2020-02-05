@@ -173,7 +173,8 @@ class SM(model):
         x_low = norm.ppf(0.001, loc=means, scale=scales).min()
         x_high = norm.ppf(0.99, loc=means, scale=scales).max()
         
-        x = np.linspace(x_low, x_high + 1, 1000)
+        x = np.linspace(0, x_high + 1, 10000)
+
         psd = np.zeros_like(x)
 
         fig, axes = plt.subplots(1, 1, figsize=figsize)
@@ -191,7 +192,7 @@ class SM(model):
         axes.set_xlim(0, x[-1] + 0.1)
         if log_scale:
             axes.set_yscale('log')
-        axes.set_xlabel('Frequency')
+        axes.set_xlabel('Frequency [Hz]')
         axes.set_ylabel('PSD')
         axes.set_title(title)
 

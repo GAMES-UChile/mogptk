@@ -488,8 +488,8 @@ class model:
                     self.name,
                     len(self.dataset),
                     self.Q,
-                    sum([len(channel.get_train_data()[0]) for channel in self.dataset]),
-                    sum([np.prod(var.shape) for var in self.model.trainable_variables]),
+                    sum([channel.mask.sum() for channel in self.dataset]),
+                    int(sum([np.prod(var.shape) for var in self.model.trainable_variables])),
                     -self.model.log_marginal_likelihood().numpy()))
 
         @tf.function  # optimize TF
@@ -579,7 +579,7 @@ class model:
             raise Exception('grid not big enough for all channels')
 
         if figsize is None:
-            figsize = (12, 2.8 * grid[1])
+            figsize = (12, 2.6 * grid[0])
 
         fig, axes = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
         axes = np.array(axes).reshape(-1)
