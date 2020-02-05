@@ -15,7 +15,7 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
     Args:
         dataset (mogptk.DataSet): DataSet object of data with one channel.
         Q (int): Number of components.
-        estimate (str): Method to estimate, 'BNSE', 'LS' or 'Random'
+        estimate (str): Method to estimate, 'BNSE', 'LS' or 'AGW'
         method (str): Optimization method, either 'Adam' or any
             scipy optimizer.
         maxiter (int): Maximum number of iteration.
@@ -112,7 +112,7 @@ class SM(model):
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
-        'random': (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
+        'AGW': (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
             of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
             means drawn from Unif(0, 0.5 / minimum distance between two points),
             and the mixture weights by taking the stdv of the y values divided by the
@@ -127,10 +127,10 @@ class SM(model):
         *** Only for single input dimension for each channel.
         """
 
-        if method not in ['random', 'LS', 'BNSE']:
-            raise Exception("possible methods are 'random', 'LS' and 'BNSE' (see documentation).")
+        if method not in ['AGW', 'LS', 'BNSE']:
+            raise Exception("possible methods are 'AGW', 'LS' and 'BNSE' (see documentation).")
 
-        if method == 'random':
+        if method == 'AGW':
             x, y = self.dataset[0].get_train_data()
             weights, means, scales = sm_init(x, y, self.Q)
             self.set_parameter(0, 'mixture_weights', weights)
