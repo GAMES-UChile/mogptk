@@ -488,7 +488,7 @@ class model:
                     len(self.dataset),
                     self.Q,
                     sum([len(channel.get_train_data()[0]) for channel in self.dataset]),
-                    len(self.model.trainable_variables),
+                    sum([np.prod(var.shape) for var in self.model.trainable_variables]),
                     -self.model.log_marginal_likelihood().numpy()))
 
         @tf.function  # optimize TF

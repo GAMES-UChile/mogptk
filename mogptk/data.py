@@ -1156,7 +1156,10 @@ class Data:
                 ax.fill_between(X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
                 ax.plot(X_pred[:,0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
                 ax.plot(X_pred[:,0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
-                legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label='Prediction '+name))
+                label = 'Prediction'
+                if 1 < len(self.Y_mu_pred):
+                    label += ' ' + name
+                legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
 
         if self.F != None:
             n = len(X[:,0])*10
