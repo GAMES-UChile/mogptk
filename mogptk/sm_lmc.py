@@ -41,6 +41,8 @@ class SM_LMC(model):
     [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
     def __init__(self, dataset, Q=1, Rq=1, name="SM-LMC", likelihood=None, variational=False, sparse=False, like_params={}):
+        if len(dataset)<2:
+            raise Exception("Number of channels equal 1, model SM-LMC must be used with at least 2, for 1 channel use SM instead.")
         if Rq != 1:
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
 

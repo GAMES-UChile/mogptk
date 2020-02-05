@@ -39,6 +39,8 @@ class CSM(model):
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
     def __init__(self, dataset, Q=1, Rq=1, name="CSM", likelihood=None, variational=False, sparse=False, like_params={}):
+        if len(dataset)<2:
+            raise Exception("Number of channels equal 1, model CSM must be used with at least 2, for 1 channel use SM instead.")
         if Rq != 1:
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
 

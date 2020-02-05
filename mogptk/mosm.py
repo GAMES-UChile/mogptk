@@ -45,6 +45,9 @@ class MOSM(model):
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
     def __init__(self, dataset, Q=1, name="MOSM", likelihood=None, variational=False, sparse=False, like_params={}):
+        if len(dataset)<2:
+            raise Exception("Number of channels equal 1, model MOSM must be used with at least 2, for 1 channel use SM instead.")
+
         model.__init__(self, name, dataset)
         self.Q = Q
 
