@@ -7,6 +7,7 @@ from scipy import signal
 import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import pandas as pd
 import re
 import logging
@@ -208,8 +209,8 @@ class TransformLog(TransformBase):
         pass
 
     def set_data(self, data):
-        self.shift = 1 - np.amin(data.Y[data.mask])
-        self.mean = np.log(data.Y[data.mask] + self.shift).mean()
+        self.shift = 1 - data.Y.min()
+        self.mean = np.log(data.Y + self.shift).mean()
 
     def forward(self, y, x=None):
         return np.log(y + self.shift) - self.mean
@@ -1124,7 +1125,7 @@ class Data:
             C[i,:] = variances[:Q]
         return A, B, C
 
-    def plot(self, ax=None):
+    def plot(self, ax=None, plot_legend=False):
         """
         Plot the data including removed observations, latent function, and predictions.
 
@@ -1173,13 +1174,40 @@ class Data:
             ax.plot(x[:,0], y, 'r--', lw=1)
             legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent function'))
 
-        ax.plot(X[:,0], self.Y, 'k-', alpha=0.7)
-        legend.append(plt.Line2D([0], [0], ls='-', color='k', label='Data'))
+        ax.plot(X[:,0], self.Y, 'k--', alpha=0.8)
+        legend.append(plt.Line2D([0], [0], ls='--', color='k', label='Full Dataset'))
 
         if self.has_test_data():
             x, y = X[self.mask,:], self.Y[self.mask]
-            ax.plot(x[:,0], y, 'k.', mew=.5, ms=8, markeredgecolor='white')
-            legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))
+            ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
+            legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=10, label='Training Points'))
+            for idx in np.where(~self.mask)[0]:
+                width_1 = (self.X[min(idx, len(X) - 1), 0] - self.X[max(idx - 1, 0), 0]) / 2
+                width_2 = (self.X[min(idx + 1, len(X) - 1), 0] - self.X[max(idx, 0), 0]) / 2
+                ax.add_patch(
+                    patches.Rectangle(
+                    (self.X[max(idx - 1, 0), 0] + width_1, ax.get_ylim()[0]),           # (x,y)
+                    width_1 + width_2,                                 # width
+                    ax.get_ylim()[1] - ax.get_ylim()[0],  # height
+                    fill=True,
+                    color='xkcd:strawberry',
+                    alpha=0.25,
+                    lw=0,
+                    ))
+            legend.append(patches.Rectangle(
+                    (1, 1),
+                    1,
+                    1,
+                    fill=True,
+                    color='xkcd:strawberry',
+                    alpha=0.5,
+                    lw=0,
+                    label='Removed Points'
+                    ))
+
+        xmin = X.min()
+        xmax = X.max()
+        ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
         ax.set_xlabel(self.X_labels[0])
         ax.set_ylabel(self.Y_label)
@@ -1187,8 +1215,8 @@ class Data:
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0].format(x))
         ax.xaxis.set_major_formatter(formatter)
 
-        if 0 < len(legend):
-            plt.legend(handles=legend, loc='best')
+        if (len(legend) > 0) and plot_legend:
+            ax.legend(handles=legend, loc='upper center', ncol=len(legend), bbox_to_anchor=(0.5, 1.7))
         return ax
 
     def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None):
@@ -1220,7 +1248,7 @@ class Data:
         if name != None:
             ax.set_xlabel('Frequency (1/'+name+')')
         else:
-            ax.set_xlabel('Frequency')
+            ax.set_xlabel('Frequency [Hz]')
 
         X_space = np.squeeze((self.X_offsets + (self.X/self.X_scales)) / factor)
 
@@ -1248,10 +1276,15 @@ class Data:
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
-        ax.plot(X, Y, 'k-')
+        ax.plot(X, Y, '-', color='xkcd:strawberry', lw=2.3)
         if len(Y_err) != 0:
-            ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.1)
+            ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.4)
         ax.set_title(self.name + ' Spectrum')
+
+        xmin = X.min()
+        xmax = X.max()
+        ax.set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
+
         ax.set_yticks([])
         ax.set_ylim(0, None)
 

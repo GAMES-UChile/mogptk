@@ -45,9 +45,6 @@ class MOSM(model):
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
     def __init__(self, dataset, Q=1, name="MOSM", likelihood=None, variational=False, sparse=False, like_params={}):
-        if len(dataset)<2:
-            raise Exception("Number of channels equal 1, model MOSM must be used with at least 2, for 1 channel use SM instead.")
-
         model.__init__(self, name, dataset)
         self.Q = Q
 
@@ -63,9 +60,9 @@ class MOSM(model):
         kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
         self._build(kernel_set, likelihood, variational, sparse, like_params)
 
-    def estimate_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
+    def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
         """
-        Estimate kernel parameters.
+        Initialize kernel parameters.
 
         The initialization can be done in two ways, the first by estimating the PSD via 
         BNSE (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum,

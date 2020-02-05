@@ -39,7 +39,7 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
     for channel in range(output_dims):
         for i in range(input_dims):  # TODO one SM per channel
             sm = SM(dataset[channel], Q)
-            sm.estimate_parameters(method)
+            sm.init_parameters(method)
 
             if fix_means:
                 sm.set_parameter(0, 'mixture_means', np.zeros((Q, input_dims)))
@@ -106,9 +106,9 @@ class SM(model):
         )
         self._build(kernel, likelihood, variational, sparse, like_params)
 
-    def estimate_parameters(self, method='BNSE'):
+    def init_parameters(self, method='BNSE'):
         """
-        Estimate parameters of kernel from data using different methods.
+        Initialize parameters of kernel from data using different methods.
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 

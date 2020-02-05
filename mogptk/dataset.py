@@ -554,7 +554,7 @@ class DataSet:
         """
         return copy.deepcopy(self)
 
-    def plot(self, title=None, figsize=(12, 8)):
+    def plot(self, title=None, figsize=None):
         """
         Plot each Data channel.
 
@@ -568,12 +568,20 @@ class DataSet:
         Examples:
             >>> fig, axes = dataset.plot('Title')
         """
+        if figsize is None:
+            figsize = (10, 2.5 * len(self))
+
+
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
         if title != None:
             fig.suptitle(title)
 
         for channel in range(self.get_output_dims()):
-            self.channels[channel].plot(ax=axes[channel,0])
+            if channel == 0:
+                self.channels[channel].plot(ax=axes[channel,0], plot_legend=True)    
+            else:
+                self.channels[channel].plot(ax=axes[channel,0])
+
 
         return fig, axes
 

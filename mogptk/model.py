@@ -455,7 +455,7 @@ class model:
         self,
         method='L-BFGS-B',
         tol=1e-6,
-        maxiter=2000,
+        maxiter=1000,
         params={},
         verbose=False):
         """
@@ -476,19 +476,19 @@ class model:
             verbose (bool): Print verbose output about the state of the optimizer.
 
         Examples:
-            >>> model.train(tol=1e-6, maxiter=1e5)
+            >>> model.train(tol=1e-6, maxiter=10000)
             
             >>> model.train(method='Adam', opt_params={...})
         """
         inital_time = time.time()
         if verbose:
             print('Starting optimization\n >Model: {} \n >Channels: {} \
-                \n >Components: {} \n >Training points:{} \n >Initial NLL: {:.3f}'.format(
+                \n >Components: {} \n >Training points:{} \n >Initial NLL: {:.3f} \n'.format(
                     self.name,
                     len(self.dataset),
                     self.Q,
-                    sum([len(data.mask) for data in self.dataset]),
-                    self.model.log_marginal_likelihood().numpy()))
+                    sum([data.mask.sum() for data in self.dataset]),
+                    -self.model.log_marginal_likelihood().numpy()))
 
         @tf.function  # optimize TF
         def loss():
@@ -504,7 +504,7 @@ class model:
 
         elapsed_time = time.time() - inital_time
         if verbose:
-            print('Optimization finished in {:.2f} minutes\n >Final NLL: {:.3f} \n'.format(elapsed_time / 60, self.model.log_marginal_likelihood().numpy()))
+            print('Optimization finished in {:.2f} minutes\n >Final NLL: {:.3f} \n'.format(elapsed_time / 60, -self.model.log_marginal_likelihood().numpy()))
 
     ################################################################################
     # Predictions ##################################################################
@@ -556,7 +556,7 @@ class model:
         return mu, lower, upper
 
     # TODO
-    def plot_prediction(self, grid=None, figsize=(12, 8), ylims=None, names=None, title=''):
+    def plot_prediction(self, grid=None, figsize=None, ylims=None, names=None, title=''):
 
         """
         Plot training points, all data and prediction for training range for all channels.
@@ -587,6 +587,9 @@ class model:
         if (grid[0] * grid[1]) < n_dim:
             raise Exception('grid not big enough for all channels')
 
+        if figsize is None:
+            figsize = (12, 2.8 * grid[1])
+
         fig, axes = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
         axes = np.array(axes).reshape(-1)
 
@@ -599,14 +602,18 @@ class model:
                 color=colors[i%len(colors)],
                 alpha=0.4,
                 zorder=1)
-            axes[i].plot(x_pred[i][:,0], mu[i], label='Post.Mean', c=colors[i%len(colors)], zorder=3)
+            axes[i].plot(x_pred[i][:,0], mu[i], label='Post.Mean', c=colors[i%len(colors)], zorder=4, lw=1.8)
             axes[i].plot(x_all[i][:,0], y_all[i], '--k', label='Test', lw=1, alpha=0.8, zorder=2)
-            axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=10, mew=0.5, markeredgecolor='white', zorder=4)
+            axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=11, mew=0.8, markeredgecolor='white', zorder=3)
             
-            axes[i].xaxis.set_major_locator(plt.MaxNLocator(6))
+            axes[i].xaxis.set_major_locator(plt.MaxNLocator(5))
 
             formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0].format(x))
             axes[i].xaxis.set_major_formatter(formatter)
+
+            xmin = min(x_all[i].min(), x_pred[i].min())
+            xmax = max(x_all[i].max(), x_pred[i].max())
+            axes[i].set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
 
             # set channels name
             if names is not None:

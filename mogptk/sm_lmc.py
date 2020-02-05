@@ -41,8 +41,6 @@ class SM_LMC(model):
     [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
     def __init__(self, dataset, Q=1, Rq=1, name="SM-LMC", likelihood=None, variational=False, sparse=False, like_params={}):
-        if len(dataset)<2:
-            raise Exception("Number of channels equal 1, model SM-LMC must be used with at least 2, for 1 channel use SM instead.")
         if Rq != 1:
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
 
@@ -63,9 +61,9 @@ class SM_LMC(model):
         kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
         self._build(kernel_set, likelihood, variational, sparse, like_params)
     
-    def estimate_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=2000, plot=False):
+    def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=2000, plot=False):
         """
-        Estimate kernel parameters.
+        Initialize kernel parameters.
 
         The initialization can be done in two ways, the first by estimating the PSD via 
         BNSE (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum,
