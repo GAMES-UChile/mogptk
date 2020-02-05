@@ -457,7 +457,7 @@ class Data:
         self.Y = Y # shape (n)
         self.mask = np.array([True] * n)
         self.F = None
-        self.X_pred = np.array([])
+        self.X_pred = X
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
@@ -1171,15 +1171,15 @@ class Data:
             y = self.F(x)
 
             ax.plot(x[:,0], y, 'r--', lw=1)
-            legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent function'))
+            legend.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
         ax.plot(X[:,0], self.Y, 'k-', alpha=0.7)
-        legend.append(plt.Line2D([0], [0], ls='-', color='k', label='Data'))
+        legend.append(plt.Line2D([0], [0], ls='-', color='k', label='All data'))
 
         if self.has_test_data():
             x, y = X[self.mask,:], self.Y[self.mask]
             ax.plot(x[:,0], y, 'k.', mew=.5, ms=8, markeredgecolor='white')
-            legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training'))
+            legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=8, label='Training points'))
 
         ax.set_xlabel(self.X_labels[0])
         ax.set_ylabel(self.Y_label)

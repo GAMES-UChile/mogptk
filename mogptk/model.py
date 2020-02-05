@@ -455,7 +455,7 @@ class model:
         self,
         method='L-BFGS-B',
         tol=1e-6,
-        maxiter=2000,
+        maxiter=500,
         params={},
         verbose=False):
         """
@@ -482,17 +482,17 @@ class model:
         """
         inital_time = time.time()
         if verbose:
-            print('Starting optimization\n >Model: {} \n >Channels: {} \
-                \n >Components: {} \n >Training points:{} \n >Initial NLL: {:.3f}'.format(
+            print('Starting optimization\n >Model: {}\n >Channels: {}\
+                    \n >Components: {}\n >Training points: {}\n >Parameters: {}\n >Initial NLL: {:.3f}'.format(
                     self.name,
                     len(self.dataset),
                     self.Q,
-                    sum([len(data.mask) for data in self.dataset]),
-                    self.model.log_marginal_likelihood().numpy()))
+                    sum([len(channel.get_train_data()[0]) for channel in self.dataset]),
+                    len(self.model.trainable_variables),
+                    -self.model.log_marginal_likelihood().numpy()))
 
         @tf.function  # optimize TF
         def loss():
-
             return -self.model.log_marginal_likelihood()
 
         if method.lower() == "adam":
@@ -535,16 +535,6 @@ class model:
         x = self.dataset._to_kernel_prediction()
         if len(x) == 0:
             raise Exception('no prediction x range set, use x argument or set manually using DataSet.set_prediction_x() or Data.set_prediction_x()')
-
-        #x_data = self.model.data[0]
-        #Kmm = self.model.kernel(x_data)
-        #s = tf.linalg.diag(tf.fill([x_data.shape[0]], self.model.likelihood.variance))
-        #Kmm += s
-
-        #print(np.isfinite(Kmm).all(), np.isfinite(s).all(), np.all(np.linalg.eigvals(Kmm) > 0))
-        #np.set_printoptions(threshold=np.inf)
-        #print(Kmm)
-        #print(np.linalg.eigvals(Kmm))
 
         mu, var = self.model.predict_f(x)
         self.dataset._from_kernel_prediction(self.name, mu, var)
