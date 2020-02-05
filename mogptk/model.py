@@ -504,7 +504,7 @@ class model:
 
         elapsed_time = time.time() - inital_time
         if verbose:
-            print('Optimization finished in {:.2f} minutes\n >Final NLL: {:.3f} \n'.format(elapsed_time / 60, self.model.log_marginal_likelihood().numpy()))
+            print('Optimization finished in {:.2f} minutes\n >Final NLL: {:.3f} \n'.format(elapsed_time / 60, -self.model.log_marginal_likelihood().numpy()))
 
     ################################################################################
     # Predictions ##################################################################
