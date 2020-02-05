@@ -458,7 +458,7 @@ class Data:
         self.Y = Y # shape (n)
         self.mask = np.array([True] * n)
         self.F = None
-        self.X_pred = np.array([])
+        self.X_pred = X
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
@@ -1157,7 +1157,10 @@ class Data:
                 ax.fill_between(X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
                 ax.plot(X_pred[:,0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
                 ax.plot(X_pred[:,0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
-                legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label='Prediction '+name))
+                label = 'Prediction'
+                if 1 < len(self.Y_mu_pred):
+                    label += ' ' + name
+                legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
 
         if self.F != None:
             n = len(X[:,0])*10
@@ -1172,7 +1175,7 @@ class Data:
             y = self.F(x)
 
             ax.plot(x[:,0], y, 'r--', lw=1)
-            legend.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent function'))
+            legend.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
         ax.plot(X[:,0], self.Y, 'k--', alpha=0.8)
         legend.append(plt.Line2D([0], [0], ls='--', color='k', label='Full Dataset'))
