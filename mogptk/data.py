@@ -1178,7 +1178,7 @@ class Data:
             legend.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
         ax.plot(X[:,0], self.Y, 'k--', alpha=0.8)
-        legend.append(plt.Line2D([0], [0], ls='--', color='k', label='Full Dataset'))
+        legend.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
         if self.has_test_data():
             x, y = X[self.mask,:], self.Y[self.mask]
