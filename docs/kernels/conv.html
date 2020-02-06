@@ -31,7 +31,7 @@ import tensorflow as tf
 from .multikernel import MultiKernel
 
 class ConvolutionalGaussian(MultiKernel):
-    def __init__(self, input_dim, output_dim, active_dims=None):
+    def __init__(self, input_dim, output_dim, active_dims=None, name=&#39;conv&#39;):
         &#34;&#34;&#34;
         - input_dim (int): The number of input dimensions.
         - output_dim (int): The number of output dimensions.
@@ -41,7 +41,7 @@ class ConvolutionalGaussian(MultiKernel):
         constant = np.random.random((output_dim))
         variance = np.ones((input_dim, output_dim)) * 10
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=&#34;conv&#34;)
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=name)
         self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name=&#34;constant&#34;)
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name=&#34;variance&#34;)
 
@@ -72,7 +72,7 @@ class ConvolutionalGaussian(MultiKernel):
 <dl>
 <dt id="mogptk.kernels.conv.ConvolutionalGaussian"><code class="flex name class">
 <span>class <span class="ident">ConvolutionalGaussian</span></span>
-<span>(</span><span>input_dim, output_dim, active_dims=None)</span>
+<span>(</span><span>input_dim, output_dim, active_dims=None, name='conv')</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Abstract class for MultiOutput Kernels.</p>
@@ -94,7 +94,7 @@ matrix appropriately.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class ConvolutionalGaussian(MultiKernel):
-    def __init__(self, input_dim, output_dim, active_dims=None):
+    def __init__(self, input_dim, output_dim, active_dims=None, name=&#39;conv&#39;):
         &#34;&#34;&#34;
         - input_dim (int): The number of input dimensions.
         - output_dim (int): The number of output dimensions.
@@ -104,7 +104,7 @@ matrix appropriately.</p>
         constant = np.random.random((output_dim))
         variance = np.ones((input_dim, output_dim)) * 10
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=&#34;conv&#34;)
+        MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=name)
         self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name=&#34;constant&#34;)
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name=&#34;variance&#34;)
 

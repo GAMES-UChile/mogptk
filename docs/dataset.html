@@ -580,7 +580,7 @@ class DataSet:
         &#34;&#34;&#34;
         return copy.deepcopy(self)
 
-    def plot(self, title=None, figsize=(12, 8)):
+    def plot(self, title=None, figsize=None):
         &#34;&#34;&#34;
         Plot each Data channel.
 
@@ -594,12 +594,20 @@ class DataSet:
         Examples:
             &gt;&gt;&gt; fig, axes = dataset.plot(&#39;Title&#39;)
         &#34;&#34;&#34;
+        if figsize is None:
+            figsize = (12, 2.5 * len(self))
+
+
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
         if title != None:
             fig.suptitle(title)
 
         for channel in range(self.get_output_dims()):
-            self.channels[channel].plot(ax=axes[channel,0])
+            if channel == 0:
+                self.channels[channel].plot(ax=axes[channel,0], plot_legend=True)    
+            else:
+                self.channels[channel].plot(ax=axes[channel,0])
+
 
         return fig, axes</code></pre>
 </details>
@@ -1254,7 +1262,7 @@ If a DataSet is passed, its channels will be added.</dd>
         &#34;&#34;&#34;
         return copy.deepcopy(self)
 
-    def plot(self, title=None, figsize=(12, 8)):
+    def plot(self, title=None, figsize=None):
         &#34;&#34;&#34;
         Plot each Data channel.
 
@@ -1268,12 +1276,20 @@ If a DataSet is passed, its channels will be added.</dd>
         Examples:
             &gt;&gt;&gt; fig, axes = dataset.plot(&#39;Title&#39;)
         &#34;&#34;&#34;
+        if figsize is None:
+            figsize = (12, 2.5 * len(self))
+
+
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
         if title != None:
             fig.suptitle(title)
 
         for channel in range(self.get_output_dims()):
-            self.channels[channel].plot(ax=axes[channel,0])
+            if channel == 0:
+                self.channels[channel].plot(ax=axes[channel,0], plot_legend=True)    
+            else:
+                self.channels[channel].plot(ax=axes[channel,0])
+
 
         return fig, axes</code></pre>
 </details>
@@ -1794,7 +1810,7 @@ If a DataSet is passed, its channels will be added.</dd>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>self, title=None, figsize=(12, 8))</span>
+<span>def <span class="ident">plot</span></span>(<span>self, title=None, figsize=None)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Plot each Data channel.</p>
@@ -1813,7 +1829,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(self, title=None, figsize=(12, 8)):
+<pre><code class="python">def plot(self, title=None, figsize=None):
     &#34;&#34;&#34;
     Plot each Data channel.
 
@@ -1827,12 +1843,20 @@ list of matplotlib.axes.Axes: List of axes.</p>
     Examples:
         &gt;&gt;&gt; fig, axes = dataset.plot(&#39;Title&#39;)
     &#34;&#34;&#34;
+    if figsize is None:
+        figsize = (12, 2.5 * len(self))
+
+
     fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
     if title != None:
         fig.suptitle(title)
 
     for channel in range(self.get_output_dims()):
-        self.channels[channel].plot(ax=axes[channel,0])
+        if channel == 0:
+            self.channels[channel].plot(ax=axes[channel,0], plot_legend=True)    
+        else:
+            self.channels[channel].plot(ax=axes[channel,0])
+
 
     return fig, axes</code></pre>
 </details>

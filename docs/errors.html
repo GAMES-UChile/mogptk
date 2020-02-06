@@ -120,8 +120,8 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
         raw_errors (bool): If true returns for each model a list is returned
             with the errors of each channel (y_true - y_pred).
             If false returns for each model a list of 4 arrays with the
-            mean absolute error (MAE), std-normalized mean absolute error (nMAE),
-            root mean squared error (RMSE) and std-normalized root mean 
+            mean absolute error (MAE), range-normalized mean absolute error (nMAE),
+            root mean squared error (RMSE) and range-normalized root mean 
             squared error (nRMSE) for each channel.
 
     Returns:
@@ -162,11 +162,13 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
 
             # composite errors
             else:
+                y_range = y_test[i].max() - y_test[i].min()
+
                 mae = np.abs(errors).mean()
-                # mape = (np.abs(errors / y_test[i]) * 100).mean()
-                nmae = mae / y_test[i].std()
+                nmae = mae / y_range
                 rmse = np.sqrt((errors**2).mean())
-                nrmse = rmse / y_test[i].std()
+                nrmse = rmse / y_range
+                
                 error_per_channel.append(np.array([mae, nmae, rmse, nrmse]))
 
         error_per_model.append(error_per_channel)
@@ -307,8 +309,8 @@ Length is the output dimension.</dd>
 <dd>If true returns for each model a list is returned
 with the errors of each channel (y_true - y_pred).
 If false returns for each model a list of 4 arrays with the
-mean absolute error (MAE), std-normalized mean absolute error (nMAE),
-root mean squared error (RMSE) and std-normalized root mean
+mean absolute error (MAE), range-normalized mean absolute error (nMAE),
+root mean squared error (RMSE) and range-normalized root mean
 squared error (nRMSE) for each channel.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -348,8 +350,8 @@ numpy array with errors from model 'i' at channel 'j'
         raw_errors (bool): If true returns for each model a list is returned
             with the errors of each channel (y_true - y_pred).
             If false returns for each model a list of 4 arrays with the
-            mean absolute error (MAE), std-normalized mean absolute error (nMAE),
-            root mean squared error (RMSE) and std-normalized root mean 
+            mean absolute error (MAE), range-normalized mean absolute error (nMAE),
+            root mean squared error (RMSE) and range-normalized root mean 
             squared error (nRMSE) for each channel.
 
     Returns:
@@ -390,11 +392,13 @@ numpy array with errors from model 'i' at channel 'j'
 
             # composite errors
             else:
+                y_range = y_test[i].max() - y_test[i].min()
+
                 mae = np.abs(errors).mean()
-                # mape = (np.abs(errors / y_test[i]) * 100).mean()
-                nmae = mae / y_test[i].std()
+                nmae = mae / y_range
                 rmse = np.sqrt((errors**2).mean())
-                nrmse = rmse / y_test[i].std()
+                nrmse = rmse / y_range
+                
                 error_per_channel.append(np.array([mae, nmae, rmse, nrmse]))
 
         error_per_model.append(error_per_channel)

@@ -56,10 +56,10 @@
 <h3 id="formats">Formats</h3>
 <p>The format classes allow the independent (X axis) data to be formatted so that it can be converted into numbers. Each class implements the following functions:</p>
 <ul>
-<li><strong>_parse(str) returns num</strong>: parses a string to a number, can raise <code>ValueError</code></li>
-<li><strong>_parse_duration(str) returns num</strong>: parses a string to a number as a difference/interval, e.g. duration in seconds or distance in meters</li>
-<li><strong>_format(num) returns str</strong>: format a number to be displayed</li>
-<li><strong>_scale(maxfreq=None) returns (num, str)</strong>: returns the default duration unit of the format and its name, e.g. to plot the frequency per day or per year</li>
+<li><strong>parse(str) returns num</strong>: parses a string to a number, can raise <code>ValueError</code></li>
+<li><strong>parse_delta(str) returns num</strong>: parses a string to a number as a difference/interval, e.g. duration in seconds or distance in meters</li>
+<li><strong>format(num) returns str</strong>: format a number to be displayed</li>
+<li><strong>get_scale(maxfreq=None) returns (num, str)</strong>: returns the default duration unit of the format and its name, e.g. to plot the frequency per day or per year</li>
 </ul>
 <h4 id="formatnumber">FormatNumber</h4>
 <h4 id="formatdate">FormatDate</h4>
@@ -67,9 +67,9 @@
 <h3 id="transformations">Transformations</h3>
 <p>The transformation classes allow transforming the dependent data (Y axis) to be transformed. Each class implements the following functions:</p>
 <ul>
-<li><strong>_data(data)</strong>: pass the Data class in case the transformer uses that data to calculate the transformation</li>
-<li><strong>_forward(x, y)</strong> returns y: does a forward transformation where x has shape (n,input_dims) and y has shape (n,)</li>
-<li><strong>_backward(x, y)</strong> returns y: does a backward transformation (invert) where x has shape (n,input_dims) and y has shape (n,)</li>
+<li><strong>set_data(data)</strong>: pass the Data class in case the transformer uses that data to calculate the transformation</li>
+<li><strong>forward(y, x=None)</strong> returns y: does a forward transformation where x has shape (n,input_dims) and y has shape (n,)</li>
+<li><strong>backward(y, x=None)</strong> returns y: does a backward transformation (invert) where x has shape (n,input_dims) and y has shape (n,)</li>
 </ul>
 <h4 id="transformdetrend">TransformDetrend</h4>
 <h4 id="transformnormalize">TransformNormalize</h4>

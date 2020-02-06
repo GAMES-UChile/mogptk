@@ -33,59 +33,73 @@ from scipy import signal
 import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import pandas as pd
 import re
 import logging
 
 logger = logging.getLogger(&#39;mogptk&#39;)
 
-class FormatNumber:
+class FormatBase:
+    def parse(self, val):
+        raise NotImplementedError
+
+    def parse_delta(self, val):
+        raise NotImplementedError
+
+    def format(self, val):
+        raise NotImplementedError
+
+    def get_scale(self, maxfreq=None):
+        raise NotImplementedError
+
+
+class FormatNumber(FormatBase):
     &#34;&#34;&#34;
     FormatNumber is the default formatter and takes regular floating point values as input.
     &#34;&#34;&#34;
     def __init__(self):
         self.category = &#39;num&#39;
 
-    def _parse(self, val):
+    def parse(self, val):
         if np.isnan(val):
             raise ValueError(&#34;number cannot be NaN&#34;)
         return float(val)
 
-    # TODO: rename parse_delta?
-    def _parse_duration(self, val):
-        return self._parse(val)
+    def parse_delta(self, val):
+        return self.parse(val)
 
-    def _format(self, val):
+    def format(self, val):
         return &#39;%.6g&#39; % (val,)
 
-    def _scale(self, maxfreq=None):
+    def get_scale(self, maxfreq=None):
         return 1, None
 
-class FormatDate:
+class FormatDate(FormatBase):
     &#34;&#34;&#34;
     FormatDate is a formatter that takes date values as input, such as &#39;2019-03-01&#39;, and stores values internally as days since 1970-01-01.
     &#34;&#34;&#34;
     def __init__(self):
         self.category = &#39;date&#39;
 
-    def _parse(self, val):
+    def parse(self, val):
         if isinstance(val, np.datetime64):
             dt = pd.Timestamp(val).to_pydatetime()
         else:
             dt = dateutil.parser.parse(val)
         return (dt - datetime.datetime(1970,1,1)).total_seconds()/3600/24
 
-    def _parse_duration(self, val):
+    def parse_delta(self, val):
         if isinstance(val, int):
             return val
         if isinstance(val, str):
             return _parse_duration_to_sec(val)/24/3600
         raise ValueError(&#34;could not convert input to duration&#34;)
     
-    def _format(self, val):
+    def format(self, val):
         return datetime.datetime.utcfromtimestamp(val*3600*24).strftime(&#39;%Y-%m-%d&#39;)
 
-    def _scale(self, maxfreq=None):
+    def get_scale(self, maxfreq=None):
         if maxfreq == &#39;year&#39;:
             return 356.2425, &#39;year&#39;
         if maxfreq == &#39;month&#39;:
@@ -99,31 +113,31 @@ class FormatDate:
         if maxfreq == &#39;second&#39;:
             return 1/24/3600, &#39;second&#39;
 
-class FormatDateTime:
+class FormatDateTime(FormatBase):
     &#34;&#34;&#34;
     FormatDateTime is a formatter that takes date and time values as input, such as &#39;2019-03-01 12:30&#39;, and stores values internally as seconds since 1970-01-01.
     &#34;&#34;&#34;
     def __init__(self):
         self.category = &#39;date&#39;
 
-    def _parse(self, val):
+    def parse(self, val):
         if isinstance(val, np.datetime64):
             dt = pd.Timestamp(val).to_pydatetime()
         else:
             dt = dateutil.parser.parse(val)
         return (dt - datetime.datetime(1970,1,1)).total_seconds()
 
-    def _parse_duration(self, val):
+    def parse_delta(self, val):
         if isinstance(val, int):
             return val
         if isinstance(val, str):
             return _parse_duration_to_sec(val)
         raise ValueError(&#34;could not convert input to duration&#34;)
 
-    def _format(self, val):
+    def format(self, val):
         return datetime.datetime.utcfromtimestamp(val).strftime(&#39;%Y-%m-%d %H:%M&#39;)
 
-    def _scale(self, maxfreq=None):
+    def get_scale(self, maxfreq=None):
         if maxfreq == &#39;year&#39;:
             return 3600*24*356.2425, &#39;year&#39;
         if maxfreq == &#39;month&#39;:
@@ -141,7 +155,17 @@ class FormatDateTime:
 ################################################################
 ################################################################
 
-class TransformDetrend:
+class TransformBase:
+    def set_data(self, data):
+        pass
+
+    def forward(self, y, x=None):
+        raise NotImplementedError
+    
+    def backward(self, y, x=None):
+        raise NotImplementedError
+
+class TransformDetrend(TransformBase):
     &#34;&#34;&#34;
     TransformDetrend is a transformer that detrends the data. It uses NumPy `polyfit` to find an `n` degree polynomial that removes the trend.
 
@@ -152,7 +176,7 @@ class TransformDetrend:
     def __init__(self, degree=1):
         self.degree = degree
 
-    def _data(self, data):
+    def set_data(self, data):
         if data.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
@@ -161,15 +185,15 @@ class TransformDetrend:
         # reg.fit(data.X, data.Y)
         # self.trend = reg
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return y - np.polyval(self.coef, x[:, 0])
         # return y - self.trend.predict(x)
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return y + np.polyval(self.coef, x[:, 0])
         # return y + self.trend.predict(x)
 
-class TransformLinear:
+class TransformLinear(TransformBase):
     &#34;&#34;&#34;
     TransformLinear transforms the data linearly so that y =&gt; (y-offset)/scale.
     &#34;&#34;&#34;
@@ -177,65 +201,65 @@ class TransformLinear:
         self.scale = scale
         self.offset = offset
 
-    def _data(self, data):
+    def set_data(self, data):
         pass
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return (y-self.offset)/self.scale
 
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return self.scale*y + self.offset
 
-class TransformNormalize:
+class TransformNormalize(TransformBase):
     &#34;&#34;&#34;
     TransformNormalize is a transformer that normalizes the data so that the y-axis is between -1 and 1.
     &#34;&#34;&#34;
     def __init__(self):
         pass
 
-    def _data(self, data):
+    def set_data(self, data):
         self.ymin = np.amin(data.Y[data.mask])
         self.ymax = np.amax(data.Y[data.mask])
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin
 
-class TransformLog:
+class TransformLog(TransformBase):
     &#34;&#34;&#34;
     TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the y-axis so that all values are greater than or equal to 1.
     &#34;&#34;&#34;
     def __init__(self):
         pass
 
-    def _data(self, data):
-        self.shift = 1 - np.amin(data.Y[data.mask])
-        self.mean = np.log(data.Y[data.mask] + self.shift).mean()
+    def set_data(self, data):
+        self.shift = 1 - data.Y.min()
+        self.mean = np.log(data.Y + self.shift).mean()
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return np.log(y + self.shift) - self.mean
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return np.exp(y + self.mean) - self.shift
 
-class TransformWhiten:
+class TransformWhiten(TransformBase):
     &#34;&#34;&#34;
     Transform the data so it has mean 0 and variance 1
     &#34;&#34;&#34;
     def __init__(self):
         pass
     
-    def _data(self, data):
+    def set_data(self, data):
         # take only the non-removed observations
         self.mean = data.Y[data.mask].mean()
         self.std = data.Y[data.mask].std()
         
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return (y - self.mean) / self.std
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return (y * self.std) + self.mean
 
 ################################################################
@@ -393,12 +417,12 @@ class Data:
             if x_nested_lists:
                 for col in range(input_dims):
                     try:
-                        X[row,col] = formats[col]._parse(val[col])
+                        X[row,col] = formats[col].parse(val[col])
                     except ValueError:
                         bad_rows.add(row)
             else:
                 try:
-                    X[row,0] = formats[col]._parse(val)
+                    X[row,0] = formats[col].parse(val)
                 except ValueError:
                     bad_rows.add(row)
 
@@ -406,7 +430,7 @@ class Data:
         Y = np.empty((n,))
         for row, val in enumerate(Y_raw):
             try:
-                Y[row] = formats[-1]._parse(val)
+                Y[row] = formats[-1].parse(val)
             except ValueError:
                 bad_rows.add(row)
 
@@ -460,7 +484,7 @@ class Data:
         self.Y = Y # shape (n)
         self.mask = np.array([True] * n)
         self.F = None
-        self.X_pred = np.array([])
+        self.X_pred = X
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
@@ -593,7 +617,7 @@ class Data:
         Transform the data by using one of the provided transformers, such as TransformDetrend, TransformNormalize, TransformLog, ...
 
         Args:
-            transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
+            transformer (obj): Transformer object with forward(y, x) and backward(y, x) methods.
 
         Examples:
             &gt;&gt;&gt; data.transform(mogptk.TransformDetrend)
@@ -601,12 +625,12 @@ class Data:
         t = transformer
         if isinstance(t, type):
             t = transformer()
-        t._data(self)
+        t.set_data(self)
 
-        self.Y = t._forward(self.X, self.Y)
+        self.Y = t.forward(self.Y, self.X)
         if self.F != None:
             f = self.F
-            self.F = lambda x: t._forward(x, f(x))
+            self.F = lambda x: t.forward(f(x), x)
         self.transformations.append(t)
     
     # TODO: remove?
@@ -628,8 +652,8 @@ class Data:
         if self.get_input_dims() != 1:
             raise ValueError(&#34;can only filter on one dimensional input data&#34;)
         
-        start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
-        end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
+        start = self.X_scales[0] * (self.formatters[0].parse(start) - self.X_offsets[0])
+        end = self.X_scales[0] * (self.formatters[0].parse(end) - self.X_offsets[0])
         ind = (self.X[:,0] &gt;= start) &amp; (self.X[:,0] &lt; end)
 
         self.X = np.expand_dims(self.X[ind,0], 1)
@@ -663,7 +687,7 @@ class Data:
         
         start = self.X[0,0]
         end = self.X[-1,0]
-        step = self.X_scales[0] * self.formatters[0]._parse_duration(duration)
+        step = self.X_scales[0] * self.formatters[0].parse_delta(duration)
 
         X = np.arange(start+step/2, end+step/2, step)
         Y = np.empty((len(X)))
@@ -729,7 +753,7 @@ class Data:
         &#34;&#34;&#34;
         x = self.X[self.mask,:]
         y = self.Y[self.mask]
-        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
     
     def get_data(self):
         &#34;&#34;&#34;
@@ -744,7 +768,7 @@ class Data:
         &#34;&#34;&#34;
         x = self.X
         y = self.Y
-        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
 
     def get_test_data(self):
         &#34;&#34;&#34;
@@ -759,7 +783,7 @@ class Data:
         &#34;&#34;&#34;
         x = self.X[~self.mask,:]
         y = self.Y[~self.mask]
-        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
 
     ################################################################
     
@@ -806,11 +830,11 @@ class Data:
         if start == None:
             start = np.min(self.X[:,0])
         else:
-            start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
+            start = self.X_scales[0] * (self.formatters[0].parse(start) - self.X_offsets[0])
         if end == None:
             end = np.max(self.X[:,0])
         else:
-            end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
+            end = self.X_scales[0] * (self.formatters[0].parse(end) - self.X_offsets[0])
 
         idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
         self.mask[idx] = False
@@ -856,7 +880,7 @@ class Data:
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
-        duration = self.formatters[0]._parse_duration(duration)
+        duration = self.formatters[0].parse_delta(duration)
         if n &lt; 1:
             return
 
@@ -897,9 +921,9 @@ class Data:
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
-        mu = self._detransform(self.X_pred, mu)
-        lower = self._detransform(self.X_pred, lower)
-        upper = self._detransform(self.X_pred, upper)
+        mu = self._detransform(mu, self.X_pred)
+        lower = self._detransform(lower, self.X_pred)
+        upper = self._detransform(upper, self.X_pred)
         return self.X_scales*(self.X_pred-self.X_offsets), mu, lower, upper
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
@@ -932,17 +956,17 @@ class Data:
             start = self.X[0,:]
         elif isinstance(start, list):
             for i in range(self.get_input_dims()):
-                start[i] = self.formatters[i]._parse(start[i])
+                start[i] = self.formatters[i].parse(start[i])
         else:
-            start = self.formatters[0]._parse(start)
+            start = self.formatters[0].parse(start)
 
         if end == None:
             end = self.X[-1,:]
         elif isinstance(end, list):
             for i in range(self.get_input_dims()):
-                end[i] = self.formatters[i]._parse(end[i])
+                end[i] = self.formatters[i].parse(end[i])
         else:
-            end = self.formatters[0]._parse(end)
+            end = self.formatters[0].parse(end)
         
         start = _normalize_input_dims(start, self.get_input_dims())
         end = _normalize_input_dims(end, self.get_input_dims())
@@ -963,12 +987,12 @@ class Data:
             if step == None:
                 step = (end[0]-start[0])/100
             else:
-                step = self.formatters[0]._parse_duration(step)
+                step = self.formatters[0].parse_delta(step)
             self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
 
         self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
     
-    def set_prediction_X(self, x):
+    def set_prediction_x(self, x):
         &#34;&#34;&#34;
         Set the prediction range directly.
 
@@ -1127,7 +1151,7 @@ class Data:
             C[i,:] = variances[:Q]
         return A, B, C
 
-    def plot(self, ax=None):
+    def plot(self, ax=None, plot_legend=False):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions.
 
@@ -1159,7 +1183,10 @@ class Data:
                 ax.fill_between(X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
                 ax.plot(X_pred[:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
                 ax.plot(X_pred[:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-                legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=&#39;Prediction &#39;+name))
+                label = &#39;Prediction&#39;
+                if 1 &lt; len(self.Y_mu_pred):
+                    label += &#39; &#39; + name
+                legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=label))
 
         if self.F != None:
             n = len(X[:,0])*10
@@ -1174,24 +1201,51 @@ class Data:
             y = self.F(x)
 
             ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
-            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
+            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
 
-        ax.plot(X[:,0], self.Y, &#39;k-&#39;, alpha=0.7)
-        legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
+        ax.plot(X[:,0], self.Y, &#39;k--&#39;, alpha=0.8)
+        legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
 
         if self.has_test_data():
             x, y = X[self.mask,:], self.Y[self.mask]
-            ax.plot(x[:,0], y, &#39;k.&#39;, mew=.5, ms=8, markeredgecolor=&#39;white&#39;)
-            legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
+            ax.plot(x[:,0], y, &#39;k.&#39;, mew=1, ms=13, markeredgecolor=&#39;white&#39;)
+            legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=10, label=&#39;Training Points&#39;))
+            for idx in np.where(~self.mask)[0]:
+                width_1 = (self.X[min(idx, len(X) - 1), 0] - self.X[max(idx - 1, 0), 0]) / 2
+                width_2 = (self.X[min(idx + 1, len(X) - 1), 0] - self.X[max(idx, 0), 0]) / 2
+                ax.add_patch(
+                    patches.Rectangle(
+                    (self.X[max(idx - 1, 0), 0] + width_1, ax.get_ylim()[0]),           # (x,y)
+                    width_1 + width_2,                                 # width
+                    ax.get_ylim()[1] - ax.get_ylim()[0],  # height
+                    fill=True,
+                    color=&#39;xkcd:strawberry&#39;,
+                    alpha=0.25,
+                    lw=0,
+                    ))
+            legend.append(patches.Rectangle(
+                    (1, 1),
+                    1,
+                    1,
+                    fill=True,
+                    color=&#39;xkcd:strawberry&#39;,
+                    alpha=0.5,
+                    lw=0,
+                    label=&#39;Removed Points&#39;
+                    ))
+
+        xmin = X.min()
+        xmax = X.max()
+        ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
         ax.set_xlabel(self.X_labels[0])
         ax.set_ylabel(self.Y_label)
         ax.set_title(self.name)
-        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
+        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0].format(x))
         ax.xaxis.set_major_formatter(formatter)
 
-        if 0 &lt; len(legend):
-            plt.legend(handles=legend, loc=&#39;best&#39;)
+        if (len(legend) &gt; 0) and plot_legend:
+            ax.legend(handles=legend, loc=&#39;upper center&#39;, ncol=len(legend), bbox_to_anchor=(0.5, 1.7))
         return ax
 
     def plot_spectrum(self, method=&#39;lombscargle&#39;, ax=None, per=None, maxfreq=None):
@@ -1219,13 +1273,13 @@ class Data:
         ax.set_title(self.name, fontsize=36)
 
         formatter = self.formatters[0]
-        factor, name = formatter._scale(per)
+        factor, name = formatter.get_scale(per)
         if name != None:
             ax.set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
         else:
-            ax.set_xlabel(&#39;Frequency&#39;)
+            ax.set_xlabel(&#39;Frequency [Hz]&#39;)
 
-        X_space = (self.X_offsets + (self.X/self.X_scales)) / factor
+        X_space = np.squeeze((self.X_offsets + (self.X/self.X_scales)) / factor)
 
         freq = maxfreq
         if freq == None:
@@ -1251,23 +1305,28 @@ class Data:
         else:
             raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
-        ax.plot(X, Y, &#39;k-&#39;)
+        ax.plot(X, Y, &#39;-&#39;, color=&#39;xkcd:strawberry&#39;, lw=2.3)
         if len(Y_err) != 0:
-            ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.1)
+            ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.4)
         ax.set_title(self.name + &#39; Spectrum&#39;)
+
+        xmin = X.min()
+        xmax = X.max()
+        ax.set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
+
         ax.set_yticks([])
         ax.set_ylim(0, None)
 
         return ax
 
-    def _transform(self, x, y):
+    def _transform(self, y, x=None):
         for t in self.transformations:
-            y = t._forward(x, y)
+            y = t.forward(y, x)
         return y
 
-    def _detransform(self, x, y):
+    def _detransform(self, y, x=None):
         for t in self.transformations[::-1]:
-            y = t._backward(x, y)
+            y = t.backward(y, x)
         return y
 
 def _check_function(f, input_dims):
@@ -1563,12 +1622,12 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             if x_nested_lists:
                 for col in range(input_dims):
                     try:
-                        X[row,col] = formats[col]._parse(val[col])
+                        X[row,col] = formats[col].parse(val[col])
                     except ValueError:
                         bad_rows.add(row)
             else:
                 try:
-                    X[row,0] = formats[col]._parse(val)
+                    X[row,0] = formats[col].parse(val)
                 except ValueError:
                     bad_rows.add(row)
 
@@ -1576,7 +1635,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Y = np.empty((n,))
         for row, val in enumerate(Y_raw):
             try:
-                Y[row] = formats[-1]._parse(val)
+                Y[row] = formats[-1].parse(val)
             except ValueError:
                 bad_rows.add(row)
 
@@ -1630,7 +1689,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         self.Y = Y # shape (n)
         self.mask = np.array([True] * n)
         self.F = None
-        self.X_pred = np.array([])
+        self.X_pred = X
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
@@ -1763,7 +1822,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         Transform the data by using one of the provided transformers, such as TransformDetrend, TransformNormalize, TransformLog, ...
 
         Args:
-            transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
+            transformer (obj): Transformer object with forward(y, x) and backward(y, x) methods.
 
         Examples:
             &gt;&gt;&gt; data.transform(mogptk.TransformDetrend)
@@ -1771,12 +1830,12 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         t = transformer
         if isinstance(t, type):
             t = transformer()
-        t._data(self)
+        t.set_data(self)
 
-        self.Y = t._forward(self.X, self.Y)
+        self.Y = t.forward(self.Y, self.X)
         if self.F != None:
             f = self.F
-            self.F = lambda x: t._forward(x, f(x))
+            self.F = lambda x: t.forward(f(x), x)
         self.transformations.append(t)
     
     # TODO: remove?
@@ -1798,8 +1857,8 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if self.get_input_dims() != 1:
             raise ValueError(&#34;can only filter on one dimensional input data&#34;)
         
-        start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
-        end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
+        start = self.X_scales[0] * (self.formatters[0].parse(start) - self.X_offsets[0])
+        end = self.X_scales[0] * (self.formatters[0].parse(end) - self.X_offsets[0])
         ind = (self.X[:,0] &gt;= start) &amp; (self.X[:,0] &lt; end)
 
         self.X = np.expand_dims(self.X[ind,0], 1)
@@ -1833,7 +1892,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         
         start = self.X[0,0]
         end = self.X[-1,0]
-        step = self.X_scales[0] * self.formatters[0]._parse_duration(duration)
+        step = self.X_scales[0] * self.formatters[0].parse_delta(duration)
 
         X = np.arange(start+step/2, end+step/2, step)
         Y = np.empty((len(X)))
@@ -1899,7 +1958,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         &#34;&#34;&#34;
         x = self.X[self.mask,:]
         y = self.Y[self.mask]
-        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
     
     def get_data(self):
         &#34;&#34;&#34;
@@ -1914,7 +1973,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         &#34;&#34;&#34;
         x = self.X
         y = self.Y
-        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
 
     def get_test_data(self):
         &#34;&#34;&#34;
@@ -1929,7 +1988,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         &#34;&#34;&#34;
         x = self.X[~self.mask,:]
         y = self.Y[~self.mask]
-        return self.X_offsets + x/self.X_scales, self._detransform(x, y)
+        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
 
     ################################################################
     
@@ -1976,11 +2035,11 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if start == None:
             start = np.min(self.X[:,0])
         else:
-            start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
+            start = self.X_scales[0] * (self.formatters[0].parse(start) - self.X_offsets[0])
         if end == None:
             end = np.max(self.X[:,0])
         else:
-            end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
+            end = self.X_scales[0] * (self.formatters[0].parse(end) - self.X_offsets[0])
 
         idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
         self.mask[idx] = False
@@ -2026,7 +2085,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         if self.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
-        duration = self.formatters[0]._parse_duration(duration)
+        duration = self.formatters[0].parse_delta(duration)
         if n &lt; 1:
             return
 
@@ -2067,9 +2126,9 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
-        mu = self._detransform(self.X_pred, mu)
-        lower = self._detransform(self.X_pred, lower)
-        upper = self._detransform(self.X_pred, upper)
+        mu = self._detransform(mu, self.X_pred)
+        lower = self._detransform(lower, self.X_pred)
+        upper = self._detransform(upper, self.X_pred)
         return self.X_scales*(self.X_pred-self.X_offsets), mu, lower, upper
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
@@ -2102,17 +2161,17 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             start = self.X[0,:]
         elif isinstance(start, list):
             for i in range(self.get_input_dims()):
-                start[i] = self.formatters[i]._parse(start[i])
+                start[i] = self.formatters[i].parse(start[i])
         else:
-            start = self.formatters[0]._parse(start)
+            start = self.formatters[0].parse(start)
 
         if end == None:
             end = self.X[-1,:]
         elif isinstance(end, list):
             for i in range(self.get_input_dims()):
-                end[i] = self.formatters[i]._parse(end[i])
+                end[i] = self.formatters[i].parse(end[i])
         else:
-            end = self.formatters[0]._parse(end)
+            end = self.formatters[0].parse(end)
         
         start = _normalize_input_dims(start, self.get_input_dims())
         end = _normalize_input_dims(end, self.get_input_dims())
@@ -2133,12 +2192,12 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             if step == None:
                 step = (end[0]-start[0])/100
             else:
-                step = self.formatters[0]._parse_duration(step)
+                step = self.formatters[0].parse_delta(step)
             self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
 
         self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
     
-    def set_prediction_X(self, x):
+    def set_prediction_x(self, x):
         &#34;&#34;&#34;
         Set the prediction range directly.
 
@@ -2297,7 +2356,7 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             C[i,:] = variances[:Q]
         return A, B, C
 
-    def plot(self, ax=None):
+    def plot(self, ax=None, plot_legend=False):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions.
 
@@ -2329,7 +2388,10 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
                 ax.fill_between(X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
                 ax.plot(X_pred[:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
                 ax.plot(X_pred[:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-                legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=&#39;Prediction &#39;+name))
+                label = &#39;Prediction&#39;
+                if 1 &lt; len(self.Y_mu_pred):
+                    label += &#39; &#39; + name
+                legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=label))
 
         if self.F != None:
             n = len(X[:,0])*10
@@ -2344,24 +2406,51 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
             y = self.F(x)
 
             ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
-            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
+            legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
 
-        ax.plot(X[:,0], self.Y, &#39;k-&#39;, alpha=0.7)
-        legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
+        ax.plot(X[:,0], self.Y, &#39;k--&#39;, alpha=0.8)
+        legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
 
         if self.has_test_data():
             x, y = X[self.mask,:], self.Y[self.mask]
-            ax.plot(x[:,0], y, &#39;k.&#39;, mew=.5, ms=8, markeredgecolor=&#39;white&#39;)
-            legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
+            ax.plot(x[:,0], y, &#39;k.&#39;, mew=1, ms=13, markeredgecolor=&#39;white&#39;)
+            legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=10, label=&#39;Training Points&#39;))
+            for idx in np.where(~self.mask)[0]:
+                width_1 = (self.X[min(idx, len(X) - 1), 0] - self.X[max(idx - 1, 0), 0]) / 2
+                width_2 = (self.X[min(idx + 1, len(X) - 1), 0] - self.X[max(idx, 0), 0]) / 2
+                ax.add_patch(
+                    patches.Rectangle(
+                    (self.X[max(idx - 1, 0), 0] + width_1, ax.get_ylim()[0]),           # (x,y)
+                    width_1 + width_2,                                 # width
+                    ax.get_ylim()[1] - ax.get_ylim()[0],  # height
+                    fill=True,
+                    color=&#39;xkcd:strawberry&#39;,
+                    alpha=0.25,
+                    lw=0,
+                    ))
+            legend.append(patches.Rectangle(
+                    (1, 1),
+                    1,
+                    1,
+                    fill=True,
+                    color=&#39;xkcd:strawberry&#39;,
+                    alpha=0.5,
+                    lw=0,
+                    label=&#39;Removed Points&#39;
+                    ))
+
+        xmin = X.min()
+        xmax = X.max()
+        ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
         ax.set_xlabel(self.X_labels[0])
         ax.set_ylabel(self.Y_label)
         ax.set_title(self.name)
-        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
+        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0].format(x))
         ax.xaxis.set_major_formatter(formatter)
 
-        if 0 &lt; len(legend):
-            plt.legend(handles=legend, loc=&#39;best&#39;)
+        if (len(legend) &gt; 0) and plot_legend:
+            ax.legend(handles=legend, loc=&#39;upper center&#39;, ncol=len(legend), bbox_to_anchor=(0.5, 1.7))
         return ax
 
     def plot_spectrum(self, method=&#39;lombscargle&#39;, ax=None, per=None, maxfreq=None):
@@ -2389,13 +2478,13 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         ax.set_title(self.name, fontsize=36)
 
         formatter = self.formatters[0]
-        factor, name = formatter._scale(per)
+        factor, name = formatter.get_scale(per)
         if name != None:
             ax.set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
         else:
-            ax.set_xlabel(&#39;Frequency&#39;)
+            ax.set_xlabel(&#39;Frequency [Hz]&#39;)
 
-        X_space = (self.X_offsets + (self.X/self.X_scales)) / factor
+        X_space = np.squeeze((self.X_offsets + (self.X/self.X_scales)) / factor)
 
         freq = maxfreq
         if freq == None:
@@ -2421,23 +2510,28 @@ FormatDateTime, &hellip;) for each input dimension.</dd>
         else:
             raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
-        ax.plot(X, Y, &#39;k-&#39;)
+        ax.plot(X, Y, &#39;-&#39;, color=&#39;xkcd:strawberry&#39;, lw=2.3)
         if len(Y_err) != 0:
-            ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.1)
+            ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.4)
         ax.set_title(self.name + &#39; Spectrum&#39;)
+
+        xmin = X.min()
+        xmax = X.max()
+        ax.set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
+
         ax.set_yticks([])
         ax.set_ylim(0, None)
 
         return ax
 
-    def _transform(self, x, y):
+    def _transform(self, y, x=None):
         for t in self.transformations:
-            y = t._forward(x, y)
+            y = t.forward(y, x)
         return y
 
-    def _detransform(self, x, y):
+    def _detransform(self, y, x=None):
         for t in self.transformations[::-1]:
-            y = t._backward(x, y)
+            y = t.backward(y, x)
         return y</code></pre>
 </details>
 <h3>Methods</h3>
@@ -2496,7 +2590,7 @@ while with FormatDateTime it is per second.</p>
     
     start = self.X[0,0]
     end = self.X[-1,0]
-    step = self.X_scales[0] * self.formatters[0]._parse_duration(duration)
+    step = self.X_scales[0] * self.formatters[0].parse_delta(duration)
 
     X = np.arange(start+step/2, end+step/2, step)
     Y = np.empty((len(X)))
@@ -2580,8 +2674,8 @@ while with FormatDateTime it is per second.</p>
     if self.get_input_dims() != 1:
         raise ValueError(&#34;can only filter on one dimensional input data&#34;)
     
-    start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
-    end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
+    start = self.X_scales[0] * (self.formatters[0].parse(start) - self.X_offsets[0])
+    end = self.X_scales[0] * (self.formatters[0].parse(end) - self.X_offsets[0])
     ind = (self.X[:,0] &gt;= start) &amp; (self.X[:,0] &lt; end)
 
     self.X = np.expand_dims(self.X[ind,0], 1)
@@ -2695,7 +2789,7 @@ numpy.ndarray: Y data of shape (n).</p>
     &#34;&#34;&#34;
     x = self.X
     y = self.Y
-    return self.X_offsets + x/self.X_scales, self._detransform(x, y)</code></pre>
+    return self.X_offsets + x/self.X_scales, self._detransform(y, x)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_input_dims"><code class="name flex">
@@ -2924,9 +3018,9 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
     lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
     upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
-    mu = self._detransform(self.X_pred, mu)
-    lower = self._detransform(self.X_pred, lower)
-    upper = self._detransform(self.X_pred, upper)
+    mu = self._detransform(mu, self.X_pred)
+    lower = self._detransform(lower, self.X_pred)
+    upper = self._detransform(upper, self.X_pred)
     return self.X_scales*(self.X_pred-self.X_offsets), mu, lower, upper</code></pre>
 </details>
 </dd>
@@ -2958,7 +3052,7 @@ numpy.ndarray: Y data of shape (n).</p>
     &#34;&#34;&#34;
     x = self.X[~self.mask,:]
     y = self.Y[~self.mask]
-    return self.X_offsets + x/self.X_scales, self._detransform(x, y)</code></pre>
+    return self.X_offsets + x/self.X_scales, self._detransform(y, x)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_train_data"><code class="name flex">
@@ -2989,7 +3083,7 @@ numpy.ndarray: Y data of shape (n).</p>
     &#34;&#34;&#34;
     x = self.X[self.mask,:]
     y = self.Y[self.mask]
-    return self.X_offsets + x/self.X_scales, self._detransform(x, y)</code></pre>
+    return self.X_offsets + x/self.X_scales, self._detransform(y, x)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.has_test_data"><code class="name flex">
@@ -3028,7 +3122,7 @@ numpy.ndarray: Y data of shape (n).</p>
 </details>
 </dd>
 <dt id="mogptk.data.Data.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>self, ax=None)</span>
+<span>def <span class="ident">plot</span></span>(<span>self, ax=None, plot_legend=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Plot the data including removed observations, latent function, and predictions.</p>
@@ -3046,7 +3140,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(self, ax=None):
+<pre><code class="python">def plot(self, ax=None, plot_legend=False):
     &#34;&#34;&#34;
     Plot the data including removed observations, latent function, and predictions.
 
@@ -3078,7 +3172,10 @@ numpy.ndarray: Y data of shape (n).</p>
             ax.fill_between(X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
             ax.plot(X_pred[:,0], lower, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
             ax.plot(X_pred[:,0], upper, ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-            legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=&#39;Prediction &#39;+name))
+            label = &#39;Prediction&#39;
+            if 1 &lt; len(self.Y_mu_pred):
+                label += &#39; &#39; + name
+            legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=label))
 
     if self.F != None:
         n = len(X[:,0])*10
@@ -3093,24 +3190,51 @@ numpy.ndarray: Y data of shape (n).</p>
         y = self.F(x)
 
         ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
-        legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;Latent function&#39;))
+        legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
 
-    ax.plot(X[:,0], self.Y, &#39;k-&#39;, alpha=0.7)
-    legend.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data&#39;))
+    ax.plot(X[:,0], self.Y, &#39;k--&#39;, alpha=0.8)
+    legend.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
 
     if self.has_test_data():
         x, y = X[self.mask,:], self.Y[self.mask]
-        ax.plot(x[:,0], y, &#39;k.&#39;, mew=.5, ms=8, markeredgecolor=&#39;white&#39;)
-        legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=8, label=&#39;Training&#39;))
+        ax.plot(x[:,0], y, &#39;k.&#39;, mew=1, ms=13, markeredgecolor=&#39;white&#39;)
+        legend.append(plt.Line2D([0], [0], ls=&#39;&#39;, marker=&#39;.&#39;, color=&#39;k&#39;, mew=2, ms=10, label=&#39;Training Points&#39;))
+        for idx in np.where(~self.mask)[0]:
+            width_1 = (self.X[min(idx, len(X) - 1), 0] - self.X[max(idx - 1, 0), 0]) / 2
+            width_2 = (self.X[min(idx + 1, len(X) - 1), 0] - self.X[max(idx, 0), 0]) / 2
+            ax.add_patch(
+                patches.Rectangle(
+                (self.X[max(idx - 1, 0), 0] + width_1, ax.get_ylim()[0]),           # (x,y)
+                width_1 + width_2,                                 # width
+                ax.get_ylim()[1] - ax.get_ylim()[0],  # height
+                fill=True,
+                color=&#39;xkcd:strawberry&#39;,
+                alpha=0.25,
+                lw=0,
+                ))
+        legend.append(patches.Rectangle(
+                (1, 1),
+                1,
+                1,
+                fill=True,
+                color=&#39;xkcd:strawberry&#39;,
+                alpha=0.5,
+                lw=0,
+                label=&#39;Removed Points&#39;
+                ))
+
+    xmin = X.min()
+    xmax = X.max()
+    ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
     ax.set_xlabel(self.X_labels[0])
     ax.set_ylabel(self.Y_label)
     ax.set_title(self.name)
-    formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0]._format(x))
+    formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0].format(x))
     ax.xaxis.set_major_formatter(formatter)
 
-    if 0 &lt; len(legend):
-        plt.legend(handles=legend, loc=&#39;best&#39;)
+    if (len(legend) &gt; 0) and plot_legend:
+        ax.legend(handles=legend, loc=&#39;upper center&#39;, ncol=len(legend), bbox_to_anchor=(0.5, 1.7))
     return ax</code></pre>
 </details>
 </dd>
@@ -3164,13 +3288,13 @@ numpy.ndarray: Y data of shape (n).</p>
     ax.set_title(self.name, fontsize=36)
 
     formatter = self.formatters[0]
-    factor, name = formatter._scale(per)
+    factor, name = formatter.get_scale(per)
     if name != None:
         ax.set_xlabel(&#39;Frequency (1/&#39;+name+&#39;)&#39;)
     else:
-        ax.set_xlabel(&#39;Frequency&#39;)
+        ax.set_xlabel(&#39;Frequency [Hz]&#39;)
 
-    X_space = (self.X_offsets + (self.X/self.X_scales)) / factor
+    X_space = np.squeeze((self.X_offsets + (self.X/self.X_scales)) / factor)
 
     freq = maxfreq
     if freq == None:
@@ -3196,10 +3320,15 @@ numpy.ndarray: Y data of shape (n).</p>
     else:
         raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
-    ax.plot(X, Y, &#39;k-&#39;)
+    ax.plot(X, Y, &#39;-&#39;, color=&#39;xkcd:strawberry&#39;, lw=2.3)
     if len(Y_err) != 0:
-        ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.1)
+        ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.4)
     ax.set_title(self.name + &#39; Spectrum&#39;)
+
+    xmin = X.min()
+    xmax = X.max()
+    ax.set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
+
     ax.set_yticks([])
     ax.set_ylim(0, None)
 
@@ -3243,7 +3372,7 @@ numpy.ndarray: Y data of shape (n).</p>
     if self.get_input_dims() != 1:
         raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
-    duration = self.formatters[0]._parse_duration(duration)
+    duration = self.formatters[0].parse_delta(duration)
     if n &lt; 1:
         return
 
@@ -3347,11 +3476,11 @@ numpy.ndarray: Y data of shape (n).</p>
     if start == None:
         start = np.min(self.X[:,0])
     else:
-        start = self.X_scales[0] * (self.formatters[0]._parse(start) - self.X_offsets[0])
+        start = self.X_scales[0] * (self.formatters[0].parse(start) - self.X_offsets[0])
     if end == None:
         end = np.max(self.X[:,0])
     else:
-        end = self.X_scales[0] * (self.formatters[0]._parse(end) - self.X_offsets[0])
+        end = self.X_scales[0] * (self.formatters[0].parse(end) - self.X_offsets[0])
 
     idx = np.where(np.logical_and(self.X[:,0] &gt;= start, self.X[:,0] &lt;= end))
     self.mask[idx] = False</code></pre>
@@ -3506,52 +3635,6 @@ numpy.ndarray: Y data of shape (n).</p>
     self.name = name</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.set_prediction_X"><code class="name flex">
-<span>def <span class="ident">set_prediction_X</span></span>(<span>self, x)</span>
-</code></dt>
-<dd>
-<section class="desc"><p>Set the prediction range directly.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>x</code></strong> :&ensp;<code>list</code>, <code>numpy.ndarray</code></dt>
-<dd>Array of shape (n) or (n,input_dims) with input values to predict at.</dd>
-</dl>
-<h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
-</code></pre></section>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def set_prediction_X(self, x):
-    &#34;&#34;&#34;
-    Set the prediction range directly.
-
-    Args:
-        x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
-
-    Examples:
-        &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
-    &#34;&#34;&#34;
-    if isinstance(x, list):
-        x = np.array(x)
-    elif not isinstance(x, np.ndarray):
-        raise ValueError(&#34;x expected to be a list or numpy.ndarray&#34;)
-
-    x = x.astype(float)
-
-    if x.ndim == 1:
-        x = x.reshape(-1, 1)
-    if x.ndim != 2 or x.shape[1] != self.get_input_dims():
-        raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
-
-    self.X_pred = self.X_scales*(x-self.X_offsets)
-
-    # clear old prediction data now that X_pred has been updated
-    self.Y_mu_pred = {}
-    self.Y_var_pred = {}</code></pre>
-</details>
-</dd>
 <dt id="mogptk.data.Data.set_prediction_range"><code class="name flex">
 <span>def <span class="ident">set_prediction_range</span></span>(<span>self, start=None, end=None, n=None, step=None)</span>
 </code></dt>
@@ -3613,17 +3696,17 @@ step in the duration string format if the proper formatter is set.</p>
         start = self.X[0,:]
     elif isinstance(start, list):
         for i in range(self.get_input_dims()):
-            start[i] = self.formatters[i]._parse(start[i])
+            start[i] = self.formatters[i].parse(start[i])
     else:
-        start = self.formatters[0]._parse(start)
+        start = self.formatters[0].parse(start)
 
     if end == None:
         end = self.X[-1,:]
     elif isinstance(end, list):
         for i in range(self.get_input_dims()):
-            end[i] = self.formatters[i]._parse(end[i])
+            end[i] = self.formatters[i].parse(end[i])
     else:
-        end = self.formatters[0]._parse(end)
+        end = self.formatters[0].parse(end)
     
     start = _normalize_input_dims(start, self.get_input_dims())
     end = _normalize_input_dims(end, self.get_input_dims())
@@ -3644,10 +3727,56 @@ step in the duration string format if the proper formatter is set.</p>
         if step == None:
             step = (end[0]-start[0])/100
         else:
-            step = self.formatters[0]._parse_duration(step)
+            step = self.formatters[0].parse_delta(step)
         self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
 
     self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.set_prediction_x"><code class="name flex">
+<span>def <span class="ident">set_prediction_x</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Set the prediction range directly.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong> :&ensp;<code>list</code>, <code>numpy.ndarray</code></dt>
+<dd>Array of shape (n) or (n,input_dims) with input values to predict at.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_prediction_x(self, x):
+    &#34;&#34;&#34;
+    Set the prediction range directly.
+
+    Args:
+        x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+
+    Examples:
+        &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
+    &#34;&#34;&#34;
+    if isinstance(x, list):
+        x = np.array(x)
+    elif not isinstance(x, np.ndarray):
+        raise ValueError(&#34;x expected to be a list or numpy.ndarray&#34;)
+
+    x = x.astype(float)
+
+    if x.ndim == 1:
+        x = x.reshape(-1, 1)
+    if x.ndim != 2 or x.shape[1] != self.get_input_dims():
+        raise ValueError(&#34;x shape must be (n,input_dims)&#34;)
+
+    self.X_pred = self.X_scales*(x-self.X_offsets)
+
+    # clear old prediction data now that X_pred has been updated
+    self.Y_mu_pred = {}
+    self.Y_var_pred = {}</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.set_x_scaling"><code class="name flex">
@@ -3713,7 +3842,7 @@ step in the duration string format if the proper formatter is set.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>transformer</code></strong> :&ensp;<code>obj</code></dt>
-<dd>Transformer object with _forward(x, y) and _backward(x, y) methods.</dd>
+<dd>Transformer object with forward(y, x) and backward(y, x) methods.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data.transform(mogptk.TransformDetrend)
@@ -3727,7 +3856,7 @@ step in the duration string format if the proper formatter is set.</p>
     Transform the data by using one of the provided transformers, such as TransformDetrend, TransformNormalize, TransformLog, ...
 
     Args:
-        transformer (obj): Transformer object with _forward(x, y) and _backward(x, y) methods.
+        transformer (obj): Transformer object with forward(y, x) and backward(y, x) methods.
 
     Examples:
         &gt;&gt;&gt; data.transform(mogptk.TransformDetrend)
@@ -3735,13 +3864,97 @@ step in the duration string format if the proper formatter is set.</p>
     t = transformer
     if isinstance(t, type):
         t = transformer()
-    t._data(self)
+    t.set_data(self)
 
-    self.Y = t._forward(self.X, self.Y)
+    self.Y = t.forward(self.Y, self.X)
     if self.F != None:
         f = self.F
-        self.F = lambda x: t._forward(x, f(x))
+        self.F = lambda x: t.forward(f(x), x)
     self.transformations.append(t)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.data.FormatBase"><code class="flex name class">
+<span>class <span class="ident">FormatBase</span></span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class FormatBase:
+    def parse(self, val):
+        raise NotImplementedError
+
+    def parse_delta(self, val):
+        raise NotImplementedError
+
+    def format(self, val):
+        raise NotImplementedError
+
+    def get_scale(self, maxfreq=None):
+        raise NotImplementedError</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="mogptk.data.FormatDate" href="#mogptk.data.FormatDate">FormatDate</a></li>
+<li><a title="mogptk.data.FormatDateTime" href="#mogptk.data.FormatDateTime">FormatDateTime</a></li>
+<li><a title="mogptk.data.FormatNumber" href="#mogptk.data.FormatNumber">FormatNumber</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.FormatBase.format"><code class="name flex">
+<span>def <span class="ident">format</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def format(self, val):
+    raise NotImplementedError</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatBase.get_scale"><code class="name flex">
+<span>def <span class="ident">get_scale</span></span>(<span>self, maxfreq=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_scale(self, maxfreq=None):
+    raise NotImplementedError</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatBase.parse"><code class="name flex">
+<span>def <span class="ident">parse</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parse(self, val):
+    raise NotImplementedError</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatBase.parse_delta"><code class="name flex">
+<span>def <span class="ident">parse_delta</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parse_delta(self, val):
+    raise NotImplementedError</code></pre>
 </details>
 </dd>
 </dl>
@@ -3755,31 +3968,31 @@ step in the duration string format if the proper formatter is set.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class FormatDate:
+<pre><code class="python">class FormatDate(FormatBase):
     &#34;&#34;&#34;
     FormatDate is a formatter that takes date values as input, such as &#39;2019-03-01&#39;, and stores values internally as days since 1970-01-01.
     &#34;&#34;&#34;
     def __init__(self):
         self.category = &#39;date&#39;
 
-    def _parse(self, val):
+    def parse(self, val):
         if isinstance(val, np.datetime64):
             dt = pd.Timestamp(val).to_pydatetime()
         else:
             dt = dateutil.parser.parse(val)
         return (dt - datetime.datetime(1970,1,1)).total_seconds()/3600/24
 
-    def _parse_duration(self, val):
+    def parse_delta(self, val):
         if isinstance(val, int):
             return val
         if isinstance(val, str):
             return _parse_duration_to_sec(val)/24/3600
         raise ValueError(&#34;could not convert input to duration&#34;)
     
-    def _format(self, val):
+    def format(self, val):
         return datetime.datetime.utcfromtimestamp(val*3600*24).strftime(&#39;%Y-%m-%d&#39;)
 
-    def _scale(self, maxfreq=None):
+    def get_scale(self, maxfreq=None):
         if maxfreq == &#39;year&#39;:
             return 356.2425, &#39;year&#39;
         if maxfreq == &#39;month&#39;:
@@ -3793,6 +4006,84 @@ step in the duration string format if the proper formatter is set.</p>
         if maxfreq == &#39;second&#39;:
             return 1/24/3600, &#39;second&#39;</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.data.FormatBase" href="#mogptk.data.FormatBase">FormatBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.FormatDate.format"><code class="name flex">
+<span>def <span class="ident">format</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def format(self, val):
+    return datetime.datetime.utcfromtimestamp(val*3600*24).strftime(&#39;%Y-%m-%d&#39;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDate.get_scale"><code class="name flex">
+<span>def <span class="ident">get_scale</span></span>(<span>self, maxfreq=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_scale(self, maxfreq=None):
+    if maxfreq == &#39;year&#39;:
+        return 356.2425, &#39;year&#39;
+    if maxfreq == &#39;month&#39;:
+        return 30.4369, &#39;month&#39;
+    if maxfreq == None or maxfreq == &#39;day&#39;:
+        return 1, &#39;day&#39;
+    if maxfreq == &#39;hour&#39;:
+        return 1/24, &#39;hour&#39;
+    if maxfreq == &#39;minute&#39;:
+        return 1/24/60, &#39;minute&#39;
+    if maxfreq == &#39;second&#39;:
+        return 1/24/3600, &#39;second&#39;</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDate.parse"><code class="name flex">
+<span>def <span class="ident">parse</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parse(self, val):
+    if isinstance(val, np.datetime64):
+        dt = pd.Timestamp(val).to_pydatetime()
+    else:
+        dt = dateutil.parser.parse(val)
+    return (dt - datetime.datetime(1970,1,1)).total_seconds()/3600/24</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDate.parse_delta"><code class="name flex">
+<span>def <span class="ident">parse_delta</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parse_delta(self, val):
+    if isinstance(val, int):
+        return val
+    if isinstance(val, str):
+        return _parse_duration_to_sec(val)/24/3600
+    raise ValueError(&#34;could not convert input to duration&#34;)</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="mogptk.data.FormatDateTime"><code class="flex name class">
 <span>class <span class="ident">FormatDateTime</span></span>
@@ -3803,31 +4094,31 @@ step in the duration string format if the proper formatter is set.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class FormatDateTime:
+<pre><code class="python">class FormatDateTime(FormatBase):
     &#34;&#34;&#34;
     FormatDateTime is a formatter that takes date and time values as input, such as &#39;2019-03-01 12:30&#39;, and stores values internally as seconds since 1970-01-01.
     &#34;&#34;&#34;
     def __init__(self):
         self.category = &#39;date&#39;
 
-    def _parse(self, val):
+    def parse(self, val):
         if isinstance(val, np.datetime64):
             dt = pd.Timestamp(val).to_pydatetime()
         else:
             dt = dateutil.parser.parse(val)
         return (dt - datetime.datetime(1970,1,1)).total_seconds()
 
-    def _parse_duration(self, val):
+    def parse_delta(self, val):
         if isinstance(val, int):
             return val
         if isinstance(val, str):
             return _parse_duration_to_sec(val)
         raise ValueError(&#34;could not convert input to duration&#34;)
 
-    def _format(self, val):
+    def format(self, val):
         return datetime.datetime.utcfromtimestamp(val).strftime(&#39;%Y-%m-%d %H:%M&#39;)
 
-    def _scale(self, maxfreq=None):
+    def get_scale(self, maxfreq=None):
         if maxfreq == &#39;year&#39;:
             return 3600*24*356.2425, &#39;year&#39;
         if maxfreq == &#39;month&#39;:
@@ -3841,6 +4132,84 @@ step in the duration string format if the proper formatter is set.</p>
         if maxfreq == None or maxfreq == &#39;second&#39;:
             return 1, &#39;second&#39;</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.data.FormatBase" href="#mogptk.data.FormatBase">FormatBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.FormatDateTime.format"><code class="name flex">
+<span>def <span class="ident">format</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def format(self, val):
+    return datetime.datetime.utcfromtimestamp(val).strftime(&#39;%Y-%m-%d %H:%M&#39;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDateTime.get_scale"><code class="name flex">
+<span>def <span class="ident">get_scale</span></span>(<span>self, maxfreq=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_scale(self, maxfreq=None):
+    if maxfreq == &#39;year&#39;:
+        return 3600*24*356.2425, &#39;year&#39;
+    if maxfreq == &#39;month&#39;:
+        return 3600*24*30.4369, &#39;month&#39;
+    if maxfreq == &#39;day&#39;:
+        return 3600*24, &#39;day&#39;
+    if maxfreq == &#39;hour&#39;:
+        return 3600, &#39;hour&#39;
+    if maxfreq == &#39;minute&#39;:
+        return 60, &#39;minute&#39;
+    if maxfreq == None or maxfreq == &#39;second&#39;:
+        return 1, &#39;second&#39;</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDateTime.parse"><code class="name flex">
+<span>def <span class="ident">parse</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parse(self, val):
+    if isinstance(val, np.datetime64):
+        dt = pd.Timestamp(val).to_pydatetime()
+    else:
+        dt = dateutil.parser.parse(val)
+    return (dt - datetime.datetime(1970,1,1)).total_seconds()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatDateTime.parse_delta"><code class="name flex">
+<span>def <span class="ident">parse_delta</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parse_delta(self, val):
+    if isinstance(val, int):
+        return val
+    if isinstance(val, str):
+        return _parse_duration_to_sec(val)
+    raise ValueError(&#34;could not convert input to duration&#34;)</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="mogptk.data.FormatNumber"><code class="flex name class">
 <span>class <span class="ident">FormatNumber</span></span>
@@ -3851,28 +4220,158 @@ step in the duration string format if the proper formatter is set.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class FormatNumber:
+<pre><code class="python">class FormatNumber(FormatBase):
     &#34;&#34;&#34;
     FormatNumber is the default formatter and takes regular floating point values as input.
     &#34;&#34;&#34;
     def __init__(self):
         self.category = &#39;num&#39;
 
-    def _parse(self, val):
+    def parse(self, val):
         if np.isnan(val):
             raise ValueError(&#34;number cannot be NaN&#34;)
         return float(val)
 
-    # TODO: rename parse_delta?
-    def _parse_duration(self, val):
-        return self._parse(val)
+    def parse_delta(self, val):
+        return self.parse(val)
 
-    def _format(self, val):
+    def format(self, val):
         return &#39;%.6g&#39; % (val,)
 
-    def _scale(self, maxfreq=None):
+    def get_scale(self, maxfreq=None):
         return 1, None</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.data.FormatBase" href="#mogptk.data.FormatBase">FormatBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.FormatNumber.format"><code class="name flex">
+<span>def <span class="ident">format</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def format(self, val):
+    return &#39;%.6g&#39; % (val,)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatNumber.get_scale"><code class="name flex">
+<span>def <span class="ident">get_scale</span></span>(<span>self, maxfreq=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_scale(self, maxfreq=None):
+    return 1, None</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatNumber.parse"><code class="name flex">
+<span>def <span class="ident">parse</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parse(self, val):
+    if np.isnan(val):
+        raise ValueError(&#34;number cannot be NaN&#34;)
+    return float(val)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.FormatNumber.parse_delta"><code class="name flex">
+<span>def <span class="ident">parse_delta</span></span>(<span>self, val)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parse_delta(self, val):
+    return self.parse(val)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.data.TransformBase"><code class="flex name class">
+<span>class <span class="ident">TransformBase</span></span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TransformBase:
+    def set_data(self, data):
+        pass
+
+    def forward(self, y, x=None):
+        raise NotImplementedError
+    
+    def backward(self, y, x=None):
+        raise NotImplementedError</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="mogptk.data.TransformDetrend" href="#mogptk.data.TransformDetrend">TransformDetrend</a></li>
+<li><a title="mogptk.data.TransformLinear" href="#mogptk.data.TransformLinear">TransformLinear</a></li>
+<li><a title="mogptk.data.TransformLog" href="#mogptk.data.TransformLog">TransformLog</a></li>
+<li><a title="mogptk.data.TransformNormalize" href="#mogptk.data.TransformNormalize">TransformNormalize</a></li>
+<li><a title="mogptk.data.TransformWhiten" href="#mogptk.data.TransformWhiten">TransformWhiten</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.TransformBase.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    raise NotImplementedError</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformBase.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    raise NotImplementedError</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformBase.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    pass</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="mogptk.data.TransformDetrend"><code class="flex name class">
 <span>class <span class="ident">TransformDetrend</span></span>
@@ -3889,7 +4388,7 @@ step in the duration string format if the proper formatter is set.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TransformDetrend:
+<pre><code class="python">class TransformDetrend(TransformBase):
     &#34;&#34;&#34;
     TransformDetrend is a transformer that detrends the data. It uses NumPy `polyfit` to find an `n` degree polynomial that removes the trend.
 
@@ -3900,7 +4399,7 @@ step in the duration string format if the proper formatter is set.</p>
     def __init__(self, degree=1):
         self.degree = degree
 
-    def _data(self, data):
+    def set_data(self, data):
         if data.get_input_dims() != 1:
             raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
 
@@ -3909,13 +4408,62 @@ step in the duration string format if the proper formatter is set.</p>
         # reg.fit(data.X, data.Y)
         # self.trend = reg
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return y - np.polyval(self.coef, x[:, 0])
         # return y - self.trend.predict(x)
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return y + np.polyval(self.coef, x[:, 0])</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.data.TransformBase" href="#mogptk.data.TransformBase">TransformBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.TransformDetrend.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    return y + np.polyval(self.coef, x[:, 0])</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformDetrend.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    return y - np.polyval(self.coef, x[:, 0])</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformDetrend.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    if data.get_input_dims() != 1:
+        raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+
+    self.coef = np.polyfit(data.X[data.mask,0], data.Y[data.mask], self.degree)</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="mogptk.data.TransformLinear"><code class="flex name class">
 <span>class <span class="ident">TransformLinear</span></span>
@@ -3927,7 +4475,7 @@ step in the duration string format if the proper formatter is set.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TransformLinear:
+<pre><code class="python">class TransformLinear(TransformBase):
     &#34;&#34;&#34;
     TransformLinear transforms the data linearly so that y =&gt; (y-offset)/scale.
     &#34;&#34;&#34;
@@ -3935,15 +4483,61 @@ step in the duration string format if the proper formatter is set.</p>
         self.scale = scale
         self.offset = offset
 
-    def _data(self, data):
+    def set_data(self, data):
         pass
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return (y-self.offset)/self.scale
 
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return self.scale*y + self.offset</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.data.TransformBase" href="#mogptk.data.TransformBase">TransformBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.TransformLinear.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    return self.scale*y + self.offset</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformLinear.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    return (y-self.offset)/self.scale</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformLinear.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    pass</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="mogptk.data.TransformLog"><code class="flex name class">
 <span>class <span class="ident">TransformLog</span></span>
@@ -3954,23 +4548,70 @@ step in the duration string format if the proper formatter is set.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TransformLog:
+<pre><code class="python">class TransformLog(TransformBase):
     &#34;&#34;&#34;
     TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the y-axis so that all values are greater than or equal to 1.
     &#34;&#34;&#34;
     def __init__(self):
         pass
 
-    def _data(self, data):
-        self.shift = 1 - np.amin(data.Y[data.mask])
-        self.mean = np.log(data.Y[data.mask] + self.shift).mean()
+    def set_data(self, data):
+        self.shift = 1 - data.Y.min()
+        self.mean = np.log(data.Y + self.shift).mean()
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return np.log(y + self.shift) - self.mean
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return np.exp(y + self.mean) - self.shift</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.data.TransformBase" href="#mogptk.data.TransformBase">TransformBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.TransformLog.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    return np.exp(y + self.mean) - self.shift</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformLog.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    return np.log(y + self.shift) - self.mean</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformLog.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    self.shift = 1 - data.Y.min()
+    self.mean = np.log(data.Y + self.shift).mean()</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="mogptk.data.TransformNormalize"><code class="flex name class">
 <span>class <span class="ident">TransformNormalize</span></span>
@@ -3981,23 +4622,70 @@ step in the duration string format if the proper formatter is set.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TransformNormalize:
+<pre><code class="python">class TransformNormalize(TransformBase):
     &#34;&#34;&#34;
     TransformNormalize is a transformer that normalizes the data so that the y-axis is between -1 and 1.
     &#34;&#34;&#34;
     def __init__(self):
         pass
 
-    def _data(self, data):
+    def set_data(self, data):
         self.ymin = np.amin(data.Y[data.mask])
         self.ymax = np.amax(data.Y[data.mask])
 
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.data.TransformBase" href="#mogptk.data.TransformBase">TransformBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.TransformNormalize.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformNormalize.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformNormalize.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    self.ymin = np.amin(data.Y[data.mask])
+    self.ymax = np.amax(data.Y[data.mask])</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="mogptk.data.TransformWhiten"><code class="flex name class">
 <span>class <span class="ident">TransformWhiten</span></span>
@@ -4008,24 +4696,72 @@ step in the duration string format if the proper formatter is set.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TransformWhiten:
+<pre><code class="python">class TransformWhiten(TransformBase):
     &#34;&#34;&#34;
     Transform the data so it has mean 0 and variance 1
     &#34;&#34;&#34;
     def __init__(self):
         pass
     
-    def _data(self, data):
+    def set_data(self, data):
         # take only the non-removed observations
         self.mean = data.Y[data.mask].mean()
         self.std = data.Y[data.mask].std()
         
-    def _forward(self, x, y):
+    def forward(self, y, x=None):
         return (y - self.mean) / self.std
     
-    def _backward(self, x, y):
+    def backward(self, y, x=None):
         return (y * self.std) + self.mean</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.data.TransformBase" href="#mogptk.data.TransformBase">TransformBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.data.TransformWhiten.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    return (y * self.std) + self.mean</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformWhiten.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    return (y - self.mean) / self.std</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.TransformWhiten.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    # take only the non-removed observations
+    self.mean = data.Y[data.mask].mean()
+    self.std = data.Y[data.mask].std()</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 </dl>
 </section>
@@ -4073,35 +4809,95 @@ step in the duration string format if the proper formatter is set.</p>
 <li><code><a title="mogptk.data.Data.set_function" href="#mogptk.data.Data.set_function">set_function</a></code></li>
 <li><code><a title="mogptk.data.Data.set_labels" href="#mogptk.data.Data.set_labels">set_labels</a></code></li>
 <li><code><a title="mogptk.data.Data.set_name" href="#mogptk.data.Data.set_name">set_name</a></code></li>
-<li><code><a title="mogptk.data.Data.set_prediction_X" href="#mogptk.data.Data.set_prediction_X">set_prediction_X</a></code></li>
 <li><code><a title="mogptk.data.Data.set_prediction_range" href="#mogptk.data.Data.set_prediction_range">set_prediction_range</a></code></li>
+<li><code><a title="mogptk.data.Data.set_prediction_x" href="#mogptk.data.Data.set_prediction_x">set_prediction_x</a></code></li>
 <li><code><a title="mogptk.data.Data.set_x_scaling" href="#mogptk.data.Data.set_x_scaling">set_x_scaling</a></code></li>
 <li><code><a title="mogptk.data.Data.transform" href="#mogptk.data.Data.transform">transform</a></code></li>
 </ul>
 </li>
 <li>
+<h4><code><a title="mogptk.data.FormatBase" href="#mogptk.data.FormatBase">FormatBase</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.FormatBase.format" href="#mogptk.data.FormatBase.format">format</a></code></li>
+<li><code><a title="mogptk.data.FormatBase.get_scale" href="#mogptk.data.FormatBase.get_scale">get_scale</a></code></li>
+<li><code><a title="mogptk.data.FormatBase.parse" href="#mogptk.data.FormatBase.parse">parse</a></code></li>
+<li><code><a title="mogptk.data.FormatBase.parse_delta" href="#mogptk.data.FormatBase.parse_delta">parse_delta</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="mogptk.data.FormatDate" href="#mogptk.data.FormatDate">FormatDate</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.FormatDate.format" href="#mogptk.data.FormatDate.format">format</a></code></li>
+<li><code><a title="mogptk.data.FormatDate.get_scale" href="#mogptk.data.FormatDate.get_scale">get_scale</a></code></li>
+<li><code><a title="mogptk.data.FormatDate.parse" href="#mogptk.data.FormatDate.parse">parse</a></code></li>
+<li><code><a title="mogptk.data.FormatDate.parse_delta" href="#mogptk.data.FormatDate.parse_delta">parse_delta</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.data.FormatDateTime" href="#mogptk.data.FormatDateTime">FormatDateTime</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.FormatDateTime.format" href="#mogptk.data.FormatDateTime.format">format</a></code></li>
+<li><code><a title="mogptk.data.FormatDateTime.get_scale" href="#mogptk.data.FormatDateTime.get_scale">get_scale</a></code></li>
+<li><code><a title="mogptk.data.FormatDateTime.parse" href="#mogptk.data.FormatDateTime.parse">parse</a></code></li>
+<li><code><a title="mogptk.data.FormatDateTime.parse_delta" href="#mogptk.data.FormatDateTime.parse_delta">parse_delta</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.data.FormatNumber" href="#mogptk.data.FormatNumber">FormatNumber</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.FormatNumber.format" href="#mogptk.data.FormatNumber.format">format</a></code></li>
+<li><code><a title="mogptk.data.FormatNumber.get_scale" href="#mogptk.data.FormatNumber.get_scale">get_scale</a></code></li>
+<li><code><a title="mogptk.data.FormatNumber.parse" href="#mogptk.data.FormatNumber.parse">parse</a></code></li>
+<li><code><a title="mogptk.data.FormatNumber.parse_delta" href="#mogptk.data.FormatNumber.parse_delta">parse_delta</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.data.TransformBase" href="#mogptk.data.TransformBase">TransformBase</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.TransformBase.backward" href="#mogptk.data.TransformBase.backward">backward</a></code></li>
+<li><code><a title="mogptk.data.TransformBase.forward" href="#mogptk.data.TransformBase.forward">forward</a></code></li>
+<li><code><a title="mogptk.data.TransformBase.set_data" href="#mogptk.data.TransformBase.set_data">set_data</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.data.TransformDetrend" href="#mogptk.data.TransformDetrend">TransformDetrend</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.TransformDetrend.backward" href="#mogptk.data.TransformDetrend.backward">backward</a></code></li>
+<li><code><a title="mogptk.data.TransformDetrend.forward" href="#mogptk.data.TransformDetrend.forward">forward</a></code></li>
+<li><code><a title="mogptk.data.TransformDetrend.set_data" href="#mogptk.data.TransformDetrend.set_data">set_data</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.data.TransformLinear" href="#mogptk.data.TransformLinear">TransformLinear</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.TransformLinear.backward" href="#mogptk.data.TransformLinear.backward">backward</a></code></li>
+<li><code><a title="mogptk.data.TransformLinear.forward" href="#mogptk.data.TransformLinear.forward">forward</a></code></li>
+<li><code><a title="mogptk.data.TransformLinear.set_data" href="#mogptk.data.TransformLinear.set_data">set_data</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.data.TransformLog" href="#mogptk.data.TransformLog">TransformLog</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.TransformLog.backward" href="#mogptk.data.TransformLog.backward">backward</a></code></li>
+<li><code><a title="mogptk.data.TransformLog.forward" href="#mogptk.data.TransformLog.forward">forward</a></code></li>
+<li><code><a title="mogptk.data.TransformLog.set_data" href="#mogptk.data.TransformLog.set_data">set_data</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.data.TransformNormalize" href="#mogptk.data.TransformNormalize">TransformNormalize</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.TransformNormalize.backward" href="#mogptk.data.TransformNormalize.backward">backward</a></code></li>
+<li><code><a title="mogptk.data.TransformNormalize.forward" href="#mogptk.data.TransformNormalize.forward">forward</a></code></li>
+<li><code><a title="mogptk.data.TransformNormalize.set_data" href="#mogptk.data.TransformNormalize.set_data">set_data</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.data.TransformWhiten" href="#mogptk.data.TransformWhiten">TransformWhiten</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.data.TransformWhiten.backward" href="#mogptk.data.TransformWhiten.backward">backward</a></code></li>
+<li><code><a title="mogptk.data.TransformWhiten.forward" href="#mogptk.data.TransformWhiten.forward">forward</a></code></li>
+<li><code><a title="mogptk.data.TransformWhiten.set_data" href="#mogptk.data.TransformWhiten.set_data">set_data</a></code></li>
+</ul>
 </li>
 </ul>
 </li>

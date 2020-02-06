@@ -41,7 +41,7 @@ def _estimate_from_sm(dataset, Q, method=&#39;BNSE&#39;, optimizer=&#39;BFGS&#39
     Args:
         dataset (mogptk.DataSet): DataSet object of data with one channel.
         Q (int): Number of components.
-        estimate (str): Method to estimate, &#39;BNSE&#39;, &#39;LS&#39; or &#39;Random&#39;
+        estimate (str): Method to estimate, &#39;BNSE&#39;, &#39;LS&#39; or &#39;AGW&#39;
         method (str): Optimization method, either &#39;Adam&#39; or any
             scipy optimizer.
         maxiter (int): Maximum number of iteration.
@@ -65,7 +65,7 @@ def _estimate_from_sm(dataset, Q, method=&#39;BNSE&#39;, optimizer=&#39;BFGS&#39
     for channel in range(output_dims):
         for i in range(input_dims):  # TODO one SM per channel
             sm = SM(dataset[channel], Q)
-            sm.estimate_parameters(method)
+            sm.init_parameters(method)
 
             if fix_means:
                 sm.set_parameter(0, &#39;mixture_means&#39;, np.zeros((Q, input_dims)))
@@ -132,13 +132,13 @@ class SM(model):
         )
         self._build(kernel, likelihood, variational, sparse, like_params)
 
-    def estimate_parameters(self, method=&#39;BNSE&#39;):
+    def init_parameters(self, method=&#39;BNSE&#39;):
         &#34;&#34;&#34;
-        Estimate parameters of kernel from data using different methods.
+        Initialize parameters of kernel from data using different methods.
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
-        &#39;random&#39;: (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
+        &#39;AGW&#39;: (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
             of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
             means drawn from Unif(0, 0.5 / minimum distance between two points),
             and the mixture weights by taking the stdv of the y values divided by the
@@ -153,10 +153,10 @@ class SM(model):
         *** Only for single input dimension for each channel.
         &#34;&#34;&#34;
 
-        if method not in [&#39;random&#39;, &#39;LS&#39;, &#39;BNSE&#39;]:
-            raise Exception(&#34;possible methods are &#39;random&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
+        if method not in [&#39;AGW&#39;, &#39;LS&#39;, &#39;BNSE&#39;]:
+            raise Exception(&#34;possible methods are &#39;AGW&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
 
-        if method == &#39;random&#39;:
+        if method == &#39;AGW&#39;:
             x, y = self.dataset[0].get_train_data()
             weights, means, scales = sm_init(x, y, self.Q)
             self.set_parameter(0, &#39;mixture_weights&#39;, weights)
@@ -169,7 +169,7 @@ class SM(model):
                 logger.warning(&#39;LS could not find peaks for SM&#39;)
                 return
             
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
 
             self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
             self.set_parameter(0, &#39;mixture_means&#39;, means.T)
@@ -181,7 +181,7 @@ class SM(model):
                 logger.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
 
             self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
             self.set_parameter(0, &#39;mixture_means&#39;, means.T)
@@ -199,7 +199,8 @@ class SM(model):
         x_low = norm.ppf(0.001, loc=means, scale=scales).min()
         x_high = norm.ppf(0.99, loc=means, scale=scales).max()
         
-        x = np.linspace(x_low, x_high + 1, 1000)
+        x = np.linspace(0, x_high + 1, 10000)
+
         psd = np.zeros_like(x)
 
         fig, axes = plt.subplots(1, 1, figsize=figsize)
@@ -217,7 +218,7 @@ class SM(model):
         axes.set_xlim(0, x[-1] + 0.1)
         if log_scale:
             axes.set_yscale(&#39;log&#39;)
-        axes.set_xlabel(&#39;Frequency&#39;)
+        axes.set_xlabel(&#39;Frequency [Hz]&#39;)
         axes.set_ylabel(&#39;PSD&#39;)
         axes.set_title(title)
 
@@ -328,13 +329,13 @@ using random parameters.</p>
         )
         self._build(kernel, likelihood, variational, sparse, like_params)
 
-    def estimate_parameters(self, method=&#39;BNSE&#39;):
+    def init_parameters(self, method=&#39;BNSE&#39;):
         &#34;&#34;&#34;
-        Estimate parameters of kernel from data using different methods.
+        Initialize parameters of kernel from data using different methods.
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
-        &#39;random&#39;: (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
+        &#39;AGW&#39;: (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
             of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
             means drawn from Unif(0, 0.5 / minimum distance between two points),
             and the mixture weights by taking the stdv of the y values divided by the
@@ -349,10 +350,10 @@ using random parameters.</p>
         *** Only for single input dimension for each channel.
         &#34;&#34;&#34;
 
-        if method not in [&#39;random&#39;, &#39;LS&#39;, &#39;BNSE&#39;]:
-            raise Exception(&#34;possible methods are &#39;random&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
+        if method not in [&#39;AGW&#39;, &#39;LS&#39;, &#39;BNSE&#39;]:
+            raise Exception(&#34;possible methods are &#39;AGW&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
 
-        if method == &#39;random&#39;:
+        if method == &#39;AGW&#39;:
             x, y = self.dataset[0].get_train_data()
             weights, means, scales = sm_init(x, y, self.Q)
             self.set_parameter(0, &#39;mixture_weights&#39;, weights)
@@ -365,7 +366,7 @@ using random parameters.</p>
                 logger.warning(&#39;LS could not find peaks for SM&#39;)
                 return
             
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
 
             self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
             self.set_parameter(0, &#39;mixture_means&#39;, means.T)
@@ -377,7 +378,7 @@ using random parameters.</p>
                 logger.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
 
             self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
             self.set_parameter(0, &#39;mixture_means&#39;, means.T)
@@ -395,7 +396,8 @@ using random parameters.</p>
         x_low = norm.ppf(0.001, loc=means, scale=scales).min()
         x_high = norm.ppf(0.99, loc=means, scale=scales).max()
         
-        x = np.linspace(x_low, x_high + 1, 1000)
+        x = np.linspace(0, x_high + 1, 10000)
+
         psd = np.zeros_like(x)
 
         fig, axes = plt.subplots(1, 1, figsize=figsize)
@@ -413,7 +415,7 @@ using random parameters.</p>
         axes.set_xlim(0, x[-1] + 0.1)
         if log_scale:
             axes.set_yscale(&#39;log&#39;)
-        axes.set_xlabel(&#39;Frequency&#39;)
+        axes.set_xlabel(&#39;Frequency [Hz]&#39;)
         axes.set_ylabel(&#39;PSD&#39;)
         axes.set_title(title)
 
@@ -425,13 +427,13 @@ using random parameters.</p>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.sm.SM.estimate_parameters"><code class="name flex">
-<span>def <span class="ident">estimate_parameters</span></span>(<span>self, method='BNSE')</span>
+<dt id="mogptk.sm.SM.init_parameters"><code class="name flex">
+<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE')</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Estimate parameters of kernel from data using different methods.</p>
+<section class="desc"><p>Initialize parameters of kernel from data using different methods.</p>
 <p>Kernel parameters can be initialized using 3 heuristics using the train data:</p>
-<p>'random': (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
+<p>'AGW': (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
 of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
 means drawn from Unif(0, 0.5 / minimum distance between two points),
 and the mixture weights by taking the stdv of the y values divided by the
@@ -446,13 +448,13 @@ and use the first Q peaks as the means and mixture weights.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def estimate_parameters(self, method=&#39;BNSE&#39;):
+<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;):
     &#34;&#34;&#34;
-    Estimate parameters of kernel from data using different methods.
+    Initialize parameters of kernel from data using different methods.
 
     Kernel parameters can be initialized using 3 heuristics using the train data:
 
-    &#39;random&#39;: (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
+    &#39;AGW&#39;: (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
         of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
         means drawn from Unif(0, 0.5 / minimum distance between two points),
         and the mixture weights by taking the stdv of the y values divided by the
@@ -467,10 +469,10 @@ and use the first Q peaks as the means and mixture weights.</p>
     *** Only for single input dimension for each channel.
     &#34;&#34;&#34;
 
-    if method not in [&#39;random&#39;, &#39;LS&#39;, &#39;BNSE&#39;]:
-        raise Exception(&#34;possible methods are &#39;random&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
+    if method not in [&#39;AGW&#39;, &#39;LS&#39;, &#39;BNSE&#39;]:
+        raise Exception(&#34;possible methods are &#39;AGW&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
 
-    if method == &#39;random&#39;:
+    if method == &#39;AGW&#39;:
         x, y = self.dataset[0].get_train_data()
         weights, means, scales = sm_init(x, y, self.Q)
         self.set_parameter(0, &#39;mixture_weights&#39;, weights)
@@ -483,7 +485,7 @@ and use the first Q peaks as the means and mixture weights.</p>
             logger.warning(&#39;LS could not find peaks for SM&#39;)
             return
         
-        mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
+        mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
 
         self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
         self.set_parameter(0, &#39;mixture_means&#39;, means.T)
@@ -495,7 +497,7 @@ and use the first Q peaks as the means and mixture weights.</p>
             logger.warning(&#39;BNSE could not find peaks for SM&#39;)
             return
 
-        mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var()
+        mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
 
         self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
         self.set_parameter(0, &#39;mixture_means&#39;, means.T)
@@ -523,7 +525,8 @@ and use the first Q peaks as the means and mixture weights.</p>
     x_low = norm.ppf(0.001, loc=means, scale=scales).min()
     x_high = norm.ppf(0.99, loc=means, scale=scales).max()
     
-    x = np.linspace(x_low, x_high + 1, 1000)
+    x = np.linspace(0, x_high + 1, 10000)
+
     psd = np.zeros_like(x)
 
     fig, axes = plt.subplots(1, 1, figsize=figsize)
@@ -541,7 +544,7 @@ and use the first Q peaks as the means and mixture weights.</p>
     axes.set_xlim(0, x[-1] + 0.1)
     if log_scale:
         axes.set_yscale(&#39;log&#39;)
-    axes.set_xlabel(&#39;Frequency&#39;)
+    axes.set_xlabel(&#39;Frequency [Hz]&#39;)
     axes.set_ylabel(&#39;PSD&#39;)
     axes.set_title(title)
 
@@ -590,7 +593,7 @@ and use the first Q peaks as the means and mixture weights.</p>
 <li>
 <h4><code><a title="mogptk.sm.SM" href="#mogptk.sm.SM">SM</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.sm.SM.estimate_parameters" href="#mogptk.sm.SM.estimate_parameters">estimate_parameters</a></code></li>
+<li><code><a title="mogptk.sm.SM.init_parameters" href="#mogptk.sm.SM.init_parameters">init_parameters</a></code></li>
 <li><code><a title="mogptk.sm.SM.plot_psd" href="#mogptk.sm.SM.plot_psd">plot_psd</a></code></li>
 </ul>
 </li>

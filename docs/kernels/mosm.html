@@ -32,7 +32,7 @@ from .multikernel import MultiKernel
 
 # TODO: dont use angular frequency
 class MultiOutputSpectralMixture(MultiKernel):
-    def __init__(self, input_dim, output_dim, active_dim=None, magnitude_prior=None):
+    def __init__(self, input_dim, output_dim, active_dim=None, magnitude_prior=None, name=&#39;mosm&#39;):
         &#34;&#34;&#34;
         - input_dim (int): The number of input dimensions.
         - output_dim (int): The number of output dimensions.
@@ -46,7 +46,7 @@ class MultiOutputSpectralMixture(MultiKernel):
         delay = np.zeros((input_dim, output_dim))
         phase = np.zeros((output_dim))
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dim, name=&#34;mosm&#34;)
+        MultiKernel.__init__(self, input_dim, output_dim, active_dim, name=name)
         self.magnitude = gpflow.Parameter(magnitude, prior=magnitude_prior, name=&#34;magnitude&#34;)
         self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name=&#34;mean&#34;)
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name=&#34;variance&#34;)
@@ -95,7 +95,7 @@ class MultiOutputSpectralMixture(MultiKernel):
 <dl>
 <dt id="mogptk.kernels.mosm.MultiOutputSpectralMixture"><code class="flex name class">
 <span>class <span class="ident">MultiOutputSpectralMixture</span></span>
-<span>(</span><span>input_dim, output_dim, active_dim=None, magnitude_prior=None)</span>
+<span>(</span><span>input_dim, output_dim, active_dim=None, magnitude_prior=None, name='mosm')</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Abstract class for MultiOutput Kernels.</p>
@@ -118,7 +118,7 @@ matrix appropriately.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class MultiOutputSpectralMixture(MultiKernel):
-    def __init__(self, input_dim, output_dim, active_dim=None, magnitude_prior=None):
+    def __init__(self, input_dim, output_dim, active_dim=None, magnitude_prior=None, name=&#39;mosm&#39;):
         &#34;&#34;&#34;
         - input_dim (int): The number of input dimensions.
         - output_dim (int): The number of output dimensions.
@@ -132,7 +132,7 @@ matrix appropriately.</p>
         delay = np.zeros((input_dim, output_dim))
         phase = np.zeros((output_dim))
 
-        MultiKernel.__init__(self, input_dim, output_dim, active_dim, name=&#34;mosm&#34;)
+        MultiKernel.__init__(self, input_dim, output_dim, active_dim, name=name)
         self.magnitude = gpflow.Parameter(magnitude, prior=magnitude_prior, name=&#34;magnitude&#34;)
         self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name=&#34;mean&#34;)
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name=&#34;variance&#34;)
