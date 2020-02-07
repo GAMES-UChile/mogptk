@@ -44,8 +44,8 @@ class model:
             raise Exception("all data channels must have the same amount of input dimensions")
 
         for channel in dataset:
-            for dim in range(channel.X.shape[1]):
-                xran = np.max(channel.X[:,dim]) - np.min(channel.X[:,dim])
+            for dim in range(channel.get_input_dims()):
+                xran = np.max(channel.X[dim]) - np.min(channel.X[dim])
                 if xran < 1e-3:
                     logger.warning("Very small X range may give problems, it is suggested to scale up your X-axis")
                 elif 1e4 < xran:
@@ -69,6 +69,7 @@ class model:
         """
 
         x, y = self.dataset._to_kernel()
+
         # Gaussian likelihood
         if likelihood == None:
             if not sparse:
@@ -543,8 +544,8 @@ class model:
         if plot:
             self.plot_prediction()
 
-        _, mu, lower, upper = self.dataset.get_prediction(self.name)
-        return mu, lower, upper
+        x, mu, lower, upper = self.dataset.get_prediction(self.name)
+        return x, mu, lower, upper
 
     def plot_prediction(self, grid=None, figsize=None, ylims=None, names=None, title=''):
 

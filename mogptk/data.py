@@ -3,6 +3,7 @@ import copy
 import inspect
 import numpy as np
 from .bnse import *
+from .serie import *
 from scipy import signal
 import dateutil, datetime
 import matplotlib
@@ -13,131 +14,6 @@ import re
 import logging
 
 logger = logging.getLogger('mogptk')
-
-class FormatBase:
-    def parse(self, val):
-        raise NotImplementedError
-
-    def parse_delta(self, val):
-        raise NotImplementedError
-
-    def format(self, val):
-        raise NotImplementedError
-
-    def get_scale(self, maxfreq=None):
-        raise NotImplementedError
-
-
-class FormatNumber(FormatBase):
-    """
-    FormatNumber is the default formatter and takes regular floating point values as input.
-    """
-    def __init__(self):
-        self.category = 'num'
-
-    def parse(self, val):
-        if np.isnan(val):
-            raise ValueError("number cannot be NaN")
-        return float(val)
-
-    def parse_delta(self, val):
-        return self.parse(val)
-
-    def format(self, val):
-        return '%.6g' % (val,)
-
-    def get_scale(self, maxfreq=None):
-        return 1, None
-
-class FormatDate(FormatBase):
-    """
-    FormatDate is a formatter that takes date values as input, such as '2019-03-01', and stores values internally as days since 1970-01-01.
-    """
-    def __init__(self):
-        self.category = 'date'
-
-    def parse(self, val):
-        if isinstance(val, np.datetime64):
-            dt = pd.Timestamp(val).to_pydatetime()
-        else:
-            dt = dateutil.parser.parse(val)
-        return (dt - datetime.datetime(1970,1,1)).total_seconds()/3600/24
-
-    def parse_delta(self, val):
-        if isinstance(val, int):
-            return val
-        if isinstance(val, str):
-            return _parse_duration_to_sec(val)/24/3600
-        raise ValueError("could not convert input to duration")
-    
-    def format(self, val):
-        return datetime.datetime.utcfromtimestamp(val*3600*24).strftime('%Y-%m-%d')
-
-    def get_scale(self, maxfreq=None):
-        if maxfreq == 'year':
-            return 356.2425, 'year'
-        if maxfreq == 'month':
-            return 30.4369, 'month'
-        if maxfreq == None or maxfreq == 'day':
-            return 1, 'day'
-        if maxfreq == 'hour':
-            return 1/24, 'hour'
-        if maxfreq == 'minute':
-            return 1/24/60, 'minute'
-        if maxfreq == 'second':
-            return 1/24/3600, 'second'
-
-class FormatDateTime(FormatBase):
-    """
-    FormatDateTime is a formatter that takes date and time values as input, such as '2019-03-01 12:30', and stores values internally as seconds since 1970-01-01.
-    """
-    def __init__(self):
-        self.category = 'date'
-
-    def parse(self, val):
-        if isinstance(val, np.datetime64):
-            dt = pd.Timestamp(val).to_pydatetime()
-        else:
-            dt = dateutil.parser.parse(val)
-        return (dt - datetime.datetime(1970,1,1)).total_seconds()
-
-    def parse_delta(self, val):
-        if isinstance(val, int):
-            return val
-        if isinstance(val, str):
-            return _parse_duration_to_sec(val)
-        raise ValueError("could not convert input to duration")
-
-    def format(self, val):
-        return datetime.datetime.utcfromtimestamp(val).strftime('%Y-%m-%d %H:%M')
-
-    def get_scale(self, maxfreq=None):
-        if maxfreq == 'year':
-            return 3600*24*356.2425, 'year'
-        if maxfreq == 'month':
-            return 3600*24*30.4369, 'month'
-        if maxfreq == 'day':
-            return 3600*24, 'day'
-        if maxfreq == 'hour':
-            return 3600, 'hour'
-        if maxfreq == 'minute':
-            return 60, 'minute'
-        if maxfreq == None or maxfreq == 'second':
-            return 1, 'second'
-
-################################################################
-################################################################
-################################################################
-
-class TransformBase:
-    def set_data(self, data):
-        pass
-
-    def forward(self, y, x=None):
-        raise NotImplementedError
-    
-    def backward(self, y, x=None):
-        raise NotImplementedError
 
 class TransformDetrend(TransformBase):
     """
@@ -299,7 +175,7 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
 ################################################################
 
 class Data:
-    def __init__(self, X, Y, name=None, formats=None, x_labels=None, y_label=None):
+    def __init__(self, X, Y, name=None, x_labels=None, y_label=None):
         """
         Data class holds all the observations, latent functions and prediction data.
 
@@ -322,12 +198,9 @@ class Data:
             >>> channel = mogptk.Data([0, 1, 2, 3], [4, 3, 5, 6])
         """
         
-        # find out number of data rows (n) and number of input dimensions (input_dims)
-        n = 0
+        # find out input_dims
         input_dims = 0
-        x_nested_lists = False
         if isinstance(X, (list, np.ndarray, dict)) and 0 < len(X):
-            n = len(X)
             input_dims = 1
 
             if isinstance(X, dict):
@@ -340,11 +213,7 @@ class Data:
             if all(isinstance(val, (list, np.ndarray)) for val in it1):
                 first = len(next(it2))
                 if all(len(val) == first for val in it2):
-                    x_nested_lists = True
                     input_dims = first
-
-        if n == 0:
-            raise ValueError("X must contain at least one data row")
 
         # convert dicts to lists
         if x_labels != None:
@@ -361,61 +230,6 @@ class Data:
                 if not all(key in X for key in x_labels):
                     raise ValueError("X dict must contain all keys listed in x_labels")
                 X = list(map(list, zip(*[X[key] for key in x_labels])))
-
-            if isinstance(formats, dict):
-                formats_list = []
-                for col in x_labels:
-                    formats_list.append(formats[col])
-                if y_label != None:
-                    formats_list.append(formats[y_label])
-                formats = formats_list
-
-        # format X columns
-        if formats == None:
-            formats = [FormatNumber()] * (input_dims+1)
-
-        if not isinstance(formats, list):
-            raise ValueError("formats should be list or dict for each input dimension, when a dict is passed than x_labels must also be set")
-
-        for col in range(input_dims+1):
-            if len(formats) <= col:
-                formats.append(FormatNumber())
-            elif isinstance(formats[col], type):
-                formats[col] = formats[col]()
-
-        bad_rows = set()
-
-        X_raw = X
-        X = np.empty((n,input_dims))
-        for row, val in enumerate(X_raw):
-            if x_nested_lists:
-                for col in range(input_dims):
-                    try:
-                        X[row,col] = formats[col].parse(val[col])
-                    except ValueError:
-                        bad_rows.add(row)
-            else:
-                try:
-                    X[row,0] = formats[col].parse(val)
-                except ValueError:
-                    bad_rows.add(row)
-
-        Y_raw = Y
-        Y = np.empty((n,))
-        for row, val in enumerate(Y_raw):
-            try:
-                Y[row] = formats[-1].parse(val)
-            except ValueError:
-                bad_rows.add(row)
-
-        if 0 < len(bad_rows):
-            bad_rows = list(bad_rows)
-            logger.info("could not parse values for %d rows, removing data points", len(bad_rows))
-            if len(bad_rows) == n:
-                raise ValueError("none of the data points could be parsed, are they valid numbers or is an appropriate formatter set?")
-            X = np.delete(X, bad_rows)
-            Y = np.delete(Y, bad_rows)
-            n -= len(bad_rows)
 
         # check if X and Y are correct inputs
         if isinstance(X, list):
@@ -447,18 +261,21 @@ class Data:
             raise ValueError("Y must be a one dimensional array of data")
         if X.shape[0] != Y.shape[0]:
             raise ValueError("X and Y must be of the same length")
+        if Y.shape[0] == 0:
+            raise ValueError("X and Y must have a length greater than zero")
         
         # sort on X for single input dimensions
+        # TODO: remove
         if input_dims == 1:
             ind = np.argsort(X, axis=0)
             X = np.take_along_axis(X, ind, axis=0)
             Y = np.take_along_axis(Y, ind[:,0], axis=0)
         
-        self.X = X # shape (n, input_dims)
-        self.Y = Y # shape (n)
-        self.mask = np.array([True] * n)
+        self.X = [Serie(X[:,i]) for i in range(input_dims)] # [shape (n)] * input_dims
+        self.Y = Serie(Y, x=X) # shape (n)
+        self.mask = np.array([True] * Y.shape[0])
         self.F = None
-        self.X_pred = X
+        self.X_pred = self.X
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
@@ -476,18 +293,24 @@ class Data:
         if isinstance(y_label, str):
             self.Y_label = y_label
 
-        self.formatters = formats # list of formatters for all input dimensions, the last element is for the output dimension
-        self.transformations = [] # transformers for Y coordinates
-
-        self.X_offsets = np.array([0.0] * input_dims)
-        self.X_scales = np.array([1.0] * input_dims)
-
     def __str__(self):
         return self.__repr__()
 
     def __repr__(self):
         data = np.concatenate((self.X, self.Y.reshape(-1,1)), axis=1)
         return repr(pd.DataFrame(data, columns=(self.X_labels + [self.Y_label])))
+
+    def copy(self):
+        """
+        Make a deep copy of Data.
+
+        Returns:
+            mogptk.data.Data
+
+        Examples:
+            >>> other = data.copy()
+        """
+        return copy.deepcopy(self)
 
     def set_name(self, name):
         """
@@ -539,75 +362,46 @@ class Data:
         _check_function(f, self.get_input_dims())
         self.F = f
 
-    def set_x_scaling(self, offsets, scales):
+    def transform_x(self, transformer):
         """
         Set offset and scaling of X axis for each input dimension.
 
         Args:
-            offsets (float, list or np.ndarray of floats): X offsets per input dimension.
-            scales (float, list or np.ndarray of floats): X scales per input dimension.
+            transformer (obj, list of obj): Transformer objects derived from TransformBase for each input dimension. A single object is applied to all input dimensions.
 
         Examples:
-            >>> data.set_x_scaling([['X', 'Y'], 'Cd')
+            >>> data.transform_x(mogptk.TransformLinear(5.0, 20.0))
         """
 
-        if isinstance(offsets, float):
-            offsets = [offsets]
-        elif isinstance(offsets, np.ndarray):
-            offsets = list(offsets)
-        if not isinstance(offsets, list) or not all(isinstance(item, float) for item in offsets) or len(offsets) != self.get_input_dims():
-            raise ValueError("offsets must be a float, list or np.ndarray of floats and have the same input dimensions as the data")
+        if not isinstance(transformer, list):
+            transformer = [transformer] * self.get_input_dims()
+        elif len(transformer) != self.get_input_dims():
+            raise ValueError('transformer must be a list of transformers for each input dimension')
 
-        if isinstance(scales, float):
-            scales = [scales]
-        elif isinstance(scales, np.ndarray):
-            scales = list(scales)
-        if not isinstance(scales, list) or not all(isinstance(item, float) for item in scales) or len(scales) != self.get_input_dims():
-            raise ValueError("scales must be a float, list or np.ndarray of floats and have the same input dimensions as the data")
-
-        self.X = self.X_offsets + (self.X/self.X_scales)
-        self.X_pred = self.X_offsets + (self.X_pred/self.X_scales)
-
-        self.X_offsets = offsets
-        self.X_scales = scales
-
-        self.X = self.X_scales*(self.X-self.X_offsets)
-        self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
-
-    def copy(self):
-        """
-        Make a deep copy of Data.
-
-        Returns:
-            mogptk.data.Data
-
-        Examples:
-            >>> other = data.copy()
-        """
-        return copy.deepcopy(self)
+        for i, t in enumerate(transformer):
+            t = transformer
+            if isinstance(t, type):
+                t = transformer()
+            t.set_data(self)
+            self.X[i].apply(t)
 
     def transform(self, transformer):
         """
         Transform the data by using one of the provided transformers, such as TransformDetrend, TransformNormalize, TransformLog, ...
 
         Args:
-            transformer (obj): Transformer object with forward(y, x) and backward(y, x) methods.
+            transformer (obj): Transformer object derived from TransformBase.
 
         Examples:
             >>> data.transform(mogptk.TransformDetrend)
         """
+
         t = transformer
         if isinstance(t, type):
             t = transformer()
         t.set_data(self)
-
-        self.Y = t.forward(self.Y, self.X)
-        if self.F != None:
-            f = self.F
-            self.F = lambda x: t.forward(f(x), x)
-        self.transformations.append(t)
+        self.Y.apply(t)
     
-    # TODO: remove?
     def filter(self, start, end):
         """
         Filter the data range to be between start and end. Start and end can be strings if a proper formatter is set for the independent variable.
@@ -626,15 +420,12 @@ class Data:
         if self.get_input_dims() != 1:
             raise ValueError("can only filter on one dimensional input data")
         
-        start = self.X_scales[0] * (self.formatters[0].parse(start) - self.X_offsets[0])
-        end = self.X_scales[0] * (self.formatters[0].parse(end) - self.X_offsets[0])
-        ind = (self.X[:,0] >= start) & (self.X[:,0] < end)
+        ind = (self.X[0] >= start) & (self.X[0] < end)
 
-        self.X = np.expand_dims(self.X[ind,0], 1)
+        self.X[0] = self.X[0][ind]
         self.Y = self.Y[ind]
         self.mask = self.mask[ind]
 
-    # TODO: remove?
     def aggregate(self, duration, f=np.mean):
         """
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
@@ -659,18 +450,18 @@ class Data:
         if self.get_input_dims() != 1:
             raise ValueError("can only aggregate on one dimensional input data")
         
-        start = self.X[0,0]
-        end = self.X[-1,0]
-        step = self.X_scales[0] * self.formatters[0].parse_delta(duration)
+        start = self.X[0][0]
+        end = self.X[0][-1]
+        step = _parse_delta(duration)
 
         X = np.arange(start+step/2, end+step/2, step)
         Y = np.empty((len(X)))
         for i in range(len(X)):
-            ind = (self.X[:,0] >= X[i]-step/2) & (self.X[:,0] < X[i]+step/2)
+            ind = (self.X[0] >= X[i]-step/2) & (self.X[0] < X[i]+step/2)
             Y[i] = f(self.Y[ind])
 
-        self.X = np.expand_dims(X, 1)
-        self.Y = Y
+        self.X = [Serie(X, self.X.transformers)]
+        self.Y = Serie(Y, self.Y.transformers)
         self.mask = np.array([True] * len(self.X))
 
     ################################################################
@@ -712,22 +503,7 @@ class Data:
             >>> data.get_input_dims()
             2
         """
-        return self.X.shape[1]
-
-    def get_train_data(self):
-        """
-        Returns the observations used for training.
-
-        Returns:
-            numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
-
-        Examples:
-            >>> x, y = data.get_train_data()
-        """
-        x = self.X[self.mask,:]
-        y = self.Y[self.mask]
-        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
+        return len(self.X)
     
     def get_data(self):
         """
@@ -740,9 +516,20 @@ class Data:
         Examples:
             >>> x, y = data.get_data()
         """
-        x = self.X
-        y = self.Y
-        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
+        return np.array([x for x in self.X]).T, self.Y
+
+    def get_train_data(self):
+        """
+        Returns the observations used for training.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,input_dims).
+            numpy.ndarray: Y data of shape (n).
+
+        Examples:
+            >>> x, y = data.get_train_data()
+        """
+        return np.array([x[self.mask] for x in self.X]).T, self.Y[self.mask]
 
     def get_test_data(self):
         """
@@ -755,9 +542,7 @@ class Data:
         Examples:
             >>> x, y = data.get_test_data()
         """
-        x = self.X[~self.mask,:]
-        y = self.Y[~self.mask]
-        return self.X_offsets + x/self.X_scales, self._detransform(y, x)
+        return np.array([x[~self.mask] for x in self.X]).T, self.Y[~self.mask]
 
     ################################################################
     
@@ -803,17 +588,13 @@ class Data:
 
         if start == None:
             start = np.min(self.X[:,0])
-        else:
-            start = self.X_scales[0] * (self.formatters[0].parse(start) - self.X_offsets[0])
         if end == None:
             end = np.max(self.X[:,0])
-        else:
-            end = self.X_scales[0] * (self.formatters[0].parse(end) - self.X_offsets[0])
 
-        idx = np.where(np.logical_and(self.X[:,0] >= start, self.X[:,0] <= end))
+        idx = np.where(np.logical_and(self.X[0] >= start, self.X[0] <= end))
         self.mask[idx] = False
     
-    def remove_relative_range(self, start=None, end=None):
+    def remove_relative_range(self, start=0.0, end=1.0):
         """
         Removes observations between start and end as a percentage of the number of observations. So '0' is the first observation, '0.5' is the middle observation, and '1' is the last observation.
 
@@ -824,18 +605,12 @@ class Data:
         if self.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
-        if end is None:
-            end = 1
-        if start is None:
-            start = 0
-
-
-        x_min = np.min(self.X[:,0])
-        x_max = np.max(self.X[:,0])
+        x_min = np.min(self.X[0])
+        x_max = np.max(self.X[0])
         start = x_min + max(0.0, min(1.0, start)) * (x_max-x_min)
         end = x_min + max(0.0, min(1.0, end)) * (x_max-x_min)
 
-        idx = np.where(np.logical_and(self.X[:,0] >= start, self.X[:,0] <= end))
+        idx = np.where(np.logical_and(self.X[0] >= start, self.X[0] <= end))
         self.mask[idx] = False
 
     def remove_random_ranges(self, n, duration):
@@ -853,21 +628,20 @@ class Data:
         """
         if self.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
-
-        duration = self.formatters[0].parse_delta(duration)
         if n < 1:
             return
 
-        m = (self.X[-1]-self.X[0]) - n*duration
+        delta = _parse_delta(duration)
+        m = (self.X[0][-1]-self.X[0][0]) - n*delta
         if m <= 0:
             raise Exception("no data left after removing ranges")
 
-        locs = self.X[:,0] <= self.X[-1,0]-duration
+        locs = self.X[0] <= (self.X[0][-1]-delta)
         locs[sum(locs)] = True # make sure the last data point can be deleted
         for i in range(n):
-            x = self.X[locs][np.random.randint(len(self.X[locs]))]
-            locs[(self.X[:,0] > x-duration) & (self.X[:,0] < x+duration)] = False
-            self.mask[(self.X[:,0] >= x) & (self.X[:,0] < x+duration)] = False
+            x = self.X[0][locs][np.random.randint(len(self.X[0][locs]))]
+            locs[(self.X[0] > x-delta) & (self.X[0] < x+delta)] = False
+            self.mask[(self.X[0] >= x) & (self.X[0] < x+delta)] = False
     
     ################################################################
     
@@ -890,15 +664,15 @@ class Data:
         """
         if name not in self.Y_mu_pred:
             raise Exception("prediction name '%s' does not exist" % (name))
-
+       
         mu = self.Y_mu_pred[name]
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
-        mu = self._detransform(mu, self.X_pred)
-        lower = self._detransform(lower, self.X_pred)
-        upper = self._detransform(upper, self.X_pred)
-        return self.X_scales*(self.X_pred-self.X_offsets), mu, lower, upper
+        mu = self.Y.detransform(mu)
+        lower = self.Y.detransform(lower)
+        upper = self.Y.detransform(upper)
+        return np.array([x for x in self.X_pred]).T, mu, lower, upper
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
         """
@@ -927,20 +701,9 @@ class Data:
             raise Exception("can only set prediction range on one dimensional input data")
 
         if start == None:
-            start = self.X[0,:]
-        elif isinstance(start, list):
-            for i in range(self.get_input_dims()):
-                start[i] = self.formatters[i].parse(start[i])
-        else:
-            start = self.formatters[0].parse(start)
-
+            start = [x[0] for x in self.X]
         if end == None:
-            end = self.X[-1,:]
-        elif isinstance(end, list):
-            for i in range(self.get_input_dims()):
-                end[i] = self.formatters[i].parse(end[i])
-        else:
-            end = self.formatters[0].parse(end)
+            start = [x[-1] for x in self.X]
         
         start = _normalize_input_dims(start, self.get_input_dims())
         end = _normalize_input_dims(end, self.get_input_dims())
@@ -950,21 +713,20 @@ class Data:
             raise ValueError("start must be lower than end")
 
         # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
-        self.X_pred = np.array([])
+        self.X_pred = [np.array([])] * self.get_input_dims()
         if step == None and n != None:
-            self.X_pred = np.empty((n, self.get_input_dims()))
             for i in range(self.get_input_dims()):
-                self.X_pred[:,i] = np.linspace(start[i], end[i], n)
+                self.X_pred[i] = np.linspace(start[i], end[i], n)
         else:
             if self.get_input_dims() != 1:
                 raise ValueError("cannot use step for multi dimensional input, use n")
             if step == None:
                 step = (end[0]-start[0])/100
             else:
-                step = self.formatters[0].parse_delta(step)
-            self.X_pred = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
+                step = _parse_delta(step)
+            self.X_pred[0] = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
 
-        self.X_pred = self.X_scales*(self.X_pred-self.X_offsets)
+        self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(self.X_pred)]
     
     def set_prediction_x(self, x):
         """
@@ -981,18 +743,22 @@ class Data:
         elif not isinstance(x, np.ndarray):
             raise ValueError("x expected to be a list or numpy.ndarray")
 
-        x = x.astype(float)
+        x = x.astype(np.float64)
 
         if x.ndim == 1:
             x = x.reshape(-1, 1)
         if x.ndim != 2 or x.shape[1] != self.get_input_dims():
             raise ValueError("x shape must be (n,input_dims)")
 
-        self.X_pred = self.X_scales*(x-self.X_offsets)
+        self.X_pred = Serie(x, self.X.transformers)
 
         # clear old prediction data now that X_pred has been updated
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
+
+    def set_prediction(self, name, mu, var):
+        self.Y_mu_pred[name] = mu
+        self.Y_var_pred[name] = var
 
     ################################################################
 
@@ -1010,7 +776,7 @@ class Data:
 
         nyquist = np.empty((input_dims))
         for i in range(self.get_input_dims()):
-            x = np.sort(self.X[self.mask,i])
+            x = np.sort(self.X[i][self.mask])
             dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
             dist = np.min(dist[np.nonzero(dist)])
             nyquist[i] = 0.5/dist
@@ -1042,8 +808,8 @@ class Data:
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x = self.X[self.mask, i]
-            y = self.Y[self.mask]
+            x = np.array(self.X[i][self.mask])
+            y = np.array(self.Y[self.mask])
             bnse = bse(x, y)
             bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
@@ -1099,7 +865,7 @@ class Data:
             x = np.linspace(0, nyquist[i], n+1)[1:]
             dx = x[1]-x[0]
 
-            y = signal.lombscargle(self.X[self.mask,i], self.Y[self.mask], x)
+            y = signal.lombscargle(self.X[i][self.mask], self.Y[self.mask], x)
             ind, _ = signal.find_peaks(y)
             ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
@@ -1293,16 +1059,6 @@ class Data:
 
         return ax
 
-    def _transform(self, y, x=None):
-        for t in self.transformations:
-            y = t.forward(y, x)
-        return y
-
-    def _detransform(self, y, x=None):
-        for t in self.transformations[::-1]:
-            y = t.backward(y, x)
-        return y
-
 def _check_function(f, input_dims):
     if not inspect.isfunction(f):
         raise ValueError("function must take X as a parameter")
@@ -1334,33 +1090,43 @@ def _normalize_input_dims(x, input_dims):
     return x
     
 duration_regex = re.compile(
-    r'^((?P<years>[\.\d]+?)y)?'
-    r'((?P<months>[\.\d]+?)M)?'
-    r'((?P<weeks>[\.\d]+?)w)?'
-    r'((?P<days>[\.\d]+?)d)?'
-    r'((?P<hours>[\.\d]+?)h)?'
-    r'((?P<minutes>[\.\d]+?)m)?'
-    r'((?P<seconds>[\.\d]+?)s)?$')
+    r'^(([\.\d]+?)Y)?'
+    r'(([\.\d]+?)M)?'
+    r'(([\.\d]+?)W)?'
+    r'(([\.\d]+?)D)?'
+    r'(([\.\d]+?)h)?'
+    r'(([\.\d]+?)m)?'
+    r'(([\.\d]+?)s)?'
+    r'(([\.\d]+?)ms)?'
+    r'(([\.\d]+?)us)?$'
+)
 
-def _parse_duration_to_sec(s):
+def _parse_delta(s):
+    if not isinstance(s, str):
+        return s
+
     x = duration_regex.match(s)
     if x == None:
-        raise ValueError('duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd')
+        raise ValueError('duration string must be of the form 2h45m, allowed characters: (Y)ear, (M)onth, (W)eek, (D)ay, (h)our, (m)inute, (s)econd, (ms) for milliseconds, (us) for microseconds')
 
-    sec = 0
+    delta = 0
     matches = x.groups()[1::2]
     if matches[0]:
-        sec += float(matches[0])*356.2425*24*3600
+        delta += np.timedelta64(float(matches[0]), 'Y')
     if matches[1]:
-        sec += float(matches[1])*30.4369*24*3600
+        delta += np.timedelta64(float(matches[1]), 'M')
     if matches[2]:
-        sec += float(matches[2])*7*24*3600
+        delta += np.timedelta64(float(matches[2]), 'W')
     if matches[3]:
-        sec += float(matches[3])*24*3600
+        delta += np.timedelta64(float(matches[3]), 'D')
     if matches[4]:
-        sec += float(matches[4])*3600
+        delta += np.timedelta64(float(matches[4]), 'h')
     if matches[5]:
-        sec += float(matches[5])*60
+        delta += np.timedelta64(float(matches[5]), 'm')
     if matches[6]:
-        sec += float(matches[6])
-    return sec
+        delta += np.timedelta64(float(matches[6]), 's')
+    if matches[7]:
+        delta += np.timedelta64(float(matches[7]), 'us')
+    if matches[8]:
+        delta += np.timedelta64(float(matches[8]), 'ms')
+    return delta

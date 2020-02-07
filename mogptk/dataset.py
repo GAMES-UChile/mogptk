@@ -3,7 +3,7 @@ import pandas as pd
 from .data import *
 import matplotlib.pyplot as plt
 
-def LoadCSV(filename, x_col=0, y_col=1, name=None, formats={}, **kwargs):
+def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
     """
     LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
     Args:
@@ -11,7 +11,6 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, formats={}, **kwargs):
         x_col (int, str, list of int or str): Names or indices of X column(s) in CSV.
         y_col (int, str, list of int or str): Names or indices of Y column(s) in CSV.
         name (str, list, optional): Name or names of data channels.
-        formats (dict, optional): Dictionary with x_col values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
@@ -28,7 +27,7 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, formats={}, **kwargs):
 
     return LoadDataFrame(df, x_col, y_col, name, formats)
 
-def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
+def LoadDataFrame(df, x_col=0, y_col=1, name=None):
     """
     LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
 
@@ -37,7 +36,6 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
         x_col (int, str, list of int or str): Names or indices of X column(s) in DataFrame.
         y_col (int, str, list of int or str): Names or indices of Y column(s) in DataFrame.
         name (str, list of str, optional): Name or names of data channels.
-        formats (dict, optional): Dictionary with x_col values as keys containing FormatNumber (default), FormatDate, FormetDateTime, ...
 
     Returns:
         mogptk.data.Data or mogptk.dataset.DataSet
@@ -75,33 +73,10 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
     df = df[x_col + y_col]
     if len(df.index) == 0:
         raise ValueError("dataframe cannot be empty")
-    #df = df.dropna()
-    #if len(df.index) == 0:
-    #    raise ValueError("dataframe has NaN values for every row, consider selecting X and Y columns that have valid values by setting x_col and y_col")
 
     input_dims = len(x_col)
     x_data = df[x_col]
     x_labels = [str(item) for item in x_col]
-
-    # set formatters automatically if not already set, try and see if we can parse datetime values
-    for col in df.columns:
-        if col not in formats:
-            dtype = df.dtypes[col]
-            if np.issubdtype(dtype, np.number):
-                formats[col] = FormatNumber()
-            elif np.issubdtype(dtype, np.datetime64):
-                formats[col] = FormatDateTime()
-            elif np.issubdtype(dtype, np.object_):
-                first = df[col].iloc[0]
-                try:
-                    _ = float(first)
-                    formats[col] = FormatNumber()
-                except:
-                    try:
-                        _ = dateutil.parser.parse(first)
-                        formats[col] = FormatDateTime()
-                    except:
-                        raise ValueError("unknown format for column %s, must be a number type or datetime" % (col,))
 
     dataset = DataSet()
     for i in range(len(y_col)):
@@ -111,7 +86,6 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
             channel[x_col].values,
             channel[y_col[i]].values,
             name=name[i],
-            formats=formats,
             x_labels=x_labels,
             y_label=str(y_col[i]),
         ))
@@ -138,8 +112,6 @@ class DataSet:
             >>> dataset = mogptk.DataSet(channel_a, channel_b, channel_c)
         """
     def __init__(self, *args):
-        
-
         self.channels = []
         for arg in args:
             self.append(arg)
@@ -312,11 +284,11 @@ class DataSet:
         lower = []
         upper = []
         for channel in self.channels:
-            channel_x, channel_mu, channel_lower, channel_upper = channel.get_prediction(name, sigma)
-            x.append(channel_x)
-            mu.append(channel_mu)
-            lower.append(channel_lower)
-            upper.append(channel_upper)
+            cx, cmu, clower, cupper = channel.get_prediction(name, sigma)
+            x.append(cx)
+            mu.append(cmu)
+            lower.append(clower)
+            upper.append(cupper)
         return x, mu, lower, upper
 
     def set_prediction_x(self, x):
@@ -448,29 +420,29 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
 
-    def rescale_x(self):
-        xmin = {}
-        xmax = {}
-        for channel in self.channels:
-            for i, formatter in enumerate(channel.formatters[:-1]):
-                if not hasattr(formatter, 'category'):
-                    formatter.category = 'none'
+    #def rescale_x(self):
+    #    xmin = {}
+    #    xmax = {}
+    #    for channel in self.channels:
+    #        for i, formatter in enumerate(channel.formatters[:-1]):
+    #            if not hasattr(formatter, 'category'):
+    #                formatter.category = 'none'
 
-                x = channel.get_data()[0]
-                if formatter.category not in xmin:
-                    xmin[formatter.category] = np.min(x[:,i])
-                    xmax[formatter.category] = np.max(x[:,i])
-                else:
-                    xmin[formatter.category] = min(xmin[formatter.category], np.min(x[:,i]))
-                    xmax[formatter.category] = max(xmax[formatter.category], np.max(x[:,i]))
+    #            x = channel.get_data()[0]
+    #            if formatter.category not in xmin:
+    #                xmin[formatter.category] = np.min(x[:,i])
+    #                xmax[formatter.category] = np.max(x[:,i])
+    #            else:
+    #                xmin[formatter.category] = min(xmin[formatter.category], np.min(x[:,i]))
+    #                xmax[formatter.category] = max(xmax[formatter.category], np.max(x[:,i]))
 
-        for channel in self.channels:
-            offsets = []
-            scales = []
-            for i, formatter in enumerate(channel.formatters[:-1]):
-                offsets.append(xmin[formatter.category])
-                scales.append(1000.0 / (xmax[formatter.category] - xmin[formatter.category]))
-            channel.set_x_scaling(offsets, scales)
+    #    for channel in self.channels:
+    #        offsets = []
+    #        scales = []
+    #        for i, formatter in enumerate(channel.formatters[:-1]):
+    #            offsets.append(xmin[formatter.category])
+    #            scales.append(1000.0 / (xmax[formatter.category] - xmin[formatter.category]))
+    #        channel.set_x_scaling(offsets, scales)
 
     def _to_kernel(self):
         """
@@ -483,8 +455,8 @@ class DataSet:
         Examples:
             >>> x, y = dataset._to_kernel()
         """
-        x = [channel.X[channel.mask] for channel in self.channels]
-        y = [channel.Y[channel.mask] for channel in self.channels]
+        x = [np.array([x[channel.mask].transformed for x in channel.X]).T for channel in self.channels]
+        y = [channel.Y[channel.mask].transformed for channel in self.channels]
 
         chan = [i * np.ones(len(x[i])) for i in range(len(x))]
         chan = np.concatenate(chan).reshape(-1, 1)
@@ -507,7 +479,7 @@ class DataSet:
         Examples:
             >>> x = dataset._to_kernel_prediction()
         """
-        x = [channel.X_pred for channel in self.channels]
+        x = [np.array([x.transformed for x in channel.X_pred]).T for channel in self.channels]
 
         chan = [i * np.ones(len(x[i])) for i in range(len(x))]
         chan = np.concatenate(chan).reshape(-1, 1)
@@ -532,14 +504,15 @@ class DataSet:
             >>> mu, var = model.model.predict_f(x)
             >>> dataset._from_kernel_prediction('MOSM', mu, var)
         """
-        N = [len(channel.X_pred) for channel in self.channels]
+        N = [len(channel.X_pred[0]) for channel in self.channels]
         if len(mu) != len(var) or sum(N) != len(mu):
             raise ValueError("prediction mu or var different length from prediction x")
 
         i = 0
         for idx in range(len(self.channels)):
-            self.channels[idx].Y_mu_pred[name] = np.squeeze(mu[i:i+N[idx]])
-            self.channels[idx].Y_var_pred[name] = np.squeeze(var[i:i+N[idx]])
+            cmu = np.squeeze(mu[i:i+N[idx]])
+            cvar = np.squeeze(var[i:i+N[idx]])
+            self.channels[idx].set_prediction(name, cmu, cvar)
             i += N[idx]
 
     def copy(self):
@@ -571,7 +544,6 @@ class DataSet:
         if figsize is None:
             figsize = (12, 2.5 * len(self))
 
-
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
         if title != None:
             fig.suptitle(title)
@@ -581,7 +553,6 @@ class DataSet:
                 self.channels[channel].plot(ax=axes[channel,0], plot_legend=True)    
             else:
                 self.channels[channel].plot(ax=axes[channel,0])
-
 
         return fig, axes
 
