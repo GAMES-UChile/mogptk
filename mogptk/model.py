@@ -255,15 +255,15 @@ class model:
         """
         if hasattr(self.model.kernel, 'kernels'):
             if q < 0 or len(self.model.kernel.kernels) <= q:
-                raise Exception("qth component %d does not exist" % (q))
+                raise Exception("qth component %d does not exist" % (q,))
             kern = self.model.kernel.kernels[q].__dict__
         else:
             if q != 0:
-                raise Exception("qth component %d does not exist" % (q))
+                raise Exception("qth component %d does not exist" % (q,))
             kern = self.model.kernel.__dict__
         
         if key not in kern or not isinstance(kern[key], gpflow.base.Parameter):
-            raise Exception("parameter name '%s' does not exist" % (key))
+            raise Exception("parameter name '%s' does not exist for q=%d" % (key, q))
     
         return kern[key].read_value().numpy()
 
@@ -286,18 +286,18 @@ class model:
 
         if hasattr(self.model.kernel, 'kernels'):
             if q < 0 or len(self.model.kernel.kernels) <= q:
-                raise Exception("qth component %d does not exist" % (q))
+                raise Exception("qth component %d does not exist" % (q,))
             kern = self.model.kernel.kernels[q].__dict__
         else:
             if q != 0:
-                raise Exception("qth component %d does not exist" % (q))
+                raise Exception("qth component %d does not exist" % (q,))
             kern = self.model.kernel.__dict__
 
         if key not in kern or not isinstance(kern[key], gpflow.base.Parameter):
-            raise Exception("parameter name '%s' does not exist" % (key))
+            raise Exception("parameter name '%s' does not exist for q=%d" % (key, q))
 
         if kern[key].shape != val.shape:
-            raise Exception("parameter name '%s' must have shape %s and not %s" % (key, kern[key].shape, val.shape))
+            raise Exception("parameter name '%s' must have shape %s and not %s for q=%d" % (key, kern[key].shape, val.shape, q))
 
         for i, v in np.ndenumerate(val):
             if v < gpflow.config.default_positive_minimum():
@@ -546,7 +546,6 @@ class model:
         _, mu, lower, upper = self.dataset.get_prediction(self.name)
         return mu, lower, upper
 
-    # TODO
     def plot_prediction(self, grid=None, figsize=None, ylims=None, names=None, title=''):
 
         """
@@ -561,9 +560,10 @@ class model:
             title(str): Title of the plot.
             ret_fig(bool): If true returns the matplotlib figure, 
                 array of axis and dictionary with all the points used.
-
-        TODO: Add case for single output SM kernel.
         """
+
+        #TODO: Add case for single output SM kernel.
+
         # get data
         x_train, y_train = self.dataset.get_train_data()
         x_all, y_all = self.dataset.get_data()
@@ -624,9 +624,7 @@ class model:
             
         plt.suptitle(title, y=1.02, fontsize=20)
         plt.tight_layout()
-        
         return fig, axes
-
 
     def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=''):
         """

@@ -1,6 +1,6 @@
 # Multi-Output Gaussian Process Toolkit
 
-**[API Documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/) - [Tutorials & Examples](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit#tutorials)**
+**[API Documentation](https://games-uchile.github.io/mogptk/) - [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials)**
 
 The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and interpreting Gaussian process models with multiple data channels. It builds upon [GPflow](https://www.gpflow.org/) and [TensorFlow](https://www.tensorflow.org/) to provide an easy way to train multi-output models effectively and interpret their results. The main authors are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar as part of the Center for Mathematical Modelling at the University of Chile.
 
@@ -24,7 +24,7 @@ Next we will install this toolkit and automatically install the necessary depend
 pip install mogptk
 ```
 
-See [Tutorials & Examples](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit#tutorials) to get started.
+See [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials) to get started.
 
 ## Introduction
 This repository provides a toolkit to perform multi-output GP regression with kernels that are designed to utilize correlation information among channels in order to better model signals. The toolkit is mainly targeted to time-series, and includes plotting functions for the case of single input with multiple outputs (time series with several channels).
@@ -37,30 +37,30 @@ One of the main advantages of the present toolkit is the GPU support, which enab
 
 ## Tutorials
 
-**[00 - Quick Start](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/00_Quick_Start.ipynb)**: Short notebook showing the basic use of the toolkit.
+**[00 - Quick Start](https://github.com/GAMES-UChile/mogptk/blob/master/examples/00_Quick_Start.ipynb)**: Short notebook showing the basic use of the toolkit.
 
-**[01 - Data Loading](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/01_Data_Loading.ipynb)**: Functionality to load CSVs and DataFrames while using formatters for dates.
+**[01 - Data Loading](https://github.com/GAMES-UChile/mogptk/blob/master/examples/01_Data_Loading.ipynb)**: Functionality to load CSVs and DataFrames while using formatters for dates.
 
-**[02 - Data Preparation](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/02_Data_Preparation.ipynb)**: Handle data, removing observations to simulate sensor failure and apply tranformations to the data.
+**[02 - Data Preparation](https://github.com/GAMES-UChile/mogptk/blob/master/examples/02_Data_Preparation.ipynb)**: Handle data, removing observations to simulate sensor failure and apply tranformations to the data.
 
-**[03 - Parameter Initialization](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/03_Parameter_Initialization.ipynb)**: Parameter initialization using different methods, for single output regression using spectral mixture kernel and multioutput case using MOSM kernel.
+**[03 - Parameter Initialization](https://github.com/GAMES-UChile/mogptk/blob/master/examples/03_Parameter_Initialization.ipynb)**: Parameter initialization using different methods, for single output regression using spectral mixture kernel and multioutput case using MOSM kernel.
 
-**[04 - Model Training](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/04_Model_Training.ipynb)**: Training of models while keeping certain parameters fixed.
+**[04 - Model Training](https://github.com/GAMES-UChile/mogptk/blob/master/examples/04_Model_Training.ipynb)**: Training of models while keeping certain parameters fixed.
 
-**[05 - Error Metrics](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/05_Error_Metrics.ipynb)** Obtain different metrics to compare models.
+**[05 - Error Metrics](https://github.com/GAMES-UChile/mogptk/blob/master/examples/05_Error_Metrics.ipynb)** Obtain different metrics to compare models.
 
 ## Examples
 
-**[Currency Exchange](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_currency_exchange.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchange rates (against the dollar) from 2017 and 2018. These 11 channels are fitted with the MOSM, SM-LMC, CSM, and CONV kernels and their results are compared and interpreted.
+**[Currency Exchange](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_currency_exchange.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchange rates (against the dollar) from 2017 and 2018. These 11 channels are fitted with the MOSM, SM-LMC, CSM, and CONV kernels and their results are compared and interpreted.
 
-**[Gold, Oil, NASDAQ, USD-index](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_GONU.ipynb)**: The commodity indices for gold and oil, together with the indices for the NASDAQ and the USD against a basket of other currencies, we train multiple models to find correlations between the macro economic indicators.
+**[Gold, Oil, NASDAQ, USD-index](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_GONU.ipynb)**: The commodity indices for gold and oil, together with the indices for the NASDAQ and the USD against a basket of other currencies, we train multiple models to find correlations between the macro economic indicators.
 
-**[Human Activity Recognition](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_HAR.ipynb)**: Using the Inertial Measurement Unit (IMU) of an Apple iPhone 4, the accelerometer, gyroscope and magnetometer 3D data were recorded for different activities resulting in nine channels.
+**[Human Activity Recognition](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_HAR.ipynb)**: Using the Inertial Measurement Unit (IMU) of an Apple iPhone 4, the accelerometer, gyroscope and magnetometer 3D data were recorded for different activities resulting in nine channels.
 
-**[Seasonal C02 and Airline passangers](https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/master/examples/example_single_output_spectral_mixture.ipynb)**: Regression for 2 datasets using a single output spectral mixture, first the Mauna Loa C02 concentration and the second the passangers in a airline.
+**[Seasonal C02 and Airline passangers](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_single_output_spectral_mixture.ipynb)**: Regression for 2 datasets using a single output spectral mixture, first the Mauna Loa C02 concentration and the second the passangers in a airline.
 
 ## Documentation
-See the [API documentation](https://games-uchile.github.io/MultiOutputGP-Toolkit/) for documentation of our toolkit, including usage and examples of functions and classes.
+See the [API documentation](https://games-uchile.github.io/mogptk/) for documentation of our toolkit, including usage and examples of functions and classes.
 
 ## Authors
 - Taco de Wolff

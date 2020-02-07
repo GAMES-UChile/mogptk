@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/5e5eeb8615cf1d21384b37695172024f11a061ef/mogptk/kernels/multikernel.py#L0-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/multikernel.py#L0-L126" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python"># This is a simplification and adaptation to gpflow 1.0 of the work done
 # by Rasmus Bonnevie on issue #328, credits to him.
@@ -184,7 +184,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/5e5eeb8615cf1d21384b37695172024f11a061ef/mogptk/kernels/multikernel.py#L6-L127" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/multikernel.py#L6-L127" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiKernel(Kernel):
     &#34;&#34;&#34;Abstract class for MultiOutput Kernels.
@@ -334,7 +334,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/5e5eeb8615cf1d21384b37695172024f11a061ef/mogptk/kernels/multikernel.py#L30-L77" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/multikernel.py#L30-L77" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X, X2=None, presliced=False):
     # TODO: clean up, what follows is a start
@@ -394,7 +394,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/5e5eeb8615cf1d21384b37695172024f11a061ef/mogptk/kernels/multikernel.py#L82-L91" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/multikernel.py#L82-L91" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K_diag(self, X, presliced=False):
     # X, _ = self._slice(X, None)
@@ -416,7 +416,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/5e5eeb8615cf1d21384b37695172024f11a061ef/mogptk/kernels/multikernel.py#L122-L127" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/multikernel.py#L122-L127" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dist(self, X, X2):
     if X2 is None:
@@ -434,7 +434,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/5e5eeb8615cf1d21384b37695172024f11a061ef/mogptk/kernels/multikernel.py#L111-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/multikernel.py#L111-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sqdist(self, X, X2, lscales):
     &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
@@ -456,7 +456,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/5e5eeb8615cf1d21384b37695172024f11a061ef/mogptk/kernels/multikernel.py#L23-L24" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/multikernel.py#L23-L24" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def subK(self, indexes, X, X2):
     return NotImplementedError</code></pre>
@@ -470,7 +470,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/MultiOutputGP-Toolkit/blob/5e5eeb8615cf1d21384b37695172024f11a061ef/mogptk/kernels/multikernel.py#L26-L28" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/multikernel.py#L26-L28" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def subKdiag(self, indexes, X):
     K = self.subK((indexes, indexes), X, X)
