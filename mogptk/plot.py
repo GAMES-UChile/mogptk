@@ -30,7 +30,7 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
         raise Exception('nyquist must have shape (input_dims,output_dims)')
 
     fig, axes = plt.subplots(output_dims, input_dims, figsize=(20, output_dims*5), sharey=False, constrained_layout=True, squeeze=False)
-    if title != None:
+    if title is not None:
         fig.suptitle(title, fontsize=36)
     
     for channel in range(output_dims):
@@ -52,12 +52,12 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
             axes[channel,i].plot(x, psd, 'k-', zorder=1)
             axes[channel,i].set_yticks([])
             axes[channel,i].set_ylim(0, None)
-            if titles != None:
+            if titles is not None:
                 axes[channel,i].set_title(titles[channel])
 
     axes[output_dims-1,i].set_xlabel('Frequency')
 
-    if filename != None:
+    if filename is not None:
         plt.savefig(filename+'.pdf', dpi=300)
     if show:
         plt.show()

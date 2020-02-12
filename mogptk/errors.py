@@ -52,7 +52,7 @@ def errors(*models, **kwargs):
                 x, y_true = channel.get_test_data()
 
             if len(x) > 0:
-                if channel.F != None:
+                if channel.F is not None:
                     y_true = channel.F(x) # use exact latent function to remove imposed Gaussian error on data points
 
                 y_pred = np.interp(x, channel.X_pred.reshape(-1), channel.Y_mu_pred) # TODO: multi input dims

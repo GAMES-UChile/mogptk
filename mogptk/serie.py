@@ -19,7 +19,7 @@ class Serie(np.ndarray):
         # if dtype is a string, see if it might be converted to datetime64
         if np.issubdtype(array.dtype, np.object_) or np.issubdtype(array.dtype, np.character):
             try:
-                array = np.datetime64(array)
+                array = np.array(array, dtype='datetime64')
             except:
                 pass
 

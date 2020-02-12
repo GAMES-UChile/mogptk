@@ -45,7 +45,7 @@ class model:
 
         for channel in dataset:
             for dim in range(channel.get_input_dims()):
-                xran = np.max(channel.X[dim]) - np.min(channel.X[dim])
+                xran = np.max(channel.X[dim].transformed) - np.min(channel.X[dim].transformed)
                 if xran < 1e-3:
                     logger.warning("Very small X range may give problems, it is suggested to scale up your X-axis")
                 elif 1e4 < xran:
@@ -71,7 +71,7 @@ class model:
         x, y = self.dataset._to_kernel()
 
         # Gaussian likelihood
-        if likelihood == None:
+        if likelihood is None:
             if not sparse:
                 self.model = gpflow.models.GPR((x, y), kernel)
             else:
@@ -544,8 +544,8 @@ class model:
         if plot:
             self.plot_prediction()
 
-        x, mu, lower, upper = self.dataset.get_prediction(self.name)
-        return x, mu, lower, upper
+        _, mu, lower, upper = self.dataset.get_prediction(self.name)
+        return mu, lower, upper
 
     def plot_prediction(self, grid=None, figsize=None, ylims=None, names=None, title=''):
 
@@ -599,9 +599,6 @@ class model:
             axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=11, mew=0.8, markeredgecolor='white', zorder=3)
             
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(5))
-
-            formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.dataset.get(i).formatters[0].format(x))
-            axes[i].xaxis.set_major_formatter(formatter)
 
             xmin = min(x_all[i].min(), x_pred[i].min())
             xmax = max(x_all[i].max(), x_pred[i].max())

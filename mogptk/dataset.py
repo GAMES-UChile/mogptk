@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
     """
-    LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+    LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
     Args:
         filename (str): CSV filename.
         x_col (int, str, list of int or str): Names or indices of X column(s) in CSV.
@@ -17,7 +17,7 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
         mogptk.data.Data or mogptk.dataset.DataSet
 
     Examples:
-        >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold', formats={'Date': FormatDate})
+        >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold')
         <mogptk.dataset.DataSet at ...>
         >>> LoadCSV('gold.csv', 'Date', 'Price', sep=' ', quotechar='|')
         <mogptk.dataset.DataSet at ...>
@@ -25,11 +25,11 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
 
     df = pd.read_csv(filename, **kwargs)
 
-    return LoadDataFrame(df, x_col, y_col, name, formats)
+    return LoadDataFrame(df, x_col, y_col, name)
 
 def LoadDataFrame(df, x_col=0, y_col=1, name=None):
     """
-    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns. Setting a formatter for a column will enable parsing for example date fields such as '2019-03-01'. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns.
 
     Args:
         df (pandas.DataFrame): The Pandas DataFrame.
@@ -56,7 +56,7 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
     if not isinstance(y_col, list):
         y_col = [y_col]
 
-    if name == None:
+    if name is None:
         name = [None] * len(y_col)
     else:
         if not isinstance(name, list):
@@ -337,13 +337,13 @@ class DataSet:
             end = [end] * self.get_output_dims()
         elif isinstance(end, dict):
             end = [end[name] for name in self.get_names()]
-        if n == None:
+        if n is None:
             n = [None] * self.get_output_dims()
         elif not isinstance(n, (list, dict)):
             n = [n] * self.get_output_dims()
         elif isinstance(n, dict):
             n = [n[name] for name in self.get_names()]
-        if step == None:
+        if step is None:
             step = [None] * self.get_output_dims()
         elif not isinstance(step, (list, dict)):
             step = [step] * self.get_output_dims()
@@ -420,30 +420,6 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
 
-    #def rescale_x(self):
-    #    xmin = {}
-    #    xmax = {}
-    #    for channel in self.channels:
-    #        for i, formatter in enumerate(channel.formatters[:-1]):
-    #            if not hasattr(formatter, 'category'):
-    #                formatter.category = 'none'
-
-    #            x = channel.get_data()[0]
-    #            if formatter.category not in xmin:
-    #                xmin[formatter.category] = np.min(x[:,i])
-    #                xmax[formatter.category] = np.max(x[:,i])
-    #            else:
-    #                xmin[formatter.category] = min(xmin[formatter.category], np.min(x[:,i]))
-    #                xmax[formatter.category] = max(xmax[formatter.category], np.max(x[:,i]))
-
-    #    for channel in self.channels:
-    #        offsets = []
-    #        scales = []
-    #        for i, formatter in enumerate(channel.formatters[:-1]):
-    #            offsets.append(xmin[formatter.category])
-    #            scales.append(1000.0 / (xmax[formatter.category] - xmin[formatter.category]))
-    #        channel.set_x_scaling(offsets, scales)
-
     def _to_kernel(self):
         """
         Return the data vectors in the format as used by the kernels.
@@ -463,7 +439,7 @@ class DataSet:
         
         x = np.concatenate(x)
         x = np.concatenate((chan, x), axis=1)
-        if y == None:
+        if y is None:
             return x
 
         y = np.concatenate(y).reshape(-1, 1)
@@ -545,7 +521,7 @@ class DataSet:
             figsize = (12, 2.5 * len(self))
 
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
-        if title != None:
+        if title is not None:
             fig.suptitle(title)
 
         for channel in range(self.get_output_dims()):

@@ -13,6 +13,9 @@ import pandas as pd
 import re
 import logging
 
+from pandas.plotting import register_matplotlib_converters
+register_matplotlib_converters()
+
 logger = logging.getLogger('mogptk')
 
 class TransformDetrend(TransformBase):
@@ -30,7 +33,7 @@ class TransformDetrend(TransformBase):
         if data.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
-        self.coef = np.polyfit(data.X[data.mask,0], data.Y[data.mask], self.degree)
+        self.coef = np.polyfit(data.X[0].transformed[data.mask], data.Y.transformed[data.mask], self.degree)
         # reg = Ridge(alpha=0.1, fit_intercept=True)
         # reg.fit(data.X, data.Y)
         # self.trend = reg
@@ -68,8 +71,8 @@ class TransformNormalize(TransformBase):
         pass
 
     def set_data(self, data):
-        self.ymin = np.amin(data.Y[data.mask])
-        self.ymax = np.amax(data.Y[data.mask])
+        self.ymin = np.amin(data.Y.transformed[data.mask])
+        self.ymax = np.amax(data.Y.transformed[data.mask])
 
     def forward(self, y, x=None):
         return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
@@ -85,8 +88,8 @@ class TransformLog(TransformBase):
         pass
 
     def set_data(self, data):
-        self.shift = 1 - data.Y.min()
-        self.mean = np.log(data.Y + self.shift).mean()
+        self.shift = 1 - data.Y.transformed.min()
+        self.mean = np.log(data.Y.transformed + self.shift).mean()
 
     def forward(self, y, x=None):
         return np.log(y + self.shift) - self.mean
@@ -103,8 +106,8 @@ class TransformWhiten(TransformBase):
     
     def set_data(self, data):
         # take only the non-removed observations
-        self.mean = data.Y[data.mask].mean()
-        self.std = data.Y[data.mask].std()
+        self.mean = data.Y.transformed[data.mask].mean()
+        self.std = data.Y.transformed[data.mask].std()
         
     def forward(self, y, x=None):
         return (y - self.mean) / self.std
@@ -140,12 +143,13 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     """
     # TODO: make work for multiple input dimensions, take n as a list
 
-    start = _normalize_input_dims(start, None)
+    # TODO
+    start = _normalize_val(start)
     input_dims = len(start)
     if input_dims != 1:
         raise ValueError("can only load function with one dimensional input data")
     
-    end = _normalize_input_dims(end, input_dims)
+    end = _normalize_val(end, input_dims)
     _check_function(f, input_dims)
 
     x = np.empty((n, input_dims))
@@ -189,8 +193,6 @@ class Data:
             X (list, numpy.ndarray, dict): Independent variable data of shape (n) or (n,input_dims).
             Y (list, numpy.ndarray): Dependent variable data of shape (n).
             name (str, optional): Name of data.
-            formats (dict, optional): List or dict of formatters (such as FormatNumber (default), FormatDate,
-                FormatDateTime, ...) for each input dimension.
             x_labels (str, list of str, optional): Name or names of input dimensions.
             y_label (str, optional): Name of output dimension.
 
@@ -216,7 +218,7 @@ class Data:
                     input_dims = first
 
         # convert dicts to lists
-        if x_labels != None:
+        if x_labels is not None:
             if isinstance(x_labels, str) and input_dims == 1:
                 x_labels = [x_labels]
             if not isinstance(x_labels, list) or not all(isinstance(label, str) for label in x_labels):
@@ -272,14 +274,17 @@ class Data:
             Y = np.take_along_axis(Y, ind[:,0], axis=0)
         
         self.X = [Serie(X[:,i]) for i in range(input_dims)] # [shape (n)] * input_dims
-        self.Y = Serie(Y, x=X) # shape (n)
+        self.Y = Serie(Y) # shape (n)
         self.mask = np.array([True] * Y.shape[0])
         self.F = None
         self.X_pred = self.X
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
-        self.X_labels = [''] * input_dims
+        self.X_labels = ['X'] * input_dims
+        if 1 < input_dims:
+            for i in range(input_dims):
+                self.X_labels[i] = 'X%d' % (i,)
         if isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
             self.X_labels = x_labels
 
@@ -289,7 +294,7 @@ class Data:
         elif isinstance(y_label, str):
             self.name = y_label
 
-        self.Y_label = ''
+        self.Y_label = 'Y'
         if isinstance(y_label, str):
             self.Y_label = y_label
 
@@ -297,8 +302,11 @@ class Data:
         return self.__repr__()
 
     def __repr__(self):
-        data = np.concatenate((self.X, self.Y.reshape(-1,1)), axis=1)
-        return repr(pd.DataFrame(data, columns=(self.X_labels + [self.Y_label])))
+        df = pd.DataFrame()
+        for i in range(len(self.X)):
+            df[self.X_labels[i]] = self.X[i]
+        df[self.Y_label] = self.Y
+        return repr(df)
 
     def copy(self):
         """
@@ -400,11 +408,13 @@ class Data:
         if isinstance(t, type):
             t = transformer()
         t.set_data(self)
-        self.Y.apply(t)
+
+        X = np.array([x.transformed for x in self.X]).T
+        self.Y.apply(t, X)
     
     def filter(self, start, end):
         """
-        Filter the data range to be between start and end. Start and end can be strings if a proper formatter is set for the independent variable.
+        Filter the data range to be between start and end.
 
         Args:
             start (float, str): Start of interval.
@@ -414,13 +424,16 @@ class Data:
             >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
             >>> data.filter(3, 8)
         
-            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', format={'Date': mogptk.FormatDate})
+            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price')
             >>> data.filter('2016-01-15', '2016-06-15')
         """
         if self.get_input_dims() != 1:
             raise ValueError("can only filter on one dimensional input data")
+
+        start = self._normalize_val(start)
+        end = self._normalize_val(end)
         
-        ind = (self.X[0] >= start) & (self.X[0] < end)
+        ind = (self.X[0] >= start[0]) & (self.X[0] < end[0])
 
         self.X[0] = self.X[0][ind]
         self.Y = self.Y[ind]
@@ -435,8 +448,6 @@ class Data:
         or by a string written in the duration format with:
         y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
         For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
-        If using a number, be aware that when using FormatDate your X data is denoted per day,
-        while with FormatDateTime it is per second.
 
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
@@ -460,9 +471,9 @@ class Data:
             ind = (self.X[0] >= X[i]-step/2) & (self.X[0] < X[i]+step/2)
             Y[i] = f(self.Y[ind])
 
-        self.X = [Serie(X, self.X.transformers)]
-        self.Y = Serie(Y, self.Y.transformers)
-        self.mask = np.array([True] * len(self.X))
+        self.X = [Serie(X, self.X[0].transformers)]
+        self.Y = Serie(Y, self.Y.transformers, np.array([x.transformed for x in self.X]).T)
+        self.mask = np.array([True] * len(self.X[0]))
 
     ################################################################
 
@@ -559,18 +570,18 @@ class Data:
 
             >>> data.remove_randomly(pct=0.9) # remove 90% of the observations
         """
-        if n == None:
-            if pct == None:
+        if n is None:
+            if pct is None:
                 n = 0
             else:
-                n = int(pct * self.X.shape[0])
+                n = int(pct * len(self.Y))
 
-        idx = np.random.choice(self.X.shape[0], n, replace=False)
+        idx = np.random.choice(len(self.Y), n, replace=False)
         self.mask[idx] = False
     
     def remove_range(self, start=None, end=None):
         """
-        Removes observations in the interval [start,end]. Start and end can be strings if a proper formatter is set for the independent variable.
+        Removes observations in the interval [start,end].
         
         Args:
             start (float, str, optional): Start of interval. Defaults to first value in observations.
@@ -580,18 +591,21 @@ class Data:
             >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
             >>> data.remove_range(3, 8)
         
-            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', format={'Date': mogptk.FormatDate})
+            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price')
             >>> data.remove_range('2016-01-15', '2016-06-15')
         """
         if self.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
-        if start == None:
-            start = np.min(self.X[:,0])
-        if end == None:
-            end = np.max(self.X[:,0])
+        if start is None:
+            start = np.min(self.X[0])
+        if end is None:
+            end = np.max(self.X[0])
 
-        idx = np.where(np.logical_and(self.X[0] >= start, self.X[0] <= end))
+        start = self._normalize_val(start)
+        end = self._normalize_val(end)
+
+        idx = np.where(np.logical_and(self.X[0] >= start[0], self.X[0] <= end[0]))
         self.mask[idx] = False
     
     def remove_relative_range(self, start=0.0, end=1.0):
@@ -605,10 +619,14 @@ class Data:
         if self.get_input_dims() != 1:
             raise Exception("can only remove ranges on one dimensional input data")
 
+        start = self._normalize_val(start)
+        end = self._normalize_val(end)
+
         x_min = np.min(self.X[0])
         x_max = np.max(self.X[0])
-        start = x_min + max(0.0, min(1.0, start)) * (x_max-x_min)
-        end = x_min + max(0.0, min(1.0, end)) * (x_max-x_min)
+        for i in range(self.get_input_dims()):
+            start[i] = x_min + max(0.0, min(1.0, start[i])) * (x_max-x_min)
+            end[i] = x_min + max(0.0, min(1.0, end[i])) * (x_max-x_min)
 
         idx = np.where(np.logical_and(self.X[0] >= start, self.X[0] <= end))
         self.mask[idx] = False
@@ -669,18 +687,16 @@ class Data:
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
-        mu = self.Y.detransform(mu)
-        lower = self.Y.detransform(lower)
-        upper = self.Y.detransform(upper)
+        X_pred = np.array([x.transformed for x in self.X_pred]).T
+        mu = self.Y.detransform(mu, X_pred)
+        lower = self.Y.detransform(lower, X_pred)
+        upper = self.Y.detransform(upper, X_pred)
         return np.array([x for x in self.X_pred]).T, mu, lower, upper
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
         """
-        Sets the prediction range.
-
-        The interval is set with [start,end], with either 'n' points or a
-        given 'step' between the points. Start and end can be set as strings and
-        step in the duration string format if the proper formatter is set.
+        Sets the prediction range. The interval is set with [start,end], with either 'n' points or a
+        given 'step' between the points.
 
         Args:
             start (float, str, optional): Start of interval, defaults to the first observation.
@@ -694,63 +710,63 @@ class Data:
             >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
             >>> data.set_prediction_range(3, 8, 200)
         
-            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price', formats={'Date': mogptk.FormatDate})
+            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price')
             >>> data.set_prediction_range('2016-01-15', '2016-06-15', step='1d')
         """
         if self.get_input_dims() != 1:
             raise Exception("can only set prediction range on one dimensional input data")
 
-        if start == None:
+        if start is None:
             start = [x[0] for x in self.X]
-        if end == None:
+        if end is None:
             start = [x[-1] for x in self.X]
         
-        start = _normalize_input_dims(start, self.get_input_dims())
-        end = _normalize_input_dims(end, self.get_input_dims())
+        start = self._normalize_val(start)
+        end = self._normalize_val(end)
 
         # TODO: works for multi input dims?
         if end <= start:
             raise ValueError("start must be lower than end")
 
         # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
-        self.X_pred = [np.array([])] * self.get_input_dims()
-        if step == None and n != None:
+        X_pred = [np.array([])] * self.get_input_dims()
+        if step is None and n is not None:
             for i in range(self.get_input_dims()):
-                self.X_pred[i] = np.linspace(start[i], end[i], n)
+                X_pred[i] = np.linspace(start[i], end[i], n)
         else:
             if self.get_input_dims() != 1:
                 raise ValueError("cannot use step for multi dimensional input, use n")
-            if step == None:
+            if step is None:
                 step = (end[0]-start[0])/100
             else:
                 step = _parse_delta(step)
-            self.X_pred[0] = np.arange(start[0], end[0]+step, step).reshape(-1, 1)
-
-        self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(self.X_pred)]
+            X_pred[0] = np.arange(start[0], end[0]+step, step)
+        
+        self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(X_pred)]
     
-    def set_prediction_x(self, x):
+    def set_prediction_x(self, X):
         """
         Set the prediction range directly.
 
         Args:
-            x (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+            X (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
 
         Examples:
             >>> data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
         """
-        if isinstance(x, list):
-            x = np.array(x)
-        elif not isinstance(x, np.ndarray):
-            raise ValueError("x expected to be a list or numpy.ndarray")
+        if isinstance(X, list):
+            X = np.array(X)
+        elif not isinstance(X, np.ndarray):
+            raise ValueError("X expected to be a list or numpy.ndarray")
 
-        x = x.astype(np.float64)
+        X = X.astype(np.float64)
 
-        if x.ndim == 1:
-            x = x.reshape(-1, 1)
-        if x.ndim != 2 or x.shape[1] != self.get_input_dims():
-            raise ValueError("x shape must be (n,input_dims)")
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+        if X.ndim != 2 or X.shape[1] != self.get_input_dims():
+            raise ValueError("X shape must be (n,input_dims)")
 
-        self.X_pred = Serie(x, self.X.transformers)
+        self.X_pred = [Serie(X[:,i], self.X[i].transformers) for i in range(self.get_input_dims())]
 
         # clear old prediction data now that X_pred has been updated
         self.Y_mu_pred = {}
@@ -776,7 +792,7 @@ class Data:
 
         nyquist = np.empty((input_dims))
         for i in range(self.get_input_dims()):
-            x = np.sort(self.X[i][self.mask])
+            x = np.sort(self.X[i].transformed[self.mask])
             dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
             dist = np.min(dist[np.nonzero(dist)])
             nyquist[i] = 0.5/dist
@@ -808,8 +824,8 @@ class Data:
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x = np.array(self.X[i][self.mask])
-            y = np.array(self.Y[self.mask])
+            x = np.array(self.X[i].transformed[self.mask])
+            y = np.array(self.Y.transformed[self.mask])
             bnse = bse(x, y)
             bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
@@ -865,7 +881,7 @@ class Data:
             x = np.linspace(0, nyquist[i], n+1)[1:]
             dx = x[1]-x[0]
 
-            y = signal.lombscargle(self.X[i][self.mask], self.Y[self.mask], x)
+            y = signal.lombscargle(self.X[i].transformed[self.mask], self.Y.transformed[self.mask], x)
             ind, _ = signal.find_peaks(y)
             ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
@@ -907,11 +923,8 @@ class Data:
         if self.get_input_dims() == 2:
             raise Exception("two dimensional input data not yet implemented") # TODO
 
-        if ax == None:
+        if ax is None:
             ax = plt.gca()
-        
-        X = self.X_offsets + (self.X/self.X_scales)
-        X_pred = self.X_offsets + (self.X_pred/self.X_scales)
 
         legend = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -919,19 +932,19 @@ class Data:
             if self.Y_mu_pred[name].size != 0:
                 lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
                 upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
-                ax.plot(X_pred[:,0], self.Y_mu_pred[name], ls='-', color=colors[i], lw=2)
-                ax.fill_between(X_pred[:,0], lower, upper, color=colors[i], alpha=0.1)
-                ax.plot(X_pred[:,0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
-                ax.plot(X_pred[:,0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
+                ax.plot(self.X_pred[0], self.Y_mu_pred[name], ls='-', color=colors[i], lw=2)
+                ax.fill_between(self.X_pred[0], lower, upper, color=colors[i], alpha=0.1)
+                ax.plot(self.X_pred[0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
+                ax.plot(self.X_pred[0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
                 label = 'Prediction'
                 if 1 < len(self.Y_mu_pred):
                     label += ' ' + name
                 legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
 
-        if self.F != None:
-            n = len(X[:,0])*10
-            x_min = np.min(X[:,0])
-            x_max = np.max(X[:,0])
+        if self.F is not None:
+            n = len(self.X[0])*10
+            x_min = np.min(self.X[0])
+            x_max = np.max(self.X[0])
             if len(X_pred) != 0:
                 x_min = min(x_min, np.min(X_pred))
                 x_max = max(x_max, np.max(X_pred))
@@ -943,19 +956,19 @@ class Data:
             ax.plot(x[:,0], y, 'r--', lw=1)
             legend.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
-        ax.plot(X[:,0], self.Y, 'k--', alpha=0.8)
+        ax.plot(self.X[0], self.Y, 'k--', alpha=0.8)
         legend.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
         if self.has_test_data():
-            x, y = X[self.mask,:], self.Y[self.mask]
+            x, y = self.get_train_data()
             ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
             legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=10, label='Training Points'))
             for idx in np.where(~self.mask)[0]:
-                width_1 = (self.X[min(idx, len(X) - 1), 0] - self.X[max(idx - 1, 0), 0]) / 2
-                width_2 = (self.X[min(idx + 1, len(X) - 1), 0] - self.X[max(idx, 0), 0]) / 2
+                width_1 = (self.X[0][min(idx, len(self.Y)-1)] - self.X[0][max(idx - 1, 0)]) / 2
+                width_2 = (self.X[0][min(idx + 1, len(self.Y)-1)] - self.X[0][max(idx, 0)]) / 2
                 ax.add_patch(
                     patches.Rectangle(
-                    (self.X[max(idx - 1, 0), 0] + width_1, ax.get_ylim()[0]),           # (x,y)
+                    (self.X[0][max(idx - 1, 0)] + width_1, ax.get_ylim()[0]),           # (x,y)
                     width_1 + width_2,                                 # width
                     ax.get_ylim()[1] - ax.get_ylim()[0],  # height
                     fill=True,
@@ -974,28 +987,26 @@ class Data:
                     label='Removed Points'
                     ))
 
-        xmin = X.min()
-        xmax = X.max()
+        xmin = self.X[0].min()
+        xmax = self.X[0].max()
         ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
         ax.set_xlabel(self.X_labels[0])
         ax.set_ylabel(self.Y_label)
         ax.set_title(self.name)
-        formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0].format(x))
-        ax.xaxis.set_major_formatter(formatter)
 
         if (len(legend) > 0) and plot_legend:
             ax.legend(handles=legend, loc='upper center', ncol=len(legend), bbox_to_anchor=(0.5, 1.7))
         return ax
 
-    def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None):
+    def plot_spectrum(self, method='lombscargle', ax=None, unit=None, maxfreq=None):
         """
         Plot the spectrum of the data.
 
         Args:
             method (str, optional): Set the method to get the spectrum such as 'lombscargle'.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            per (float, str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per='3d' for three days.
+            unit (str): Set the unit of the X axis.
             maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
 
         Returns:
@@ -1007,57 +1018,93 @@ class Data:
         if self.get_input_dims() == 2:
             raise Exception("two dimensional input data not yet implemented") # TODO
 
-        if ax == None:
+        if ax is None:
             ax = plt.gca()
         
         ax.set_title(self.name, fontsize=36)
 
-        formatter = self.formatters[0]
-        factor, name = formatter.get_scale(per)
-        if name != None:
-            ax.set_xlabel('Frequency (1/'+name+')')
-        else:
-            ax.set_xlabel('Frequency [Hz]')
+        is_datetime = np.issubdtype(self.X[0].dtype, np.datetime64)
+        X = self.X[0].astype(np.float64)
+        if unit is None and is_datetime:
+            unit = _extract_time_unit(self.X[0])
+            if unit == 'Y':
+                unit = '1/year'
+            elif unit == 'M':
+                unit = '1/month'
+            elif unit == 'W':
+                unit = '1/week'
+            elif unit == 'D':
+                unit = '1/day'
+            elif unit == 'h':
+                unit = '1/hour'
+            elif unit == 'm':
+                unit = '1/minute'
+            elif unit == 's':
+                unit = '1/second'
+            elif unit == 'ms':
+                unit = '1/millisecond'
+            elif unit == 'us':
+                unit = '1/microsecond'
 
-        X_space = np.squeeze((self.X_offsets + (self.X/self.X_scales)) / factor)
+        if unit is not None:
+            ax.set_xlabel('Frequency ('+unit+')')
+        else:
+            ax.set_xlabel('Frequency')
 
         freq = maxfreq
-        if freq == None:
-            dist = np.abs(X_space[1:]-X_space[:-1])
+        if freq is None:
+            dist = np.abs(X[1:]-X[:-1])
             freq = 1/np.average(dist)
 
-        X = np.linspace(0.0, freq, 10001)[1:]
-        Y_err = []
+        X_freq = np.linspace(0.0, freq, 10001)[1:]
+        Y_freq_err = []
         if method == 'lombscargle':
-            Y = signal.lombscargle(X_space, self.Y, X)
+            Y_freq = signal.lombscargle(X, self.Y, X_freq)
         elif method == 'bnse':
-            # TODO: check if outcome is correct
             nyquist = self.get_nyquist_estimation()
-            bnse = bse(X_space, self.Y)
+            bnse = bse(X, self.Y)
             bnse.set_freqspace(freq/2.0/np.pi, 10001)
             bnse.train()
             bnse.compute_moments()
 
-            Y = bnse.post_mean_r**2 + bnse.post_mean_i**2
-            Y_err = 2 * np.sqrt(np.diag(bnse.post_cov_r**2 + bnse.post_cov_i**2))
-            Y = Y[1:]
-            Y_err = Y_err[1:]
+            Y_freq = bnse.post_mean_r**2 + bnse.post_mean_i**2
+            Y_freq_err = 2 * np.sqrt(np.diag(bnse.post_cov_r**2 + bnse.post_cov_i**2))
+            Y_freq = Y_freq[1:]
+            Y_freq_err = Y_freq_err[1:]
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
-        ax.plot(X, Y, '-', color='xkcd:strawberry', lw=2.3)
-        if len(Y_err) != 0:
-            ax.fill_between(X, Y-Y_err, Y+Y_err, alpha=0.4)
+        ax.plot(X_freq, Y_freq, '-', color='xkcd:strawberry', lw=2.3)
+        if len(Y_freq_err) != 0:
+            ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
         ax.set_title(self.name + ' Spectrum')
 
-        xmin = X.min()
-        xmax = X.max()
+        xmin = X_freq.min()
+        xmax = X_freq.max()
         ax.set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
-
         ax.set_yticks([])
         ax.set_ylim(0, None)
-
         return ax
+
+    def _normalize_val(self, val):
+        if val is None:
+            return val
+        if isinstance(val, np.ndarray):
+            if val.ndim == 0:
+                val = [val.item()]
+            else:
+                val = list(val)
+        elif not isinstance(val, list):
+            val = [val] * self.get_input_dims()
+        if len(val) != self.get_input_dims():
+            raise ValueError("value must be a scalar or a list of values for each input dimension")
+
+        for i in range(self.get_input_dims()):
+            try:
+                val[i] = self.X[i].dtype.type(val[i])
+            except:
+                pass
+        return val
 
 def _check_function(f, input_dims):
     if not inspect.isfunction(f):
@@ -1072,22 +1119,9 @@ def _check_function(f, input_dims):
     if len(y.shape) != 1 or y.shape[0] != 1:
         raise ValueError("function must return Y with shape (n), note that X has shape (n,input_dims)")
 
-def _normalize_input_dims(x, input_dims):
-    if x == None:
-        return x
-    if isinstance(x, float):
-        x = [x]
-    elif isinstance(x, int):
-        x = [float(x)]
-    elif isinstance(x, str):
-        x = [x]
-    elif isinstance(x, np.ndarray):
-        x = list(x)
-    elif not isinstance(x, list):
-        raise ValueError("input should be a floating point, list or ndarray")
-    if input_dims != None and len(x) != input_dims:
-        raise ValueError("input must be a scalar for single-dimension input or a list of values for each input dimension")
-    return x
+def _extract_time_unit(v):
+    v = str(v.dtype)
+    return v[v.find('[')+1:-1]
     
 duration_regex = re.compile(
     r'^(([\.\d]+?)Y)?'
@@ -1106,27 +1140,27 @@ def _parse_delta(s):
         return s
 
     x = duration_regex.match(s)
-    if x == None:
+    if x is None:
         raise ValueError('duration string must be of the form 2h45m, allowed characters: (Y)ear, (M)onth, (W)eek, (D)ay, (h)our, (m)inute, (s)econd, (ms) for milliseconds, (us) for microseconds')
 
     delta = 0
     matches = x.groups()[1::2]
     if matches[0]:
-        delta += np.timedelta64(float(matches[0]), 'Y')
+        delta += np.timedelta64(np.int32(matches[0]), 'Y')
     if matches[1]:
-        delta += np.timedelta64(float(matches[1]), 'M')
+        delta += np.timedelta64(np.int32(matches[1]), 'M')
     if matches[2]:
-        delta += np.timedelta64(float(matches[2]), 'W')
+        delta += np.timedelta64(np.int32(matches[2]), 'W')
     if matches[3]:
-        delta += np.timedelta64(float(matches[3]), 'D')
+        delta += np.timedelta64(np.int32(matches[3]), 'D')
     if matches[4]:
-        delta += np.timedelta64(float(matches[4]), 'h')
+        delta += np.timedelta64(np.int32(matches[4]), 'h')
     if matches[5]:
-        delta += np.timedelta64(float(matches[5]), 'm')
+        delta += np.timedelta64(np.int32(matches[5]), 'm')
     if matches[6]:
-        delta += np.timedelta64(float(matches[6]), 's')
+        delta += np.timedelta64(np.int32(matches[6]), 's')
     if matches[7]:
-        delta += np.timedelta64(float(matches[7]), 'us')
+        delta += np.timedelta64(np.int32(matches[7]), 'us')
     if matches[8]:
-        delta += np.timedelta64(float(matches[8]), 'ms')
+        delta += np.timedelta64(np.int32(matches[8]), 'ms')
     return delta

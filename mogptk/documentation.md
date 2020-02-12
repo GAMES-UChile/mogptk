@@ -1,4 +1,4 @@
-MOGPTK is a Python toolkit for multi output Gaussian processes. It contains data handling classes and different multi output models to facilitate the training and prediction of multi channel data sets. It provides a complete toolkit to improve the training of MOGPs, where it allows for easy reformatting of data (date/time to numbers), detrending or transformation of the data (such as taking the natural logarithm), functions that aid in adding gaps to the data or specifying which range should be predicted, and more.
+MOGPTK is a Python toolkit for multi output Gaussian processes. It contains data handling classes and different multi output models to facilitate the training and prediction of multi channel data sets. It provides a complete toolkit to improve the training of MOGPs, where it allows for easy detrending or transformation of the data (such as taking the natural logarithm), functions that aid in adding gaps to the data or specifying which range should be predicted, and more.
 
 The following four MOGP models have been implemented:
 
@@ -34,17 +34,6 @@ pip install mogptk
 - **SM-LMC**: Spectral mixture linear model of coregionalization kernel, see [Gaussian Process Kernels for Pattern Discovery and Extrapolation](https://arxiv.org/abs/1302.4245) by A.G. Wilson and R.P. Adams and the book "Geostatistics for Natural Resource Evaluation" by P. Goovaerts.
 
 ## Data handling
-### Formats
-The format classes allow the independent (X axis) data to be formatted so that it can be converted into numbers. Each class implements the following functions:
-
-- **parse(str) returns num**: parses a string to a number, can raise `ValueError`
-- **parse\_delta(str) returns num**: parses a string to a number as a difference/interval, e.g. duration in seconds or distance in meters
-- **format(num) returns str**: format a number to be displayed
-- **get_scale(maxfreq=None) returns (num, str)**: returns the default duration unit of the format and its name, e.g. to plot the frequency per day or per year
-
-#### FormatNumber
-#### FormatDate
-#### FormatDateTime
 ### Transformations
 The transformation classes allow transforming the dependent data (Y axis) to be transformed. Each class implements the following functions:
 
