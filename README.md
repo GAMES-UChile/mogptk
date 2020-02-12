@@ -57,7 +57,7 @@ One of the main advantages of the present toolkit is the GPU support, which enab
 
 **[Human Activity Recognition](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_HAR.ipynb)**: Using the Inertial Measurement Unit (IMU) of an Apple iPhone 4, the accelerometer, gyroscope and magnetometer 3D data were recorded for different activities resulting in nine channels.
 
-**[Seasonal C02 and Airline passangers](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_single_output_spectral_mixture.ipynb)**: Regression for 2 datasets using a single output spectral mixture, first the Mauna Loa C02 concentration and the second the passangers in a airline.
+**[Seasonal CO2 and Airline passangers](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_single_output_spectral_mixture.ipynb)**: Regression for 2 datasets using a single output spectral mixture, first the Mauna Loa CO2 concentration and the second the passangers in a airline.
 
 ## Documentation
 See the [API documentation](https://games-uchile.github.io/mogptk/) for documentation of our toolkit, including usage and examples of functions and classes.
