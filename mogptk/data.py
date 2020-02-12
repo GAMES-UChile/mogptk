@@ -141,15 +141,27 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
         >>> LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
         <mogptk.data.Data at ...>
     """
-    # TODO: make work for multiple input dimensions, take n as a list
 
-    # TODO
-    start = _normalize_val(start)
+    if type(start) is not type(end):
+        raise ValueError("start and end must be of the same type")
+    if isinstance(start, np.ndarray):
+        if start.ndim == 0:
+            start = [start.item()]
+            end = [end.item()]
+        else:
+            start = list(start)
+            end = list(end)
+    if not isinstance(start, list):
+        start = [start]
+        end = [end]
+
+    if len(start) != len(end):
+        raise ValueError("start and end must be of the same length")
+    for i, j in zip(start, end):
+        if type(i) is not type(j):
+            raise ValueError("start and end must be of the same type for every pair")
+
     input_dims = len(start)
-    if input_dims != 1:
-        raise ValueError("can only load function with one dimensional input data")
-    
-    end = _normalize_val(end, input_dims)
     _check_function(f, input_dims)
 
     x = np.empty((n, input_dims))
@@ -949,9 +961,9 @@ class Data:
             n = len(self.X[0])*10
             x_min = np.min(self.X[0])
             x_max = np.max(self.X[0])
-            if len(X_pred) != 0:
-                x_min = min(x_min, np.min(X_pred))
-                x_max = max(x_max, np.max(X_pred))
+            if len(self.X_pred[0]) != 0:
+                x_min = min(x_min, np.min(self.X_pred[0]))
+                x_max = max(x_max, np.max(self.X_pred[0]))
 
             x = np.empty((n, 1))
             x[:,0] = np.linspace(x_min, x_max, n)
