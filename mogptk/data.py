@@ -280,6 +280,7 @@ class Data:
         self.X_pred = self.X
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
+        self.removed_ranges = [[]] * input_dims
 
         self.X_labels = ['X'] * input_dims
         if 1 < input_dims:
@@ -607,6 +608,7 @@ class Data:
 
         idx = np.where(np.logical_and(self.X[0] >= start[0], self.X[0] <= end[0]))
         self.mask[idx] = False
+        self.removed_ranges[0].append([start[0], end[0]])
     
     def remove_relative_range(self, start=0.0, end=1.0):
         """
@@ -628,8 +630,9 @@ class Data:
             start[i] = x_min + max(0.0, min(1.0, start[i])) * (x_max-x_min)
             end[i] = x_min + max(0.0, min(1.0, end[i])) * (x_max-x_min)
 
-        idx = np.where(np.logical_and(self.X[0] >= start, self.X[0] <= end))
+        idx = np.where(np.logical_and(self.X[0] >= start[0], self.X[0] <= end[0]))
         self.mask[idx] = False
+        self.removed_ranges[0].append([start[0], end[0]])
 
     def remove_random_ranges(self, n, duration):
         """
@@ -660,6 +663,7 @@ class Data:
             x = self.X[0][locs][np.random.randint(len(self.X[0][locs]))]
             locs[(self.X[0] > x-delta) & (self.X[0] < x+delta)] = False
             self.mask[(self.X[0] >= x) & (self.X[0] < x+delta)] = False
+            self.removed_ranges[0].append([x, x+delta])
     
     ################################################################
     
@@ -963,29 +967,18 @@ class Data:
             x, y = self.get_train_data()
             ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
             legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=10, label='Training Points'))
-            for idx in np.where(~self.mask)[0]:
-                width_1 = (self.X[0][min(idx, len(self.Y)-1)] - self.X[0][max(idx - 1, 0)]) / 2
-                width_2 = (self.X[0][min(idx + 1, len(self.Y)-1)] - self.X[0][max(idx, 0)]) / 2
-                ax.add_patch(
-                    patches.Rectangle(
-                    (self.X[0][max(idx - 1, 0)] + width_1, ax.get_ylim()[0]),           # (x,y)
-                    width_1 + width_2,                                 # width
-                    ax.get_ylim()[1] - ax.get_ylim()[0],  # height
-                    fill=True,
-                    color='xkcd:strawberry',
-                    alpha=0.25,
-                    lw=0,
-                    ))
+
+            for removed_range in self.removed_ranges[0]:
+                x0 = removed_range[0]
+                x1 = removed_range[1]
+                y0 = ax.get_ylim()[0]
+                y1 = ax.get_ylim()[1]
+                ax.add_patch(patches.Rectangle(
+                    (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.25, lw=0,
+                ))
             legend.append(patches.Rectangle(
-                    (1, 1),
-                    1,
-                    1,
-                    fill=True,
-                    color='xkcd:strawberry',
-                    alpha=0.5,
-                    lw=0,
-                    label='Removed Points'
-                    ))
+                (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
+            ))
 
         xmin = self.X[0].min()
         xmax = self.X[0].max()
