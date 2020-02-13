@@ -1,6 +1,6 @@
 # Multi-Output Gaussian Process Toolkit
 
-**[API Documentation](https://games-uchile.github.io/mogptk/) - [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials)**
+**[Paper](https://arxiv.org/abs/2002.03471) - [API Documentation](https://games-uchile.github.io/mogptk/) - [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials)**
 
 The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and interpreting Gaussian process models with multiple data channels. It builds upon [GPflow](https://www.gpflow.org/) and [TensorFlow](https://www.tensorflow.org/) to provide an easy way to train multi-output models effectively and interpret their results. The main authors are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar as part of the Center for Mathematical Modelling at the University of Chile.
 
@@ -35,6 +35,8 @@ The kernel learns the cross-channel correlations of the data, so it is particula
 
 One of the main advantages of the present toolkit is the GPU support, which enables the user to train models through TensorFlow, speeding computations significantly. It also includes sparse-variational GP regression functionality, to decrease computation time even further.
 
+See [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://arxiv.org/abs/2002.03471) for our publication on arXiv.
+
 ## Tutorials
 
 **[00 - Quick Start](https://github.com/GAMES-UChile/mogptk/blob/master/examples/00_Quick_Start.ipynb)**: Short notebook showing the basic use of the toolkit.
@@ -67,11 +69,29 @@ See the [API documentation](https://games-uchile.github.io/mogptk/) for document
 - Alejandro Cuevas
 - Felipe Tobar
 
+## Users
+This is a list of users of this toolbox, feel free to add your project!
+
 ## Contributing
-We accept and encourage contributions to the toolkit in the form of pull requests (PRs), bug reports and discussions (GitHub issues). TODO
+We accept and encourage contributions to the toolkit in the form of pull requests (PRs), bug reports and discussions (GitHub issues). It is adviced to start an open discussion before proposing large PRs. For small PRs we suggest that they address only one issue or add one new feature. All PRs should keep documentation and notebooks up to date.
 
 ## Citing
-TODO
+Please use our publication at arXiv to cite our toolkit: [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://arxiv.org/abs/2002.03471). We recommend the following BiBTeX entry:
+
+```
+@article{mogptk,
+       author = {T. {de Wolff} and A. {Cuevas} and F. {Tobar}},
+        title = {{MOGPTK: The Multi-Output Gaussian Process Toolkit}},
+      journal = {arXiv e-prints},
+         year = {2020},
+          eid = {arXiv:2002.03471},
+        pages = {arXiv:2002.03471},
+archivePrefix = {arXiv},
+       eprint = {2002.03471},
+ primaryClass = {stat.ML},
+          url = {https://github.com/GAMES-UChile/mogptk},
+}
+```
 
 ## License
 Released under the [MIT license](LICENSE).
