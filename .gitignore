@@ -6,3 +6,4 @@ build/
 dist/
 mogptk.egg-info/
 examples/test*
+examples/experiments
