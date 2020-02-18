@@ -40,7 +40,7 @@ class SM_LMC(model):
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
-    def __init__(self, dataset, Q=1, Rq=1, name="SM-LMC", likelihood=None, variational=False, sparse=False, like_params={}):
+    def __init__(self, dataset, Q=1, Rq=1, name="SM-LMC", likelihood=None, variational=False, sparse=False, like_params={}, **kwargs):
         if Rq != 1:
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
 
@@ -59,7 +59,7 @@ class SM_LMC(model):
             else:
                 kernel_set += kernel
         kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
-        self._build(kernel_set, likelihood, variational, sparse, like_params)
+        self._build(kernel_set, likelihood, variational, sparse, like_params, **kwargs)
     
     def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=2000, plot=False):
         """

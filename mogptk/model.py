@@ -24,7 +24,7 @@ gpflow.config.set_default_positive_minimum(1e-6)
 logger = logging.getLogger('mogptk')
 
 class model:
-    def __init__(self, name, dataset):
+    def __init__(self, name, dataset, **kwargs):
         """
         Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
 
@@ -54,7 +54,7 @@ class model:
         self.name = name
         self.dataset = dataset
     
-    def _build(self, kernel, likelihood, variational, sparse, like_params):
+    def _build(self, kernel, likelihood, variational, sparse, like_params, **kwargs):
         """
         Build the model using the given kernel and likelihood. The variational and sparse booleans decide which GPflow model will be used.
 
@@ -73,29 +73,29 @@ class model:
         # Gaussian likelihood
         if likelihood is None:
             if not sparse:
-                self.model = gpflow.models.GPR((x, y), kernel)
+                self.model = gpflow.models.GPR((x, y), kernel, **kwargs)
             else:
                 # TODO: test if induction points are set
-                self.name += ' (sparse)'
-                self.model = gpflow.models.SGPR(x, y, kernel)
+                self.name += ' (sparse variational)'
+                self.model = gpflow.models.SGPR((x, y), kernel, **kwargs)
         # MCMC
         elif not variational:
             self.likelihood = likelihood(**like_params)
             if not sparse:
-                self.name += ' (MCMC)'
-                self.model = gpflow.models.GPMC(x, y, kernel, self.likelihood)
+                self.name += ' (MCMC approx)'
+                self.model = gpflow.models.GPMC((x, y), kernel, self.likelihood, **kwargs)
             else:
-                self.name += ' (sparse MCMC)'
-                self.model = gpflow.models.SGPMC(x, y, kernel, self.likelihood)
+                self.name += ' (sparse variational with MCMC approx)'
+                self.model = gpflow.models.SGPMC((x, y), kernel, self.likelihood, **kwargs)
         # Variational
         else:
             self.likelihood = likelihood(**like_params)
             if not sparse:
-                self.name += ' (variational)'
-                self.model = gpflow.models.VGP(x, y, kernel, self.likelihood)
+                self.name += ' (variational approx)'
+                self.model = gpflow.models.VGP((x, y), kernel, self.likelihood, **kwargs)
             else:
-                self.name += ' (sparse variational)'
-                self.model = gpflow.models.SVGP(x, y, kernel, self.likelihood)
+                self.name += ' (sparse variational with variational approx)'
+                self.model = gpflow.models.SVGP((x, y), kernel, self.likelihood, **kwargs)
 
     ################################################################
 

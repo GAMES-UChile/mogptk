@@ -93,7 +93,7 @@ class SM(model):
 
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
     """
-    def __init__(self, dataset, Q=1, name="SM", likelihood=None, variational=False, sparse=False, like_params={}):
+    def __init__(self, dataset, Q=1, name="SM", likelihood=None, variational=False, sparse=False, like_params={}, **kwargs):
         model.__init__(self, name, dataset)
         self.Q = Q
 
@@ -104,7 +104,7 @@ class SM(model):
             self.dataset.get_input_dims()[0],
             self.Q,
         )
-        self._build(kernel, likelihood, variational, sparse, like_params)
+        self._build(kernel, likelihood, variational, sparse, like_params, **kwargs)
 
     def init_parameters(self, method='BNSE'):
         """

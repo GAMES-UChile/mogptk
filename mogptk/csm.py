@@ -38,7 +38,7 @@ class CSM(model):
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
-    def __init__(self, dataset, Q=1, Rq=1, name="CSM", likelihood=None, variational=False, sparse=False, like_params={}):
+    def __init__(self, dataset, Q=1, Rq=1, name="CSM", likelihood=None, variational=False, sparse=False, like_params={}, **kwargs):
         if Rq != 1:
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
 
@@ -57,7 +57,7 @@ class CSM(model):
             else:
                 kernel_set += kernel
         kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
-        self._build(kernel_set, likelihood, variational, sparse, like_params)
+        self._build(kernel_set, likelihood, variational, sparse, like_params, **kwargs)
     
     def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
         """
