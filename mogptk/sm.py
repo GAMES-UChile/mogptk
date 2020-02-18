@@ -143,7 +143,7 @@ class SM(model):
                 logger.warning('LS could not find peaks for SM')
                 return
             
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].var() * 2
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
 
             self.set_parameter(0, 'mixture_weights', mixture_weights)
             self.set_parameter(0, 'mixture_means', means.T)
@@ -155,7 +155,7 @@ class SM(model):
                 logger.warning('BNSE could not find peaks for SM')
                 return
 
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].var() * 2
+            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
 
             self.set_parameter(0, 'mixture_weights', mixture_weights)
             self.set_parameter(0, 'mixture_means', means.T)
