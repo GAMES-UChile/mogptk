@@ -86,6 +86,6 @@ class CONV(model):
 
         noise = np.empty((self.dataset.get_output_dims()))
         for i, channel in enumerate(self.dataset):
-            noise[i] = (channel.Y).var() / 30
+            noise[i] = (channel.Y.transformed[data.mask]).var() / 30
         self.set_parameter(self.Q, 'noise', noise)
     
