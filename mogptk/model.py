@@ -643,11 +643,10 @@ class model:
 
         """
         if xmin is None:
-            xmin = [data.X.min() for data in self.dataset]
+            xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
 
         if xmax is None:
-            xmax = [data.X.max() for data in self.dataset]
-
+            xmax = [np.array(data.X[0].transformed).max() for data in self.dataset]
 
         M = len(self.dataset)
 
