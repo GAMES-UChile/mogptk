@@ -98,6 +98,9 @@ class MOSM(model):
                     magnitude[channel, q] = amplitudes[channel][:,q].mean()
                     mean[:,channel] = means[channel][:,q] * 2 * np.pi
                     variance[:,channel] = variances[channel][:,q] * 2
+
+                self.set_parameter(q, 'mean', mean)
+                self.set_parameter(q, 'variance', variance)
             
             # normalize proportional to channels variances
             for channel, data in enumerate(self.dataset):
@@ -105,8 +108,6 @@ class MOSM(model):
 
             for q in range(self.Q):
                 self.set_parameter(q, 'magnitude', magnitude[:, q])
-                self.set_parameter(q, 'mean', mean)
-                self.set_parameter(q, 'variance', variance)
 
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
