@@ -929,6 +929,18 @@ class Data:
     def gmm_init(self, Q=1, n=50000):
         """
         Parameter estimation using a GMM on a PSD estimate
+
+        Args:
+            Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points to use for Lomb Scargle, defaults to 50000.
+
+        Returns:
+            numpy.ndarray: Amplitude array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+            numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
+
+        Examples:
+            >>> amplitudes, means, variances = data.gmm_init()
         """
 
         input_dims = self.get_input_dims()

@@ -112,19 +112,22 @@ class SM(model):
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
-        'AGW': (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
+        'AGW': (Taken from phd thesis from Andrew wilson 2014) takes the inverse
             of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
             means drawn from Unif(0, 0.5 / minimum distance between two points),
             and the mixture weights by taking the stdv of the y values divided by the
             number of mixtures.
-        'LS'_ is using Lomb Scargle periodogram for estimating the PSD,
+        'LS': uses Lomb Scargle periodogram for estimating the PSD,
             and using the first Q peaks as the means and mixture weights.
-        'BNSE': third is using the BNSE (Tobar 2018) to estimate the PSD 
+        'LS_e': same as LS but with added noise of std equal of 1/10 of the 
+            LS estimate value.
+        'BNSE': uses the BNSE (Tobar 2018) to estimate the PSD 
             and use the first Q peaks as the means and mixture weights.
+        'BNSE_e': same as BNSE but with added noise of std equal of 1/10 of the 
+            BNSE estimate value.
+        'GMM': fits a Gaussian mixture model of Q componentson the PSD
+            estimate by lombscargle.
 
-        In all cases the noise is initialized with 1/30 of the variance of each channel.
-
-        *** Only for single input dimension for each channel.
         """
 
         if method not in ['AGW', 'LS', 'BNSE', 'GMM', 'LS_e', 'BNSE_e']:
