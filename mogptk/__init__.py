@@ -4,6 +4,7 @@
 from .model import *
 from .sm import *
 from .mosm import *
+from .restricted_mosm import *
 from .csm import *
 from .conv import *
 from .sm_lmc import *

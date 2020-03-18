@@ -112,23 +112,26 @@ class SM(model):
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
-        'AGW': (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
+        'AGW': (Taken from phd thesis from Andrew wilson 2014) takes the inverse
             of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
             means drawn from Unif(0, 0.5 / minimum distance between two points),
             and the mixture weights by taking the stdv of the y values divided by the
             number of mixtures.
-        'LS'_ is using Lomb Scargle periodogram for estimating the PSD,
+        'LS': uses Lomb Scargle periodogram for estimating the PSD,
             and using the first Q peaks as the means and mixture weights.
-        'BNSE': third is using the BNSE (Tobar 2018) to estimate the PSD 
+        'LS_e': same as LS but with added noise of std equal of 1/10 of the 
+            LS estimate value.
+        'BNSE': uses the BNSE (Tobar 2018) to estimate the PSD 
             and use the first Q peaks as the means and mixture weights.
+        'BNSE_e': same as BNSE but with added noise of std equal of 1/10 of the 
+            BNSE estimate value.
+        'GMM': fits a Gaussian mixture model of Q componentson the PSD
+            estimate by lombscargle.
 
-        In all cases the noise is initialized with 1/30 of the variance of each channel.
-
-        *** Only for single input dimension for each channel.
         """
 
-        if method not in ['AGW', 'LS', 'BNSE']:
-            raise Exception("possible methods are 'AGW', 'LS' and 'BNSE' (see documentation).")
+        if method not in ['AGW', 'LS', 'BNSE', 'GMM', 'LS_e', 'BNSE_e']:
+            raise Exception("possible methods are 'AGW', 'LS', 'BNSE' and GMM (see documentation).")
 
         if method == 'AGW':
             x, y = self.dataset[0].get_train_data()
@@ -137,29 +140,44 @@ class SM(model):
             self.set_parameter(0, 'mixture_means', np.array(means))
             self.set_parameter(0, 'mixture_scales', np.array(scales.T))
 
-        elif method == 'LS':
+            return
+
+        elif 'LS' in method:
             amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('LS could not find peaks for SM')
                 return
-            
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].var() * 2
 
-            self.set_parameter(0, 'mixture_weights', mixture_weights)
-            self.set_parameter(0, 'mixture_means', means.T)
-            self.set_parameter(0, 'mixture_scales', variances * 2.0)
 
-        elif method == 'BNSE':
+        elif 'BNSE' in method:
             amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logger.warning('BNSE could not find peaks for SM')
                 return
 
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].var() * 2
+        elif method == 'GMM':
+            amplitudes, means, variances = self.dataset[0].gmm_init(self.Q)
 
-            self.set_parameter(0, 'mixture_weights', mixture_weights)
-            self.set_parameter(0, 'mixture_means', means.T)
-            self.set_parameter(0, 'mixture_scales', variances * 2.0)
+            if np.sum(amplitudes) == 0.0:
+                logger.warning('GMM could not find peaks for SM')
+                return
+
+        if method[-2:] == '_e':
+            noise_amp = np.random.normal(scale=amplitudes.mean() / 10, size=amplitudes.shape)
+
+            amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-8, amplitudes + noise_amp)
+
+            noise_mean = np.random.normal(scale=means.mean() / 10, size=means.shape)
+            means = np.maximum(np.zeros_like(means) + 1e-8, means + noise_mean)
+
+            noise_var = np.random.normal(scale=variances.mean() / 10, size=variances.shape)
+            variances = np.maximum(np.zeros_like(variances) + 1e-8, variances + noise_var)
+
+        mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].std() * 2
+
+        self.set_parameter(0, 'mixture_weights', mixture_weights)
+        self.set_parameter(0, 'mixture_means', means.T)
+        self.set_parameter(0, 'mixture_scales', variances * 2.0)
 
     def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
         """
