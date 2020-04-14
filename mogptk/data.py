@@ -12,6 +12,7 @@ import matplotlib.patches as patches
 import pandas as pd
 import re
 import logging
+from sklearn.mixture import GaussianMixture as gmm
 
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
@@ -823,12 +824,12 @@ class Data:
         nyquist = np.empty((input_dims))
         for i in range(self.get_input_dims()):
             x = np.sort(self.X[i].transformed[self.mask])
-            dist = np.abs(x[1:]-x[:-1]) # TODO: assumes X is sorted, use average distance instead of minimal distance?
+            dist = np.abs(x[1:]-x[:-1])
             dist = np.min(dist[np.nonzero(dist)])
             nyquist[i] = 0.5/dist
         return nyquist
 
-    def get_bnse_estimation(self, Q=1, n=5000):
+    def get_bnse_estimation(self, Q=1, n=8000):
         """
         Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
@@ -935,7 +936,66 @@ class Data:
             A[i,:] = amplitudes[:Q]
             B[i,:] = positions[:Q]
             C[i,:] = variances[:Q]
+
         return A, B, C
+
+
+    def gmm_init(self, Q=1, n=50000):
+        """
+        Parameter estimation using a GMM on a PSD estimate
+
+        Args:
+            Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points to use for Lomb Scargle, defaults to 50000.
+
+        Returns:
+            numpy.ndarray: Amplitude array of shape (input_dims,Q).
+            numpy.ndarray: Frequency array of shape (input_dims,Q) in radians.
+            numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
+
+        Examples:
+            >>> amplitudes, means, variances = data.gmm_init()
+        """
+
+        input_dims = self.get_input_dims()
+        
+        amplitudes = np.zeros((input_dims, Q))
+        means = np.zeros((input_dims, Q))
+        variances = np.zeros((input_dims, Q))
+
+        nyquist = self.get_nyquist_estimation()
+        
+        for i in range(input_dims):
+            freqs = np.linspace(0, nyquist[i], n+1)[1:]
+            
+            psd = signal.lombscargle(self.X[i].transformed[self.mask], self.Y.transformed[self.mask], freqs, normalize=True)
+            
+            ind, _ = signal.find_peaks(psd)
+            
+            # sort by biggest peak first
+            ind = ind[np.argsort(psd[ind])[::-1]]
+            
+            model = gmm(
+                Q,
+                covariance_type='diag',
+                max_iter=500,
+                tol=1e-5,
+                means_init=freqs[ind][:Q].reshape(-1, 1),
+            ).fit(freqs.reshape(-1, 1), psd)
+            
+            variances[i, :] = model.covariances_[:, 0]
+            means[i, :] = (model.means_ / (2 * np.pi))[:, 0]
+            amplitudes[i, :] = model.weights_ / np.sqrt(2 * np. pi * variances[i, :])
+            
+        return variances, means, amplitudes
+
+    def GaussianMixtureModel_estimation(self, Q=1, n=50000):
+        input_dims = self.get_input_dims()
+
+        magnitudes
+
+
+        return
 
     def plot(self, ax=None, plot_legend=False):
         """
