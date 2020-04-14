@@ -15,7 +15,7 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
     Args:
         dataset (mogptk.DataSet): DataSet object of data with one channel.
         Q (int): Number of components.
-        estimate (str): Method to estimate, 'BNSE', 'LS' or 'AGW'
+        estimate (str): Method to estimate, 'BNSE', 'LS' or 'IPS'
         method (str): Optimization method, either 'Adam' or any
             scipy optimizer.
         maxiter (int): Maximum number of iteration.
@@ -106,15 +106,15 @@ class SM(model):
         )
         self._build(kernel, likelihood, variational, sparse, like_params, **kwargs)
 
-    def init_parameters(self, method='BNSE'):
+    def init_parameters(self, method='BNSE_e'):
         """
         Initialize parameters of kernel from data using different methods.
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
-        'AGW': (Taken from phd thesis from Andrew wilson 2014) takes the inverse
-            of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
-            means drawn from Unif(0, 0.5 / minimum distance between two points),
+        'IPS': Independant parameter sampling (Taken from phd thesis from Andrew wilson 2014)
+            takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2),
+            the means drawn from Unif(0, 0.5 / minimum distance between two points),
             and the mixture weights by taking the stdv of the y values divided by the
             number of mixtures.
         'LS': uses Lomb Scargle periodogram for estimating the PSD,
@@ -130,10 +130,10 @@ class SM(model):
 
         """
 
-        if method not in ['AGW', 'LS', 'BNSE', 'GMM', 'LS_e', 'BNSE_e']:
-            raise Exception("possible methods are 'AGW', 'LS', 'BNSE' and GMM (see documentation).")
+        if method not in ['IPS', 'LS', 'BNSE', 'GMM', 'LS_e', 'BNSE_e']:
+            raise Exception("possible methods are 'IPS', 'LS', 'BNSE' and GMM (see documentation).")
 
-        if method == 'AGW':
+        if method == 'IPS':
             x, y = self.dataset[0].get_train_data()
             weights, means, scales = sm_init(x, y, self.Q)
             self.set_parameter(0, 'mixture_weights', weights)
