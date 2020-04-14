@@ -676,6 +676,20 @@ class Data:
             locs[(self.X[0] > x-delta) & (self.X[0] < x+delta)] = False
             self.mask[(self.X[0] >= x) & (self.X[0] < x+delta)] = False
             self.removed_ranges[0].append([x, x+delta])
+
+    def remove_index(self, index):
+        """
+        Removes observations of given index
+
+        Args:
+            index(array-like): Array of indexes of the data to remove.
+        """
+        try:
+            index = np.array(index)
+        except:
+            raise Exception('Index is not array-like and cannot be converted into')
+
+        self.mask[index] = False
     
     ################################################################
     
