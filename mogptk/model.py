@@ -493,7 +493,7 @@ class model:
                     sum([int(np.prod(var.shape)) for var in self.model.trainable_variables]),
                     -self.model.log_marginal_likelihood().numpy()))
 
-        @tf.function  # optimize TF
+        # @tf.function  # optimize TF
         def loss():
             return -self.model.log_marginal_likelihood()
 
@@ -680,8 +680,8 @@ class model:
         ax.set_xticks(major_ticks)
         ax.set_yticks(major_ticks)
         ax.grid(which='major', alpha=.8, linewidth=1.5, color='k')
-        ax.set_xticklabels([]);
-        ax.set_yticklabels([]);
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
         ax.set_title(title)
 
         return fig, ax

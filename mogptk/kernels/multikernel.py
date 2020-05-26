@@ -4,7 +4,8 @@ import tensorflow as tf
 from gpflow.kernels import Kernel
 
 class MultiKernel(Kernel):
-    """Abstract class for MultiOutput Kernels.
+    """
+     Abstract class for MultiOutput Kernels.
 
     This abstract kernel assumes input X where the first column is a
     series of integer indices and the remaining dimensions are
