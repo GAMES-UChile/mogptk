@@ -5,7 +5,7 @@ from gpflow.inducing_variables import InducingVariables
 
 
 class VariationalInducingFunctions(InducingVariables):
-    def __init__(self, *args, input_dim=1, magnitude=None, variance=None):
+    def __init__(self, *args, magnitude=None, variance=None):
         """
         Inducing variables for variational sparse MOSM
         using variational inducing kernels.
@@ -19,9 +19,7 @@ class VariationalInducingFunctions(InducingVariables):
         Note: currently only tested for input_dim=1
         """
 
-        if input_dim > 1:
-            raise Exception('Not implemented for input_dim>1')
-
+        self.input_dim = args[0].shape[1]
         self.Q = len(args)
         if magnitude is not None:
             assert magnitude.shape == (self.Q,)
@@ -29,12 +27,12 @@ class VariationalInducingFunctions(InducingVariables):
             magnitude = np.random.random(self.Q)
                     
         if variance is not None:
-            assert variance.shape == (input_dim, self.Q)
+            assert variance.shape == (self.input_dim, self.Q)
         else:
-            variance = np.random.random((input_dim, self.Q))
+            variance = np.random.random((self.input_dim, self.Q))
         
         # latent component index
-        z = np.concatenate(args, 0).reshape(-1, input_dim)
+        z = np.concatenate(args, 0).reshape(-1, self.input_dim)
         
         self.z_index = np.repeat(np.arange(self.Q), [len(a) for a in args])
         self.K = int(z.shape[0]/self.Q)

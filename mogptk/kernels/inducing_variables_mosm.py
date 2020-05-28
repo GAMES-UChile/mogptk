@@ -14,9 +14,8 @@ def Kuu_mosm_vik(inducing_variable, kernel, jitter=None):
     Z, Z_index, K, Q = (lambda u: (u.z, u.z_index, u.K, u.Q))(inducing_variable)
     
     def Ker(x, q, inducing_variable):
-        magnitude, variance = (lambda u: (u.magnitude, u.variance))(inducing_variable)
-        
-        temp = np.power(2 * np.pi, 1 / 2) \
+        magnitude, variance, input_dim = (lambda u: (u.magnitude, u.variance, u.input_dim))(inducing_variable)
+        temp = np.power(2 * np.pi, input_dim / 2) \
                 * tf.sqrt(tf.reduce_prod(variance[:, q])) \
                 * tf.square(magnitude[q])
         K = temp * tf.exp(-0.5 * sqdist(x, x, variance[:, q]))
@@ -42,22 +41,25 @@ def Kuf_mosm_vik(inducing_variable, kernel, X):
         
     def Ker(X, Z, i, q, inducing_variable, kernel):
         magnitude, variance = (lambda u: (u.magnitude, u.variance))(inducing_variable)
+
+        assert inducing_variable.input_dim == kernel.input_dim
+        input_dim = kernel.input_dim
         
         sv = kernel.variance[:, i] + variance[:, q]
         cross_delay = tf.reshape(
             kernel.delay[:, i],
-            [1, 1, 1]
+            [input_dim, 1, 1]
         )
         cross_phase = kernel.phase[i]
         cross_var = (2 * kernel.variance[:, i] * variance[:, q]) / sv
         cross_mean = tf.reshape(
             variance[:, q] * kernel.mean[:, i] / sv,
-            [1, 1, 1]
+            [input_dim, 1, 1]
         )
         cross_magnitude = kernel.magnitude[i] * magnitude[q] \
                 * tf.exp(-0.25 * tf.reduce_sum(tf.square(kernel.mean[:, i]) / sv))
 
-        alpha = np.power(2 * np.pi, 1 / 2) * tf.sqrt(tf.reduce_prod(cross_var)) * cross_magnitude
+        alpha = np.power(2 * np.pi, input_dim / 2) * tf.sqrt(tf.reduce_prod(cross_var)) * cross_magnitude
         K = alpha * tf.exp(-0.5 * sqdist(X + kernel.delay[:, i], Z, cross_var)) \
                 * tf.cos(tf.reduce_sum(cross_mean * (dist(X, Z) + cross_delay), axis=0) + cross_phase)
         return K
