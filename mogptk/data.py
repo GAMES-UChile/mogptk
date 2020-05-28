@@ -863,19 +863,20 @@ class Data:
             bnse.compute_moments()
 
             amplitudes, positions, variances = bnse.get_freq_peaks()
+
             # TODO: sqrt of amplitudes? vs LS?
             if len(positions) == 0:
                 continue
 
-            n = len(positions)
-            if n < Q and n != 0:
+            n_pos = len(positions)
+            if n_pos < Q and n_pos != 0:
                 # if there not enough peaks, we will repeat them
                 j = 0
                 while len(positions) < Q:
                     amplitudes = np.append(amplitudes, amplitudes[j])
                     positions = np.append(positions, positions[j])
                     variances = np.append(variances, variances[j])
-                    j = (j+1) % n
+                    j = (j+1) % n_pos
 
             A[i,:] = amplitudes[:Q]
             B[i,:] = positions[:Q]
@@ -909,29 +910,29 @@ class Data:
 
         nyquist = self.get_nyquist_estimation() * 2 * np.pi
         for i in range(input_dims):
-            x = np.linspace(0, nyquist[i], n+1)[1:]
-            dx = x[1]-x[0]
+            freq = np.linspace(0, nyquist[i], n+1)[1:]
+            dfreq = freq[1]-freq[0]
 
-            y = signal.lombscargle(self.X[i].transformed[self.mask], self.Y.transformed[self.mask], x)
+            y = signal.lombscargle(self.X[i].transformed[self.mask], self.Y.transformed[self.mask], freq)
             ind, _ = signal.find_peaks(y)
             ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
 
             widths, width_heights, _, _ = signal.peak_widths(y, ind, rel_height=0.5)
-            widths *= dx / np.pi / 2.0
+            widths *= dfreq / np.pi / 2.0
 
-            positions = x[ind] / np.pi / 2.0
+            positions = freq[ind] / np.pi / 2.0
             amplitudes = y[ind]
             variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
 
-            n = len(positions)
-            if n < Q and n != 0:
+            n_pos = len(positions)
+            if n_pos < Q and n_pos != 0:
                 # if there not enough peaks, we will repeat them
                 j = 0
                 while len(positions) < Q:
                     amplitudes = np.append(amplitudes, amplitudes[j])
                     positions = np.append(positions, positions[j])
                     variances = np.append(variances, variances[j])
-                    j = (j+1) % n
+                    j = (j+1) % n_pos
 
             A[i,:] = amplitudes[:Q]
             B[i,:] = positions[:Q]
@@ -940,7 +941,7 @@ class Data:
         return A, B, C
 
 
-    def gmm_init(self, Q=1, n=50000):
+    def gmm_estimation(self, Q=1, n=50000):
         """
         Parameter estimation using a GMM on a PSD estimate
 
@@ -988,14 +989,6 @@ class Data:
             amplitudes[i, :] = model.weights_ / np.sqrt(2 * np. pi * variances[i, :])
             
         return variances, means, amplitudes
-
-    def GaussianMixtureModel_estimation(self, Q=1, n=50000):
-        input_dims = self.get_input_dims()
-
-        magnitudes
-
-
-        return
 
     def plot(self, ax=None, plot_legend=False):
         """

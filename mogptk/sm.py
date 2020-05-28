@@ -156,7 +156,7 @@ class SM(model):
                 return
 
         elif method == 'GMM':
-            amplitudes, means, variances = self.dataset[0].gmm_init(self.Q)
+            amplitudes, means, variances = self.dataset[0].gmm_estimation(self.Q)
 
             if np.sum(amplitudes) == 0.0:
                 logger.warning('GMM could not find peaks for SM')

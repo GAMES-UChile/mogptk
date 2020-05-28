@@ -86,7 +86,7 @@ class MOSM(model):
             if not sparse:
                 self.model = gpflow.models.GPR((x, y), kernel, **kwargs)
             else:
-                # TODO: test if induction points are set
+                # TODO: maybe it will cause problem if they use other model after this is executed
                 self.name += ' (sparse variational)'
                 if isinstance(inducing_variable, VariationalInducingFunctions):
                     cov.Kuu.add((VariationalInducingFunctions, MultiOutputSpectralMixture), func=Kuu_mosm_vik)
@@ -95,8 +95,7 @@ class MOSM(model):
                     cov.Kuf.add((VariationalInducingFunctions, MultiOutputSpectralMixture, TensorLike), func=Kuf_mosm_vik)
                     cov.Kuf.add((VariationalInducingFunctions, Sum, TensorLike), func=Kuf_mosm_vik)
                     
-                self.model = gpflow.models.SGPR((x, y), kernel, inducing_variable=inducing_variable, **kwargs) 
-                    
+                self.model = gpflow.models.SGPR((x, y), kernel, inducing_variable=inducing_variable, **kwargs)         
                     
         # MCMC
         elif not variational:
@@ -141,10 +140,14 @@ class MOSM(model):
 
         n_channels = self.dataset.get_output_dims()
 
-        if method == 'BNSE':
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        if method in ['BNSE', 'LS']:
+            if method == 'BNSE':
+                amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            else:
+                amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+
             if len(amplitudes) == 0:
-                logger.warning('BNSE could not find peaks for MOSM')
+                logger.warning('{} could not find peaks for MOSM'.format(method))
                 return
 
             magnitude = np.zeros((n_channels, self.Q))
@@ -153,8 +156,9 @@ class MOSM(model):
                 variance = np.empty((self.dataset.get_input_dims()[0], n_channels))
                 for channel in range(n_channels):
                     magnitude[channel, q] = amplitudes[channel][:,q].mean()
-                    mean[:,channel] = means[channel][:,q] * 2 * np.pi
-                    variance[:,channel] = variances[channel][:,q] * 2
+                    mean[:, channel] = means[channel][:,q] * 2 * np.pi
+                    # maybe will have problems with higher input dimensions
+                    variance[:, channel] = variances[channel][:,q] * (4 + 30 * (max(self.dataset.get_input_dims()) - 1)) # 20
 
                 self.set_parameter(q, 'mean', mean)
                 self.set_parameter(q, 'variance', variance)
