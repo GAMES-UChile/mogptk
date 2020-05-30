@@ -499,7 +499,7 @@ class model:
 
         if method.lower() == "adam":
             opt = tf.optimizers.Adam(learning_rate=0.0001, beta_1=0.9, beta_2=0.999)
-            opt.minimize(loss, self.model.trainable_variables)
+            opt_res = opt.minimize(loss, self.model.trainable_variables)
         else:
             opt = gpflow.optimizers.Scipy()
             opt_res = opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': True}, **params)

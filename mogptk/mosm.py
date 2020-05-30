@@ -158,7 +158,7 @@ class MOSM(model):
                     magnitude[channel, q] = amplitudes[channel][:,q].mean()
                     mean[:, channel] = means[channel][:,q] * 2 * np.pi
                     # maybe will have problems with higher input dimensions
-                    variance[:, channel] = variances[channel][:,q] * (4 + 30 * (max(self.dataset.get_input_dims()) - 1)) # 20
+                    variance[:, channel] = variances[channel][:,q] * (4 + 20 * (max(self.dataset.get_input_dims()) - 1)) # 20
 
                 self.set_parameter(q, 'mean', mean)
                 self.set_parameter(q, 'variance', variance)
@@ -188,7 +188,7 @@ class MOSM(model):
             for q in range(self.Q):
                 self.set_parameter(q, 'magnitude', magnitude[:, q])
         else:
-            raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")
+            raise Exception("Valid methods of estimation are 'BNSE' 'LS', or 'SM'")
 
         noise = np.empty((n_channels))
         for channel, data in enumerate(self.dataset):
