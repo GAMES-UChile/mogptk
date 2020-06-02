@@ -455,6 +455,7 @@ class model:
         self,
         method='L-BFGS-B',
         tol=1e-6,
+        lr=0.001,
         maxiter=500,
         params={},
         verbose=False):
@@ -497,8 +498,9 @@ class model:
             return -self.model.log_marginal_likelihood()
 
         if method.lower() == "adam":
-            opt = tf.optimizers.Adam(learning_rate=0.001)
-            opt.minimize(loss, self.model.trainable_variables)
+            opt = tf.optimizers.Adam(learning_rate=lr)
+            for step in range(maxiter):
+                opt.minimize(loss, self.model.trainable_variables)
         else:
             opt = gpflow.optimizers.Scipy()
             opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': True}, **params)
