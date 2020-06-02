@@ -86,7 +86,7 @@ class MOSM(model):
             if not sparse:
                 self.model = gpflow.models.GPR((x, y), kernel, **kwargs)
             else:
-                # TODO: maybe it will cause problem if they use other model after this is executed
+                # TODO: it will cause problem if they use other model after this is executed
                 self.name += ' (sparse variational)'
                 if isinstance(inducing_variable, VariationalInducingFunctions):
                     cov.Kuu.add((VariationalInducingFunctions, MultiOutputSpectralMixture), func=Kuu_mosm_vik)

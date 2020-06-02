@@ -458,6 +458,7 @@ class model:
         tol=1e-6,
         maxiter=500,
         params={},
+        lr=0.001,
         verbose=False):
         """
         Trains the model using the kernel and its parameters.
@@ -494,12 +495,17 @@ class model:
                     -self.model.log_marginal_likelihood().numpy()))
 
         # @tf.function  # optimize TF
+        # global fun_evals
+        fun_evals = 0
         def loss():
+            # global fun_evals
+            # fun_evals += 1
             return -self.model.log_marginal_likelihood()
 
         if method.lower() == "adam":
-            opt = tf.optimizers.Adam(learning_rate=0.0001, beta_1=0.9, beta_2=0.999)
-            opt.minimize(loss, self.model.trainable_variables)
+            opt = tf.optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999)
+            for step in range(maxiter):
+                opt.minimize(loss, self.model.trainable_variables)
         else:
             opt = gpflow.optimizers.Scipy()
             opt_res = opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': True}, **params)
@@ -507,8 +513,10 @@ class model:
         elapsed_time = time.time() - inital_time
         if verbose:
             print('Optimization finished in {:.2f} minutes\n >Final NLL: {:.3f} \n'.format(elapsed_time / 60, -self.model.log_marginal_likelihood().numpy()))
-
-        return opt_res
+        if method.lower() == "adam":
+            return
+        else:
+            return opt_res
 
     ################################################################################
     # Predictions ##################################################################

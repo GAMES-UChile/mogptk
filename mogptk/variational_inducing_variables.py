@@ -15,11 +15,11 @@ class VariationalInducingFunctions(InducingVariables):
 
         with z[:, 0] the index of the Q
         and z[:, 1] the value of the inducing inputs
-
-        Note: currently only tested for input_dim=1
         """
-
-        self.input_dim = args[0].shape[1]
+        if args[0].ndim == 1:
+            self.input_dim = 1
+        else:
+            self.input_dim = args[0].shape[1]
         self.Q = len(args)
         if magnitude is not None:
             assert magnitude.shape == (self.Q,)
