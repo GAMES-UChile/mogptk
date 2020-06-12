@@ -83,8 +83,11 @@ class SM_LMC(model):
             plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in 'SM' mode.
         """
         
-        if method == 'BNSE':
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        if method in ['BNSE', 'LS']:
+            if method == 'BNSE':
+                amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            else:
+                amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('BNSE could not find peaks for SM-LMC')
                 return
@@ -127,7 +130,7 @@ class SM_LMC(model):
             for q in range(self.Q):
                 self.set_parameter(q, 'constant', constant[q, :, :])
         else:
-            raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")
+            raise Exception("valid methods of estimation are 'BNSE' 'LS', or 'SM'")
 
         noise = np.empty((self.dataset.get_output_dims()))
         for i, channel in enumerate(self.dataset):

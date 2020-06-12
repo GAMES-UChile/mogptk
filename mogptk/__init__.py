@@ -12,3 +12,4 @@ from .data import *
 from .dataset import *
 from .plot import *
 from .errors import *
+from .variational_inducing_variables import *

@@ -6,3 +6,4 @@ from .sm_lmc import SpectralMixtureLMC
 from .noise import Noise
 from .r_mosm_pair import RestrictedMultiOutputSpectralMixture_p
 from .r_mosm_unique import RestrictedMultiOutputSpectralMixture_u
+from .inducing_variables_mosm import Kuu_mosm_vik, Kuf_mosm_vik

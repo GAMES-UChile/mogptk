@@ -1,9 +1,14 @@
 import numpy as np
+import gpflow
+from gpflow import covariances as cov
+from gpflow.base import TensorLike
+from gpflow.kernels.base import Sum
 from .model import model
 from .dataset import DataSet
 from .sm import _estimate_from_sm
-from .kernels import MultiOutputSpectralMixture, Noise
+from .kernels import MultiOutputSpectralMixture, Noise, Kuu_mosm_vik, Kuf_mosm_vik
 from .plot import plot_spectrum
+from .variational_inducing_variables import VariationalInducingFunctions
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
@@ -44,7 +49,7 @@ class MOSM(model):
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
-    def __init__(self, dataset, Q=1, name="MOSM", likelihood=None, variational=False, sparse=False, like_params={}, **kwargs):
+    def __init__(self, dataset, Q=1, name="MOSM", likelihood=None, variational=False, sparse=False, like_params={}, inducing_variable=None, **kwargs):
         model.__init__(self, name, dataset)
         self.Q = Q
 
@@ -58,7 +63,58 @@ class MOSM(model):
             else:
                 kernel_set += kernel
         kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
-        self._build(kernel_set, likelihood, variational, sparse, like_params, **kwargs)
+        self._build(kernel_set, likelihood, variational, sparse, like_params, inducing_variable, **kwargs)
+
+    def _build(self, kernel, likelihood, variational, sparse, like_params, inducing_variable, **kwargs):
+        """
+        Build the model using the given kernel and likelihood. The variational and sparse booleans decide which GPflow model will be used.
+
+        Args:
+            kernel (gpflow.Kernel): Kernel to use.
+            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
+                a default exact inference Gaussian likelihood is used.
+            variational (bool): If True, use variational inference to approximate
+                function values as Gaussian. If False it will use Monte carlo Markov Chain.
+            sparse (bool): If True, will use sparse GP regression.
+            like_params (dict): Parameters to GPflow likelihood.
+        """
+
+        x, y = self.dataset._to_kernel()
+
+        # Gaussian likelihood
+        if likelihood is None:
+            if not sparse:
+                self.model = gpflow.models.GPR((x, y), kernel, **kwargs)
+            else:
+                # TODO: it will cause problem if they use other model after this is executed
+                self.name += ' (sparse variational)'
+                if isinstance(inducing_variable, VariationalInducingFunctions):
+                    cov.Kuu.add((VariationalInducingFunctions, MultiOutputSpectralMixture), func=Kuu_mosm_vik)
+                    cov.Kuu.add((VariationalInducingFunctions, Sum), func=Kuu_mosm_vik)
+
+                    cov.Kuf.add((VariationalInducingFunctions, MultiOutputSpectralMixture, TensorLike), func=Kuf_mosm_vik)
+                    cov.Kuf.add((VariationalInducingFunctions, Sum, TensorLike), func=Kuf_mosm_vik)
+                    
+                self.model = gpflow.models.SGPR((x, y), kernel, inducing_variable=inducing_variable, **kwargs)         
+                    
+        # MCMC
+        elif not variational:
+            self.likelihood = likelihood(**like_params)
+            if not sparse:
+                self.name += ' (MCMC approx)'
+                self.model = gpflow.models.GPMC((x, y), kernel, self.likelihood, **kwargs)
+            else:
+                self.name += ' (sparse variational with MCMC approx)'
+                self.model = gpflow.models.SGPMC((x, y), kernel, self.likelihood, **kwargs)
+        # Variational
+        else:
+            self.likelihood = likelihood(**like_params)
+            if not sparse:
+                self.name += ' (variational approx)'
+                self.model = gpflow.models.VGP((x, y), kernel, self.likelihood, **kwargs)
+            else:
+                self.name += ' (sparse variational with variational approx)'
+                self.model = gpflow.models.SVGP((x, y), kernel, self.likelihood, **kwargs)
 
     def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
         """
@@ -84,10 +140,14 @@ class MOSM(model):
 
         n_channels = self.dataset.get_output_dims()
 
-        if method == 'BNSE':
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        if method in ['BNSE', 'LS']:
+            if method == 'BNSE':
+                amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            else:
+                amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+
             if len(amplitudes) == 0:
-                logger.warning('BNSE could not find peaks for MOSM')
+                logger.warning('{} could not find peaks for MOSM'.format(method))
                 return
 
             magnitude = np.zeros((n_channels, self.Q))
@@ -96,8 +156,9 @@ class MOSM(model):
                 variance = np.empty((self.dataset.get_input_dims()[0], n_channels))
                 for channel in range(n_channels):
                     magnitude[channel, q] = amplitudes[channel][:,q].mean()
-                    mean[:,channel] = means[channel][:,q] * 2 * np.pi
-                    variance[:,channel] = variances[channel][:,q] * 2
+                    mean[:, channel] = means[channel][:,q] * 2 * np.pi
+                    # maybe will have problems with higher input dimensions
+                    variance[:, channel] = variances[channel][:,q] * (4 + 20 * (max(self.dataset.get_input_dims()) - 1)) # 20
 
                 self.set_parameter(q, 'mean', mean)
                 self.set_parameter(q, 'variance', variance)
@@ -127,7 +188,7 @@ class MOSM(model):
             for q in range(self.Q):
                 self.set_parameter(q, 'magnitude', magnitude[:, q])
         else:
-            raise Exception("possible methods of estimation are either 'BNSE' or 'SM'")
+            raise Exception("Valid methods of estimation are 'BNSE' 'LS', or 'SM'")
 
         noise = np.empty((n_channels))
         for channel, data in enumerate(self.dataset):
@@ -267,12 +328,13 @@ class MOSM(model):
                     # cross magnitude
                     exp_term = -1/4 * ((mu_i - mu_j)**2 / sv).sum()
                     cross_params['magnitude'][i, j, q] = w_i * w_j * np.exp(exp_term)
-            # cross phase
-            phase_q = self.get_parameter(q, 'phase')
-            cross_params['phase'][:, :, q] = np.subtract.outer(phase_q, phase_q)
-            for n in range(d):
-                # cross delay        
-                delay_n_q = self.get_parameter(q, 'delay')[n, :]
-                cross_params['delay'][:, :, n, q] = np.subtract.outer(delay_n_q, delay_n_q)
+            if m>1:
+                # cross phase
+                phase_q = self.get_parameter(q, 'phase')
+                cross_params['phase'][:, :, q] = np.subtract.outer(phase_q, phase_q)
+                for n in range(d):
+                    # cross delay        
+                    delay_n_q = self.get_parameter(q, 'delay')[n, :]
+                    cross_params['delay'][:, :, n, q] = np.subtract.outer(delay_n_q, delay_n_q)
 
         return cross_params
