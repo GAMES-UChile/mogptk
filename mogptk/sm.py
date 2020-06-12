@@ -163,21 +163,32 @@ class SM(model):
                 return
 
         if method[-2:] == '_e':
-            noise_amp = np.random.normal(scale=amplitudes.mean() / 10, size=amplitudes.shape)
+            # noise proportional to the values
+            noise_amp = np.random.multivariate_normal(
+                mean=np.zeros(self.Q),
+                cov=np.diag(amplitudes.squeeze()*0.2))
 
-            amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-8, amplitudes + noise_amp)
+            # set value to a minimun value
+            amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
 
-            noise_mean = np.random.normal(scale=means.mean() / 10, size=means.shape)
-            means = np.maximum(np.zeros_like(means) + 1e-8, means + noise_mean)
+            noise_mean = np.random.multivariate_normal(
+                mean=np.zeros(self.Q),
+                cov=np.diag(means.squeeze() * 0.2))
+            means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
 
-            noise_var = np.random.normal(scale=variances.mean() / 10, size=variances.shape)
-            variances = np.maximum(np.zeros_like(variances) + 1e-8, variances + noise_var)
+            noise_var = np.random.multivariate_normal(
+                mean=np.zeros(self.Q),
+                cov=np.diag(variances.squeeze()*0.2))
+            variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
 
         mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].std() * 2
 
         self.set_parameter(0, 'mixture_weights', mixture_weights)
         self.set_parameter(0, 'mixture_means', means.T)
-        self.set_parameter(0, 'mixture_scales', variances * 2.0)
+        if method in ['IPS', 'GMM']:
+            self.set_parameter(0, 'mixture_scales', variances)
+        else:
+            self.set_parameter(0, 'mixture_scales', variances * 2.0)
 
     def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
         """
