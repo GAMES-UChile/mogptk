@@ -456,6 +456,7 @@ class model:
         self,
         method='L-BFGS-B',
         tol=1e-6,
+        lr=0.001,
         maxiter=500,
         params={},
         lr=0.001,

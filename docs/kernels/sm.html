@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/sm.py#L0-L147" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/sm.py#L0-L147" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python"># Copyright 2018 Srikanth Gadicherla @imsrgadich
 #
@@ -204,7 +204,7 @@ mixture scales | input_dim x num_mixtures</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/sm.py#L84-L148" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/sm.py#L84-L148" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sm_init(train_x, train_y, num_mixtures):
     &#34;&#34;&#34;
@@ -293,7 +293,7 @@ mixture scales | input_dim x num_mixtures</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/sm.py#L21-L81" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/sm.py#L21-L81" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralMixture(gpflow.kernels.Kernel):
     def __init__(self, input_dim, Q=1, active_dims=None, name=&#39;sm&#39;):
@@ -375,7 +375,7 @@ mixture scales | input_dim x num_mixtures</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/sm.py#L41-L73" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/sm.py#L41-L73" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None, presliced=False):
     if self.mixture_weights == None or self.mixture_means == None \
@@ -420,7 +420,7 @@ mixture scales | input_dim x num_mixtures</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/428004f1f28c2fb22f8f91cae6dcaeb56322d79d/mogptk/kernels/sm.py#L76-L81" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/sm.py#L76-L81" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K_diag(self, X, presliced=False):
     X = tf.expand_dims(X[:, 1], -1)
