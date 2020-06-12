@@ -3,7 +3,7 @@ from os import path
 
 requirements = [
     'numpy>=1.10',
-    'gpflow==2.0.0rc1',
+    'gpflow>=2.0',
     'tensorflow>=2.0',
     'matplotlib',
     'scipy>=0.18',
