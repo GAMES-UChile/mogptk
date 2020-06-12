@@ -1042,11 +1042,11 @@ class Data:
         ax.plot(self.X[0], self.Y, 'k--', alpha=0.8)
         legend.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
-        if self.has_test_data():
-            x, y = self.get_train_data()
-            ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
-            legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=10, label='Training Points'))
+        x, y = self.get_train_data()
+        ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
+        legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=10, label='Training Points'))
 
+        if self.has_test_data():
             for removed_range in self.removed_ranges[0]:
                 x0 = removed_range[0]
                 x1 = removed_range[1]
