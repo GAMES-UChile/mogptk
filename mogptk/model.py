@@ -459,7 +459,6 @@ class model:
         lr=0.001,
         maxiter=500,
         params={},
-        lr=0.001,
         verbose=False):
         """
         Trains the model using the kernel and its parameters.
@@ -474,6 +473,7 @@ class model:
                 gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
                 optimizer is used. Defaults to scipy 'L-BFGS-B'.
             tol (float): Tolerance for optimizer. Defaults to 1e-6.
+            lr (float): Learning rate for Adam optimizer.
             maxiter (int): Maximum number of iterations. Defaults to 2000.
             params (dict): Additional dictionary with parameters to minimize. 
             verbose (bool): Print verbose output about the state of the optimizer.
