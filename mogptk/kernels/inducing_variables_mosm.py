@@ -80,11 +80,8 @@ def Kuf_mosm_vik(inducing_variable, kernel, X):
     blocks = []
     for i in range(output_dim):
         row_i = []
-        if Q==1:
-            row_i.append(Ker(Xparts[i], Zparts[0], i, 0, inducing_variable, kernel))
-        else:
-            for q in range(Q):
-                row_i.append(Ker(Xparts[i], Zparts[q], i, q, inducing_variable, kernel.kernels[q]))
+        for q in range(Q):
+            row_i.append(Ker(Xparts[i], Zparts[q], i, q, inducing_variable, kernel.kernels[q]))
         blocks.append(tf.concat(row_i, 1))
     Ksort = tf.concat(blocks, 0)
 
