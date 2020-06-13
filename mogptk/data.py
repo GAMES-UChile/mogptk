@@ -459,8 +459,8 @@ class Data:
         if self.get_input_dims() != 1:
             raise ValueError("can only aggregate on one dimensional input data")
         
-        start = self.X[0][0]
-        end = self.X[0][-1]
+        start = np.min(self.X[0])
+        end = np.max(self.X[0])
         step = _parse_delta(duration)
 
         X = np.arange(start+step/2, end+step/2, step)
@@ -1119,7 +1119,7 @@ class Data:
         freq = maxfreq
         if freq is None:
             dist = np.abs(X[1:]-X[:-1])
-            freq = 1/np.average(dist)
+            freq = np.pi/np.average(dist)
 
         X_freq = np.linspace(0.0, freq, 10001)[1:]
         Y_freq_err = []
