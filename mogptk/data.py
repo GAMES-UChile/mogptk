@@ -255,7 +255,7 @@ class Data:
 
         # convert meshgrids to flat arrays
         if 2 < X.ndim and 1 < Y.ndim and X.shape[1:] == Y.shape:
-            X = np.vstack(map(np.ravel, X)).T
+            X = np.vstack(list(map(np.ravel, X))).T
             Y = np.ravel(Y)
 
         if X.ndim == 1:
@@ -269,13 +269,6 @@ class Data:
         if Y.shape[0] == 0:
             raise ValueError("X and Y must have a length greater than zero")
 
-        # sort on X for single input dimensions
-        # TODO: remove
-        if input_dims == 1:
-            ind = np.argsort(X, axis=0)
-            X = np.take_along_axis(X, ind, axis=0)
-            Y = np.take_along_axis(Y, ind[:,0], axis=0)
-        
         input_dims = X.shape[1]
         self.X = [Serie(X[:,i]) for i in range(input_dims)] # [shape (n)] * input_dims
         self.Y = Serie(Y) # shape (n)
@@ -1006,10 +999,12 @@ class Data:
             if self.Y_mu_pred[name].size != 0:
                 lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
                 upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
-                ax.plot(self.X_pred[0], self.Y_mu_pred[name], ls='-', color=colors[i], lw=2)
-                ax.fill_between(self.X_pred[0], lower, upper, color=colors[i], alpha=0.1)
-                ax.plot(self.X_pred[0], lower, ls='-', color=colors[i], lw=1, alpha=0.5)
-                ax.plot(self.X_pred[0], upper, ls='-', color=colors[i], lw=1, alpha=0.5)
+
+                idx = np.argsort(self.X_pred[0])
+                ax.plot(self.X_pred[0][idx], self.Y_mu_pred[name][idx], ls='-', color=colors[i], lw=2)
+                ax.fill_between(self.X_pred[0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
+                ax.plot(self.X_pred[0][idx], lower[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
+                ax.plot(self.X_pred[0][idx], upper[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
                 label = 'Prediction'
                 if 1 < len(self.Y_mu_pred):
                     label += ' ' + name
@@ -1030,7 +1025,8 @@ class Data:
             ax.plot(x[:,0], y, 'r--', lw=1)
             legend.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
-        ax.plot(self.X[0], self.Y, 'k--', alpha=0.8)
+        idx = np.argsort(self.X[0])
+        ax.plot(self.X[0][idx], self.Y[idx], 'k--', alpha=0.8)
         legend.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
         x, y = self.get_train_data()
@@ -1087,7 +1083,6 @@ class Data:
         ax.set_title(self.name, fontsize=36)
 
         is_datetime = np.issubdtype(self.X[0].dtype, np.datetime64)
-        X = self.X[0].astype(np.float64)
         if unit is None and is_datetime:
             unit = _extract_time_unit(self.X[0])
             if unit == 'Y':
@@ -1114,6 +1109,11 @@ class Data:
         else:
             ax.set_xlabel('Frequency')
 
+        X = self.X[0].astype(np.float64)
+        idx = np.argsort(X)
+        X = X[idx]
+        Y = self.Y[idx]
+
         freq = maxfreq
         if freq is None:
             dist = np.abs(X[1:]-X[:-1])
@@ -1122,10 +1122,10 @@ class Data:
         X_freq = np.linspace(0.0, freq, 10001)[1:]
         Y_freq_err = []
         if method == 'lombscargle':
-            Y_freq = signal.lombscargle(X, self.Y, X_freq)
+            Y_freq = signal.lombscargle(X, Y, X_freq)
         elif method == 'bnse':
             nyquist = self.get_nyquist_estimation()
-            bnse = bse(X, self.Y)
+            bnse = bse(X, Y)
             bnse.set_freqspace(freq/2.0/np.pi, 10001)
             bnse.train()
             bnse.compute_moments()

@@ -596,17 +596,20 @@ class model:
 
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i in range(n_dim):
-            axes[i].fill_between(x_pred[i][:,0].reshape(-1),
-                lower[i],
-                upper[i],
+            idx = np.argsort(x_pred[i][:,0])
+            axes[i].fill_between(x_pred[i][idx,0].reshape(-1),
+                lower[i][idx],
+                upper[i][idx],
                 label='95% c.i',
                 color=colors[i%len(colors)],
                 alpha=0.4,
                 zorder=1)
-            axes[i].plot(x_pred[i][:,0], mu[i], label='Post.Mean', c=colors[i%len(colors)], zorder=4, lw=1.8)
-            axes[i].plot(x_all[i][:,0], y_all[i], '--k', label='Test', lw=1, alpha=0.8, zorder=2)
+            axes[i].plot(x_pred[i][idx,0], mu[i][idx], label='Post.Mean', c=colors[i%len(colors)], zorder=4, lw=1.8)
+
+            idx = np.argsort(x_all[i][:,0])
+            axes[i].plot(x_all[i][idx,0], y_all[i][idx], '--k', label='Test', lw=1, alpha=0.8, zorder=2)
             axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=11, mew=0.8, markeredgecolor='white', zorder=3)
-            
+
             axes[i].xaxis.set_major_locator(plt.MaxNLocator(5))
 
             xmin = min(x_all[i].min(), x_pred[i].min())
