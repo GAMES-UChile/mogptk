@@ -202,6 +202,8 @@ class Data:
         and aggregating data for given spans on X, such as aggregating daily data into
         weekly data. Additionally, we also use this class to set the range we want to predict.
 
+        It is possible to use the format given by np.meshgrid for X and its values in Y.
+
         Args:
             X (list, numpy.ndarray, dict): Independent variable data of shape (n) or (n,input_dims).
             Y (list, numpy.ndarray): Dependent variable data of shape (n).
@@ -212,27 +214,10 @@ class Data:
         Examples:
             >>> channel = mogptk.Data([0, 1, 2, 3], [4, 3, 5, 6])
         """
-        
-        # find out input_dims
-        input_dims = 0
-        if isinstance(X, (list, np.ndarray, dict)) and 0 < len(X):
-            input_dims = 1
-
-            if isinstance(X, dict):
-                it1 = iter(X.values())
-                it2 = iter(X.values())
-            else:
-                it1 = iter(X)
-                it2 = iter(X)
-
-            if all(isinstance(val, (list, np.ndarray)) for val in it1):
-                first = len(next(it2))
-                if all(len(val) == first for val in it2):
-                    input_dims = first
 
         # convert dicts to lists
         if x_labels is not None:
-            if isinstance(x_labels, str) and input_dims == 1:
+            if isinstance(x_labels, str):
                 x_labels = [x_labels]
             if not isinstance(x_labels, list) or not all(isinstance(label, str) for label in x_labels):
                 raise ValueError("x_labels must be a string or list of strings for each input dimension")
@@ -268,6 +253,11 @@ class Data:
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
             raise ValueError("X and Y must be lists or numpy arrays, if dicts are passed then x_labels and/or y_label must also be set")
 
+        # convert meshgrids to flat arrays
+        if 2 < X.ndim and 1 < Y.ndim and X.shape[1:] == Y.shape:
+            X = np.vstack(map(np.ravel, X)).T
+            Y = np.ravel(Y)
+
         if X.ndim == 1:
             X = X.reshape(-1, 1)
         if X.ndim != 2:
@@ -278,7 +268,7 @@ class Data:
             raise ValueError("X and Y must be of the same length")
         if Y.shape[0] == 0:
             raise ValueError("X and Y must have a length greater than zero")
-        
+
         # sort on X for single input dimensions
         # TODO: remove
         if input_dims == 1:
@@ -286,6 +276,7 @@ class Data:
             X = np.take_along_axis(X, ind, axis=0)
             Y = np.take_along_axis(Y, ind[:,0], axis=0)
         
+        input_dims = X.shape[1]
         self.X = [Serie(X[:,i]) for i in range(input_dims)] # [shape (n)] * input_dims
         self.Y = Serie(Y) # shape (n)
         self.mask = np.array([True] * Y.shape[0])
