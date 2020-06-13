@@ -633,7 +633,7 @@ class Data:
 
     def remove_random_ranges(self, n, duration):
         """
-        Removes a number of ranges to simulate sensor failure.
+        Removes a number of ranges to simulate sensor failure. May remove fewer ranges if there is no more room to remove a range in the remaining data.
 
         Args:
             n (int): Number of ranges to remove.
@@ -650,13 +650,15 @@ class Data:
             return
 
         delta = _parse_delta(duration)
-        m = (self.X[0][-1]-self.X[0][0]) - n*delta
+        m = (np.max(self.X[0])-np.min(self.X[0])) - n*delta
         if m <= 0:
             raise Exception("no data left after removing ranges")
 
-        locs = self.X[0] <= (self.X[0][-1]-delta)
+        locs = self.X[0] <= (np.max(self.X[0])-delta)
         locs[sum(locs)] = True # make sure the last data point can be deleted
         for i in range(n):
+            if len(self.X[0][locs]) == 0:
+                break # range could not be removed, there is no remaining data range of width delta
             x = self.X[0][locs][np.random.randint(len(self.X[0][locs]))]
             locs[(self.X[0] > x-delta) & (self.X[0] < x+delta)] = False
             self.mask[(self.X[0] >= x) & (self.X[0] < x+delta)] = False
@@ -669,10 +671,10 @@ class Data:
         Args:
             index(array-like): Array of indexes of the data to remove.
         """
-        try:
+        if isinstance(index, list):
             index = np.array(index)
-        except:
-            raise Exception('Index is not array-like and cannot be converted into')
+        elif not isinstance(index, np.ndarray):
+            raise ValueError("index must be list or numpy array")
 
         self.mask[index] = False
     
