@@ -636,7 +636,7 @@ class model:
         plt.tight_layout()
         return fig, axes
 
-    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=''):
+    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title='', retmatrix=False):
         """
         Plot the gram matrix of associated kernel.
 
@@ -649,6 +649,7 @@ class model:
             n_points (int): Number of points per channel
             figsize (2-tuple of ints): Figure size.
             title (str): Figure title.
+            retmatrix(Bool): if True, return the gram matrix
         Returns:
             fig : Matplotlib figure
             ax : Matplotlib axis
@@ -696,5 +697,8 @@ class model:
         ax.set_yticklabels([])
         ax.set_title(title)
 
-        return fig, ax
+        if retmatrix:
+            return fig, ax, K_gram.numpy()
+        else:
+            return fig, ax
 
