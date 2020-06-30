@@ -396,7 +396,7 @@ class DataSet:
         """
         return [channel.get_nyquist_estimation() for channel in self.channels]
     
-    def get_bnse_estimation(self, Q, n=5000):
+    def get_bnse_estimation(self, Q, n=8000):
         """
         Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
