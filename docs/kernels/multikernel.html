@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/kernels/multikernel.py#L0-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/multikernel.py#L0-L126" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python"># This is a simplification and adaptation to gpflow 1.0 of the work done
 # by Rasmus Bonnevie on issue #328, credits to him.
@@ -185,7 +185,7 @@ indices into the columns of X.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/kernels/multikernel.py#L6-L127" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/multikernel.py#L6-L127" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiKernel(Kernel):
     &#34;&#34;&#34;Abstract class for MultiOutput Kernels.
@@ -335,7 +335,7 @@ indices into the columns of X.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/kernels/multikernel.py#L30-L77" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/multikernel.py#L30-L77" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X, X2=None, presliced=False):
     # TODO: clean up, what follows is a start
@@ -395,7 +395,7 @@ indices into the columns of X.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/kernels/multikernel.py#L82-L91" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/multikernel.py#L82-L91" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K_diag(self, X, presliced=False):
     # X, _ = self._slice(X, None)
@@ -417,7 +417,7 @@ indices into the columns of X.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/kernels/multikernel.py#L122-L127" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/multikernel.py#L122-L127" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dist(self, X, X2):
     if X2 is None:
@@ -435,7 +435,7 @@ indices into the columns of X.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/kernels/multikernel.py#L111-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/multikernel.py#L111-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sqdist(self, X, X2, lscales):
     &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
@@ -457,7 +457,7 @@ indices into the columns of X.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/kernels/multikernel.py#L23-L24" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/multikernel.py#L23-L24" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def subK(self, indexes, X, X2):
     return NotImplementedError</code></pre>
@@ -471,7 +471,7 @@ indices into the columns of X.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/kernels/multikernel.py#L26-L28" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/multikernel.py#L26-L28" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def subKdiag(self, indexes, X):
     K = self.subK((indexes, indexes), X, X)
