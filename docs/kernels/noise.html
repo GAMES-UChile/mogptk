@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/noise.py#L0-L47" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/noise.py#L0-L47" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import gpflow
 import numpy as np
@@ -91,12 +91,13 @@ class Noise(Kernel):
 </code></dt>
 <dd>
 <section class="desc"><p>The basic kernel class. Handles active dims.</p>
-<p>:param active_dims: active dimensions, has the slice type.
+<p>:param active_dims: active dimensions, either a slice or list of
+indices into the columns of X.
 :param name: optional kernel name.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/noise.py#L7-L24" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/noise.py#L7-L24" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Noise(Kernel):
     def __init__(self, input_dim, output_dim, active_dims=None):
@@ -135,7 +136,7 @@ class Noise(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/noise.py#L16-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/noise.py#L16-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X, X2=None, presliced=False):
     if X2 is not None and not np.array_equal(X, X2):
@@ -151,7 +152,7 @@ class Noise(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/noise.py#L21-L24" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/noise.py#L21-L24" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K_diag(self, X, presliced=False):
     idx = tf.cast(X[:, 0], tf.int32)

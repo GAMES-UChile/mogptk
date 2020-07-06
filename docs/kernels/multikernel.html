@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/multikernel.py#L0-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/multikernel.py#L0-L126" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python"># This is a simplification and adaptation to gpflow 1.0 of the work done
 # by Rasmus Bonnevie on issue #328, credits to him.
@@ -179,12 +179,13 @@ are not independent and where they can be observed independently.
 This abstract class implements the functionality necessary to split
 the observations into different cases and reorder the final kernel
 matrix appropriately.</p>
-<p>:param active_dims: active dimensions, has the slice type.
+<p>:param active_dims: active dimensions, either a slice or list of
+indices into the columns of X.
 :param name: optional kernel name.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/multikernel.py#L6-L127" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/multikernel.py#L6-L127" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiKernel(Kernel):
     &#34;&#34;&#34;Abstract class for MultiOutput Kernels.
@@ -334,7 +335,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/multikernel.py#L30-L77" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/multikernel.py#L30-L77" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X, X2=None, presliced=False):
     # TODO: clean up, what follows is a start
@@ -394,7 +395,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/multikernel.py#L82-L91" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/multikernel.py#L82-L91" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K_diag(self, X, presliced=False):
     # X, _ = self._slice(X, None)
@@ -416,7 +417,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/multikernel.py#L122-L127" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/multikernel.py#L122-L127" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dist(self, X, X2):
     if X2 is None:
@@ -434,7 +435,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/multikernel.py#L111-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/multikernel.py#L111-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sqdist(self, X, X2, lscales):
     &#34;&#34;&#34;Return the square distance between two tensors.&#34;&#34;&#34;
@@ -456,7 +457,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/multikernel.py#L23-L24" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/multikernel.py#L23-L24" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def subK(self, indexes, X, X2):
     return NotImplementedError</code></pre>
@@ -470,7 +471,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/multikernel.py#L26-L28" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/kernels/multikernel.py#L26-L28" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def subKdiag(self, indexes, X):
     K = self.subK((indexes, indexes), X, X)

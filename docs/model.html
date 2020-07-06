@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L0-L690" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L0-L695" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import json
@@ -484,6 +484,7 @@ class model:
         self,
         method=&#39;L-BFGS-B&#39;,
         tol=1e-6,
+        lr=0.001,
         maxiter=500,
         params={},
         verbose=False):
@@ -526,8 +527,9 @@ class model:
             return -self.model.log_marginal_likelihood()
 
         if method.lower() == &#34;adam&#34;:
-            opt = tf.optimizers.Adam(learning_rate=0.001)
-            opt.minimize(loss, self.model.trainable_variables)
+            opt = tf.optimizers.Adam(learning_rate=lr)
+            for step in range(maxiter):
+                opt.minimize(loss, self.model.trainable_variables)
         else:
             opt = gpflow.optimizers.Scipy()
             opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={&#39;maxiter&#39;: maxiter, &#39;disp&#39;: True}, **params)
@@ -655,7 +657,7 @@ class model:
         plt.tight_layout()
         return fig, axes
 
-    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=&#39;&#39;):
+    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=&#39;&#39;, retmatrix=False):
         &#34;&#34;&#34;
         Plot the gram matrix of associated kernel.
 
@@ -678,7 +680,6 @@ class model:
 
         if xmax is None:
             xmax = [data.X.max() for data in self.dataset]
-
 
         M = len(self.dataset)
 
@@ -716,7 +717,11 @@ class model:
         ax.set_yticklabels([]);
         ax.set_title(title)
 
-        return fig, ax</code></pre>
+        if retmatrix:
+            return fig, ax, K_gram.numpy()
+        else:
+            return fig, ax
+        </code></pre>
 </details>
 </section>
 <section>
@@ -745,7 +750,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L26-L690" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L26-L694" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class model:
     def __init__(self, name, dataset):
@@ -1179,6 +1184,7 @@ class model:
         self,
         method=&#39;L-BFGS-B&#39;,
         tol=1e-6,
+        lr=0.001,
         maxiter=500,
         params={},
         verbose=False):
@@ -1221,8 +1227,9 @@ class model:
             return -self.model.log_marginal_likelihood()
 
         if method.lower() == &#34;adam&#34;:
-            opt = tf.optimizers.Adam(learning_rate=0.001)
-            opt.minimize(loss, self.model.trainable_variables)
+            opt = tf.optimizers.Adam(learning_rate=lr)
+            for step in range(maxiter):
+                opt.minimize(loss, self.model.trainable_variables)
         else:
             opt = gpflow.optimizers.Scipy()
             opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={&#39;maxiter&#39;: maxiter, &#39;disp&#39;: True}, **params)
@@ -1350,7 +1357,7 @@ class model:
         plt.tight_layout()
         return fig, axes
 
-    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=&#39;&#39;):
+    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=&#39;&#39;, retmatrix=False):
         &#34;&#34;&#34;
         Plot the gram matrix of associated kernel.
 
@@ -1373,7 +1380,6 @@ class model:
 
         if xmax is None:
             xmax = [data.X.max() for data in self.dataset]
-
 
         M = len(self.dataset)
 
@@ -1411,7 +1417,10 @@ class model:
         ax.set_yticklabels([]);
         ax.set_title(title)
 
-        return fig, ax</code></pre>
+        if retmatrix:
+            return fig, ax, K_gram.numpy()
+        else:
+            return fig, ax</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1441,7 +1450,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L337-L361" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L337-L361" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fix_parameter(self, q, key):
     &#34;&#34;&#34;
@@ -1481,7 +1490,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L229-L240" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L229-L240" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_likelihood_parameters(self):
     &#34;&#34;&#34;
@@ -1520,7 +1529,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L242-L268" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L242-L268" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameter(self, q, key):
     &#34;&#34;&#34;
@@ -1562,7 +1571,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L207-L227" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L207-L227" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -1603,7 +1612,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L420-L452" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L420-L452" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def load_parameters(self, filename):
     &#34;&#34;&#34;
@@ -1641,7 +1650,7 @@ class model:
 </details>
 </dd>
 <dt id="mogptk.model.model.plot_gram_matrix"><code class="name flex">
-<span>def <span class="ident">plot_gram_matrix</span></span>(<span>self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title='')</span>
+<span>def <span class="ident">plot_gram_matrix</span></span>(<span>self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title='', retmatrix=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Plot the gram matrix of associated kernel.</p>
@@ -1668,9 +1677,9 @@ between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L629-L690" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L631-L694" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=&#39;&#39;):
+<pre><code class="python">def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=&#39;&#39;, retmatrix=False):
     &#34;&#34;&#34;
     Plot the gram matrix of associated kernel.
 
@@ -1693,7 +1702,6 @@ between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
 
     if xmax is None:
         xmax = [data.X.max() for data in self.dataset]
-
 
     M = len(self.dataset)
 
@@ -1731,7 +1739,10 @@ between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
     ax.set_yticklabels([]);
     ax.set_title(title)
 
-    return fig, ax</code></pre>
+    if retmatrix:
+        return fig, ax, K_gram.numpy()
+    else:
+        return fig, ax</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.plot_prediction"><code class="name flex">
@@ -1751,7 +1762,7 @@ array of axis and dictionary with all the points used.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L549-L627" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L551-L629" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, grid=None, figsize=None, ylims=None, names=None, title=&#39;&#39;):
 
@@ -1857,7 +1868,7 @@ upper (ndarray): Upper confidence interval.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L514-L547" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L516-L549" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, x=None, plot=False):
     &#34;&#34;&#34;
@@ -1906,7 +1917,7 @@ upper (ndarray): Upper confidence interval.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L101-L205" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L101-L205" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -2031,7 +2042,7 @@ upper (ndarray): Upper confidence interval.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L389-L418" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L389-L418" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save_parameters(self, filename):
     &#34;&#34;&#34;
@@ -2083,7 +2094,7 @@ upper (ndarray): Upper confidence interval.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L308-L335" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L308-L335" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_likelihood_parameter(self, key, val):
     &#34;&#34;&#34;
@@ -2135,7 +2146,7 @@ upper (ndarray): Upper confidence interval.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L270-L306" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L270-L306" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_parameter(self, q, key, val):
     &#34;&#34;&#34;
@@ -2177,7 +2188,7 @@ upper (ndarray): Upper confidence interval.</p>
 </details>
 </dd>
 <dt id="mogptk.model.model.train"><code class="name flex">
-<span>def <span class="ident">train</span></span>(<span>self, method='L-BFGS-B', tol=1e-06, maxiter=500, params={}, verbose=False)</span>
+<span>def <span class="ident">train</span></span>(<span>self, method='L-BFGS-B', tol=1e-06, lr=0.001, maxiter=500, params={}, verbose=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Trains the model using the kernel and its parameters.</p>
@@ -2208,12 +2219,13 @@ optimizer is used. Defaults to scipy 'L-BFGS-B'.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L454-L508" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L454-L510" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
     method=&#39;L-BFGS-B&#39;,
     tol=1e-6,
+    lr=0.001,
     maxiter=500,
     params={},
     verbose=False):
@@ -2256,8 +2268,9 @@ optimizer is used. Defaults to scipy 'L-BFGS-B'.</dd>
         return -self.model.log_marginal_likelihood()
 
     if method.lower() == &#34;adam&#34;:
-        opt = tf.optimizers.Adam(learning_rate=0.001)
-        opt.minimize(loss, self.model.trainable_variables)
+        opt = tf.optimizers.Adam(learning_rate=lr)
+        for step in range(maxiter):
+            opt.minimize(loss, self.model.trainable_variables)
     else:
         opt = gpflow.optimizers.Scipy()
         opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={&#39;maxiter&#39;: maxiter, &#39;disp&#39;: True}, **params)
@@ -2281,7 +2294,7 @@ key (str): Name of the parameter.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/model.py#L363-L387" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1111d84dbfb15e6b9b4e7b2803df8cb9bd3487f3/mogptk/model.py#L363-L387" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def unfix_parameter(self, q, key):
     &#34;&#34;&#34;
