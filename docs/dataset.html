@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L0-L586" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L0-L586" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import pandas as pd
@@ -425,7 +425,7 @@ class DataSet:
         &#34;&#34;&#34;
         return [channel.get_nyquist_estimation() for channel in self.channels]
     
-    def get_bnse_estimation(self, Q, n=5000):
+    def get_bnse_estimation(self, Q, n=8000):
         &#34;&#34;&#34;
         Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
@@ -656,7 +656,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L6-L29" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L6-L29" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadCSV(filename, x_col=0, y_col=1, name=None, formats={}, **kwargs):
     &#34;&#34;&#34;
@@ -715,7 +715,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L31-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L31-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
     &#34;&#34;&#34;
@@ -835,7 +835,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L126-L586" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L126-L586" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class DataSet:
     &#34;&#34;&#34;
@@ -1110,7 +1110,7 @@ If a DataSet is passed, its channels will be added.</dd>
         &#34;&#34;&#34;
         return [channel.get_nyquist_estimation() for channel in self.channels]
     
-    def get_bnse_estimation(self, Q, n=5000):
+    def get_bnse_estimation(self, Q, n=8000):
         &#34;&#34;&#34;
         Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
@@ -1317,7 +1317,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L167-L191" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L167-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def append(self, arg):
     &#34;&#34;&#34;
@@ -1362,7 +1362,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L545-L555" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L545-L555" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -1395,7 +1395,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L232-L252" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L232-L252" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get(self, index):
     &#34;&#34;&#34;
@@ -1421,7 +1421,7 @@ If a DataSet is passed, its channels will be added.</dd>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_bnse_estimation"><code class="name flex">
-<span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q, n=5000)</span>
+<span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q, n=8000)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).</p>
@@ -1447,9 +1447,9 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L399-L423" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L399-L423" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def get_bnse_estimation(self, Q, n=5000):
+<pre><code class="python">def get_bnse_estimation(self, Q, n=8000):
     &#34;&#34;&#34;
     Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
@@ -1494,7 +1494,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L267-L278" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L267-L278" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self):
     &#34;&#34;&#34;
@@ -1527,7 +1527,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L193-L204" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L193-L204" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -1570,7 +1570,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L425-L449" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L425-L449" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q, n=50000):
     &#34;&#34;&#34;
@@ -1616,7 +1616,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L219-L230" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L219-L230" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_names(self):
     &#34;&#34;&#34;
@@ -1648,7 +1648,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L387-L397" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L387-L397" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -1683,7 +1683,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L206-L217" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L206-L217" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_output_dims(self):
     &#34;&#34;&#34;
@@ -1728,7 +1728,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L293-L320" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L293-L320" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction(self, name, sigma=2):
     &#34;&#34;&#34;
@@ -1778,7 +1778,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L280-L291" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L280-L291" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self):
     &#34;&#34;&#34;
@@ -1812,7 +1812,7 @@ If a DataSet is passed, its channels will be added.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L254-L265" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L254-L265" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self):
     &#34;&#34;&#34;
@@ -1847,7 +1847,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L557-L586" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L557-L586" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, title=None, figsize=None):
     &#34;&#34;&#34;
@@ -1889,7 +1889,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L451-L473" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L451-L473" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def rescale_x(self):
     xmin = {}
@@ -1939,7 +1939,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L346-L385" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L346-L385" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start, end, n=None, step=None):
     &#34;&#34;&#34;
@@ -2000,7 +2000,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/dataset.py#L322-L344" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/7a7cb6765c7142478dac9648a57cf80a75b2fae0/mogptk/dataset.py#L322-L344" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_x(self, x):
     &#34;&#34;&#34;
