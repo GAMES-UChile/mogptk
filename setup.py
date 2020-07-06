@@ -3,7 +3,7 @@ from os import path
 
 requirements = [
     'numpy>=1.10',
-    'gpflow==2.0.0rc1',
+    'gpflow>=2.0',
     'tensorflow>=2.0',
     'matplotlib',
     'scipy>=0.18',
@@ -20,7 +20,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='mogptk',
-      version='0.1.5',
+      version='0.1.6',
       description='Multi-Output Gaussian Process ToolKit',
       long_description=long_description,
       long_description_content_type='text/markdown',
