@@ -100,6 +100,7 @@ class RMOSM(MOSM):
         likelihood=None,
         variational=False,
         sparse=False,
+        inducing_variable=None,
         like_params={},
         magnitude_prior=None,
         **kwargs):
@@ -146,7 +147,7 @@ class RMOSM(MOSM):
             else:
                 kernel_set += kernel
         kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
-        self._build(kernel_set, likelihood, variational, sparse, like_params, **kwargs)
+        self._build(kernel_set, likelihood, variational, sparse, like_params, inducing_variable, **kwargs)
 
     def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
         """
@@ -174,8 +175,11 @@ class RMOSM(MOSM):
 
         W = self.kernel_mask
 
-        if method == 'BNSE':
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        if method in ['BNSE', 'LS']:
+            if method == 'BNSE':
+                amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            else:
+                amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('BNSE could not find peaks for MOSM')
                 return
