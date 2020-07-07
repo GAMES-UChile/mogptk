@@ -13,17 +13,16 @@ class CrossSpectralMixture(MultiKernel):
         - Rq (int): The number of subcomponents.
         - active_dims (list of int): Apply kernel to specified dimensions only.
         """
-
         constant = np.random.random((Rq, output_dim))
         mean = np.random.random(input_dim)
         variance = np.random.random(input_dim)
-        phase = np.ones((Rq, output_dim)) * gpflow.config.default_positive_minimum()
+        phase = np.zeros((Rq, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=name)
         self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name="constant")
         self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name="mean")
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name="variance")
-        self.phase = gpflow.Parameter(phase, transform=gpflow.utilities.positive(), name="phase")
+        self.phase = gpflow.Parameter(phase, name="phase")
 
     def subK(self, index, X, X2):
         i, j = index
