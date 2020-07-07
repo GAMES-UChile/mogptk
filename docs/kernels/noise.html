@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/noise.py#L0-L47" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/kernels/noise.py#L0-L47" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import gpflow
 import numpy as np
@@ -97,7 +97,7 @@ indices into the columns of X.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/noise.py#L7-L24" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/kernels/noise.py#L7-L24" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Noise(Kernel):
     def __init__(self, input_dim, output_dim, active_dims=None):
@@ -136,7 +136,7 @@ indices into the columns of X.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/noise.py#L16-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/kernels/noise.py#L16-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X, X2=None, presliced=False):
     if X2 is not None and not np.array_equal(X, X2):
@@ -152,7 +152,7 @@ indices into the columns of X.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/kernels/noise.py#L21-L24" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/kernels/noise.py#L21-L24" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K_diag(self, X, presliced=False):
     idx = tf.cast(X[:, 0], tf.int32)

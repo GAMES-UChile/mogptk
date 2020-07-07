@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L0-L695" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L0-L697" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import json
@@ -39,6 +39,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+from gpflow import set_trainable
+
 from IPython.display import display, HTML
 from tabulate import tabulate
 
@@ -48,7 +50,8 @@ logging.getLogger(&#39;tensorflow&#39;).setLevel(logging.ERROR)
 
 tf.autograph.set_verbosity(0) # TODO: remove and fix problem
 
-gpflow.config.set_default_positive_minimum(1e-6)
+# gpflow.config.set_default_positive_minimum(1e-6)
+eps = 1e-20
 
 logger = logging.getLogger(&#39;mogptk&#39;)
 
@@ -330,8 +333,7 @@ class model:
 
         for i, v in np.ndenumerate(val):
             if v &lt; gpflow.config.default_positive_minimum():
-                val[i] = gpflow.config.default_positive_minimum()
-
+                val[i] = gpflow.config.default_positive_minimum() + eps
         kern[key].assign(val)
 
     def set_likelihood_parameter(self, key, val):
@@ -359,7 +361,7 @@ class model:
 
         for i, v in np.ndenumerate(val):
             if v &lt; gpflow.config.default_positive_minimum():
-                val[i] = gpflow.config.default_positive_minimum()
+                val[i] = gpflow.config.default_positive_minimum() + eps
 
         likelihood[key].assign(val)
 
@@ -383,11 +385,11 @@ class model:
                 kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                        getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = False
+                        set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
         else:
             for param_name, param_val in self.model.kernel.__dict__.items():
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                    getattr(self.model.kernel, param_name).trainable = False
+                    set_trainable(getattr(self.model.kernel, param_name), False)
 
     def unfix_parameter(self, q, key):
         &#34;&#34;&#34;
@@ -409,11 +411,11 @@ class model:
                 kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                        getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = True
+                        set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
         else:
             for param_name, param_val in self.model.kernel.__dict__.items():
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                    getattr(self.model.kernel, param_name).trainable = True
+                    set_trainable(getattr(self.model.kernel, param_name), True)
 
     def save_parameters(self, filename):
         &#34;&#34;&#34;
@@ -750,7 +752,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L26-L694" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L29-L696" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class model:
     def __init__(self, name, dataset):
@@ -1030,8 +1032,7 @@ class model:
 
         for i, v in np.ndenumerate(val):
             if v &lt; gpflow.config.default_positive_minimum():
-                val[i] = gpflow.config.default_positive_minimum()
-
+                val[i] = gpflow.config.default_positive_minimum() + eps
         kern[key].assign(val)
 
     def set_likelihood_parameter(self, key, val):
@@ -1059,7 +1060,7 @@ class model:
 
         for i, v in np.ndenumerate(val):
             if v &lt; gpflow.config.default_positive_minimum():
-                val[i] = gpflow.config.default_positive_minimum()
+                val[i] = gpflow.config.default_positive_minimum() + eps
 
         likelihood[key].assign(val)
 
@@ -1083,11 +1084,11 @@ class model:
                 kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                        getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = False
+                        set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
         else:
             for param_name, param_val in self.model.kernel.__dict__.items():
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                    getattr(self.model.kernel, param_name).trainable = False
+                    set_trainable(getattr(self.model.kernel, param_name), False)
 
     def unfix_parameter(self, q, key):
         &#34;&#34;&#34;
@@ -1109,11 +1110,11 @@ class model:
                 kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                        getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = True
+                        set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
         else:
             for param_name, param_val in self.model.kernel.__dict__.items():
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                    getattr(self.model.kernel, param_name).trainable = True
+                    set_trainable(getattr(self.model.kernel, param_name), True)
 
     def save_parameters(self, filename):
         &#34;&#34;&#34;
@@ -1450,7 +1451,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L337-L361" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L339-L363" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def fix_parameter(self, q, key):
     &#34;&#34;&#34;
@@ -1472,11 +1473,11 @@ class model:
             kernel = self.model.kernel.kernels[kernel_i]
             for param_name, param_val in kernel.__dict__.items():
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                    getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = False
+                    set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
     else:
         for param_name, param_val in self.model.kernel.__dict__.items():
             if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                getattr(self.model.kernel, param_name).trainable = False</code></pre>
+                set_trainable(getattr(self.model.kernel, param_name), False)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.model.get_likelihood_parameters"><code class="name flex">
@@ -1490,7 +1491,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L229-L240" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L232-L243" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_likelihood_parameters(self):
     &#34;&#34;&#34;
@@ -1529,7 +1530,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L242-L268" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L245-L271" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameter(self, q, key):
     &#34;&#34;&#34;
@@ -1571,7 +1572,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L207-L227" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L210-L230" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -1612,7 +1613,7 @@ class model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L420-L452" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L422-L454" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def load_parameters(self, filename):
     &#34;&#34;&#34;
@@ -1677,7 +1678,7 @@ between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L631-L694" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L633-L696" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title=&#39;&#39;, retmatrix=False):
     &#34;&#34;&#34;
@@ -1762,7 +1763,7 @@ array of axis and dictionary with all the points used.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L551-L629" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L553-L631" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, grid=None, figsize=None, ylims=None, names=None, title=&#39;&#39;):
 
@@ -1868,7 +1869,7 @@ upper (ndarray): Upper confidence interval.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L516-L549" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L518-L551" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, x=None, plot=False):
     &#34;&#34;&#34;
@@ -1917,7 +1918,7 @@ upper (ndarray): Upper confidence interval.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L101-L205" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L104-L208" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -2042,7 +2043,7 @@ upper (ndarray): Upper confidence interval.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L389-L418" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L391-L420" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save_parameters(self, filename):
     &#34;&#34;&#34;
@@ -2094,7 +2095,7 @@ upper (ndarray): Upper confidence interval.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L308-L335" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L310-L337" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_likelihood_parameter(self, key, val):
     &#34;&#34;&#34;
@@ -2121,7 +2122,7 @@ upper (ndarray): Upper confidence interval.</p>
 
     for i, v in np.ndenumerate(val):
         if v &lt; gpflow.config.default_positive_minimum():
-            val[i] = gpflow.config.default_positive_minimum()
+            val[i] = gpflow.config.default_positive_minimum() + eps
 
     likelihood[key].assign(val)</code></pre>
 </details>
@@ -2146,7 +2147,7 @@ upper (ndarray): Upper confidence interval.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L270-L306" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L273-L308" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_parameter(self, q, key, val):
     &#34;&#34;&#34;
@@ -2182,8 +2183,7 @@ upper (ndarray): Upper confidence interval.</p>
 
     for i, v in np.ndenumerate(val):
         if v &lt; gpflow.config.default_positive_minimum():
-            val[i] = gpflow.config.default_positive_minimum()
-
+            val[i] = gpflow.config.default_positive_minimum() + eps
     kern[key].assign(val)</code></pre>
 </details>
 </dd>
@@ -2219,7 +2219,7 @@ optimizer is used. Defaults to scipy 'L-BFGS-B'.</dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L454-L510" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L456-L512" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -2294,7 +2294,7 @@ key (str): Name of the parameter.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/b72264f56d683911587496ed946cb8cc84d0bd2d/mogptk/model.py#L363-L387" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/model.py#L365-L389" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def unfix_parameter(self, q, key):
     &#34;&#34;&#34;
@@ -2316,11 +2316,11 @@ key (str): Name of the parameter.</p>
             kernel = self.model.kernel.kernels[kernel_i]
             for param_name, param_val in kernel.__dict__.items():
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                    getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = True
+                    set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
     else:
         for param_name, param_val in self.model.kernel.__dict__.items():
             if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                getattr(self.model.kernel, param_name).trainable = True</code></pre>
+                set_trainable(getattr(self.model.kernel, param_name), True)</code></pre>
 </details>
 </dd>
 </dl>
