@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+from gpflow import set_trainable
+
 from IPython.display import display, HTML
 from tabulate import tabulate
 
@@ -354,11 +356,11 @@ class model:
                 kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                        getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = False
+                        set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
         else:
             for param_name, param_val in self.model.kernel.__dict__.items():
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                    getattr(self.model.kernel, param_name).trainable = False
+                    set_trainable(getattr(self.model.kernel, param_name), False)
 
     def unfix_parameter(self, q, key):
         """
@@ -380,11 +382,11 @@ class model:
                 kernel = self.model.kernel.kernels[kernel_i]
                 for param_name, param_val in kernel.__dict__.items():
                     if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                        getattr(self.model.kernel.kernels[kernel_i], param_name).trainable = True
+                        set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
         else:
             for param_name, param_val in self.model.kernel.__dict__.items():
                 if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                    getattr(self.model.kernel, param_name).trainable = True
+                    set_trainable(getattr(self.model.kernel, param_name), True)
 
     def save_parameters(self, filename):
         """
