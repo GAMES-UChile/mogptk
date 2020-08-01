@@ -132,9 +132,9 @@ class TransformDetrend(TransformBase):
 
 class TransformLinear(TransformBase):
     """
-    TransformLinear transforms the data linearly so that y => (y-offset)/scale.
+    TransformLinear transforms the data linearly so that y => (y-bias)/slope.
     """
-    def __init__(self, scale=1.0, offset=0.0):
+    def __init__(self, slope=1.0, bias=0.0):
         self.scale = scale
         self.offset = offset
 
