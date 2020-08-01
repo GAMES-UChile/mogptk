@@ -138,8 +138,6 @@ class DataSet:
             >>> dataset = mogptk.DataSet(channel_a, channel_b, channel_c)
         """
     def __init__(self, *args):
-        
-
         self.channels = []
         for arg in args:
             self.append(arg)
@@ -448,7 +446,30 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
 
+    def transform(self, transformer):
+        """
+        Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
+
+        Args:
+            transformer (obj): Transformer object with forward(y, x) and backward(y, x) methods.
+
+        Examples:
+            >>> dataset.transform(mogptk.TransformDetrend(degree=2))        # remove polynomial trend
+            >>> dataset.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
+            >>> dataset.transform(mogptk.TransformLog)                      # log transform the data
+            >>> dataset.transform(mogptk.TransformNormalize)                # transform to [-1,1]
+            >>> dataset.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
+        """
+        for channel in self.channels:
+            channel.transform(transformer)
+
     def rescale_x(self):
+        """
+        Rescale the x-axis so that it is between 0 and 1000 internally. This can help when the range of your x-axis is much smaller or bigger than a 1000, which affects effectiveness of training.
+
+        Examples:
+            >>> dataset.rescale_x()
+        """
         xmin = {}
         xmax = {}
         for channel in self.channels:
@@ -570,7 +591,6 @@ class DataSet:
         """
         if figsize is None:
             figsize = (12, 2.5 * len(self))
-
 
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
         if title != None:

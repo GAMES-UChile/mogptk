@@ -551,13 +551,17 @@ class Data:
 
     def transform(self, transformer):
         """
-        Transform the data by using one of the provided transformers, such as TransformDetrend, TransformNormalize, TransformLog, ...
+        Transform the data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
 
         Args:
             transformer (obj): Transformer object with forward(y, x) and backward(y, x) methods.
 
         Examples:
-            >>> data.transform(mogptk.TransformDetrend)
+            >>> data.transform(mogptk.TransformDetrend(degree=2))        # remove polynomial trend
+            >>> data.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
+            >>> data.transform(mogptk.TransformLog)                      # log transform the data
+            >>> data.transform(mogptk.TransformNormalize)                # transform to [-1,1]
+            >>> data.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
         """
         t = transformer
         if isinstance(t, type):
