@@ -24,9 +24,6 @@ class FormatBase:
     def format(self, val):
         raise NotImplementedError
 
-    def get_scale(self, maxfreq=None):
-        raise NotImplementedError
-
 
 class FormatNumber(FormatBase):
     """
@@ -36,18 +33,16 @@ class FormatNumber(FormatBase):
         self.category = 'num'
 
     def parse(self, val):
-        if np.isnan(val):
-            raise ValueError("number cannot be NaN")
-        return float(val)
+        try:
+            return float(val)
+        except:
+            raise ValueError("could not convert '{}' to number".format(val))
 
     def parse_delta(self, val):
         return self.parse(val)
 
     def format(self, val):
         return '%.6g' % (val,)
-
-    def get_scale(self, maxfreq=None):
-        return 1, None
 
 class FormatDate(FormatBase):
     """
@@ -64,28 +59,12 @@ class FormatDate(FormatBase):
         return (dt - datetime.datetime(1970,1,1)).total_seconds()/3600/24
 
     def parse_delta(self, val):
-        if isinstance(val, int):
-            return val
-        if isinstance(val, str):
-            return _parse_duration_to_sec(val)/24/3600
-        raise ValueError("could not convert input to duration")
+        if not isinstance(val, str):
+            raise ValueError("could not convert input to duration")
+        return _parse_duration_to_sec(val)/24/3600
     
     def format(self, val):
         return datetime.datetime.utcfromtimestamp(val*3600*24).strftime('%Y-%m-%d')
-
-    def get_scale(self, maxfreq=None):
-        if maxfreq == 'year':
-            return 356.2425, 'year'
-        if maxfreq == 'month':
-            return 30.4369, 'month'
-        if maxfreq == None or maxfreq == 'day':
-            return 1, 'day'
-        if maxfreq == 'hour':
-            return 1/24, 'hour'
-        if maxfreq == 'minute':
-            return 1/24/60, 'minute'
-        if maxfreq == 'second':
-            return 1/24/3600, 'second'
 
 class FormatDateTime(FormatBase):
     """
@@ -102,28 +81,12 @@ class FormatDateTime(FormatBase):
         return (dt - datetime.datetime(1970,1,1)).total_seconds()
 
     def parse_delta(self, val):
-        if isinstance(val, int):
-            return val
-        if isinstance(val, str):
-            return _parse_duration_to_sec(val)
-        raise ValueError("could not convert input to duration")
+        if not isinstance(val, str):
+            raise ValueError("could not convert input to duration")
+        return _parse_duration_to_sec(val)
 
     def format(self, val):
         return datetime.datetime.utcfromtimestamp(val).strftime('%Y-%m-%d %H:%M')
-
-    def get_scale(self, maxfreq=None):
-        if maxfreq == 'year':
-            return 3600*24*356.2425, 'year'
-        if maxfreq == 'month':
-            return 3600*24*30.4369, 'month'
-        if maxfreq == 'day':
-            return 3600*24, 'day'
-        if maxfreq == 'hour':
-            return 3600, 'hour'
-        if maxfreq == 'minute':
-            return 60, 'minute'
-        if maxfreq == None or maxfreq == 'second':
-            return 1, 'second'
 
 ################################################################
 ################################################################
@@ -1247,28 +1210,25 @@ class Data:
         ax.set_title(self.name, fontsize=36)
 
         formatter = self.formatters[0]
-        factor, name = formatter.get_scale(per)
-        if name != None:
-            ax.set_xlabel('Frequency (1/'+name+')')
+        scale = 1
+        if per != None:
+            scale = formatter.parse_delta(per)
+            ax.set_xlabel('Frequency [1/'+per+']')
         else:
             ax.set_xlabel('Frequency [Hz]')
 
-        X_space = np.squeeze((self.X_offsets + (self.X/self.X_scales)) / factor)
+        nyquist = maxfreq
+        if nyquist == None:
+            nyquist = self.get_nyquist_estimation()[0] * scale
 
-        freq = maxfreq
-        if freq == None:
-            dist = np.abs(X_space[1:]-X_space[:-1])
-            freq = 1/np.average(dist)
-
-        X = np.linspace(0.0, freq, 10001)[1:]
+        X_space = np.squeeze((self.X_offsets + (self.X/self.X_scales)) / scale)
+        X = np.linspace(0.0, nyquist, 10001)[1:]
         Y_err = []
         if method == 'lombscargle':
             Y = signal.lombscargle(X_space, self.Y, X)
         elif method == 'bnse':
-            # TODO: check if outcome is correct
-            nyquist = self.get_nyquist_estimation()
             bnse = bse(X_space, self.Y)
-            bnse.set_freqspace(freq/2.0/np.pi, 10001)
+            bnse.set_freqspace(nyquist, 10001)
             bnse.train()
             bnse.compute_moments()
 
