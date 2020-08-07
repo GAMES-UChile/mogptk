@@ -15,13 +15,8 @@ class Serie(np.ndarray):
         array = np.asarray(array)
         if array.ndim != 1 or array.shape[0] == 0:
             raise ValueError('Serie must have one dimension and a length greater than zero')
-
-        # if dtype is a string, see if it might be converted to datetime64
-        if np.issubdtype(array.dtype, np.object_) or np.issubdtype(array.dtype, np.character):
-            try:
-                array = np.array(array, dtype='datetime64')
-            except:
-                pass
+        elif not np.issubdtype(array.dtype, np.number) and not np.issubdtype(array.dtype, np.datetime64):
+            raise ValueError('Serie must have a number of datetime64 data type')
 
         obj = np.asarray(array).view(cls)
         obj.transformed = array.astype(np.float64) # may through exception for bad dtypes
@@ -57,10 +52,19 @@ class Serie(np.ndarray):
             self.transformers.append(t)
 
     def get_time_unit(self):
-        if np.issubdtype(self.X[0].dtype, np.datetime64):
-            unit = str(self.dtype)
-            return unit[unit.find('[')+1:-1]
-        return None
+        if not np.issubdtype(self.dtype, np.datetime64):
+            raise ValueError('Serie must have a datetime64 data type')
+
+        unit = str(self.dtype)
+        locBracket = unit.find('[')
+        if locBracket == -1:
+            return ''
+        return unit[locBracket+1:-1]
+
+    def set_time_unit(self, unit):
+        if not np.issubdtype(self.dtype, np.datetime64):
+            raise ValueError('Serie must have a datetime64 data type')
+        self.astype('datetime64[%s]' % (unit,))
 
     def get_transformed(self):
         return self.transformed

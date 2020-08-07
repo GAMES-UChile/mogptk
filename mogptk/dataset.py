@@ -444,13 +444,36 @@ class DataSet:
             means.append(channel_means)
             variances.append(channel_variances)
         return amplitudes, means, variances
+    
+    def transform_x(self, transformer):
+        """
+        Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
+
+        Args:
+            transformer (obj): Transformer object derived from TransformBase.
+
+        Examples:
+            >>> dataset.transform_x(mogptk.TransformLinear(slope=1, bias=2))
+        """
+        for channel in self.channels:
+            channel.transform_x(transformer)
+    
+    def rescale_x(self):
+        """
+        Rescale the X axis so that it is between 0 and 1000 internally. This can help when the range of your x-axis is much smaller or bigger than a 1000, which affects effectiveness of training.
+
+        Examples:
+            >>> dataset.rescale_x()
+        """
+        for channel in self.channels:
+            channel.rescale_x()
 
     def transform(self, transformer):
         """
         Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
 
         Args:
-            transformer (obj): Transformer object with forward(y, x) and backward(y, x) methods.
+            transformer (obj): Transformer object derived from TransformBase.
 
         Examples:
             >>> dataset.transform(mogptk.TransformDetrend(degree=2))        # remove polynomial trend
@@ -545,32 +568,33 @@ class DataSet:
         """
         return copy.deepcopy(self)
 
-    def plot(self, title=None, figsize=None, legend=True):
+    def plot(self, title=None, figsize=None, legend=True, transformed=False):
         """
         Plot each Data channel.
 
         Args:
             title (str, optional): Set the title of the plot.
             figsize (tuple, optional): Set the figure size.
-            legend (boolean, optional): Enable or disable legend plotting.
+            legend (boolean, optional): Disable legend.
+            transformed (boolean, optional): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
             list of matplotlib.axes.Axes: List of axes.
 
         Examples:
-            >>> fig, axes = dataset.plot('Title')
+            >>> fig, axes = dataset.plot(title='Title')
         """
         if figsize is None:
             figsize = (12, 2.5 * len(self))
 
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
         if title is not None:
-            fig.suptitle(title)
+            fig.suptitle(title, fontsize=18)
 
         legends = []
         for channel in range(self.get_output_dims()):
-            ax = self.channels[channel].plot(ax=axes[channel,0], legend=True)
+            ax = self.channels[channel].plot(ax=axes[channel,0], legend=True, transformed=transformed)
 
             # add axes legends to figure legends
             for item in ax.get_legend().legendHandles:
@@ -583,23 +607,24 @@ class DataSet:
 
         return fig, axes
 
-    def plot_spectrum(self, method='lombscargle', per=None, maxfreq=None, title=None, figsize=None):
+    def plot_spectrum(self, method='lombscargle', per=None, maxfreq=None, title=None, figsize=None, transformed=False):
         """
         Plot each Data channel spectrum.
 
         Args:
-            method (str, optional): Set the method to get the spectrum such as 'lombscargle'.
-            per (list, float, str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per='3d' for three days.
+            method (list, str, optional): Set the method to get the spectrum such as 'lombscargle'.
+            per (list, str, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3d'.
             maxfreq (list, float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
             title (str, optional): Set the title of the plot.
             figsize (tuple, optional): Set the figure size.
+            transformed (boolean, optional): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
             list of matplotlib.axes.Axes: List of axes.
 
         Examples:
-            >>> fig, axes = dataset.plot('Title')
+            >>> fig, axes = dataset.plot_spectrum(title='Title', method='bnse')
         """
         if not isinstance(method, list):
             method = [method] * len(self.channels)
@@ -613,11 +638,11 @@ class DataSet:
 
         fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
         if title != None:
-            fig.suptitle(title)
+            fig.suptitle(title, fontsize=18)
 
         legends = []
         for channel in range(self.get_output_dims()):
-            ax = self.channels[channel].plot_spectrum(method=method[channel], ax=axes[channel,0], per=per[channel], maxfreq=maxfreq[channel])
+            ax = self.channels[channel].plot_spectrum(method=method[channel], ax=axes[channel,0], per=per[channel], maxfreq=maxfreq[channel], transformed=transformed)
 
         return fig, axes
 

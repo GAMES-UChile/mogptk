@@ -51,18 +51,18 @@ class TransformLinear(TransformBase):
     """
     TransformLinear transforms the data linearly so that y => (y-bias)/slope.
     """
-    def __init__(self, slope=1.0, bias=0.0):
-        self.scale = scale
-        self.offset = offset
+    def __init__(self, bias=0.0, slope=1.0):
+        self.bias = bias
+        self.slope = slope
 
     def set_data(self, data):
         pass
 
     def forward(self, y, x=None):
-        return (y-self.offset)/self.scale
+        return (y-self.bias)/self.slope
 
     def backward(self, y, x=None):
-        return self.scale*y + self.offset
+        return self.bias + self.slope*y
 
 class TransformNormalize(TransformBase):
     """
@@ -255,8 +255,24 @@ class Data:
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
             raise ValueError("X and Y must be lists or numpy arrays, if dicts are passed then x_labels and/or y_label must also be set")
         
+        # try to cast unknown data types
+        if not np.issubdtype(X.dtype, np.number) and not np.issubdtype(X.dtype, np.datetime64):
+            try:
+                X = X.astype(np.float)
+            except:
+                try:
+                    X = X.astype(np.datetime64)
+                except:
+                    raise ValueError("X data must have a number or datetime64 data type")
         if not np.issubdtype(Y.dtype, np.number):
-            raise ValueError("Y data must be numbers")
+            try:
+                Y = Y.astype(np.float)
+            except:
+                raise ValueError("Y data must have a number data type")
+
+        # convert X datetime64[us] to a higher unit like s, m, h, D, ...
+        if np.issubdtype(X.dtype, np.datetime64):
+            X = _datetime64_to_higher_unit(X)
 
         # convert meshgrids to flat arrays
         if 2 < X.ndim and 1 < Y.ndim and X.shape[1:] == Y.shape:
@@ -375,7 +391,7 @@ class Data:
 
     def transform_x(self, transformer):
         """
-        Set offset and scaling of X axis for each input dimension.
+        Transform the X axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
 
         Args:
             transformer (obj, list of obj): Transformer objects derived from TransformBase for each input dimension. A single object is applied to all input dimensions.
@@ -390,15 +406,26 @@ class Data:
             raise ValueError('transformer must be a list of transformers for each input dimension')
 
         for i, t in enumerate(transformer):
-            t = transformer
             if isinstance(t, type):
-                t = transformer()
+                t = t()
             t.set_data(self)
             self.X[i].apply(t)
+    
+    def rescale_x(self):
+        """
+        Rescale the X axis so that it is between 0 and 1000 internally. This can help when the range of your x-axis is much smaller or bigger than a 1000, which affects effectiveness of training.
+
+        Examples:
+            >>> data.rescale_x()
+        """
+        xmin = [np.min(self.X[i].get_transformed()) for i in range(self.get_input_dims())]
+        xmax = [np.max(self.X[i].get_transformed()) for i in range(self.get_input_dims())]
+        transforms = [TransformLinear(xmin[i], (xmax[i]-xmin[i])/1000.0) for i in range(self.get_input_dims())]
+        self.transform_x(transforms)
 
     def transform(self, transformer):
         """
-        Transform the data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
+        Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
 
         Args:
             transformer (obj): Transformer object derived from TransformBase.
@@ -984,16 +1011,20 @@ class Data:
             
         return variances, means, amplitudes
 
-    def plot(self, ax=None, legend=True):
+    def plot(self, ax=None, legend=True, transformed=False):
         """
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            legend (boolean, optional): Enable or disable legend plotting.
+            legend (boolean, optional): Display legend.
+            transformed (boolean, optional): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.axes.Axes
+
+        Examples:
+            >>> ax = data.plot()
         """
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() > 2:
@@ -1008,18 +1039,23 @@ class Data:
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
             if self.Y_mu_pred[name].size != 0:
-                lower = self.Y_mu_pred[name] - self.Y_var_pred[name]
-                upper = self.Y_mu_pred[name] + self.Y_var_pred[name]
+                if transformed:
+                    mu = self.Y_mu_pred[name].get_transformed()
+                    var = self.Y_var_pred[name].get_transformed()
+                else:
+                    mu = self.Y_mu_pred[name]
+                    var = self.Y_var_pred[name]
+
+                lower = mu - var
+                upper = mu + var
 
                 idx = np.argsort(self.X_pred[0])
-                ax.plot(self.X_pred[0][idx], self.Y_mu_pred[name][idx], ls='-', color=colors[i], lw=2)
+                ax.plot(self.X_pred[0][idx], mu[idx], ls='-', color=colors[i], lw=2)
                 ax.fill_between(self.X_pred[0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
                 ax.plot(self.X_pred[0][idx], lower[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
                 ax.plot(self.X_pred[0][idx], upper[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
 
-                label = 'Prediction'
-                if 1 < len(self.Y_mu_pred):
-                    label += ' ' + name
+                label = 'Prediction ' + name
                 legends.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
 
         if self.F is not None:
@@ -1033,12 +1069,17 @@ class Data:
             x = np.empty((n, 1))
             x[:,0] = np.linspace(x_min, x_max, n)
             y = self.F(x)
+            if transformed:
+                y = self.Y.transform(y)
 
             ax.plot(x[:,0], y, 'r--', lw=1)
             legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
+        Y = self.Y
+        if transformed:
+            Y = Y.get_transformed()
         idx = np.argsort(self.X[0])
-        ax.plot(self.X[0][idx], self.Y[idx], 'k--', alpha=0.8)
+        ax.plot(self.X[0][idx], Y[idx], 'k--', alpha=0.8)
         legends.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
         x, y = self.get_train_data()
@@ -1064,24 +1105,28 @@ class Data:
 
         ax.set_xlabel(self.X_labels[0])
         ax.set_ylabel(self.Y_label)
-        ax.set_title(self.name)
+        ax.set_title(self.name, fontsize=14)
 
         if 0 < len(legends) and legend:
             ax.legend(handles=legends, loc='upper center', ncol=len(legends), bbox_to_anchor=(0.5, 1.5))
         return ax
 
-    def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None):
+    def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None, transformed=False):
         """
         Plot the spectrum of the data.
 
         Args:
-            method (str, optional): Set the method to get the spectrum such as 'lombscargle'.
+            method (str, optional): Set the method to get the spectrum: lombscargle or bnse.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            per (str): Set the unit of the X axis.
+            per (str, float, np.timedelta64, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3d'.
             maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            transformed (boolean, optional): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.axes.Axes
+
+        Examples:
+            >>> ax = data.plot_spectrum(method='bnse')
         """
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() > 2:
@@ -1095,46 +1140,31 @@ class Data:
         ax.set_title(self.name, fontsize=36)
 
         X_scale = 1.0
-        is_datetime = np.issubdtype(self.X[0].dtype, np.datetime64)
-        if per is None and is_datetime:
-            per = self.X[0].get_time_unit()
-            if per == 'Y':
-                per = 'year'
-            elif per == 'M':
-                per = 'month'
-            elif per == 'W':
-                per = 'week'
-            elif per == 'D':
-                per = 'day'
-            elif per == 'h':
-                per = 'hour'
-            elif per == 'm':
-                per = 'minute'
-            elif per == 's':
-                per = 'second'
-            elif per == 'ms':
-                per = 'millisecond'
-            elif per == 'us':
-                per = 'microsecond'
-        elif is_datetime:
-            cur_delta = _parse_delta('1' + self.X[0].get_time_unit())
-            new_delta = _parse_delta(per)
-            scale = new_delta / cur_delta
-        print(per, scale)
+        if np.issubdtype(self.X[0].dtype, np.datetime64):
+            if per is None:
+                per = _datetime64_unit_names[self.X[0].get_time_unit()]
+            else:
+                unit = _parse_delta(per)
+                X_scale = np.timedelta64(1,self.X[0].get_time_unit()) / unit
+                if not isinstance(per, str):
+                    per = '%s' % (unit,)
 
         if per is not None:
             ax.set_xlabel('Frequency [1/'+per+']')
         else:
             ax.set_xlabel('Frequency')
 
-        X = self.X[0].astype(np.float64)
+        X = self.X[0].astype(np.float)
         idx = np.argsort(X)
-        X = X[idx] * scale
+        X = X[idx] * X_scale
         Y = self.Y[idx]
+        if transformed:
+            Y = Y.get_transformed()
 
         nyquist = maxfreq
         if nyquist is None:
-            nyquist = self.get_nyquist_estimation()[0]
+            dist = np.abs(X[1:]-X[:-1])
+            nyquist = 0.5 / np.average(dist)
 
         X_freq = np.linspace(0.0, nyquist, 10001)[1:]
         Y_freq_err = []
@@ -1156,7 +1186,7 @@ class Data:
         ax.plot(X_freq, Y_freq, '-', color='xkcd:strawberry', lw=2.3)
         if len(Y_freq_err) != 0:
             ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
-        ax.set_title(self.name + ' Spectrum')
+        ax.set_title(self.name + ' Spectrum', fontsize=14)
 
         xmin = X_freq.min()
         xmax = X_freq.max()
@@ -1197,6 +1227,18 @@ def _check_function(f, input_dims):
     y = f(x)
     if len(y.shape) != 1 or y.shape[0] != 1:
         raise ValueError("function must return Y with shape (n), note that X has shape (n,input_dims)")
+
+_datetime64_unit_names = {
+    'Y': 'year',
+    'M': 'month',
+    'W': 'week',
+    'D': 'day',
+    'h': 'hour',
+    'm': 'minute',
+    's': 'second',
+    'ms': 'millisecond',
+    'us': 'microsecond',
+}
     
 duration_regex = re.compile(
     r'^((?P<years>[\.\d]+?)y)?'
@@ -1254,7 +1296,18 @@ def _parse_delta(text):
     if matches['seconds']:
         delta += np.timedelta64(np.int32(matches['seconds']), 's')
     if matches['milliseconds']:
-        delta += np.timedelta64(np.int32(matches['milliseconds']), 'us')
+        delta += np.timedelta64(np.int32(matches['milliseconds']), 'ms')
     if matches['microseconds']:
-        delta += np.timedelta64(np.int32(matches['microseconds']), 'ms')
+        delta += np.timedelta64(np.int32(matches['microseconds']), 'us')
     return delta
+
+def _datetime64_to_higher_unit(array):
+    if array.dtype in ['<M8[Y]', '<M8[M]', '<M8[W]', '<M8[D]']:
+        return array
+
+    units = ['D', 'h', 'm', 's']  # cannot convert days to non-linear months or years
+    for unit in units:
+        frac, _ = np.modf((array-np.datetime64('2000')) / np.timedelta64(1,unit))
+        if not np.any(frac):
+            return array.astype('datetime64[%s]' % (unit,))
+    return array
