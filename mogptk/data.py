@@ -1092,12 +1092,13 @@ class Data:
             C[i,:] = variances[:Q]
         return A, B, C
 
-    def plot(self, ax=None, plot_legend=False):
+    def plot(self, ax=None, legend=True):
         """
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
+            legend (boolean, optional): Enable or disable legend plotting.
 
         Returns:
             matplotlib.axes.Axes
@@ -1114,7 +1115,7 @@ class Data:
         X = self.X_offsets + (self.X/self.X_scales)
         X_pred = self.X_offsets + (self.X_pred/self.X_scales)
 
-        legend = []
+        legends = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
             if self.Y_mu_pred[name].size != 0:
@@ -1127,7 +1128,7 @@ class Data:
                 label = 'Prediction'
                 if 1 < len(self.Y_mu_pred):
                     label += ' ' + name
-                legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
+                legends.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
 
         if self.F != None:
             n = len(X[:,0])*10
@@ -1142,15 +1143,15 @@ class Data:
             y = self.F(x)
 
             ax.plot(x[:,0], y, 'r--', lw=1)
-            legend.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
+            legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
         ax.plot(X[:,0], self.Y, 'k--', alpha=0.8)
-        legend.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
+        legends.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
         if self.has_test_data():
             x, y = X[self.mask,:], self.Y[self.mask]
             ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
-            legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=10, label='Training Points'))
+            legends.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=10, label='Training Points'))
             for idx in np.where(~self.mask)[0]:
                 width_1 = (self.X[min(idx, len(X) - 1), 0] - self.X[max(idx - 1, 0), 0]) / 2
                 width_2 = (self.X[min(idx + 1, len(X) - 1), 0] - self.X[max(idx, 0), 0]) / 2
@@ -1164,7 +1165,7 @@ class Data:
                     alpha=0.25,
                     lw=0,
                     ))
-            legend.append(patches.Rectangle(
+            legends.append(patches.Rectangle(
                     (1, 1),
                     1,
                     1,
@@ -1185,8 +1186,8 @@ class Data:
         formatter = matplotlib.ticker.FuncFormatter(lambda x,pos: self.formatters[0].format(x))
         ax.xaxis.set_major_formatter(formatter)
 
-        if (len(legend) > 0) and plot_legend:
-            ax.legend(handles=legend, loc='upper center', ncol=len(legend), bbox_to_anchor=(0.5, 1.7))
+        if 0 < len(legends) and legend:
+            ax.legend(handles=legends, loc='upper center', ncol=len(legends), bbox_to_anchor=(0.5, 1.5))
         return ax
 
     def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None):
@@ -1214,7 +1215,7 @@ class Data:
         ax.set_title(self.name, fontsize=36)
 
         formatter = self.formatters[0]
-        scale = 1
+        scale = 1.0
         if per != None:
             scale = formatter.parse_delta(per)
             ax.set_xlabel('Frequency [1/'+per+']')
@@ -1229,7 +1230,7 @@ class Data:
         X = np.linspace(0.0, nyquist, 10001)[1:]
         Y_err = []
         if method == 'lombscargle':
-            Y = signal.lombscargle(X_space, self.Y, X)
+            Y = signal.lombscargle(X_space*2.0*np.pi, self.Y, X)
         elif method == 'bnse':
             bnse = bse(X_space, self.Y)
             bnse.set_freqspace(nyquist, 10001)
@@ -1306,25 +1307,40 @@ duration_regex = re.compile(
     r'((?P<minutes>[\.\d]+?)m)?'
     r'((?P<seconds>[\.\d]+?)s)?$')
 
-def _parse_duration_to_sec(s):
-    x = duration_regex.match(s)
-    if x == None:
+def _parse_duration_to_sec(text):
+    if text == 'year' or text == 'years':
+        return 356.2425*24*3600
+    elif text == 'month' or text == 'months':
+        return 30.4369*24*3600
+    elif text == 'week' or text == 'weeks':
+        return 7*24*3600
+    elif text == 'day' or text == 'days':
+        return 24*3600
+    elif text == 'hour' or text == 'hours':
+        return 3600
+    elif text == 'minute' or text == 'minutes':
+        return 60
+    elif text == 'second' or text == 'seconds':
+        return 1
+
+    m = duration_regex.match(text)
+    if m == None:
         raise ValueError('duration string must be of the form 2h45m, allowed characters: (y)ear, (M)onth, (w)eek, (d)ay, (h)our, (m)inute, (s)econd')
 
     sec = 0
-    matches = x.groups()[1::2]
-    if matches[0]:
-        sec += float(matches[0])*356.2425*24*3600
-    if matches[1]:
-        sec += float(matches[1])*30.4369*24*3600
-    if matches[2]:
-        sec += float(matches[2])*7*24*3600
-    if matches[3]:
-        sec += float(matches[3])*24*3600
-    if matches[4]:
-        sec += float(matches[4])*3600
-    if matches[5]:
-        sec += float(matches[5])*60
-    if matches[6]:
-        sec += float(matches[6])
+    matches = m.groupdict()
+    if matches['years']:
+        sec += float(matches['years'])*356.2425*24*3600
+    if matches['months']:
+        sec += float(matches['months'])*30.4369*24*3600
+    if matches['weeks']:
+        sec += float(matches['weeks'])*7*24*3600
+    if matches['days']:
+        sec += float(matches['days'])*24*3600
+    if matches['hours']:
+        sec += float(matches['hours'])*3600
+    if matches['minutes']:
+        sec += float(matches['minutes'])*60
+    if matches['seconds']:
+        sec += float(matches['seconds'])
     return sec

@@ -125,18 +125,34 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None, formats={}):
 
 class DataSet:
     """
-        DataSet is a class that holds multiple Data objects as channels.
+    DataSet is a class that holds multiple Data objects as channels.
 
-        Args:
-            *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Accepts multiple arguments,
-                each of which should be either a DataSet or Data object, a list of
-                Data objects or a dictionary of Data objects. Each Data object will be added to the
-                list of channels. In case of a dictionary, the key will set the name of the Data object.
-                If a DataSet is passed, its channels will be added.
+    Args:
+        *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Accepts multiple arguments,
+            each of which should be either a DataSet or Data object, a list of
+            Data objects or a dictionary of Data objects. Each Data object will be added to the
+            list of channels. In case of a dictionary, the key will set the name of the Data object.
+            If a DataSet is passed, its channels will be added.
 
-        Examples:
-            >>> dataset = mogptk.DataSet(channel_a, channel_b, channel_c)
-        """
+    Examples:
+        Three different ways to use DataSet:
+        >>> wind_velocity = mogptk.LoadDataFrame(df, x_col='Date', y_col='Wind Velocity', name='wind')
+        >>> tidal_height = mogptk.LoadDataFrame(df, x_col='Date', y_col='Tidal Height', name='tidal')
+        >>> dataset = mogptk.DataSet(wind_velocity, tidal_height)
+
+        >>> dataset = mogptk.DataSet(
+        >>>     mogptk.LoadDataFrame(df, x_col='Date', y_col='Wind Velocity', name='wind'),
+        >>>     mogptk.LoadDataFrame(df, x_col='Date', y_col='Tidal Height', name='tidal'),
+        >>> )
+
+        >>> dataset = mogptk.DataSet()
+        >>> dataset.append(mogptk.LoadDataFrame(df, x_col='Date', y_col='Wind Velocity', name='wind'))
+        >>> dataset.append(mogptk.LoadDataFrame(df, x_col='Date', y_col='Tidal Height', name='tidal'))
+
+        Accessing individual channels:
+        >>> dataset[0]       # first channel
+        >>> dataset['wind']  # wind velocity channel
+    """
     def __init__(self, *args):
         self.channels = []
         for arg in args:
@@ -152,6 +168,14 @@ class DataSet:
         if isinstance(key, str):
             return self.channels[self.get_names().index(key)]
         return self.channels[key]
+
+    def __setitem__(self, key, arg):
+        if isinstance(arg, Data):
+            self.channels[key] = arg
+        elif isinstance(arg, DataSet) and len(arg) == 1:
+            self.channels[key] = arg[0]
+        else:
+            raise Exception("must set a data type of Data or a DataSet with a single channel")
 
     def __str__(self):
         return self.__repr__()
@@ -575,12 +599,14 @@ class DataSet:
         """
         return copy.deepcopy(self)
 
-    def plot(self, title=None, figsize=None):
+    def plot(self, title=None, figsize=None, legend=True):
         """
         Plot each Data channel.
 
         Args:
             title (str, optional): Set the title of the plot.
+            figsize (tuple, optional): Set the figure size.
+            legend (boolean, optional): Enable or disable legend plotting.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -596,12 +622,56 @@ class DataSet:
         if title != None:
             fig.suptitle(title)
 
+        legends = []
         for channel in range(self.get_output_dims()):
-            if channel == 0:
-                self.channels[channel].plot(ax=axes[channel,0], plot_legend=True)    
-            else:
-                self.channels[channel].plot(ax=axes[channel,0])
+            ax = self.channels[channel].plot(ax=axes[channel,0], legend=True)
 
+            # add axes legends to figure legends
+            for item in ax.get_legend().legendHandles:
+                if item.get_label() not in [artist.get_label() for artist in legends]:
+                    legends.append(item)
+            ax.get_legend().remove()
+
+        if legend:
+            axes[0,0].legend(handles=legends, loc='upper center', ncol=len(legends), bbox_to_anchor=(0.5, 1.5))
+
+        return fig, axes
+
+    def plot_spectrum(self, method='lombscargle', per=None, maxfreq=None, title=None, figsize=None):
+        """
+        Plot each Data channel spectrum.
+
+        Args:
+            method (str, optional): Set the method to get the spectrum such as 'lombscargle'.
+            per (list, float, str): Set the scale of the X axis depending on the formatter used, eg. per=5 or per='3d' for three days.
+            maxfreq (list, float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            title (str, optional): Set the title of the plot.
+            figsize (tuple, optional): Set the figure size.
+
+        Returns:
+            matplotlib.figure.Figure: The figure.
+            list of matplotlib.axes.Axes: List of axes.
+
+        Examples:
+            >>> fig, axes = dataset.plot('Title')
+        """
+        if not isinstance(method, list):
+            method = [method] * len(self.channels)
+        if not isinstance(per, list):
+            per = [per] * len(self.channels)
+        if not isinstance(maxfreq, list):
+            maxfreq = [maxfreq] * len(self.channels)
+
+        if figsize is None:
+            figsize = (12, 2.5 * len(self))
+
+        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
+        if title != None:
+            fig.suptitle(title)
+
+        legends = []
+        for channel in range(self.get_output_dims()):
+            ax = self.channels[channel].plot_spectrum(method=method[channel], ax=axes[channel,0], per=per[channel], maxfreq=maxfreq[channel])
 
         return fig, axes
 
