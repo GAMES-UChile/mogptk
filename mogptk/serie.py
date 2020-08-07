@@ -11,7 +11,7 @@ class TransformBase:
         raise NotImplementedError
 
 class Serie(np.ndarray):
-    def __new__(cls, array, transformers=[], x=None):
+    def __new__(cls, array, transformers=[], x=None, transformed=None):
         array = np.asarray(array)
         if array.ndim != 1 or array.shape[0] == 0:
             raise ValueError('Serie must have one dimension and a length greater than zero')
@@ -19,9 +19,13 @@ class Serie(np.ndarray):
             raise ValueError('Serie must have a number of datetime64 data type')
 
         obj = np.asarray(array).view(cls)
-        obj.transformed = array.astype(np.float64) # may through exception for bad dtypes
-        obj.transformers = []
-        obj.apply(transformers, x)
+        if transformed is None:
+            obj.transformed = array.astype(np.float64) # may through exception for bad dtypes
+            obj.transformers = []
+            obj.apply(transformers, x)
+        else:
+            obj.transformed = transformed
+            obj.transformers = obj.transformers
         
         obj.flags['WRITEABLE'] = False
         obj.transformed.flags['WRITEABLE'] = False

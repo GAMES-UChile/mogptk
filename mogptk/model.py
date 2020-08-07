@@ -555,88 +555,88 @@ class model:
         self.dataset._from_kernel_prediction(self.name, mu, var)
         
         if plot:
-            self.plot_prediction()
+            self.dataset.plot()
 
         _, mu, lower, upper = self.dataset.get_prediction(self.name)
         return mu, lower, upper
 
-    def plot_prediction(self, grid=None, figsize=None, ylims=None, names=None, title=''):
+    #def plot_prediction(self, grid=None, figsize=None, ylims=None, names=None, title=''):
 
-        """
-        Plot training points, all data and prediction for training range for all channels.
+    #    """
+    #    Plot training points, all data and prediction for training range for all channels.
 
-        Args:
-            grid (tuple) : Tuple with the 2 dimensions of the grid.
-            figsize(tuple): Figure size, default to (12, 8).
-            ylims(list): List of tuples with limits for Y axis for
-                each channel.
-            Names(list): List of the names of each title.
-            title(str): Title of the plot.
-        """
+    #    Args:
+    #        grid (tuple) : Tuple with the 2 dimensions of the grid.
+    #        figsize(tuple): Figure size, default to (12, 8).
+    #        ylims(list): List of tuples with limits for Y axis for
+    #            each channel.
+    #        Names(list): List of the names of each title.
+    #        title(str): Title of the plot.
+    #    """
 
-        #TODO: Add case for single output SM kernel.
+    #    #TODO: Add case for single output SM kernel.
 
-        # get data
-        x_train, y_train = self.dataset.get_train_data()
-        x_all, y_all = self.dataset.get_data()
-        x_pred, mu, lower, upper = self.dataset.get_prediction(self.name)
+    #    # get data
+    #    x_train, y_train = self.dataset.get_train_data()
+    #    x_all, y_all = self.dataset.get_data()
+    #    x_pred, mu, lower, upper = self.dataset.get_prediction(self.name)
 
-        n_dim = self.dataset.get_output_dims()
-        if n_dim == 1:
-            grid = (1, 1)
-        elif grid is None:
-            grid = (int(np.ceil(n_dim/2)), 2)
+    #    n_dim = self.dataset.get_output_dims()
+    #    if n_dim == 1:
+    #        grid = (1, 1)
+    #    elif grid is None:
+    #        grid = (int(np.ceil(n_dim/2)), 2)
 
-        if (grid[0] * grid[1]) < n_dim:
-            raise Exception('grid not big enough for all channels')
+    #    if (grid[0] * grid[1]) < n_dim:
+    #        raise Exception('grid not big enough for all channels')
 
-        if figsize is None:
-            figsize = (12, 2.6 * grid[0])
+    #    if figsize is None:
+    #        figsize = (12, 2.6 * grid[0])
 
-        fig, axes = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
-        axes = np.array(axes).reshape(-1)
+    #    fig, axes = plt.subplots(grid[0], grid[1], sharex=False, figsize=figsize)
+    #    axes = np.array(axes).reshape(-1)
 
-        colors = list(matplotlib.colors.TABLEAU_COLORS)
-        for i in range(n_dim):
-            idx = np.argsort(x_pred[i][:,0])
-            axes[i].fill_between(x_pred[i][idx,0].reshape(-1),
-                lower[i][idx],
-                upper[i][idx],
-                label='95% c.i',
-                color=colors[i%len(colors)],
-                alpha=0.4,
-                zorder=1)
-            axes[i].plot(x_pred[i][idx,0], mu[i][idx], label='Post.Mean', c=colors[i%len(colors)], zorder=4, lw=1.8)
+    #    colors = list(matplotlib.colors.TABLEAU_COLORS)
+    #    for i in range(n_dim):
+    #        idx = np.argsort(x_pred[i][:,0])
+    #        axes[i].fill_between(x_pred[i][idx,0].reshape(-1),
+    #            lower[i][idx],
+    #            upper[i][idx],
+    #            label='95% c.i',
+    #            color=colors[i%len(colors)],
+    #            alpha=0.4,
+    #            zorder=1)
+    #        axes[i].plot(x_pred[i][idx,0], mu[i][idx], label='Post.Mean', c=colors[i%len(colors)], zorder=4, lw=1.8)
 
-            idx = np.argsort(x_all[i][:,0])
-            axes[i].plot(x_all[i][idx,0], y_all[i][idx], '--k', label='Test', lw=1, alpha=0.8, zorder=2)
-            axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=11, mew=0.8, markeredgecolor='white', zorder=3)
+    #        idx = np.argsort(x_all[i][:,0])
+    #        axes[i].plot(x_all[i][idx,0], y_all[i][idx], '--k', label='Test', lw=1, alpha=0.8, zorder=2)
+    #        axes[i].plot(x_train[i][:,0], y_train[i], '.k', label='Train', ms=11, mew=0.8, markeredgecolor='white', zorder=3)
 
-            axes[i].xaxis.set_major_locator(plt.MaxNLocator(5))
+    #        axes[i].xaxis.set_major_locator(plt.MaxNLocator(5))
 
-            xmin = min(x_all[i].min(), x_pred[i].min())
-            xmax = max(x_all[i].max(), x_pred[i].max())
-            axes[i].set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
+    #        xmin = min(x_all[i].min(), x_pred[i].min())
+    #        xmax = max(x_all[i].max(), x_pred[i].max())
+    #        axes[i].set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
 
-            # set channels name
-            if names is not None:
-                axes[i].set_title(names[i])
-            else:
-                channel_name = self.dataset.get_names()[i]
-                if channel_name != '':
-                    axes[i].set_title(channel_name)
-                elif n_dim == 1:
-                    pass
-                else:
-                    axes[i].set_title('Channel ' + str(i))
+    #        # set channels name
+    #        if names is not None:
+    #            axes[i].set_title(names[i])
+    #        else:
+    #            channel_name = self.dataset.get_names()[i]
+    #            if channel_name != '':
+    #                axes[i].set_title(channel_name)
+    #            elif n_dim == 1:
+    #                pass
+    #            else:
+    #                axes[i].set_title('Channel ' + str(i))
 
-            # set y lims
-            if ylims is not None:
-                axes[i].set_ylim(ylims[i]) 
-            
-        plt.suptitle(title, y=1.02, fontsize=20)
-        plt.tight_layout()
-        return fig, axes
+    #        # set y lims
+    #        if ylims is not None:
+    #            axes[i].set_ylim(ylims[i]) 
+    #        
+    #    plt.suptitle(title, y=1.02, fontsize=20)
+    #    plt.tight_layout()
+    #    return fig, axes
 
     def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title='', retmatrix=False):
         """

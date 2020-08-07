@@ -445,28 +445,28 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def transform_x(self, transformer):
-        """
-        Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
+    #def transform_x(self, transformer):
+    #    """
+    #    Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
 
-        Args:
-            transformer (obj): Transformer object derived from TransformBase.
+    #    Args:
+    #        transformer (obj): Transformer object derived from TransformBase.
 
-        Examples:
-            >>> dataset.transform_x(mogptk.TransformLinear(slope=1, bias=2))
-        """
-        for channel in self.channels:
-            channel.transform_x(transformer)
-    
-    def rescale_x(self):
-        """
-        Rescale the X axis so that it is between 0 and 1000 internally. This can help when the range of your x-axis is much smaller or bigger than a 1000, which affects effectiveness of training.
+    #    Examples:
+    #        >>> dataset.transform_x(mogptk.TransformLinear(slope=1, bias=2))
+    #    """
+    #    for channel in self.channels:
+    #        channel.transform_x(transformer)
+    #
+    #def rescale_x(self):
+    #    """
+    #    Rescale the X axis so that it is between 0 and 1000 internally. This can help when the range of your x-axis is much smaller or bigger than a 1000, which affects effectiveness of training.
 
-        Examples:
-            >>> dataset.rescale_x()
-        """
-        for channel in self.channels:
-            channel.rescale_x()
+    #    Examples:
+    #        >>> dataset.rescale_x()
+    #    """
+    #    for channel in self.channels:
+    #        channel.rescale_x()
 
     def transform(self, transformer):
         """
@@ -592,18 +592,11 @@ class DataSet:
         if title is not None:
             fig.suptitle(title, fontsize=18)
 
-        legends = []
         for channel in range(self.get_output_dims()):
             ax = self.channels[channel].plot(ax=axes[channel,0], legend=True, transformed=transformed)
 
-            # add axes legends to figure legends
-            for item in ax.get_legend().legendHandles:
-                if item.get_label() not in [artist.get_label() for artist in legends]:
-                    legends.append(item)
-            ax.get_legend().remove()
-
-        if legend:
-            axes[0,0].legend(handles=legends, loc='upper center', ncol=len(legends), bbox_to_anchor=(0.5, 1.5))
+        #if legend:
+        #    axes[0,0].legend(legends.values(), legends.keys(), loc='right', ncol=len(legends))
 
         return fig, axes
 

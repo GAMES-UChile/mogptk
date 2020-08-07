@@ -35,17 +35,12 @@ class TransformDetrend(TransformBase):
             raise Exception("can only remove ranges on one dimensional input data")
 
         self.coef = np.polyfit(data.X[0].transformed[data.mask], data.Y.transformed[data.mask], self.degree)
-        # reg = Ridge(alpha=0.1, fit_intercept=True)
-        # reg.fit(data.X, data.Y)
-        # self.trend = reg
 
     def forward(self, y, x=None):
         return y - np.polyval(self.coef, x[:, 0])
-        # return y - self.trend.predict(x)
     
     def backward(self, y, x=None):
         return y + np.polyval(self.coef, x[:, 0])
-        # return y + self.trend.predict(x)
 
 class TransformLinear(TransformBase):
     """
@@ -317,6 +312,15 @@ class Data:
         if isinstance(y_label, str):
             self.Y_label = y_label
 
+        # rescale X axis to fit in 0 -- 1000
+        for i in range(input_dims):
+            X = self.X[i].get_transformed()
+            xmin = np.min(X)
+            xmax = np.max(X)
+            t = TransformLinear(xmin, (xmax-xmin)/1000.0)
+            t.set_data(X)
+            self.X[i].apply(t)
+
     def __str__(self):
         return self.__repr__()
 
@@ -389,39 +393,39 @@ class Data:
         _check_function(f, self.get_input_dims())
         self.F = f
 
-    def transform_x(self, transformer):
-        """
-        Transform the X axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
+    #def transform_x(self, transformer):
+    #    """
+    #    Transform the X axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
 
-        Args:
-            transformer (obj, list of obj): Transformer objects derived from TransformBase for each input dimension. A single object is applied to all input dimensions.
+    #    Args:
+    #        transformer (obj, list of obj): Transformer objects derived from TransformBase for each input dimension. A single object is applied to all input dimensions.
 
-        Examples:
-            >>> data.transform_x(mogptk.TransformLinear(5.0, 20.0))
-        """
+    #    Examples:
+    #        >>> data.transform_x(mogptk.TransformLinear(5.0, 20.0))
+    #    """
 
-        if not isinstance(transformer, list):
-            transformer = [transformer] * self.get_input_dims()
-        elif len(transformer) != self.get_input_dims():
-            raise ValueError('transformer must be a list of transformers for each input dimension')
+    #    if not isinstance(transformer, list):
+    #        transformer = [transformer] * self.get_input_dims()
+    #    elif len(transformer) != self.get_input_dims():
+    #        raise ValueError('transformer must be a list of transformers for each input dimension')
 
-        for i, t in enumerate(transformer):
-            if isinstance(t, type):
-                t = t()
-            t.set_data(self)
-            self.X[i].apply(t)
-    
-    def rescale_x(self):
-        """
-        Rescale the X axis so that it is between 0 and 1000 internally. This can help when the range of your x-axis is much smaller or bigger than a 1000, which affects effectiveness of training.
+    #    for i, t in enumerate(transformer):
+    #        if isinstance(t, type):
+    #            t = t()
+    #        t.set_data(self)
+    #        self.X[i].apply(t)
+    #
+    #def rescale_x(self):
+    #    """
+    #    Rescale the X axis so that it is between 0 and 1000 internally. This can help when the range of your x-axis is much smaller or bigger than a 1000, which affects effectiveness of training.
 
-        Examples:
-            >>> data.rescale_x()
-        """
-        xmin = [np.min(self.X[i].get_transformed()) for i in range(self.get_input_dims())]
-        xmax = [np.max(self.X[i].get_transformed()) for i in range(self.get_input_dims())]
-        transforms = [TransformLinear(xmin[i], (xmax[i]-xmin[i])/1000.0) for i in range(self.get_input_dims())]
-        self.transform_x(transforms)
+    #    Examples:
+    #        >>> data.rescale_x()
+    #    """
+    #    xmin = [np.min(self.X[i].get_transformed()) for i in range(self.get_input_dims())]
+    #    xmax = [np.max(self.X[i].get_transformed()) for i in range(self.get_input_dims())]
+    #    transforms = [TransformLinear(xmin[i], (xmax[i]-xmin[i])/1000.0) for i in range(self.get_input_dims())]
+    #    self.transform_x(transforms)
 
     def transform(self, transformer):
         """
@@ -722,7 +726,7 @@ class Data:
 
         Args:
             name (str): Name of the prediction, equals the name of the model that made the prediction.
-            sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2,
+            sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2.
 
         Returns:
             numpy.ndarray: X prediction of shape (n,input_dims).
@@ -741,9 +745,9 @@ class Data:
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
         X_pred = np.array([x.transformed for x in self.X_pred]).T
-        mu = self.Y.detransform(mu, X_pred)
-        lower = self.Y.detransform(lower, X_pred)
-        upper = self.Y.detransform(upper, X_pred)
+        mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
+        lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
+        upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
         return np.array([x for x in self.X_pred]).T, mu, lower, upper
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
@@ -1039,21 +1043,17 @@ class Data:
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
             if self.Y_mu_pred[name].size != 0:
+                X_pred, mu, lower, upper = self.get_prediction(name)
                 if transformed:
-                    mu = self.Y_mu_pred[name].get_transformed()
-                    var = self.Y_var_pred[name].get_transformed()
-                else:
-                    mu = self.Y_mu_pred[name]
-                    var = self.Y_var_pred[name]
+                    mu = mu.get_transformed()
+                    lower = lower.get_transformed()
+                    upper = upper.get_transformed()
 
-                lower = mu - var
-                upper = mu + var
-
-                idx = np.argsort(self.X_pred[0])
-                ax.plot(self.X_pred[0][idx], mu[idx], ls='-', color=colors[i], lw=2)
-                ax.fill_between(self.X_pred[0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
-                ax.plot(self.X_pred[0][idx], lower[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
-                ax.plot(self.X_pred[0][idx], upper[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
+                idx = np.argsort(X_pred[:,0])
+                ax.plot(X_pred[:,0][idx], mu[idx], ls='-', color=colors[i], lw=2)
+                ax.fill_between(X_pred[:,0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
+                ax.plot(X_pred[:,0][idx], lower[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
+                ax.plot(X_pred[:,0][idx], upper[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
 
                 label = 'Prediction ' + name
                 legends.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
@@ -1077,14 +1077,16 @@ class Data:
 
         Y = self.Y
         if transformed:
-            Y = Y.get_transformed()
+            Y = self.Y.get_transformed()
         idx = np.argsort(self.X[0])
         ax.plot(self.X[0][idx], Y[idx], 'k--', alpha=0.8)
         legends.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
         x, y = self.get_train_data()
+        if transformed:
+            y = y.get_transformed()
         ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
-        legends.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=1, ms=13, label='Training Points'))
+        legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
 
         if self.has_test_data():
             for removed_range in self.removed_ranges[0]:
@@ -1108,7 +1110,7 @@ class Data:
         ax.set_title(self.name, fontsize=14)
 
         if 0 < len(legends) and legend:
-            ax.legend(handles=legends, loc='upper center', ncol=len(legends), bbox_to_anchor=(0.5, 1.5))
+            ax.legend(handles=legends, loc='upper center', ncol=len(legends))
         return ax
 
     def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None, transformed=False):
@@ -1153,13 +1155,15 @@ class Data:
             ax.set_xlabel('Frequency [1/'+per+']')
         else:
             ax.set_xlabel('Frequency')
-
+        
         X = self.X[0].astype(np.float)
+        Y = self.Y
+        if transformed:
+            Y = self.Y.get_transformed()
+
         idx = np.argsort(X)
         X = X[idx] * X_scale
-        Y = self.Y[idx]
-        if transformed:
-            Y = Y.get_transformed()
+        Y = Y[idx]
 
         nyquist = maxfreq
         if nyquist is None:

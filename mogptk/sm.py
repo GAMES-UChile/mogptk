@@ -36,6 +36,7 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
             'scale': np.empty((input_dims, output_dims)),
         })
 
+    sm = None
     for channel in range(output_dims):
         for i in range(input_dims):  # TODO one SM per channel
             sm = SM(dataset[channel], Q)
