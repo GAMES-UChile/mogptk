@@ -15,6 +15,7 @@
 import tensorflow as tf
 import numpy as np
 import gpflow
+from ..utils import dist
 
 # TODO: means are spatial freqs, optimize by using angular freq
 # TODO: split out the Q part and use kernel + kernel + ... Q times?
@@ -47,15 +48,17 @@ class SpectralMixture(gpflow.kernels.Kernel):
         if X2 is None:
             X2 = X1
 
-        X1 = tf.expand_dims(X1[:, 1], -1)
-        X2 = tf.expand_dims(X2[:, 1], -1)
+        # X1 = tf.expand_dims(X1[:, 1:], -1)
+        # X2 = tf.expand_dims(X2[:, 1:], -1)
+        X1 = X1[:, 1:]
+        X2 = X2[:, 1:]
 
         # get absolute distances
-        X1 = tf.transpose(tf.expand_dims(X1, -1), perm=[1, 0, 2])  # D x N1 x 1
-        X2 = tf.expand_dims(tf.transpose(X2, perm=[1, 0]), -2)  # D x 1 x N2
+        # X1 = tf.transpose(tf.expand_dims(X1, -1), perm=[1, 0, 2])  # D x N1 x 1
+        # X2 = tf.expand_dims(tf.transpose(X2, perm=[1, 0]), -2)  # D x 1 x N2
 
-        r = tf.abs(tf.subtract(X1, X2)) # D x N1 x N2
-
+        # r = tf.abs(tf.subtract(X1, X2)) # D x N1 x N2
+        r = dist(X1, X2) # D x N1 x N2
 
         cos_term = tf.multiply(tf.tensordot(self.mixture_means, r, axes=((1),(0))), 2. * np.pi)
         # num_mixtures x N1 x N2
@@ -69,12 +72,13 @@ class SpectralMixture(gpflow.kernels.Kernel):
                                                             # num_mixtures x N1 x N2
 
         weights = tf.expand_dims(tf.expand_dims(self.mixture_weights,-1),-1)
-        weights = tf.tile(weights,(1,tf.shape(X1)[1],tf.shape(X2)[2]))
+        weights = tf.tile(weights, (1, tf.shape(X1)[0], tf.shape(X2)[0]))
+        
         return tf.reduce_sum(tf.multiply(weights,tf.multiply(tf.exp(exp_term),tf.cos(cos_term))),0)
 
 
     def K_diag(self, X, presliced=False):
-        X = tf.expand_dims(X[:, 1], -1)
+        X = tf.expand_dims(X[:, 1:], -1)
 
         # just the sum of weights. Weights represent the signal
         # variance.

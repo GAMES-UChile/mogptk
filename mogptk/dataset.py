@@ -251,7 +251,8 @@ class DataSet:
 
     def get_test_data(self):
         """
-        Returns the observations used for testing.
+        Returns the observations used for testing which correspond to the 
+        removed points.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
