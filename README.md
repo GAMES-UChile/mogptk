@@ -24,6 +24,18 @@ Next we will install this toolkit and automatically install the necessary depend
 pip install mogptk
 ```
 
+In order to upgrade to a new version of MOGPTK or any of its dependencies, use `--upgrade` as follows:
+
+```
+pip install --upgrade mogptk
+```
+
+For developers of the library or for users who need the latest changes, we recommend cloning the git `develop` branch and to use the following command inside the repository folder:
+
+```
+pip install --upgrade -e .
+```
+
 See [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials) to get started.
 
 ## Introduction

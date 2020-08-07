@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/csm.py#L0-L37" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/kernels/csm.py#L0-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import gpflow
@@ -42,17 +42,16 @@ class CrossSpectralMixture(MultiKernel):
         - Rq (int): The number of subcomponents.
         - active_dims (list of int): Apply kernel to specified dimensions only.
         &#34;&#34;&#34;
-
         constant = np.random.random((Rq, output_dim))
         mean = np.random.random(input_dim)
         variance = np.random.random(input_dim)
-        phase = np.ones((Rq, output_dim)) * gpflow.config.default_positive_minimum()
+        phase = np.zeros((Rq, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=name)
         self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name=&#34;constant&#34;)
         self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name=&#34;mean&#34;)
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name=&#34;variance&#34;)
-        self.phase = gpflow.Parameter(phase, transform=gpflow.utilities.positive(), name=&#34;phase&#34;)
+        self.phase = gpflow.Parameter(phase, name=&#34;phase&#34;)
 
     def subK(self, index, X, X2):
         i, j = index
@@ -99,7 +98,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/csm.py#L8-L38" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/kernels/csm.py#L8-L37" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CrossSpectralMixture(MultiKernel):
     def __init__(self, input_dim, output_dim, Rq, active_dims=None, name=&#39;csm&#39;):
@@ -109,17 +108,16 @@ matrix appropriately.</p>
         - Rq (int): The number of subcomponents.
         - active_dims (list of int): Apply kernel to specified dimensions only.
         &#34;&#34;&#34;
-
         constant = np.random.random((Rq, output_dim))
         mean = np.random.random(input_dim)
         variance = np.random.random(input_dim)
-        phase = np.ones((Rq, output_dim)) * gpflow.config.default_positive_minimum()
+        phase = np.zeros((Rq, output_dim))
 
         MultiKernel.__init__(self, input_dim, output_dim, active_dims, name=name)
         self.constant = gpflow.Parameter(constant, transform=gpflow.utilities.positive(), name=&#34;constant&#34;)
         self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name=&#34;mean&#34;)
         self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name=&#34;variance&#34;)
-        self.phase = gpflow.Parameter(phase, transform=gpflow.utilities.positive(), name=&#34;phase&#34;)
+        self.phase = gpflow.Parameter(phase, name=&#34;phase&#34;)
 
     def subK(self, index, X, X2):
         i, j = index
@@ -152,7 +150,7 @@ matrix appropriately.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/313a3e679e338bbea6fdf803444452e1167065b4/mogptk/kernels/csm.py#L28-L38" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/kernels/csm.py#L27-L37" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def subK(self, index, X, X2):
     i, j = index

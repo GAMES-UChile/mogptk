@@ -49,9 +49,9 @@ class TransformDetrend(TransformBase):
 
 class TransformLinear(TransformBase):
     """
-    TransformLinear transforms the data linearly so that y => (y-offset)/scale.
+    TransformLinear transforms the data linearly so that y => (y-bias)/slope.
     """
-    def __init__(self, scale=1.0, offset=0.0):
+    def __init__(self, slope=1.0, bias=0.0):
         self.scale = scale
         self.offset = offset
 
@@ -254,6 +254,9 @@ class Data:
             Y = np.array(Y)
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
             raise ValueError("X and Y must be lists or numpy arrays, if dicts are passed then x_labels and/or y_label must also be set")
+        
+        if not np.issubdtype(Y.dtype, np.number):
+            raise ValueError("Y data must be numbers")
 
         # convert meshgrids to flat arrays
         if 2 < X.ndim and 1 < Y.ndim and X.shape[1:] == Y.shape:
@@ -395,13 +398,17 @@ class Data:
 
     def transform(self, transformer):
         """
-        Transform the data by using one of the provided transformers, such as TransformDetrend, TransformNormalize, TransformLog, ...
+        Transform the data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
 
         Args:
             transformer (obj): Transformer object derived from TransformBase.
 
         Examples:
-            >>> data.transform(mogptk.TransformDetrend)
+            >>> data.transform(mogptk.TransformDetrend(degree=2))        # remove polynomial trend
+            >>> data.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
+            >>> data.transform(mogptk.TransformLog)                      # log transform the data
+            >>> data.transform(mogptk.TransformNormalize)                # transform to [-1,1]
+            >>> data.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
         """
 
         t = transformer
@@ -928,7 +935,6 @@ class Data:
 
         return A, B, C
 
-
     def gmm_estimation(self, Q=1, n=50000):
         """
         Parameter estimation using a GMM on a PSD estimate
@@ -978,12 +984,13 @@ class Data:
             
         return variances, means, amplitudes
 
-    def plot(self, ax=None, plot_legend=False):
+    def plot(self, ax=None, legend=True):
         """
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
+            legend (boolean, optional): Enable or disable legend plotting.
 
         Returns:
             matplotlib.axes.Axes
@@ -997,7 +1004,7 @@ class Data:
         if ax is None:
             ax = plt.gca()
 
-        legend = []
+        legends = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
             if self.Y_mu_pred[name].size != 0:
@@ -1009,10 +1016,11 @@ class Data:
                 ax.fill_between(self.X_pred[0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
                 ax.plot(self.X_pred[0][idx], lower[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
                 ax.plot(self.X_pred[0][idx], upper[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
+
                 label = 'Prediction'
                 if 1 < len(self.Y_mu_pred):
                     label += ' ' + name
-                legend.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
+                legends.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
 
         if self.F is not None:
             n = len(self.X[0])*10
@@ -1027,15 +1035,15 @@ class Data:
             y = self.F(x)
 
             ax.plot(x[:,0], y, 'r--', lw=1)
-            legend.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
+            legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
         idx = np.argsort(self.X[0])
         ax.plot(self.X[0][idx], self.Y[idx], 'k--', alpha=0.8)
-        legend.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
+        legends.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
         x, y = self.get_train_data()
         ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
-        legend.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=2, ms=10, label='Training Points'))
+        legends.append(plt.Line2D([0], [0], ls='', marker='.', color='k', mew=1, ms=13, label='Training Points'))
 
         if self.has_test_data():
             for removed_range in self.removed_ranges[0]:
@@ -1046,7 +1054,7 @@ class Data:
                 ax.add_patch(patches.Rectangle(
                     (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.25, lw=0,
                 ))
-            legend.append(patches.Rectangle(
+            legends.append(patches.Rectangle(
                 (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
             ))
 
@@ -1058,18 +1066,18 @@ class Data:
         ax.set_ylabel(self.Y_label)
         ax.set_title(self.name)
 
-        if (len(legend) > 0) and plot_legend:
-            ax.legend(handles=legend, loc='upper center', ncol=len(legend), bbox_to_anchor=(0.5, 1.7))
+        if 0 < len(legends) and legend:
+            ax.legend(handles=legends, loc='upper center', ncol=len(legends), bbox_to_anchor=(0.5, 1.5))
         return ax
 
-    def plot_spectrum(self, method='lombscargle', ax=None, unit=None, maxfreq=None):
+    def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None):
         """
         Plot the spectrum of the data.
 
         Args:
             method (str, optional): Set the method to get the spectrum such as 'lombscargle'.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            unit (str): Set the unit of the X axis.
+            per (str): Set the unit of the X axis.
             maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
 
         Returns:
@@ -1086,51 +1094,55 @@ class Data:
         
         ax.set_title(self.name, fontsize=36)
 
+        X_scale = 1.0
         is_datetime = np.issubdtype(self.X[0].dtype, np.datetime64)
-        if unit is None and is_datetime:
-            unit = _extract_time_unit(self.X[0])
-            if unit == 'Y':
-                unit = '1/year'
-            elif unit == 'M':
-                unit = '1/month'
-            elif unit == 'W':
-                unit = '1/week'
-            elif unit == 'D':
-                unit = '1/day'
-            elif unit == 'h':
-                unit = '1/hour'
-            elif unit == 'm':
-                unit = '1/minute'
-            elif unit == 's':
-                unit = '1/second'
-            elif unit == 'ms':
-                unit = '1/millisecond'
-            elif unit == 'us':
-                unit = '1/microsecond'
+        if per is None and is_datetime:
+            per = self.X[0].get_time_unit()
+            if per == 'Y':
+                per = 'year'
+            elif per == 'M':
+                per = 'month'
+            elif per == 'W':
+                per = 'week'
+            elif per == 'D':
+                per = 'day'
+            elif per == 'h':
+                per = 'hour'
+            elif per == 'm':
+                per = 'minute'
+            elif per == 's':
+                per = 'second'
+            elif per == 'ms':
+                per = 'millisecond'
+            elif per == 'us':
+                per = 'microsecond'
+        elif is_datetime:
+            cur_delta = _parse_delta('1' + self.X[0].get_time_unit())
+            new_delta = _parse_delta(per)
+            scale = new_delta / cur_delta
+        print(per, scale)
 
-        if unit is not None:
-            ax.set_xlabel('Frequency ('+unit+')')
+        if per is not None:
+            ax.set_xlabel('Frequency [1/'+per+']')
         else:
             ax.set_xlabel('Frequency')
 
         X = self.X[0].astype(np.float64)
         idx = np.argsort(X)
-        X = X[idx]
+        X = X[idx] * scale
         Y = self.Y[idx]
 
-        freq = maxfreq
-        if freq is None:
-            dist = np.abs(X[1:]-X[:-1])
-            freq = np.pi/np.average(dist)
+        nyquist = maxfreq
+        if nyquist is None:
+            nyquist = self.get_nyquist_estimation()[0]
 
-        X_freq = np.linspace(0.0, freq, 10001)[1:]
+        X_freq = np.linspace(0.0, nyquist, 10001)[1:]
         Y_freq_err = []
         if method == 'lombscargle':
-            Y_freq = signal.lombscargle(X, Y, X_freq)
+            Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq)
         elif method == 'bnse':
-            nyquist = self.get_nyquist_estimation()
             bnse = bse(X, Y)
-            bnse.set_freqspace(freq/2.0/np.pi, 10001)
+            bnse.set_freqspace(nyquist, 10001)
             bnse.train()
             bnse.compute_moments()
 
@@ -1185,49 +1197,64 @@ def _check_function(f, input_dims):
     y = f(x)
     if len(y.shape) != 1 or y.shape[0] != 1:
         raise ValueError("function must return Y with shape (n), note that X has shape (n,input_dims)")
-
-def _extract_time_unit(v):
-    v = str(v.dtype)
-    return v[v.find('[')+1:-1]
     
 duration_regex = re.compile(
-    r'^(([\.\d]+?)Y)?'
-    r'(([\.\d]+?)M)?'
-    r'(([\.\d]+?)W)?'
-    r'(([\.\d]+?)D)?'
-    r'(([\.\d]+?)h)?'
-    r'(([\.\d]+?)m)?'
-    r'(([\.\d]+?)s)?'
-    r'(([\.\d]+?)ms)?'
-    r'(([\.\d]+?)us)?$'
+    r'^((?P<years>[\.\d]+?)y)?'
+    r'((?P<months>[\.\d]+?)M)?'
+    r'((?P<weeks>[\.\d]+?)W)?'
+    r'((?P<days>[\.\d]+?)D)?'
+    r'((?P<hours>[\.\d]+?)h)?'
+    r'((?P<minutes>[\.\d]+?)m)?'
+    r'((?P<seconds>[\.\d]+?)s)?$'
+    r'((?P<milliseconds>[\.\d]+?)ms)?$'
+    r'((?P<microseconds>[\.\d]+?)us)?$'
 )
 
-def _parse_delta(s):
-    if not isinstance(s, str):
-        return s
+def _parse_delta(text):
+    if not isinstance(text, str):
+        return text
 
-    x = duration_regex.match(s)
-    if x is None:
+    if text == 'year' or text == 'years':
+        return np.timedelta64(1, 'Y')
+    elif text == 'month' or text == 'months':
+        return np.timedelta64(1, 'M')
+    elif text == 'week' or text == 'weeks':
+        return np.timedelta64(1, 'W')
+    elif text == 'day' or text == 'days':
+        return np.timedelta64(1, 'D')
+    elif text == 'hour' or text == 'hours':
+        return np.timedelta64(1, 'h')
+    elif text == 'minute' or text == 'minutes':
+        return np.timedelta64(1, 'm')
+    elif text == 'second' or text == 'seconds':
+        return np.timedelta64(1, 's')
+    elif text == 'millisecond' or text == 'milliseconds':
+        return np.timedelta64(1, 'ms')
+    elif text == 'microsecond' or text == 'microseconds':
+        return np.timedelta64(1, 'us')
+
+    m = duration_regex.match(text)
+    if m is None:
         raise ValueError('duration string must be of the form 2h45m, allowed characters: (Y)ear, (M)onth, (W)eek, (D)ay, (h)our, (m)inute, (s)econd, (ms) for milliseconds, (us) for microseconds')
 
     delta = 0
-    matches = x.groups()[1::2]
-    if matches[0]:
-        delta += np.timedelta64(np.int32(matches[0]), 'Y')
-    if matches[1]:
-        delta += np.timedelta64(np.int32(matches[1]), 'M')
-    if matches[2]:
-        delta += np.timedelta64(np.int32(matches[2]), 'W')
-    if matches[3]:
-        delta += np.timedelta64(np.int32(matches[3]), 'D')
-    if matches[4]:
-        delta += np.timedelta64(np.int32(matches[4]), 'h')
-    if matches[5]:
-        delta += np.timedelta64(np.int32(matches[5]), 'm')
-    if matches[6]:
-        delta += np.timedelta64(np.int32(matches[6]), 's')
-    if matches[7]:
-        delta += np.timedelta64(np.int32(matches[7]), 'us')
-    if matches[8]:
-        delta += np.timedelta64(np.int32(matches[8]), 'ms')
+    matches = m.groupdict()
+    if matches['years']:
+        delta += np.timedelta64(np.int32(matches['years']), 'Y')
+    if matches['months']:
+        delta += np.timedelta64(np.int32(matches['months']), 'M')
+    if matches['weeks']:
+        delta += np.timedelta64(np.int32(matches['weeks']), 'W')
+    if matches['days']:
+        delta += np.timedelta64(np.int32(matches['days']), 'D')
+    if matches['hours']:
+        delta += np.timedelta64(np.int32(matches['hours']), 'h')
+    if matches['minutes']:
+        delta += np.timedelta64(np.int32(matches['minutes']), 'm')
+    if matches['seconds']:
+        delta += np.timedelta64(np.int32(matches['seconds']), 's')
+    if matches['milliseconds']:
+        delta += np.timedelta64(np.int32(matches['milliseconds']), 'us')
+    if matches['microseconds']:
+        delta += np.timedelta64(np.int32(matches['microseconds']), 'ms')
     return delta

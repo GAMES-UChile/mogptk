@@ -56,6 +56,12 @@ class Serie(np.ndarray):
             self.transformed = np.array(t.forward(self.transformed, x))
             self.transformers.append(t)
 
+    def get_time_unit(self):
+        if np.issubdtype(self.X[0].dtype, np.datetime64):
+            unit = str(self.dtype)
+            return unit[unit.find('[')+1:-1]
+        return None
+
     def get_transformed(self):
         return self.transformed
 

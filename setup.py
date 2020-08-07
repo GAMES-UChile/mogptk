@@ -20,7 +20,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='mogptk',
-      version='0.1.4',
+      version='0.1.10',
       description='Multi-Output Gaussian Process ToolKit',
       long_description=long_description,
       long_description_content_type='text/markdown',
@@ -28,7 +28,7 @@ setup(name='mogptk',
       author='Taco de Wolff, Alejandro Cuevas, Felipe Tobar',
       author_email='tacodewolff@gmail.com',
       license='MIT',
-      packages=['mogptk'],
+      packages=['mogptk', 'mogptk.kernels'],
       keywords=['MOGP', 'MOSM', 'GP', 'Gaussian Process', 'Multi-Output', 'Tobar', 'Parra'],
       python_requires='>=3.6',
       extra_require={'TensorFlow with GPU': 'tensorflow-gpu'},
