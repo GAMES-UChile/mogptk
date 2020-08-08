@@ -1033,7 +1033,7 @@ class Data:
         ax.set_title(self.name, fontsize=14)
 
         if 0 < len(legends) and legend:
-            ax.legend(handles=legends, loc='upper center', ncol=min(6,len(legends)), bbox_to_anchor=(0.5, 1.5))
+            ax.legend(handles=legends, loc='upper center', ncol=min(6,len(legends)), borderaxespad=-3)
         return ax
 
     def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None, transformed=False):
