@@ -107,63 +107,57 @@ class SM(model):
         )
         self._build(kernel, likelihood, variational, sparse, like_params, **kwargs)
 
-    def init_parameters(self, method='BNSE_e'):
+    def init_parameters(self, method='BNSE', noise=False):
         """
         Initialize parameters of kernel from data using different methods.
 
         Kernel parameters can be initialized using 3 heuristics using the train data:
 
-        'IPS': Independant parameter sampling (Taken from phd thesis from Andrew wilson 2014)
-            takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2),
-            the means drawn from Unif(0, 0.5 / minimum distance between two points),
-            and the mixture weights by taking the stdv of the y values divided by the
-            number of mixtures.
-        'LS': uses Lomb Scargle periodogram for estimating the PSD,
-            and using the first Q peaks as the means and mixture weights.
-        'LS_e': same as LS but with added noise of std equal of 1/10 of the 
-            LS estimate value.
-        'BNSE': uses the BNSE (Tobar 2018) to estimate the PSD 
-            and use the first Q peaks as the means and mixture weights.
-        'BNSE_e': same as BNSE but with added noise of std equal of 1/10 of the 
-            BNSE estimate value.
-        'GMM': fits a Gaussian mixture model of Q componentson the PSD
-            estimate by lombscargle.
+        Arguments:
+            method (str, optional): Method of estimation.
+            noise (boolean, optional): Add noise of std.dev. equal to 1/10th of the estimated value.
 
+        Methods:
+            IPS:  Independant parameter sampling (Taken from phd thesis from Andrew wilson 2014)
+                  takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2),
+                  the means drawn from Unif(0, 0.5 / minimum distance between two points),
+                  and the mixture weights by taking the stdv of the y values divided by the
+                  number of mixtures.
+            LS:   Uses Lomb Scargle periodogram for estimating the PSD,
+                  and using the first Q peaks as the means and mixture weights.
+            BNSE: Uses the BNSE (Tobar 2018) to estimate the PSD 
+                  and use the first Q peaks as the means and mixture weights.
+            GMM:  Fits a Gaussian mixture model of Q componentson the PSD
+                  estimate by lombscargle.
         """
 
-        if method not in ['IPS', 'LS', 'BNSE', 'GMM', 'LS_e', 'BNSE_e']:
-            raise Exception("possible methods are 'IPS', 'LS', 'BNSE' and GMM (see documentation).")
+        if method not in ['IPS', 'LS', 'BNSE', 'GMM']:
+            raise ValueError("valid methods of estimation are 'IPS', 'LS', 'BNSE', and 'GMM'")
 
         if method == 'IPS':
-            x, y = self.dataset[0].get_train_data()
+            x, y = self.dataset[0].get_train_data(transformed=True)
             weights, means, scales = sm_init(x, y, self.Q)
             self.set_parameter(0, 'mixture_weights', weights)
             self.set_parameter(0, 'mixture_means', np.array(means))
             self.set_parameter(0, 'mixture_scales', np.array(scales.T))
-
             return
-
-        elif 'LS' in method:
+        elif method == 'LS':
             amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('LS could not find peaks for SM')
                 return
-
-
-        elif 'BNSE' in method:
+        elif method == 'BNSE':
             amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logger.warning('BNSE could not find peaks for SM')
                 return
-
         elif method == 'GMM':
-            amplitudes, means, variances = self.dataset[0].gmm_estimation(self.Q)
-
+            amplitudes, means, variances = self.dataset[0].get_gmm_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logger.warning('GMM could not find peaks for SM')
                 return
 
-        if method[-2:] == '_e':
+        if noise:
             pct = 1/30.0
             # noise proportional to the values
             noise_amp = np.random.multivariate_normal(
@@ -195,6 +189,7 @@ class SM(model):
         """
         Plot power spectral density of single output GP-SM.
         """
+        #TODO: fix
         means = self.get_parameter(0, 'mixture_means') * 2.0 * np.pi
         weights = self.get_parameter(0, 'mixture_weights')
         scales = self.get_parameter(0, 'mixture_scales').T

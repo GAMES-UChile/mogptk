@@ -21,7 +21,7 @@ logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
 tf.autograph.set_verbosity(0) # TODO: remove and fix problem
 
-# gpflow.config.set_default_positive_minimum(1e-6)
+gpflow.config.set_default_positive_minimum(1e-12)
 eps = 1e-20
 
 logger = logging.getLogger('mogptk')
@@ -306,6 +306,7 @@ class model:
         for i, v in np.ndenumerate(val):
             if v < gpflow.config.default_positive_minimum():
                 val[i] = gpflow.config.default_positive_minimum() + eps
+        print(gpflow.config.default_positive_minimum(), eps, val)
         kern[key].assign(val)
 
     def set_likelihood_parameter(self, key, val):

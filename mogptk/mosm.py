@@ -138,61 +138,63 @@ class MOSM(model):
             plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in 'SM' mode.
         """
 
-        n_channels = self.dataset.get_output_dims()
+        input_dims = self.dataset.get_input_dims()
+        output_dims = self.dataset.get_output_dims()
 
         if method in ['BNSE', 'LS']:
             if method == 'BNSE':
                 amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
             else:
                 amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
-
             if len(amplitudes) == 0:
                 logger.warning('{} could not find peaks for MOSM'.format(method))
                 return
 
-            magnitude = np.zeros((n_channels, self.Q))
+            magnitude = np.zeros((output_dims, self.Q))
             for q in range(self.Q):
-                mean = np.empty((self.dataset.get_input_dims()[0], n_channels))
-                variance = np.empty((self.dataset.get_input_dims()[0], n_channels))
-                for channel in range(n_channels):
-                    magnitude[channel, q] = amplitudes[channel][:,q].mean()
-                    mean[:, channel] = means[channel][:,q] * 2 * np.pi
+                mean = np.empty((input_dims[0], output_dims))
+                variance = np.empty((input_dims[0], output_dims))
+                for i in range(output_dims):
+                    magnitude[i,q] = amplitudes[i][:,q].mean()
+                    mean[:,i] = means[i][:,q] * 2 * np.pi
                     # maybe will have problems with higher input dimensions
-                    variance[:, channel] = variances[channel][:,q] * (4 + 20 * (max(self.dataset.get_input_dims()) - 1)) # 20
+                    variance[:,i] = variances[i][:,q] * (4 + 20 * (max(input_dims) - 1)) # 20
 
                 self.set_parameter(q, 'mean', mean)
                 self.set_parameter(q, 'variance', variance)
-            
+
             # normalize proportional to channels variances
-            for channel, data in enumerate(self.dataset):
-                magnitude[channel, :] = np.sqrt(magnitude[channel, :] / magnitude[channel, :].sum() * data.Y.transformed[data.mask].var()) * 2
-
+            for i, channel in enumerate(self.dataset):
+                _, y = channel.get_train_data(transformed=True)
+                magnitude[i,:] = np.sqrt(magnitude[i,:] / magnitude[i,:].sum() * y.var()) * 2
+            
             for q in range(self.Q):
-                self.set_parameter(q, 'magnitude', magnitude[:, q])
-
+                self.set_parameter(q, 'magnitude', magnitude[:,q])
+            
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
 
-            magnitude = np.zeros((n_channels, self.Q))
+            magnitude = np.zeros((output_dims, self.Q))
             for q in range(self.Q):
-                magnitude[:, q] = params[q]['weight'].mean(axis=0)
+                magnitude[:,q] = params[q]['weight'].mean(axis=0)
                 self.set_parameter(q, 'mean', params[q]['mean'])
                 self.set_parameter(q, 'variance', params[q]['scale'] * 2)
 
             # normalize proportional to channels variances
-            for channel, data in enumerate(self.dataset):
-                if magnitude[channel, :].sum()==0:
-                    raise Exception("Sum of magnitudes equal to zero")
-
-                magnitude[channel, :] = np.sqrt(magnitude[channel, :] / magnitude[channel, :].sum() * data.Y.transformed[data.mask].var()) * 2
+            for i, channel in enumerate(self.dataset):
+                if magnitude[i,:].sum() == 0:
+                    raise Exception("sum of magnitudes equal to zero")
+                _, y = channel.get_train_data(transformed=True)
+                magnitude[i,:] = np.sqrt(magnitude[i,:] / magnitude[i,:].sum() * y.var()) * 2
             for q in range(self.Q):
-                self.set_parameter(q, 'magnitude', magnitude[:, q])
+                self.set_parameter(q, 'magnitude', magnitude[:,q])
         else:
-            raise Exception("Valid methods of estimation are 'BNSE' 'LS', or 'SM'")
+            raise ValueError("valid methods of estimation are 'BNSE', 'LS', or 'SM'")
 
-        noise = np.empty((n_channels))
-        for channel, data in enumerate(self.dataset):
-            noise[channel] = (data.Y.transformed[data.mask]).var() / 30
+        noise = np.empty((output_dims,))
+        for i, channel in enumerate(self.dataset):
+            _, y = channel.get_train_data(transformed=True)
+            noise[i] = y.var() / 30
         self.set_parameter(self.Q, 'noise', noise)
 
     def plot(self):

@@ -83,19 +83,21 @@ class SM_LMC(model):
             plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in 'SM' mode.
         """
         
+        output_dims = self.dataset.get_output_dims()
+        
         if method in ['BNSE', 'LS']:
             if method == 'BNSE':
                 amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
             else:
                 amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
-                logger.warning('BNSE could not find peaks for SM-LMC')
+                logger.warning('{} could not find peaks for SM-LMC'.format(method))
                 return
 
-            constant = np.empty((self.Q, self.Rq, self.dataset.get_output_dims()))
+            constant = np.empty((self.Q, self.Rq, output_dims))
             for q in range(self.Q):
-                for channel in range(len(self.dataset)):
-                    constant[q, :,channel] = amplitudes[channel][:,q].mean()
+                for i in range(len(self.dataset)):
+                    constant[q,:,i] = amplitudes[i][:,q].mean()
             
                 mean = np.array(means)[:,:,q].mean(axis=0)
                 variance = np.array(variances)[:,:,q].mean(axis=0)
@@ -105,34 +107,37 @@ class SM_LMC(model):
                 self.set_parameter(q, 'variance', variance * 2)
 
             # normalize proportional to channel variance
-            for channel, data in enumerate(self.dataset):
-                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y.transformed[data.mask].var() * 2
+            for i, channel in enumerate(self.dataset):
+                _, y = channel.get_train_data(transformed=True)
+                constant[:,:,i] = constant[:,:,i] / constant[:,:,i].sum() * y.var() * 2
 
             for q in range(self.Q):
-                self.set_parameter(q, 'constant', constant[q, :, :])
+                self.set_parameter(q, 'constant', constant[q,:,:])
 
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
-            constant = np.empty((self.Q, self.Rq, self.dataset.get_output_dims()))
 
+            constant = np.empty((self.Q, self.Rq, output_dims))
             for q in range(self.Q):
-                constant[q, :, :] = params[q]['weight'].mean(axis=0).reshape(self.Rq, -1)
+                constant[q,:,:] = params[q]['weight'].mean(axis=0).reshape(self.Rq, -1)
                 # self.set_parameter(q, 'constant', params[q]['weight'].mean(axis=0).reshape(self.Rq, -1))
                 self.set_parameter(q, 'mean', params[q]['mean'].mean(axis=1))
                 self.set_parameter(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
 
             # normalize proportional to channel variance
-            for channel, data in enumerate(self.dataset):
-                if constant[:, :, channel].sum()==0:
-                    raise Exception("Sum of magnitudes equal to zero")
-                constant[:, :, channel] = constant[:, :, channel] / constant[:, :, channel].sum() * data.Y.transformed[data.mask].var() * 2
+            for i, channel in enumerate(self.dataset):
+                if constant[:,:,i].sum() == 0:
+                    raise Exception("sum of magnitudes equal to zero")
+                _, y = channel.get_train_data(transformed=True)
+                constant[:,:,i] = constant[:,:,i] / constant[:,:,i].sum() * y.var() * 2
                 
             for q in range(self.Q):
-                self.set_parameter(q, 'constant', constant[q, :, :])
+                self.set_parameter(q, 'constant', constant[q,:,:])
         else:
-            raise Exception("valid methods of estimation are 'BNSE' 'LS', or 'SM'")
+            raise ValueError("valid methods of estimation are 'BNSE', 'LS', or 'SM'")
 
-        noise = np.empty((self.dataset.get_output_dims()))
+        noise = np.empty((output_dims,))
         for i, channel in enumerate(self.dataset):
-            noise[i] = (channel.Y.transformed[data.mask]).var() / 30
+            _, y = channel.get_train_data(transformed=True)
+            noise[i] = y.var() / 30
         self.set_parameter(self.Q, 'noise', noise)

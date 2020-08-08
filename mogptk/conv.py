@@ -51,9 +51,9 @@ class CONV(model):
         kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
         self._build(kernel_set, likelihood, variational, sparse, like_params)
 
-    def estimate_parameters(self, method='SM', sm_method='random', sm_opt='BFGS', sm_maxiter=2000, plot=False):
+    def init_parameters(self, method='SM', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=2000, plot=False):
         """
-        Estimate kernel parameters, variance and mixture weights. 
+        Initialize kernel parameters, variance and mixture weights. 
 
         The initialization is done fitting a single output GP with Sepectral mixture (SM)
         kernel for each channel with spectral means fixed to 0 for all Q.
@@ -68,24 +68,29 @@ class CONV(model):
             sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in 'SM' mode.
             plot (bool): Show the PSD of the kernel after fitting SM kernels.
         """
+
+        output_dims = self.dataset.get_output_dims()
+
         if method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot, fix_means=True)
 
-            constant = np.empty((self.Q, self.dataset.get_output_dims()))
+            constant = np.empty((self.Q, output_dims))
             for q in range(self.Q):
-                constanst = params[q]['weight'].mean(axis=0)
+                constant[q,:] = params[q]['weight'].mean(axis=0)
                 self.set_parameter(q, 'variance', params[q]['scale'] * 10)
 
-            for channel, data in enumerate(self.dataset):
-                constant[:, channel] = constant[:, channel] / constant[:, channel].sum() * data.Y[data.mask].var()
+            for i, channel in enumerate(self.dataset):
+                _, y = channel.get_train_data(transformed=True)
+                constant[:,i] = constant[:,i] / constant[:,i].sum() * y.var()
 
             for q in range(self.Q):
-                self.set_parameter(q, 'constant', constant[q, :])
+                self.set_parameter(q, 'constant', constant[q,:])
         else:
-            raise Exception("possible methods of estimation are only 'SM'")
+            raise ValueError("valid method of estimation is only 'SM'")
 
-        noise = np.empty((self.dataset.get_output_dims()))
+        noise = np.empty((output_dims,))
         for i, channel in enumerate(self.dataset):
-            noise[i] = (channel.Y.transformed[data.mask]).var() / 30
+            _, y = channel.get_train_data(transformed=True)
+            noise[i] = y.var() / 30
         self.set_parameter(self.Q, 'noise', noise)
     

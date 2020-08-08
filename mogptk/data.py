@@ -886,7 +886,7 @@ class Data:
 
         return A, B, C
 
-    def gmm_estimation(self, Q=1, n=50000):
+    def get_gmm_estimation(self, Q=1, n=50000):
         """
         Parameter estimation using a GMM on a PSD estimate
 
@@ -900,40 +900,32 @@ class Data:
             numpy.ndarray: Variance array of shape (input_dims,Q) in radians.
 
         Examples:
-            >>> amplitudes, means, variances = data.gmm_init()
+            >>> amplitudes, means, variances = data.get_gmm_estimation()
         """
 
         input_dims = self.get_input_dims()
         
-        amplitudes = np.zeros((input_dims, Q))
-        means = np.zeros((input_dims, Q))
-        variances = np.zeros((input_dims, Q))
+        A = np.zeros((input_dims, Q))
+        B = np.zeros((input_dims, Q))
+        C = np.zeros((input_dims, Q))
 
         nyquist = self.get_nyquist_estimation()
-        
         for i in range(input_dims):
+            x, y = self.get_train_data(transformed=True)
             freqs = np.linspace(0, nyquist[i], n+1)[1:]
-            
-            psd = signal.lombscargle(self.X[i].transformed[self.mask], self.Y.transformed[self.mask], freqs, normalize=True)
+            psd = signal.lombscargle(x[:,i], y, freqs, normalize=True)
             
             ind, _ = signal.find_peaks(psd)
+            ind = ind[np.argsort(psd[ind])[::-1]] # sort by biggest peak first
             
-            # sort by biggest peak first
-            ind = ind[np.argsort(psd[ind])[::-1]]
+            means_init = freqs[ind][:Q].reshape(-1, 1)
+            model = gmm(Q, covariance_type='diag', max_iter=500, tol=1e-5, means_init=means_init).fit(freqs.reshape(-1, 1), psd)
             
-            model = gmm(
-                Q,
-                covariance_type='diag',
-                max_iter=500,
-                tol=1e-5,
-                means_init=freqs[ind][:Q].reshape(-1, 1),
-            ).fit(freqs.reshape(-1, 1), psd)
+            B[i,:] = model.means_[:,0] / (2 * np.pi)
+            C[i,:] = model.covariances_[:,0]
+            A[i,:] = model.weights_ / np.sqrt(2 * np.pi * C[i,:])
             
-            variances[i, :] = model.covariances_[:, 0]
-            means[i, :] = (model.means_ / (2 * np.pi))[:, 0]
-            amplitudes[i, :] = model.weights_ / np.sqrt(2 * np. pi * variances[i, :])
-            
-        return variances, means, amplitudes
+        return A, B, C
 
     def plot(self, ax=None, legend=True, transformed=False):
         """
