@@ -17,6 +17,8 @@ from sklearn.mixture import GaussianMixture as gmm
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
+eps = 1e-20
+
 logger = logging.getLogger('mogptk')
 
 def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
@@ -59,15 +61,15 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     if not _is_homogeneous_type(start + end):
         raise ValueError("start and end must have elements of the same type")
 
-    if isinstance(start[0], datetime.datetime) or isinstance(start[0], str):
+    if isinstance(start[0], datetime.datetime) or isinstance(start[0], str) or isinstance(start[0], np.datetime64):
         # convert datetime.datetime or strings to np.datetime64
         for i in range(len(start)):
             try:
-                start[i] = np.datetime64(start[i])
-                end[i] = np.datetime64(end[i])
+                start[i] = np.datetime64(start[i], 'us')
+                end[i] = np.datetime64(end[i], 'us')
             except:
                 raise ValueError("start and end must have a number or datetime data type")
-    elif not isinstance(start[0], np.datetime64):
+    else:
         for i in range(len(start)):
             try:
                 start[i] = np.float64(start[i])
@@ -93,8 +95,9 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
                 raise ValueError("start must be lower than end for input dimension %d" % (i,))
 
         if is_datetime64:
-            dt = (end[i]-start[i]) / (n-1)
-            x[:,i] = np.arange(start[i], end[i]+dt, dt)
+            dt = (end[i]-start[i]) / float(n-1)
+            dt = _timedelta64_to_higher_unit(dt)
+            x[:,i] = np.arange(start[i], start[i]+dt*(n-1)+np.timedelta64(1,'us'), dt)
         elif random:
             x[:,i] = np.random.uniform(start[i], end[i], n)
         else:
@@ -638,13 +641,14 @@ class Data:
     def get_prediction_names(self):
         return self.Y_mu_pred.keys()
     
-    def get_prediction(self, name, sigma=2):
+    def get_prediction(self, name, sigma=2, transformed=False):
         """
         Returns the prediction of a given name with a normal variance of sigma.
 
         Args:
             name (str): Name of the prediction, equals the name of the model that made the prediction.
             sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2.
+            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: X prediction of shape (n,input_dims).
@@ -663,6 +667,9 @@ class Data:
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
         X_pred = np.array([x.transformed for x in self.X_pred]).T
+        if transformed:
+            return X_pred, mu, lower, upper
+
         mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
         lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
         upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
@@ -716,7 +723,7 @@ class Data:
                 step = (end[0]-start[0])/100
             else:
                 step = _parse_delta(step)
-            X_pred[0] = np.arange(start[0], end[0]+step, step)
+            X_pred[0] = np.arange(start[0], end[0]+eps, step)
         
         self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(X_pred)]
     
@@ -978,7 +985,7 @@ class Data:
                 dt = np.timedelta64(1,self.X[0].get_time_unit())
                 n = int((xmax-xmin) / dt) + 1
                 x = np.empty((n, 1), dtype=self.X[0].dtype)
-                x[:,0] = np.arange(xmin, xmax+dt, dt)
+                x[:,0] = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt)
             else:
                 n = len(self.X[0])*10
                 x = np.empty((n, 1))
@@ -1152,7 +1159,7 @@ def _check_function(f, input_dims, is_datetime64):
         raise ValueError("function must take X as a parameter")
 
     if is_datetime64:
-        x = np.array([[np.datetime64('2000')] * input_dims])
+        x = np.array([[np.datetime64('2000', 'us')] * input_dims])
     else:
         x = np.ones((1, input_dims))
 
@@ -1242,4 +1249,15 @@ def _datetime64_to_higher_unit(array):
         frac, _ = np.modf((array-np.datetime64('2000')) / np.timedelta64(1,unit))
         if not np.any(frac):
             return array.astype('datetime64[%s]' % (unit,))
+    return array
+
+def _timedelta64_to_higher_unit(array):
+    if array.dtype in ['<m8[Y]', '<m8[M]', '<m8[W]', '<m8[D]']:
+        return array
+
+    units = ['D', 'h', 'm', 's']  # cannot convert days to non-linear months or years
+    for unit in units:
+        _, intg = np.modf(array / np.timedelta64(1,unit))
+        if np.any(intg):
+            return array.astype('timedelta64[%s]' % (unit,))
     return array

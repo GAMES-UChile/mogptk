@@ -36,6 +36,8 @@ def errors(dataset, all_obs=False, disp=False):
         for channel in dataset:
             if channel.get_input_dims() != 1:
                 raise ValueError("can only estimate errors on one dimensional input data")
+            if name not in channel.get_prediction_names():
+                continue
 
             if all_obs:
                 xt, _ = channel.get_data(transformed=True)
@@ -46,7 +48,9 @@ def errors(dataset, all_obs=False, disp=False):
             if channel.F is not None:
                 y_true = channel.F(x) # use exact latent function
 
-            y_pred = np.interp(xt, channel.X_pred[0].get_transformed().reshape(-1), channel.Y_mu_pred[name])
+            xt_pred, _, _, _ = channel.get_prediction(name, transformed=True)
+            _, mu, _, _ = channel.get_prediction(name)
+            y_pred = np.interp(xt[:,0], xt_pred[:,0], mu)
 
             Y_true = np.append(Y_true, y_true)
             Y_pred = np.append(Y_pred, y_pred)

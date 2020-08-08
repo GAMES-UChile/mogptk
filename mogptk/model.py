@@ -306,7 +306,6 @@ class model:
         for i, v in np.ndenumerate(val):
             if v < gpflow.config.default_positive_minimum():
                 val[i] = gpflow.config.default_positive_minimum() + eps
-        print(gpflow.config.default_positive_minimum(), eps, val)
         kern[key].assign(val)
 
     def set_likelihood_parameter(self, key, val):
@@ -486,27 +485,22 @@ class model:
             
             >>> model.train(method='Adam', opt_params={...})
         """
-        inital_time = time.time()
         if verbose:
+            inital_time = time.time()
+            training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
+            parameters = sum([int(np.prod(var.shape)) for var in self.model.trainable_variables])
+            print('Starting optimization')
+            print(' >Model: {}'.format(self.name))
+            print(' >Channels: {}'.format(len(self.dataset)))
+            print(' >Components: {}'.format(self.Q))
+            print(' >Training points: {}'.format(training_points))
+            print(' >Parameters: {}'.format(parameters))
+            print(' >Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().numpy()))
 
-            print('Starting optimization\n >Model: {}\n >Channels: {}\
-                    \n >Components: {}\n >Training points: {}\n >Parameters: {}\n >Initial NLL: {:.3f}'.format(
-                    self.name,
-                    len(self.dataset),
-                    self.Q,
-                    sum([len(channel.get_train_data()[0]) for channel in self.dataset]),
-                    sum([int(np.prod(var.shape)) for var in self.model.trainable_variables]),
-                    -self.model.log_marginal_likelihood().numpy()))
-
-        # @tf.function  # optimize TF
-        # global fun_evals
-        fun_evals = 0
         def loss():
-            # global fun_evals
-            # fun_evals += 1
             return -self.model.log_marginal_likelihood()
 
-        if method.lower() == "adam":
+        if method.lower() == 'adam':
             opt = tf.optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999)
             for step in range(maxiter):
                 opt.minimize(loss, self.model.trainable_variables)
@@ -514,9 +508,15 @@ class model:
             opt = gpflow.optimizers.Scipy()
             opt_res = opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': True}, **params)
 
-        elapsed_time = time.time() - inital_time
         if verbose:
-            print('Optimization finished in {:.2f} minutes\n >Final NLL: {:.3f} \n'.format(elapsed_time / 60, -self.model.log_marginal_likelihood().numpy()))
+            elapsed_time = time.time() - inital_time
+            fun_evals = maxiter
+            if method.lower() != 'adam':
+                fun_evals = opt_res.nfev
+            print('Optimization finished in {:.2f} minutes'.format(elapsed_time / 60.0))
+            print(' >Function evaluations: {}'.format(fun_evals))
+            print(' >Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().numpy()))
+
         if method.lower() == "adam":
             return
         else:

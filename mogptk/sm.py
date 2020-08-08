@@ -8,7 +8,7 @@ import logging
 
 logger = logging.getLogger('mogptk')
 
-def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000, plot=False, fix_means=False):
+def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='L-BFGS-B', maxiter=2000, plot=False, fix_means=False):
     """
     Estimate kernel param with single ouput GP-SM
 
@@ -45,7 +45,7 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='BFGS', maxiter=2000,
             if fix_means:
                 sm.set_parameter(0, 'mixture_means', np.zeros((Q, input_dims)))
                 sm.set_parameter(0, 'mixture_scales', sm.get_parameter(0, 'mixture_scales') * 50)
-                sm.fix_parameters(0, 'mixture_means')
+                sm.fix_parameter(0, 'mixture_means')
 
             sm.train(method=optimizer, maxiter=maxiter)
 
