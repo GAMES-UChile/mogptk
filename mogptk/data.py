@@ -393,40 +393,6 @@ class Data:
         _check_function(f, self.get_input_dims())
         self.F = f
 
-    #def transform_x(self, transformer):
-    #    """
-    #    Transform the X axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
-
-    #    Args:
-    #        transformer (obj, list of obj): Transformer objects derived from TransformBase for each input dimension. A single object is applied to all input dimensions.
-
-    #    Examples:
-    #        >>> data.transform_x(mogptk.TransformLinear(5.0, 20.0))
-    #    """
-
-    #    if not isinstance(transformer, list):
-    #        transformer = [transformer] * self.get_input_dims()
-    #    elif len(transformer) != self.get_input_dims():
-    #        raise ValueError('transformer must be a list of transformers for each input dimension')
-
-    #    for i, t in enumerate(transformer):
-    #        if isinstance(t, type):
-    #            t = t()
-    #        t.set_data(self)
-    #        self.X[i].apply(t)
-    #
-    #def rescale_x(self):
-    #    """
-    #    Rescale the X axis so that it is between 0 and 1000 internally. This can help when the range of your x-axis is much smaller or bigger than a 1000, which affects effectiveness of training.
-
-    #    Examples:
-    #        >>> data.rescale_x()
-    #    """
-    #    xmin = [np.min(self.X[i].get_transformed()) for i in range(self.get_input_dims())]
-    #    xmax = [np.max(self.X[i].get_transformed()) for i in range(self.get_input_dims())]
-    #    transforms = [TransformLinear(xmin[i], (xmax[i]-xmin[i])/1000.0) for i in range(self.get_input_dims())]
-    #    self.transform_x(transforms)
-
     def transform(self, transformer):
         """
         Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
