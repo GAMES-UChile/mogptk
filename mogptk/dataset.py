@@ -570,10 +570,7 @@ class DataSet:
             fig.suptitle(title, fontsize=18)
 
         for channel in range(self.get_output_dims()):
-            ax = self.channels[channel].plot(ax=axes[channel,0], legend=True, transformed=transformed)
-
-        #if legend:
-        #    axes[0,0].legend(legends.values(), legends.keys(), loc='right', ncol=len(legends))
+            ax = self.channels[channel].plot(ax=axes[channel,0], legend=channel==0, transformed=transformed)
 
         return fig, axes
 

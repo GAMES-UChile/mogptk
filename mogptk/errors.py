@@ -9,71 +9,61 @@ def mean_absolute_percentage_error(y_true, y_pred):
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
 # TODO: use relative error per channel
-def errors(*models, **kwargs):
+def errors(dataset, all_obs=False, disp=False):
     """
-    Return error metrics for given models.
-
-    errors will returns error measures (MAE, MSE, MAPE) for the model by comparing the deleted observations from the predicted means.
-    The predicted values are interpolated linearly to match the X position of the delete dobservations.
-    However if a latent function is defined in the data this will be used as the true values, which gets rid of the imposed Gaussian error on the observations.
+    Return error metrics for given models (MAE, MSE, MAPE) by comparing the deleted observations from the predicted means. The predicted values are interpolated linearly to match the X position of the delete dobservations. However if a latent function is defined in the data this will be used as the true values, which gets rid of the imposed Gaussian error on the observations.
 
     Args:
-        model_list: Iterable with mogptk models to evaluate.
+        dataset (mogptk.DataSet): DataSet containing predictions to evaluate.
+        all_obs (boolean, optional): Use all observations for error calculation instead of using only removed observations.
+        disp (boolean, optional): Display errors instead of returning them.
     
     Returns:
-        errors (dic): Dictionary with lists of ndarrays containing different error metrics per model, per channel.
-
-        The dictionary has three keys, 'model' which contains model name; 'MAE' contains mean absolute error; 'MSE' mean squared error; 'MAPE' mean absolute percentage error.
-        
-
+        errors (dict): Dictionary with lists of ndarrays containing different error metrics per model, per channel. The dictionary has three keys, 'model' which contains model name; 'MAE' contains mean absolute error; 'MSE' mean squared error; 'MAPE' mean absolute percentage error.
 
     """
-    all_obs = False
-    if "all_obs" in kwargs:
-        all_obs = kwargs["all_obs"]
-    output = False
-    if "print" in kwargs:
-        output = kwargs["print"]
+    if dataset.get_output_dims() == 0:
+        raise ValueError("dataset is empty")
+
+    names = dataset[0].get_prediction_names()
+    if len(names) == 0:
+        raise ValueError("there are no predictions")
 
     errors = []
-    for model in models:
-        if model.get_input_dims() != 1:
-            raise Exception("cannot (yet) estimate errors when using multi input dimensions")
-
+    for name in names:
         Y_true = np.empty(0)
         Y_pred = np.empty(0)
-        for channel in model.data:
-            if len(channel.X_pred) == 0:
-                continue
+        for channel in dataset:
+            if channel.get_input_dims() != 1:
+                raise ValueError("can only estimate errors on one dimensional input data")
 
             if all_obs:
+                xt, _ = channel.get_data(transformed=True)
                 x, y_true = channel.get_data()
             else:
+                xt, _ = channel.get_test_data(transformed=True)
                 x, y_true = channel.get_test_data()
+            if channel.F is not None:
+                y_true = channel.F(x) # use exact latent function
 
-            if len(x) > 0:
-                if channel.F is not None:
-                    y_true = channel.F(x) # use exact latent function to remove imposed Gaussian error on data points
+            y_pred = np.interp(xt, channel.X_pred[0].get_transformed().reshape(-1), channel.Y_mu_pred[name])
 
-                y_pred = np.interp(x, channel.X_pred.reshape(-1), channel.Y_mu_pred) # TODO: multi input dims
-
-                Y_true = np.append(Y_true, y_true)
-                Y_pred = np.append(Y_pred, y_pred)
+            Y_true = np.append(Y_true, y_true)
+            Y_pred = np.append(Y_pred, y_pred)
             
         errors.append({
-            "model": model.name,
+            "Name": name,
             "MAE": metrics.mean_absolute_error(Y_true, Y_pred),
             "MSE": metrics.mean_squared_error(Y_true, Y_pred),
             "MAPE": mean_absolute_percentage_error(Y_true, Y_pred),
         })
 
-    if output:
+    if disp:
         df = pd.DataFrame(errors)
-        df.set_index('model', inplace=True)
+        df.set_index('Name', inplace=True)
         display(df)
     else:
         return errors
-
 
 def test_errors(*models, x_test, y_test, raw_errors=False):
     """
@@ -83,7 +73,7 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
     share equal number of inputs and outputs (channels).
 
     Args:
-        models (mogptk.model): Trained model to evaluate, can be more than one
+        models (list of mogptk.model): Trained model to evaluate, can be more than one
 
         x_test (list): List of numpy arrays with the inputs of the test set.
             Length is the output dimension.
@@ -107,8 +97,7 @@ def test_errors(*models, x_test, y_test, raw_errors=False):
         Given model1, model2, x_test, y_test of correct format.
 
         >>> errors = mogptk.test_errors(model1, model2, x_test, y_test)
-        >>> errors[i][j]
-        numpy array with errors from model 'i' at channel 'j'
+        >>> errors[i][j]  # numpy array with errors from model 'i' at channel 'j'
     """
 
     error_per_model = []

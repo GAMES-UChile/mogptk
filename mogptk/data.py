@@ -19,104 +19,6 @@ register_matplotlib_converters()
 
 logger = logging.getLogger('mogptk')
 
-class TransformDetrend(TransformBase):
-    """
-    TransformDetrend is a transformer that detrends the data. It uses NumPy `polyfit` to find an `n` degree polynomial that removes the trend.
-
-    Args:
-        degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
-    """
-    # TODO: add regression?
-    def __init__(self, degree=1):
-        self.degree = degree
-
-    def set_data(self, data):
-        if data.get_input_dims() != 1:
-            raise Exception("can only remove ranges on one dimensional input data")
-
-        self.coef = np.polyfit(data.X[0].transformed[data.mask], data.Y.transformed[data.mask], self.degree)
-
-    def forward(self, y, x=None):
-        return y - np.polyval(self.coef, x[:, 0])
-    
-    def backward(self, y, x=None):
-        return y + np.polyval(self.coef, x[:, 0])
-
-class TransformLinear(TransformBase):
-    """
-    TransformLinear transforms the data linearly so that y => (y-bias)/slope.
-    """
-    def __init__(self, bias=0.0, slope=1.0):
-        self.bias = bias
-        self.slope = slope
-
-    def set_data(self, data):
-        pass
-
-    def forward(self, y, x=None):
-        return (y-self.bias)/self.slope
-
-    def backward(self, y, x=None):
-        return self.bias + self.slope*y
-
-class TransformNormalize(TransformBase):
-    """
-    TransformNormalize is a transformer that normalizes the data so that the y-axis is between -1 and 1.
-    """
-    def __init__(self):
-        pass
-
-    def set_data(self, data):
-        self.ymin = np.amin(data.Y.transformed[data.mask])
-        self.ymax = np.amax(data.Y.transformed[data.mask])
-
-    def forward(self, y, x=None):
-        return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
-    
-    def backward(self, y, x=None):
-        return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin
-
-class TransformLog(TransformBase):
-    """
-    TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the y-axis so that all values are greater than or equal to 1.
-    """
-    def __init__(self):
-        pass
-
-    def set_data(self, data):
-        self.shift = 1 - data.Y.transformed.min()
-        self.mean = np.log(data.Y.transformed + self.shift).mean()
-
-    def forward(self, y, x=None):
-        return np.log(y + self.shift) - self.mean
-    
-    def backward(self, y, x=None):
-        return np.exp(y + self.mean) - self.shift
-
-class TransformWhiten(TransformBase):
-    """
-    Transform the data so it has mean 0 and variance 1
-    """
-    def __init__(self):
-        pass
-    
-    def set_data(self, data):
-        # take only the non-removed observations
-        self.mean = data.Y.transformed[data.mask].mean()
-        self.std = data.Y.transformed[data.mask].std()
-        
-    def forward(self, y, x=None):
-        return (y - self.mean) / self.std
-    
-    def backward(self, y, x=None):
-        return (y * self.std) + self.mean
-
-# TODO: add TransformFunction with a given mean function
-
-################################################################
-################################################################
-################################################################
-
 def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     """
     LoadFunction loads a dataset from a given function y = f(x) + N(0,var). It will pick n data points between start and end for x, for which f is being evaluated. By default the n points are spread equally over the interval, with random=True they will be picked randomly.
@@ -152,25 +54,48 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     if not isinstance(start, list):
         start = [start]
         end = [end]
-
     if len(start) != len(end):
         raise ValueError("start and end must be of the same length")
-    for i, j in zip(start, end):
-        if type(i) is not type(j):
-            raise ValueError("start and end must be of the same type for every pair")
+    if not _is_homogeneous_type(start + end):
+        raise ValueError("start and end must have elements of the same type")
+
+    if isinstance(start[0], datetime.datetime) or isinstance(start[0], str):
+        # convert datetime.datetime or strings to np.datetime64
+        for i in range(len(start)):
+            try:
+                start[i] = np.datetime64(start[i])
+                end[i] = np.datetime64(end[i])
+            except:
+                raise ValueError("start and end must have a number or datetime data type")
+    elif not isinstance(start[0], np.datetime64):
+        for i in range(len(start)):
+            try:
+                start[i] = np.float64(start[i])
+                end[i] = np.float64(end[i])
+            except:
+                raise ValueError("start and end must have a number or datetime data type")
 
     input_dims = len(start)
-    _check_function(f, input_dims)
+    is_datetime64 = isinstance(start[0], np.datetime64)
+    _check_function(f, input_dims, is_datetime64)
 
-    x = np.empty((n, input_dims))
+    if is_datetime64:
+        if random:
+            raise ValueError("cannot use random for datetime inputs")
+        x = np.empty((n, input_dims), dtype=start[0].dtype)
+    else:
+        x = np.empty((n, input_dims))
     for i in range(input_dims):
         if start[i] >= end[i]:
             if input_dims == 1:
                 raise ValueError("start must be lower than end")
             else:
-                raise ValueError("start must be lower than end for input dimension %d" % (i))
+                raise ValueError("start must be lower than end for input dimension %d" % (i,))
 
-        if random:
+        if is_datetime64:
+            dt = (end[i]-start[i]) / (n-1)
+            x[:,i] = np.arange(start[i], end[i]+dt, dt)
+        elif random:
             x[:,i] = np.random.uniform(start[i], end[i], n)
         else:
             x[:,i] = np.linspace(start[i], end[i], n)
@@ -234,36 +159,45 @@ class Data:
                 m = len(X[0])
                 if not all(len(x) == m for x in X[1:]):
                     raise ValueError("X list items must all be lists of the same length")
-                if not all(all(isinstance(val, (int, float)) for val in x) for x in X):
-                    raise ValueError("X list items must all be lists of numbers")
+                if not all(all(isinstance(val, (int, float, datetime.datetime, np.datetime64)) for val in x) for x in X):
+                    raise ValueError("X list items must all be lists of numbers or datetime")
+                if not _is_homogeneous_type(x):
+                    raise ValueError("X list items must all be lists with elements of the same type")
             elif all(isinstance(x, np.ndarray) for x in X):
                 m = len(X[0])
                 if not all(len(x) == m for x in X[1:]):
                     raise ValueError("X list items must all be numpy.ndarrays of the same length")
-            elif not all(isinstance(x, (int, float)) for x in X):
-                raise ValueError("X list items must be all lists, all numpy.ndarrays, or all numbers")
+            elif not all(isinstance(x, (int, float, datetime.datetime, np.datetime64)) for x in X):
+                raise ValueError("X list items must be all lists, all numpy.ndarrays, or all numbers or datetime")
+            elif not _is_homogeneous_type(X):
+                raise ValueError("X list items must all have elements of the same type")
             X = np.array(X)
         if isinstance(Y, list):
             if not all(isinstance(y, (int, float)) for y in Y):
                 raise ValueError("Y list items must all be numbers")
+            elif not _is_homogeneous_type(Y):
+                raise ValueError("Y list items must all have elements of the same type")
             Y = np.array(Y)
         if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
             raise ValueError("X and Y must be lists or numpy arrays, if dicts are passed then x_labels and/or y_label must also be set")
         
-        # try to cast unknown data types
-        if not np.issubdtype(X.dtype, np.number) and not np.issubdtype(X.dtype, np.datetime64):
+        # try to cast unknown data types, X becomes np.float64 or np.datetime64, and Y becomes mp.float64
+        if X.dtype == np.object_ or np.issubdtype(X.dtype, np.character):
+            # convert datetime.datetime or strings to np.datetime64
             try:
-                X = X.astype(np.float)
+                X = X.astype(np.datetime64)
             except:
-                try:
-                    X = X.astype(np.datetime64)
-                except:
-                    raise ValueError("X data must have a number or datetime64 data type")
-        if not np.issubdtype(Y.dtype, np.number):
+                raise ValueError("X data must have a number or datetime data type")
+        elif not np.issubdtype(X.dtype, np.datetime64):
             try:
-                Y = Y.astype(np.float)
+                X = X.astype(np.float64)
             except:
-                raise ValueError("Y data must have a number data type")
+                raise ValueError("X data must have a number or datetime data type")
+
+        try:
+            Y = Y.astype(np.float64)
+        except:
+            raise ValueError("Y data must have a number data type")
 
         # convert X datetime64[us] to a higher unit like s, m, h, D, ...
         if np.issubdtype(X.dtype, np.datetime64):
@@ -390,7 +324,7 @@ class Data:
         Examples:
             >>> data.set_function(lambda x: np.sin(3*x[:,0])
         """
-        _check_function(f, self.get_input_dims())
+        _check_function(f, self.get_input_dims(), self.X[0].is_datetime64())
         self.F = f
 
     def transform(self, transformer):
@@ -520,9 +454,12 @@ class Data:
         """
         return len(self.X)
     
-    def get_data(self):
+    def get_data(self, transformed=False):
         """
         Returns all observations, train and test.
+
+        Arguments:
+            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -531,11 +468,16 @@ class Data:
         Examples:
             >>> x, y = data.get_data()
         """
-        return np.array([x for x in self.X]).T, self.Y
+        if transformed:
+            return np.array([x.transformed() for x in self.X]).T, self.Y.transformed
+        return np.array([x for x in self.X]).T, np.array(self.Y)
 
-    def get_train_data(self):
+    def get_train_data(self, transformed=False):
         """
         Returns the observations used for training.
+
+        Arguments:
+            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -544,11 +486,16 @@ class Data:
         Examples:
             >>> x, y = data.get_train_data()
         """
-        return np.array([x[self.mask] for x in self.X]).T, self.Y[self.mask]
+        if transformed:
+            return np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
+        return np.array([x[self.mask] for x in self.X]).T, np.array(self.Y[self.mask])
 
-    def get_test_data(self):
+    def get_test_data(self, transformed=False):
         """
         Returns the observations used for testing.
+
+        Arguments:
+            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -557,7 +504,9 @@ class Data:
         Examples:
             >>> x, y = data.get_test_data()
         """
-        return np.array([x[~self.mask] for x in self.X]).T, self.Y[~self.mask]
+        if transformed:
+            return np.array([x.transformed[~self.mask] for x in self.X]).T, self.Y.transformed[~self.mask]
+        return np.array([x[~self.mask] for x in self.X]).T, np.array(self.Y[~self.mask])
 
     ################################################################
     
@@ -686,6 +635,9 @@ class Data:
     
     ################################################################
     
+    def get_prediction_names(self):
+        return self.Y_mu_pred.keys()
+    
     def get_prediction(self, name, sigma=2):
         """
         Returns the prediction of a given name with a normal variance of sigma.
@@ -736,6 +688,7 @@ class Data:
             >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price')
             >>> data.set_prediction_range('2016-01-15', '2016-06-15', step='1d')
         """
+        # TODO: accept multiple input dims and make sure dtype equals X
         if self.get_input_dims() != 1:
             raise Exception("can only set prediction range on one dimensional input data")
 
@@ -777,6 +730,7 @@ class Data:
         Examples:
             >>> data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
         """
+        # TODO: accept multiple input dims and make sure dtype equals X
         if isinstance(X, list):
             X = np.array(X)
         elif not isinstance(X, np.ndarray):
@@ -1025,18 +979,22 @@ class Data:
                 legends.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
 
         if self.F is not None:
-            n = len(self.X[0])*10
-            x_min = np.min(self.X[0])
-            x_max = np.max(self.X[0])
-            if len(self.X_pred[0]) != 0:
-                x_min = min(x_min, np.min(self.X_pred[0]))
-                x_max = max(x_max, np.max(self.X_pred[0]))
+            xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
+            xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
 
-            x = np.empty((n, 1))
-            x[:,0] = np.linspace(x_min, x_max, n)
+            if np.issubdtype(self.X[0].dtype, np.datetime64):
+                dt = np.timedelta64(1,self.X[0].get_time_unit())
+                n = int((xmax-xmin) / dt) + 1
+                x = np.empty((n, 1), dtype=self.X[0].dtype)
+                x[:,0] = np.arange(xmin, xmax+dt, dt)
+            else:
+                n = len(self.X[0])*10
+                x = np.empty((n, 1))
+                x[:,0] = np.linspace(xmin, xmax, n)
+
             y = self.F(x)
             if transformed:
-                y = self.Y.transform(y)
+                y = self.Y.transform(y, self.X[0].transform(x))
 
             ax.plot(x[:,0], y, 'r--', lw=1)
             legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
@@ -1050,7 +1008,7 @@ class Data:
 
         x, y = self.get_train_data()
         if transformed:
-            y = y.get_transformed()
+            y = self.Y.transform(y, self.X[0].transform(x))
         ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
         legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
 
@@ -1076,7 +1034,7 @@ class Data:
         ax.set_title(self.name, fontsize=14)
 
         if 0 < len(legends) and legend:
-            ax.legend(handles=legends, loc='upper center', ncol=len(legends))
+            ax.legend(handles=legends, loc='upper center', ncol=min(6,len(legends)), bbox_to_anchor=(0.5, 1.5))
         return ax
 
     def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None, transformed=False):
@@ -1166,6 +1124,7 @@ class Data:
         return ax
 
     def _normalize_val(self, val):
+        # normalize input values for X axis, that is: expand to input_dims if a single value, convert values to appropriate dtype
         if val is None:
             return val
         if isinstance(val, np.ndarray):
@@ -1177,15 +1136,22 @@ class Data:
             val = [val] * self.get_input_dims()
         if len(val) != self.get_input_dims():
             raise ValueError("value must be a scalar or a list of values for each input dimension")
+        if not _is_homogeneous_type(val):
+            raise ValueError("value must have elements of the same type")
 
         for i in range(self.get_input_dims()):
             try:
                 val[i] = self.X[i].dtype.type(val[i])
             except:
-                pass
+                raise ValueError("value must be of type %s" % (self.X[i].dtype,))
         return val
 
-def _check_function(f, input_dims):
+def _is_homogeneous_type(seq):
+    it = iter(seq)
+    first = type(next(it))
+    return all(type(x) is first for x in it)
+
+def _check_function(f, input_dims, is_datetime64):
     if not inspect.isfunction(f):
         raise ValueError("function must take X as a parameter")
 
@@ -1193,7 +1159,11 @@ def _check_function(f, input_dims):
     if not len(sig.parameters) == 1:
         raise ValueError("function must take X as a parameter")
 
-    x = np.ones((1, input_dims))
+    if is_datetime64:
+        x = np.array([[np.datetime64('2000')] * input_dims])
+    else:
+        x = np.ones((1, input_dims))
+
     y = f(x)
     if len(y.shape) != 1 or y.shape[0] != 1:
         raise ValueError("function must return Y with shape (n), note that X has shape (n,input_dims)")
