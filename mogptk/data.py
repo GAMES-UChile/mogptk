@@ -809,7 +809,7 @@ class Data:
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
             x, y = self.get_train_data(transformed=True)
-            bnse = bse(x, y)
+            bnse = bse(x[:,i], y)
             bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
             bnse.compute_moments()

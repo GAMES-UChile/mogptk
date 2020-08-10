@@ -490,12 +490,12 @@ class model:
             training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
             parameters = sum([int(np.prod(var.shape)) for var in self.model.trainable_variables])
             print('Starting optimization')
-            print(' >Model: {}'.format(self.name))
-            print(' >Channels: {}'.format(len(self.dataset)))
-            print(' >Components: {}'.format(self.Q))
-            print(' >Training points: {}'.format(training_points))
-            print(' >Parameters: {}'.format(parameters))
-            print(' >Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().numpy()))
+            print('‣ Model: {}'.format(self.name))
+            print('‣ Channels: {}'.format(len(self.dataset)))
+            print('‣ Components: {}'.format(self.Q))
+            print('‣ Training points: {}'.format(training_points))
+            print('‣ Parameters: {}'.format(parameters))
+            print('‣ Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().numpy()))
 
         def loss():
             return -self.model.log_marginal_likelihood()
@@ -514,8 +514,8 @@ class model:
             if method.lower() != 'adam':
                 fun_evals = opt_res.nfev
             print('Optimization finished in {:.2f} minutes'.format(elapsed_time / 60.0))
-            print(' >Function evaluations: {}'.format(fun_evals))
-            print(' >Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().numpy()))
+            print('‣ Function evaluations: {}'.format(fun_evals))
+            print('‣ Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().numpy()))
 
         if method.lower() == "adam":
             return
