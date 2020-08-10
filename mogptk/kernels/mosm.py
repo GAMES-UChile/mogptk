@@ -23,7 +23,7 @@ class MultiOutputSpectralMixture(MultiKernel):
         MultiKernel.__init__(self, input_dim, output_dim, active_dim, name=name)
         self.magnitude = gpflow.Parameter(magnitude, prior=magnitude_prior, name="magnitude")
         self.mean = gpflow.Parameter(mean, transform=gpflow.utilities.positive(), name="mean")
-        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name="variance")
+        self.variance = gpflow.Parameter(variance, transform=gpflow.utilities.positive(), name="variance") # TODO: these are stddevs no variances!
         if output_dim != 1:
             self.delay = gpflow.Parameter(delay, name="delay")
             self.phase = gpflow.Parameter(phase, name="phase")
