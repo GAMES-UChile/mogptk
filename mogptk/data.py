@@ -782,13 +782,13 @@ class Data:
             nyquist[i] = 0.5/dist
         return nyquist
 
-    def get_bnse_estimation(self, Q=1, n=10000):
+    def get_bnse_estimation(self, Q=1, n=1000):
         """
         Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
         Args:
             Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 10000.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (input_dims,Q).
