@@ -27,8 +27,6 @@ class Model:
     def __init__(self, name=None):
         self.name = name
         self.mean = None
-        self.iters = 0
-
         self._params = []
 
     def _check_input(self, X, y=None):
@@ -112,7 +110,6 @@ class Model:
         return sum([p.log_prior() for p in self._params])
 
     def loss(self):
-        self.iters += 1
         self.zero_grad()
         loss = -self.log_marginal_likelihood() - self.log_prior()
         loss.backward()
@@ -145,12 +142,12 @@ class GPR(Model):
         self.kernel = kernel
         self.X = X
         self.y = y
-        self.variance = Parameter(variance, name="variance", lower=positive_minimum)
+        self.variance = Parameter(variance, name="variance", lower=1e-6)
         self.mean = mean
         
         self.N = X.shape[0]
         self.input_dims = X.shape[1]
-        self.log_marginal_likelihood_constant = 0.5*self.N*np.log(2*np.pi)
+        self.log_marginal_likelihood_constant = 0.5*self.N*np.log(2.0*np.pi)
 
         self._register_parameters(self.variance)
         if mean is not None and issubclass(type(mean), Mean):

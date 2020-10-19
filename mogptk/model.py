@@ -306,14 +306,13 @@ class model:
         if verbose:
             training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
             parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
-            print(self.model.log_marginal_likelihood().detach())
             print('Starting optimization')
             print('‣ Model: {}'.format(self.name))
             print('‣ Channels: {}'.format(len(self.dataset)))
             print('‣ Components: {}'.format(self.Q))
             print('‣ Training points: {}'.format(training_points))
             print('‣ Parameters: {}'.format(parameters))
-            print('‣ Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().detach().numpy()))
+            print('‣ Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
             inital_time = time.time()
 
         #if method.lower() == 'adam':
@@ -332,7 +331,7 @@ class model:
         if verbose:
             elapsed_time = time.time() - inital_time
             print('\nOptimization finished in {:.2f} minutes'.format(elapsed_time / 60.0))
-            print('‣ Function evaluations: {}'.format(self.model.iters))
+            print('‣ Function evaluations: {}'.format(optimizer.state_dict()['state'][0]['func_evals']))
             print('‣ Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
 
     ################################################################################

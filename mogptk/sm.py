@@ -1,6 +1,6 @@
 import numpy as np
 from .model import model
-from .kernels import SpectralKernel, MixtureKernel
+from .kernels import SpectralKernel, MixtureKernel, positive_minimum
 from .plot import plot_spectrum
 from scipy.stats import norm
 import matplotlib.pyplot as plt
@@ -44,9 +44,9 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='L-BFGS-B', maxiter=2
 
             if fix_means:
                 for q in range(Q):
-                    sm.model.kernel[q].mean.assign(np.zeros((input_dims)))
+                    sm.model.kernel[q].mean.assign(positive_minimum*np.ones((input_dims)))
                     sm.model.kernel[q].mean.trainable = False
-                    sm.model.kernel[q].variance.assign(sm.model.kernel.kernels[q].variance * 50)
+                    sm.model.kernel[q].variance.assign(sm.model.kernel.kernels[q].variance() * 50)
 
             sm.train(method=optimizer, maxiter=maxiter)
 
@@ -58,9 +58,9 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='L-BFGS-B', maxiter=2
                 plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=dataset[channel].name)
 
             for q in range(Q):
-                params[q]['weight'][channel,i] = sm.model.kernel[q].weight().numpy()
-                params[q]['mean'][channel,i] = sm.model.kernel[q].mean().numpy() * np.pi * 2
-                params[q]['scale'][channel,i] = sm.model.kernel[q].variance().numpy()
+                params[q]['weight'][channel,i] = sm.model.kernel[q].weight().detach().numpy()
+                params[q]['mean'][channel,i] = sm.model.kernel[q].mean().detach().numpy() * np.pi * 2.0
+                params[q]['scale'][channel,i] = sm.model.kernel[q].variance().detach().numpy()
 
     return params
 
@@ -176,10 +176,10 @@ class SM(model):
 
         mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].std() * 2
 
-        for q in range(Q):
+        for q in range(self.Q):
             self.model.kernel[q].weight.assign(mixture_weights[q])
-            self.model.kernel[q].mean.assign(mixture_means[:,q])
-            self.model.kernel[q].variance.assign(mixture_scales[:,q])
+            self.model.kernel[q].mean.assign(means[:,q])
+            self.model.kernel[q].variance.assign(variances[:,q])
 
     def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
         """

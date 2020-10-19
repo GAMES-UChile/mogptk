@@ -1,6 +1,6 @@
 import numpy as np
 from .model import model
-from .kernels import ConvolutionalGaussian, Noise
+from .kernels import GaussianConvolutionProcessKernel, MixtureKernel
 from .sm import _estimate_from_sm
 
 class CONV(model):
@@ -33,23 +33,18 @@ class CONV(model):
 
     [1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009
     """
-    def __init__(self, dataset, Q=1, name="CONV", likelihood=None, variational=False, sparse=False, like_params={}):
+    def __init__(self, dataset, Q=1, name="CONV"):
         if len(dataset)<2:
             raise Exception("Number of channels equal 1, model CONV must be used with at least 2, for 1 channel use SM instead.")
         model.__init__(self, name, dataset)
         self.Q = Q
 
-        for q in range(self.Q):
-            kernel = ConvolutionalGaussian(
-                self.dataset.get_input_dims()[0],
-                self.dataset.get_output_dims(),
-            )
-            if q == 0:
-                kernel_set = kernel
-            else:
-                kernel_set += kernel
-        kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
-        self._build(kernel_set, likelihood, variational, sparse, like_params)
+        conv = GaussianConvolutionProcessKernel(
+            output_dims=self.dataset.get_output_dims(),
+            input_dims=self.dataset.get_input_dims()[0],
+        )
+        kernel = MixtureKernel(conv, Q=Q)
+        self._build(kernel)
 
     def init_parameters(self, method='SM', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=2000, plot=False):
         """
@@ -74,23 +69,23 @@ class CONV(model):
         if method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot, fix_means=True)
 
-            constant = np.empty((self.Q, output_dims))
+            constant = np.empty((output_dims, self.Q))
             for q in range(self.Q):
-                constant[q,:] = params[q]['weight'].mean(axis=0)
-                self.set_parameter(q, 'variance', params[q]['scale'] * 10)
+                constant[:,q] = params[q]['weight'].mean(axis=0)
+                self.model.kernel[q].variance.assign(params[q]['scale'] * 10.0)
 
             for i, channel in enumerate(self.dataset):
                 _, y = channel.get_train_data(transformed=True)
-                constant[:,i] = constant[:,i] / constant[:,i].sum() * y.var()
+                constant[i,:] = constant[i,:] / constant[i,:].sum() * y.var()
 
             for q in range(self.Q):
-                self.set_parameter(q, 'constant', constant[q,:])
+                self.model.kernel[q].weight.assign(constant[:,q])
         else:
             raise ValueError("valid method of estimation is only 'SM'")
 
-        noise = np.empty((output_dims,))
-        for i, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            noise[i] = y.var() / 30
-        self.set_parameter(self.Q, 'noise', noise)
+        #noise = np.empty((output_dims,))
+        #for i, channel in enumerate(self.dataset):
+        #    _, y = channel.get_train_data(transformed=True)
+        #    noise[i] = y.var() / 30
+        #self.set_parameter(self.Q, 'noise', noise)
     

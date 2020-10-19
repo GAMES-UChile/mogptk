@@ -1,6 +1,6 @@
 import numpy as np
 from .model import model
-from .kernels import CrossSpectralMixture, Noise
+from .kernels import CrossSpectralKernel, MixtureKernel
 from .sm import _estimate_from_sm
 
 class CSM(model):
@@ -38,7 +38,7 @@ class CSM(model):
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
-    def __init__(self, dataset, Q=1, Rq=1, name="CSM", likelihood=None, variational=False, sparse=False, like_params={}, **kwargs):
+    def __init__(self, dataset, Q=1, Rq=1, name="CSM"):
         if Rq != 1:
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
 
@@ -46,18 +46,13 @@ class CSM(model):
         self.Q = Q
         self.Rq = Rq
 
-        for q in range(self.Q):
-            kernel = CrossSpectralMixture(
-                self.dataset.get_input_dims()[0],
-                self.dataset.get_output_dims(),
-                self.Rq,
-            )
-            if q == 0:
-                kernel_set = kernel
-            else:
-                kernel_set += kernel
-        kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
-        self._build(kernel_set, likelihood, variational, sparse, like_params, **kwargs)
+        spectral = CrossSpectralKernel(
+            output_dims=self.dataset.get_output_dims(),
+            input_dims=self.dataset.get_input_dims()[0],
+            Rq=Rq,
+        )
+        kernel = MixtureKernel(spectral, Q=Q)
+        self._build(kernel)
     
     def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
         """
@@ -92,46 +87,44 @@ class CSM(model):
                 logger.warning('{} could not find peaks for CSM'.format(method))
                 return
 
-            constant = np.empty((self.Q, self.Rq, output_dims))
+            constant = np.empty((output_dims, self.Q, self.Rq))
             for q in range(self.Q):
                 for i in range(len(self.dataset)):
-                    constant[q,:,i] = amplitudes[i][:,q].mean()
-            
+                    constant[i,q,:] = amplitudes[i][:,q].mean()
                 mean = np.array(means)[:,:,q].mean(axis=0)
                 variance = np.array(variances)[:,:,q].mean(axis=0)
-
-                self.set_parameter(q, 'mean', mean * 2 * np.pi)
-                self.set_parameter(q, 'variance', variance * 5)
+                self.model.kernel[q].mean.assign(mean * 2.0 * np.pi)
+                self.model.kernel[q].variance.assign(variance * 5.0)
 
             # normalize proportional to channel variance
             for i, channel in enumerate(self.dataset):
                 _, y = channel.get_train_data(transformed=True)
-                constant[:,:,i] = constant[:,:,i] / constant[:,:,i].sum() * y.var() * 2
+                constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
 
             for q in range(self.Q):
-                self.set_parameter(q, 'constant', constant[q,:,:])
+                self.model.kernel[q].amplitude.assign(constant[:,q,:])
 
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
 
-            constant = np.empty((self.Q, self.Rq, output_dims))
+            constant = np.empty((output_dims, self.Q, self.Rq))
             for q in range(self.Q):
-                constant[q,:,:] = params[q]['weight'].mean(axis=0).reshape(self.Rq, -1)
-                self.set_parameter(q, 'mean', params[q]['mean'].mean(axis=1))
-                self.set_parameter(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
+                constant[:,q,:] = params[q]['weight'].mean(axis=0)
 
             # normalize proportional to channel variance
             for i, channel in enumerate(self.dataset):
                 _, y = channel.get_train_data(transformed=True)
-                constant[:,:,i] = constant[:,:,i] / constant[:,:,i].sum() * y.var() * 2
+                constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
                 
             for q in range(self.Q):
-                self.set_parameter(q, 'constant', constant[q,:,:])
+                self.model.kernel[q].amplitude.assign(constant[:,q,:])
+                self.model.kernel[q].mean.assign(params[q]['mean'].mean(axis=1))
+                self.model.kernel[q].variance.assign(params[q]['scale'].mean(axis=1) * 2)
         else:
             raise ValueError("valid methods of estimation are 'BNSE', 'LS', or 'SM'")
 
-        noise = np.empty((output_dims,))
-        for i, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            noise[i] = y.var() / 30
-        self.set_parameter(self.Q, 'noise', noise)
+        #noise = np.empty((output_dims,))
+        #for i, channel in enumerate(self.dataset):
+        #    _, y = channel.get_train_data(transformed=True)
+        #    noise[i] = y.var() / 30
+        #self.set_parameter(self.Q, 'noise', noise)

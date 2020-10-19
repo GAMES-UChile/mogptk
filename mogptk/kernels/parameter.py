@@ -79,10 +79,10 @@ class Parameter:
             if len(upper.shape) != 0 and upper.shape != data.shape:
                 raise ValueError("upper and data must match shapes: %s != %s" % (upper.shape, data.shape))
         if data.requires_grad:
-            raise ValueError("must pass tensor without grad")
+            data = data.detach()
 
         if self.unconstrained is not None:
-            origShape = data.shape
+            origshape = data.shape
             while len(data.shape) < len(self.unconstrained.shape) and self.unconstrained.shape[len(data.shape)] == 1:
                 data = data.unsqueeze(len(data.shape))
             if data.shape != self.unconstrained.shape:

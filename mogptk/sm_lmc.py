@@ -1,6 +1,6 @@
 import numpy as np
 from .model import model
-from .kernels import SpectralMixtureLMC, Noise
+from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
 from .sm import _estimate_from_sm
 
 class SM_LMC(model):
@@ -40,7 +40,7 @@ class SM_LMC(model):
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
-    def __init__(self, dataset, Q=1, Rq=1, name="SM-LMC", likelihood=None, variational=False, sparse=False, like_params={}, **kwargs):
+    def __init__(self, dataset, Q=1, Rq=1, name="SM-LMC"):
         if Rq != 1:
             raise Exception("Rq != 1 is not (yet) supported") # TODO: support
 
@@ -48,18 +48,15 @@ class SM_LMC(model):
         self.Q = Q
         self.Rq = Rq
 
-        for q in range(self.Q):
-            kernel = SpectralMixtureLMC(
-                self.dataset.get_input_dims()[0],
-                self.dataset.get_output_dims(),
-                self.Rq,
-            )
-            if q == 0:
-                kernel_set = kernel
-            else:
-                kernel_set += kernel
-        kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
-        self._build(kernel_set, likelihood, variational, sparse, like_params, **kwargs)
+        spectral = SpectralKernel(self.dataset.get_input_dims()[0])
+        spectral.weight.trainable = False
+        kernel = LinearModelOfCoregionalizationKernel(
+            spectral,
+            output_dims=self.dataset.get_output_dims(),
+            input_dims=self.dataset.get_input_dims()[0],
+            Q=Q,
+            Rq=Rq)
+        self._build(kernel)
     
     def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=2000, plot=False):
         """
@@ -94,50 +91,45 @@ class SM_LMC(model):
                 logger.warning('{} could not find peaks for SM-LMC'.format(method))
                 return
 
-            constant = np.empty((self.Q, self.Rq, output_dims))
+            constant = np.empty((output_dims, self.Q, self.Rq))
             for q in range(self.Q):
                 for i in range(len(self.dataset)):
-                    constant[q,:,i] = amplitudes[i][:,q].mean()
-            
+                    constant[i,q,:] = amplitudes[i][:,q].mean()
                 mean = np.array(means)[:,:,q].mean(axis=0)
                 variance = np.array(variances)[:,:,q].mean(axis=0)
-
-                # self.set_parameter(q, 'constant', constant)
-                self.set_parameter(q, 'mean', mean * 2 * np.pi)
-                self.set_parameter(q, 'variance', variance * 2)
+                self.model.kernel[q].mean.assign(mean * 2.0 * np.pi)
+                self.model.kernel[q].variance.assign(variance * 2.0)
 
             # normalize proportional to channel variance
             for i, channel in enumerate(self.dataset):
                 _, y = channel.get_train_data(transformed=True)
-                constant[:,:,i] = constant[:,:,i] / constant[:,:,i].sum() * y.var() * 2
+                constant[i,:,:] = constant[i,i,:] / constant[i,i,:].sum() * y.var() * 2
 
-            for q in range(self.Q):
-                self.set_parameter(q, 'constant', constant[q,:,:])
+            self.model.kernel.weight.assign(constant)
 
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
 
-            constant = np.empty((self.Q, self.Rq, output_dims))
+            constant = np.empty((output_dims, self.Q, self.Rq))
             for q in range(self.Q):
-                constant[q,:,:] = params[q]['weight'].mean(axis=0).reshape(self.Rq, -1)
-                # self.set_parameter(q, 'constant', params[q]['weight'].mean(axis=0).reshape(self.Rq, -1))
-                self.set_parameter(q, 'mean', params[q]['mean'].mean(axis=1))
-                self.set_parameter(q, 'variance', params[q]['scale'].mean(axis=1) * 2)
+                constant[:,q,:] = params[q]['weight'].mean(axis=0)
 
             # normalize proportional to channel variance
             for i, channel in enumerate(self.dataset):
-                if constant[:,:,i].sum() == 0:
+                if constant[i,:,:].sum() == 0:
                     raise Exception("sum of magnitudes equal to zero")
                 _, y = channel.get_train_data(transformed=True)
-                constant[:,:,i] = constant[:,:,i] / constant[:,:,i].sum() * y.var() * 2
+                constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
                 
+            self.model.kernel.weight.assign(constant)
             for q in range(self.Q):
-                self.set_parameter(q, 'constant', constant[q,:,:])
+                self.model.kernel[q].mean.assign(params[q]['mean'].mean(axis=1))
+                self.model.kernel[q].variance.assign(params[q]['scale'].mean(axis=1) * 2)
         else:
             raise ValueError("valid methods of estimation are 'BNSE', 'LS', or 'SM'")
 
-        noise = np.empty((output_dims,))
-        for i, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            noise[i] = y.var() / 30
-        self.set_parameter(self.Q, 'noise', noise)
+        #noise = np.empty((output_dims,))
+        #for i, channel in enumerate(self.dataset):
+        #    _, y = channel.get_train_data(transformed=True)
+        #    noise[i] = y.var() / 30
+        #self.set_parameter(self.Q, 'noise', noise)

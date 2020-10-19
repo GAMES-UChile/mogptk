@@ -105,11 +105,13 @@ class CrossSpectralKernel(MultiOutputKernel):
         return torch.sum(amplitude * exp * cos, dim=2)
 
 class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
-    def __init__(self, *kernels, output_dims, input_dims, Rq=1, name="LMC"):
+    def __init__(self, *kernels, output_dims, input_dims, Q=None, Rq=1, name="LMC"):
         super(LinearModelOfCoregionalizationKernel, self).__init__(output_dims, input_dims, name=name)
 
-        kernels = self._check_kernels(kernels)
-        weight = torch.rand(output_dims, len(kernels), Rq)
+        if Q is None:
+            Q = len(kernels)
+        kernels = self._check_kernels(kernels, Q)
+        weight = torch.rand(output_dims, Q, Rq)
 
         self.kernels = kernels
         self.weight = Parameter(weight, lower=positive_minimum)
