@@ -1,14 +1,14 @@
 import numpy as np
-import gpflow
-from gpflow import covariances as cov
-from gpflow.base import TensorLike
-from gpflow.kernels.base import Sum
+#import gpflow
+#from gpflow import covariances as cov
+#from gpflow.base import TensorLike
+#from gpflow.kernels.base import Sum
 from .model import model
 from .dataset import DataSet
 from .sm import _estimate_from_sm
-from .kernels import MultiOutputSpectralMixture, Noise, Kuu_mosm_vik, Kuf_mosm_vik
+from .kernels import MultiOutputSpectralKernel, MixtureKernel# Noise, Kuu_mosm_vik, Kuf_mosm_vik
 from .plot import plot_spectrum
-from .variational_inducing_variables import VariationalInducingFunctions
+#from .variational_inducing_variables import VariationalInducingFunctions
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
@@ -49,72 +49,67 @@ class MOSM(model):
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
-    def __init__(self, dataset, Q=1, name="MOSM", likelihood=None, variational=False, sparse=False, like_params={}, inducing_variable=None, **kwargs):
+    def __init__(self, dataset, Q=1, name="MOSM"):
         model.__init__(self, name, dataset)
         self.Q = Q
 
-        for q in range(Q):
-            kernel = MultiOutputSpectralMixture(
-                self.dataset.get_input_dims()[0],
-                self.dataset.get_output_dims(),
-            )
-            if q == 0:
-                kernel_set = kernel
-            else:
-                kernel_set += kernel
-        kernel_set += Noise(self.dataset.get_input_dims()[0], self.dataset.get_output_dims())
-        self._build(kernel_set, likelihood, variational, sparse, like_params, inducing_variable, **kwargs)
+        spectral = MultiOutputSpectralKernel(
+            output_dims=self.dataset.get_output_dims(),
+            input_dims=self.dataset.get_input_dims()[0],
+        )
+        kernel = MixtureKernel(spectral, Q=Q)
+        self._build(kernel)
 
-    def _build(self, kernel, likelihood, variational, sparse, like_params, inducing_variable, **kwargs):
-        """
-        Build the model using the given kernel and likelihood. The variational and sparse booleans decide which GPflow model will be used.
+    #def _build(self, kernel, likelihood, variational, sparse, like_params, inducing_variable, **kwargs):
+    #    """
+    #    Build the model using the given kernel and likelihood. The variational and sparse booleans decide which GPflow model will be used.
 
-        Args:
-            kernel (gpflow.Kernel): Kernel to use.
-            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
-                a default exact inference Gaussian likelihood is used.
-            variational (bool): If True, use variational inference to approximate
-                function values as Gaussian. If False it will use Monte carlo Markov Chain.
-            sparse (bool): If True, will use sparse GP regression.
-            like_params (dict): Parameters to GPflow likelihood.
-        """
+    #    Args:
+    #        kernel (gpflow.Kernel): Kernel to use.
+    #        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
+    #            a default exact inference Gaussian likelihood is used.
+    #        variational (bool): If True, use variational inference to approximate
+    #            function values as Gaussian. If False it will use Monte carlo Markov Chain.
+    #        sparse (bool): If True, will use sparse GP regression.
+    #        like_params (dict): Parameters to GPflow likelihood.
+    #    """
 
-        x, y = self.dataset._to_kernel()
+    #    x, y = self.dataset._to_kernel()
 
-        # Gaussian likelihood
-        if likelihood is None:
-            if not sparse:
-                self.model = gpflow.models.GPR((x, y), kernel, **kwargs)
-            else:
-                # TODO: it will cause problem if they use other model after this is executed
-                self.name += ' (sparse variational)'
-                if isinstance(inducing_variable, VariationalInducingFunctions):
-                    cov.Kuu.add((VariationalInducingFunctions, MultiOutputSpectralMixture), func=Kuu_mosm_vik)
-                    cov.Kuu.add((VariationalInducingFunctions, Sum), func=Kuu_mosm_vik)
+    #    # Gaussian likelihood
+    #    if likelihood is None:
+    #        if not sparse:
+    #            self.model = gpflow.models.GPR((x, y), kernel, **kwargs)
+    #        else:
+    #            # TODO: it will cause problem if they use other model after this is executed
+    #            self.name += ' (sparse variational)'
+    #            if isinstance(inducing_variable, VariationalInducingFunctions):
+    #                cov.Kuu.add((VariationalInducingFunctions, MultiOutputSpectralMixture), func=Kuu_mosm_vik)
+    #                cov.Kuu.add((VariationalInducingFunctions, Sum), func=Kuu_mosm_vik)
 
-                    cov.Kuf.add((VariationalInducingFunctions, MultiOutputSpectralMixture, TensorLike), func=Kuf_mosm_vik)
-                    cov.Kuf.add((VariationalInducingFunctions, Sum, TensorLike), func=Kuf_mosm_vik)
-                    
-                self.model = gpflow.models.SGPR((x, y), kernel, inducing_variable=inducing_variable, **kwargs)         
-                    
-        # MCMC
-        elif not variational:
-            self.likelihood = likelihood(**like_params)
-            if not sparse:
-                self.name += ' (MCMC approx)'
-                self.model = gpflow.models.GPMC((x, y), kernel, self.likelihood, **kwargs)
-            else:
-                self.name += ' (sparse variational with MCMC approx)'
-                self.model = gpflow.models.SGPMC((x, y), kernel, self.likelihood, **kwargs)
-        # Variational
-        else:
-            self.likelihood = likelihood(**like_params)
-            if not sparse:
-                self.name += ' (variational approx)'
-                self.model = gpflow.models.VGP((x, y), kernel, self.likelihood, **kwargs)
-            else:
-                self.name += ' (sparse variational with variational approx)'
-                self.model = gpflow.models.SVGP((x, y), kernel, self.likelihood, **kwargs)
+    #                cov.Kuf.add((VariationalInducingFunctions, MultiOutputSpectralMixture, TensorLike), func=Kuf_mosm_vik)
+    #                cov.Kuf.add((VariationalInducingFunctions, Sum, TensorLike), func=Kuf_mosm_vik)
+    #                
+    #            self.model = gpflow.models.SGPR((x, y), kernel, inducing_variable=inducing_variable, **kwargs)         
+    #                
+    #    # MCMC
+    #    elif not variational:
+    #        self.likelihood = likelihood(**like_params)
+    #        if not sparse:
+    #            self.name += ' (MCMC approx)'
+    #            self.model = gpflow.models.GPMC((x, y), kernel, self.likelihood, **kwargs)
+    #        else:
+    #            self.name += ' (sparse variational with MCMC approx)'
+    #            self.model = gpflow.models.SGPMC((x, y), kernel, self.likelihood, **kwargs)
+    #    # Variational
+    #    else:
+    #        self.likelihood = likelihood(**like_params)
+    #        if not sparse:
+    #            self.name += ' (variational approx)'
+    #            self.model = gpflow.models.VGP((x, y), kernel, self.likelihood, **kwargs)
+    #        else:
+    #            self.name += ' (sparse variational with variational approx)'
+    #            self.model = gpflow.models.SVGP((x, y), kernel, self.likelihood, **kwargs)
 
     def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
         """
@@ -152,16 +147,16 @@ class MOSM(model):
 
             magnitude = np.zeros((output_dims, self.Q))
             for q in range(self.Q):
-                mean = np.empty((input_dims[0], output_dims))
-                variance = np.empty((input_dims[0], output_dims))
+                mean = np.empty((output_dims,input_dims[0]))
+                variance = np.empty((output_dims,input_dims[0]))
                 for i in range(output_dims):
                     magnitude[i,q] = amplitudes[i][:,q].mean()
-                    mean[:,i] = means[i][:,q] * 2 * np.pi
+                    mean[i,:] = means[i][:,q] * 2 * np.pi
                     # maybe will have problems with higher input dimensions
-                    variance[:,i] = variances[i][:,q] * (4 + 20 * (max(input_dims) - 1)) # 20
+                    variance[i,:] = variances[i][:,q] * (4 + 20 * (max(input_dims) - 1)) # 20
 
-                self.set_parameter(q, 'mean', mean)
-                self.set_parameter(q, 'variance', variance)
+                self.model.kernel[q].mean.assign(mean)
+                self.model.kernel[q].variance.assign(variance)
 
             # normalize proportional to channels variances
             for i, channel in enumerate(self.dataset):
@@ -169,7 +164,7 @@ class MOSM(model):
                 magnitude[i,:] = np.sqrt(magnitude[i,:] / magnitude[i,:].sum() * y.var()) * 2
             
             for q in range(self.Q):
-                self.set_parameter(q, 'magnitude', magnitude[:,q])
+                self.model.kernel[q].magnitude.assign(magnitude[:,q])
             
         elif method == 'SM':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
@@ -177,8 +172,6 @@ class MOSM(model):
             magnitude = np.zeros((output_dims, self.Q))
             for q in range(self.Q):
                 magnitude[:,q] = params[q]['weight'].mean(axis=0)
-                self.set_parameter(q, 'mean', params[q]['mean'])
-                self.set_parameter(q, 'variance', params[q]['scale'] * 2)
 
             # normalize proportional to channels variances
             for i, channel in enumerate(self.dataset):
@@ -186,25 +179,27 @@ class MOSM(model):
                     raise Exception("sum of magnitudes equal to zero")
                 _, y = channel.get_train_data(transformed=True)
                 magnitude[i,:] = np.sqrt(magnitude[i,:] / magnitude[i,:].sum() * y.var()) * 2
+
             for q in range(self.Q):
-                self.set_parameter(q, 'magnitude', magnitude[:,q])
+                self.model.kernel[q].magnitude.assign(magnitude[:,q])
+                self.model.kernel[q].mean.assign(params[q]['mean'])
+                self.model.kernel[q].variance.assign(params[q]['scale'] * 2)
         else:
             raise ValueError("valid methods of estimation are 'BNSE', 'LS', or 'SM'")
 
-        noise = np.empty((output_dims,))
-        for i, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            noise[i] = y.var() / 30
-        self.set_parameter(self.Q, 'noise', noise)
+        #noise = np.empty((output_dims,))
+        #for i, channel in enumerate(self.dataset):
+        #    _, y = channel.get_train_data(transformed=True)
+        #    noise[i] = y.var() / 30
+        #self.set_parameter(self.Q, 'noise', noise)
 
     def plot(self):
         names = self.dataset.get_names()
         nyquist = self.dataset.get_nyquist_estimation()
 
-        params = self.get_parameters()
-        means = np.array([params[q]['mean'] for q in range(self.Q)])
-        weights = np.array([params[q]['magnitude'] for q in range(self.Q)])**2
-        scales = np.array([params[q]['variance'] for q in range(self.Q)])
+        means = np.array([self.model.kernel[q].mean() for q in range(self.Q)])
+        weights = np.array([self.model.kernel[q].magnitude() for q in range(self.Q)])**2
+        scales = np.array([self.model.kernel[q].variance() for q in range(self.Q)])
         plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names)
 
     def plot_psd(self, figsize=(20, 14), title=''):
@@ -283,8 +278,8 @@ class MOSM(model):
     def info(self):
         for channel in range(self.dataset.get_output_dims()):
             for q in range(self.Q):
-                mean = self.get_parameter(q, "mean")[:,channel]
-                var = self.get_parameter(q, "variance")[:,channel]
+                mean = self.model.kernel[q].mean().numpy()[channel,:]
+                var = self.model.kernel[q].variance().numpy()[channel,:]
                 if np.linalg.norm(mean) < np.linalg.norm(var):
                     print("‣ MOSM approaches RBF kernel for q=%d in channel='%s'" % (q, self.dataset[channel].name))
 
@@ -314,12 +309,12 @@ class MOSM(model):
         for q in range(Q):
             for i in range(m):
                 for j in range(m):
-                    var_i = self.get_parameter(q, 'variance')[:, i]
-                    var_j = self.get_parameter(q, 'variance')[:, j]
-                    mu_i = self.get_parameter(q, 'mean')[:, i]
-                    mu_j = self.get_parameter(q, 'mean')[:, j]
-                    w_i = self.get_parameter(q, 'magnitude')[i]
-                    w_j = self.get_parameter(q, 'magnitude')[j]
+                    var_i = self.model.kernel[q].variance().numpy()[i,:]
+                    var_j = self.model.kernel[q].variance().numpy()[j,:]
+                    mu_i = self.model.kernel[q].mean().numpy()[i,:]
+                    mu_j = self.model.kernel[q].mean().numpy()[j,:]
+                    w_i = self.model.kernel[q].magnitude().numpy()[i]
+                    w_j = self.model.kernel[q].magnitude().numpy()[j]
                     sv = var_i + var_j
 
                     # cross covariance
@@ -332,11 +327,11 @@ class MOSM(model):
                     cross_params['magnitude'][i, j, q] = w_i * w_j * np.exp(exp_term)
             if m>1:
                 # cross phase
-                phase_q = self.get_parameter(q, 'phase')
+                phase_q = self.model.kernel[q].phase().numpy()
                 cross_params['phase'][:, :, q] = np.subtract.outer(phase_q, phase_q)
                 for n in range(d):
                     # cross delay        
-                    delay_n_q = self.get_parameter(q, 'delay')[n, :]
+                    delay_n_q = self.model.kernel[q].delay().numpy()[:,n]
                     cross_params['delay'][:, :, n, q] = np.subtract.outer(delay_n_q, delay_n_q)
 
         return cross_params

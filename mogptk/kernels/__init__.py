@@ -1,9 +1,7 @@
-from .mosm import MultiOutputSpectralMixture
-from .sm import SpectralMixture, sm_init
-from .csm import CrossSpectralMixture
-from .conv import ConvolutionalGaussian
-from .sm_lmc import SpectralMixtureLMC
-from .noise import Noise
-from .r_mosm_pair import RestrictedMultiOutputSpectralMixture_p
-from .r_mosm_unique import RestrictedMultiOutputSpectralMixture_u
-from .inducing_variables_mosm import Kuu_mosm_vik, Kuf_mosm_vik
+from .config import *
+from .parameter import *
+from .kernel import *
+from .model import *
+from .common import *
+from .singleoutput import *
+from .multioutput import *

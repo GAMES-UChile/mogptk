@@ -1,6 +1,6 @@
 import numpy as np
 from .model import model
-from .kernels import SpectralMixture, sm_init, Noise
+from .kernels import SpectralKernel, MixtureKernel
 from .plot import plot_spectrum
 from scipy.stats import norm
 import matplotlib.pyplot as plt
@@ -31,9 +31,9 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='L-BFGS-B', maxiter=2
     params = []
     for q in range(Q):
         params.append({
-            'weight': np.empty((input_dims, output_dims)),
-            'mean': np.empty((input_dims, output_dims)),
-            'scale': np.empty((input_dims, output_dims)),
+            'weight': np.empty((output_dims, input_dims)),
+            'mean': np.empty((output_dims, input_dims)),
+            'scale': np.empty((output_dims, input_dims)),
         })
 
     sm = None
@@ -43,23 +43,24 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='L-BFGS-B', maxiter=2
             sm.init_parameters(method)
 
             if fix_means:
-                sm.set_parameter(0, 'mixture_means', np.zeros((Q, input_dims)))
-                sm.set_parameter(0, 'mixture_scales', sm.get_parameter(0, 'mixture_scales') * 50)
-                sm.fix_parameter(0, 'mixture_means')
+                for q in range(Q):
+                    sm.model.kernel[q].mean.assign(np.zeros((input_dims)))
+                    sm.model.kernel[q].mean.trainable = False
+                    sm.model.kernel[q].variance.assign(sm.model.kernel.kernels[q].variance * 50)
 
             sm.train(method=optimizer, maxiter=maxiter)
 
             if plot:
                 nyquist = dataset[channel].get_nyquist_estimation()
-                means = sm.get_parameter(0, 'mixture_means')
-                weights = sm.get_parameter(0, 'mixture_weights')
-                scales = sm.get_parameter(0, 'mixture_scales').T
+                means = np.array([sm.model.kernel[q].mean() for q in range(Q)])
+                weights = np.array([sm.model.kernel[q].weight() for q in range(Q)])
+                scales = np.array([sm.model.kernel[q].variance() for q in range(Q)])
                 plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=dataset[channel].name)
 
             for q in range(Q):
-                params[q]['weight'][i,channel] = sm.get_parameter(0, 'mixture_weights')[q]
-                params[q]['mean'][i,channel] = sm.get_parameter(0, 'mixture_means')[q,:] * np.pi * 2
-                params[q]['scale'][i,channel] = sm.get_parameter(0, 'mixture_scales')[:,q]
+                params[q]['weight'][channel,i] = sm.model.kernel[q].weight().numpy()
+                params[q]['mean'][channel,i] = sm.model.kernel[q].mean().numpy() * np.pi * 2
+                params[q]['scale'][channel,i] = sm.model.kernel[q].variance().numpy()
 
     return params
 
@@ -94,18 +95,15 @@ class SM(model):
 
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
     """
-    def __init__(self, dataset, Q=1, name="SM", likelihood=None, variational=False, sparse=False, like_params={}, **kwargs):
+    def __init__(self, dataset, Q=1, name="SM"):
         model.__init__(self, name, dataset)
         self.Q = Q
 
         if self.dataset.get_output_dims() != 1:
             raise Exception("single output spectral mixture kernel can only have one output dimension in the data")
 
-        kernel = SpectralMixture(
-            self.dataset.get_input_dims()[0],
-            self.Q,
-        )
-        self._build(kernel, likelihood, variational, sparse, like_params, **kwargs)
+        kernel = MixtureKernel(SpectralKernel(self.dataset.get_input_dims()[0]), self.Q)
+        self._build(kernel)
 
     def init_parameters(self, method='BNSE', noise=False):
         """
@@ -134,14 +132,14 @@ class SM(model):
         if method not in ['IPS', 'LS', 'BNSE', 'GMM']:
             raise ValueError("valid methods of estimation are 'IPS', 'LS', 'BNSE', and 'GMM'")
 
-        if method == 'IPS':
-            x, y = self.dataset[0].get_train_data(transformed=True)
-            weights, means, scales = sm_init(x, y, self.Q)
-            self.set_parameter(0, 'mixture_weights', weights)
-            self.set_parameter(0, 'mixture_means', np.array(means))
-            self.set_parameter(0, 'mixture_scales', np.array(scales.T))
-            return
-        elif method == 'LS':
+        #if method == 'IPS':
+        #    x, y = self.dataset[0].get_train_data(transformed=True)
+        #    weights, means, scales = sm_init(x, y, self.Q)
+        #    self.set_parameter(0, 'mixture_weights', weights)
+        #    self.set_parameter(0, 'mixture_means', np.array(means))
+        #    self.set_parameter(0, 'mixture_scales', np.array(scales.T))
+        #    return
+        if method == 'LS':
             amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('LS could not find peaks for SM')
@@ -178,21 +176,19 @@ class SM(model):
 
         mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].std() * 2
 
-        self.set_parameter(0, 'mixture_weights', mixture_weights)
-        self.set_parameter(0, 'mixture_means', means.T)
-        if method in ['IPS', 'GMM']:
-            self.set_parameter(0, 'mixture_scales', variances)
-        else:
-            self.set_parameter(0, 'mixture_scales', variances * 1.0)
+        for q in range(Q):
+            self.model.kernel[q].weight.assign(mixture_weights[q])
+            self.model.kernel[q].mean.assign(mixture_means[:,q])
+            self.model.kernel[q].variance.assign(mixture_scales[:,q])
 
     def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
         """
         Plot power spectral density of single output GP-SM.
         """
         #TODO: fix
-        means = self.get_parameter(0, 'mixture_means') * 2.0 * np.pi
-        weights = self.get_parameter(0, 'mixture_weights')
-        scales = self.get_parameter(0, 'mixture_scales').T
+        means = np.array([self.model.kernel[q].mean()*2.0*np.pi for q in range(self.Q)])
+        weights = np.array([self.model.kernel[q].weight() for q in range(self.Q)])
+        scales = np.array([self.model.kernel[q].variance() for q in range(self.Q)])
         
         # calculate bounds
         x_low = norm.ppf(0.001, loc=means, scale=scales).min()

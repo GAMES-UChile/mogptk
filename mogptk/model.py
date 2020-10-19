@@ -2,26 +2,27 @@ import os
 import json
 import time
 import numpy as np
-import gpflow
-import tensorflow as tf
+import torch
+#import gpflow
+#import tensorflow as tf
 from .dataset import DataSet
+from .kernels import GPR
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from gpflow import set_trainable
+#from gpflow import set_trainable
 
-from IPython.display import display, HTML
 from tabulate import tabulate
 
 import logging
-logging.getLogger('tensorflow').propagate = False
-logging.getLogger('tensorflow').setLevel(logging.ERROR)
+#logging.getLogger('tensorflow').propagate = False
+#logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
-tf.autograph.set_verbosity(0) # TODO: remove and fix problem
+#tf.autograph.set_verbosity(0) # TODO: remove and fix problem
 
-gpflow.config.set_default_positive_minimum(1e-12)
+#gpflow.config.set_default_positive_minimum(1e-12)
 eps = 1e-20
 
 logger = logging.getLogger('mogptk')
@@ -57,48 +58,16 @@ class model:
         self.name = name
         self.dataset = dataset
     
-    def _build(self, kernel, likelihood, variational, sparse, like_params, **kwargs):
+    def _build(self, kernel):
         """
         Build the model using the given kernel and likelihood. The variational and sparse booleans decide which GPflow model will be used.
 
         Args:
-            kernel (gpflow.Kernel): Kernel to use.
-            likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
-                a default exact inference Gaussian likelihood is used.
-            variational (bool): If True, use variational inference to approximate
-                function values as Gaussian. If False it will use Monte carlo Markov Chain.
-            sparse (bool): If True, will use sparse GP regression.
-            like_params (dict): Parameters to GPflow likelihood.
+            kernel (mogptk.kernels.Kernel): Kernel to use.
         """
 
         x, y = self.dataset._to_kernel()
-
-        # Gaussian likelihood
-        if likelihood is None:
-            if not sparse:
-                self.model = gpflow.models.GPR((x, y), kernel, **kwargs)
-            else:
-                # TODO: test if induction points are set
-                self.name += ' (sparse variational)'
-                self.model = gpflow.models.SGPR((x, y), kernel, **kwargs)
-        # MCMC
-        elif not variational:
-            self.likelihood = likelihood(**like_params)
-            if not sparse:
-                self.name += ' (MCMC approx)'
-                self.model = gpflow.models.GPMC((x, y), kernel, self.likelihood, **kwargs)
-            else:
-                self.name += ' (sparse variational with MCMC approx)'
-                self.model = gpflow.models.SGPMC((x, y), kernel, self.likelihood, **kwargs)
-        # Variational
-        else:
-            self.likelihood = likelihood(**like_params)
-            if not sparse:
-                self.name += ' (variational approx)'
-                self.model = gpflow.models.VGP((x, y), kernel, self.likelihood, **kwargs)
-            else:
-                self.name += ' (sparse variational with variational approx)'
-                self.model = gpflow.models.SVGP((x, y), kernel, self.likelihood, **kwargs)
+        self.model = GPR(kernel, x, y)
 
     ################################################################
 
@@ -109,104 +78,7 @@ class model:
         Examples:
             >>> model.print_parameters()
         """
-        with np.printoptions(precision=3, floatmode='fixed'):
-            try:
-                get_ipython # fails if we're not in a notebook
-
-                table = '<table><tr><th>Kernel</th><th>Name</th><th>Train</th><th>Shape</th><th>Dtype</th><th>Value</th></tr>'
-                for q, params in enumerate(self.get_parameters()):
-                    kernel = None
-                    if hasattr(self.model.kernel, 'kernels'):
-                        kernel = self.model.kernel.kernels[q]
-                    else:
-                        kernel = self.model.kernel
-
-                    first = True
-                    for key in params.keys():
-                        param = getattr(kernel, key)
-
-                        val = params[key]
-                        if val.ndim == 0:
-                            val = '%.3g' % (val,)
-                        else:
-                            val = str(val)
-
-                        tr_style = ''
-                        name = ''
-                        if first:
-                            if q != 0:
-                                tr_style = ' style="border-top:1px solid darkgrey"'
-                            name = '<th rowspan="%d" style="text-align:center">%s<br>Q=%d</th>' % (len(params.keys()), kernel.name, q)
-                            first = False
-
-                        table += '<tr%s>%s<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
-
-                first = True
-                params = self.get_likelihood_parameters()
-                for key in params:
-                    param = getattr(self.model.likelihood, key)
-
-                    val = params[key]
-                    if val.ndim == 0:
-                        val = '%.3g' % (val,)
-                    else:
-                        val = str(val)
-
-                    name = ''
-                    tr_style = ''
-                    if first:
-                        tr_style = ' style="border-top:1px solid darkgrey"'
-                        name = '<th rowspan="%d" style="text-align:center">%s<br>likelihood</th>' % (len(params.keys()), self.model.likelihood.name)
-                        first = False
-
-                    table += '<tr%s>%s<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (tr_style, name, key, param.trainable, params[key].shape, params[key].dtype, val)
-                table += '</table>'
-                display(HTML(table))
-            except Exception as e:
-                contents = []
-                for q, params in enumerate(self.get_parameters()):
-                    kernel = None
-                    if hasattr(self.model.kernel, 'kernels'):
-                        kernel = self.model.kernel.kernels[q]
-                    else:
-                        kernel = self.model.kernel
-
-                    first = True
-                    for key in params.keys():
-                        param = getattr(kernel, key)
-
-                        val = params[key]
-                        if val.ndim == 0:
-                            val = '%.3g' % (val,)
-                        else:
-                            val = str(val)
-
-                        name = ''
-                        if first:
-                            name = '%s Q=%d' % (kernel.name, q)
-                            first = False
-
-                        contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
-
-                first = True
-                params = self.get_likelihood_parameters()
-                for key in params.keys():
-                    param = getattr(self.model.likelihood, key)
-
-                    val = params[key]
-                    if val.ndim == 0:
-                        val = '%.3g' % (val,)
-                    else:
-                        val = str(val)
-
-                    name = ''
-                    if first:
-                        name = '%s likelihood' % (self.model.likelihood.name,)
-                        first = False
-
-                    contents.append([name, key, param.trainable, params[key].shape, params[key].dtype, val])
-
-                print(tabulate(contents, headers=['Kernel', 'Name', 'Train', 'Shape', 'Dtype', 'Value']))
+        self.model.print_parameters()
 
     def get_parameters(self):
         """
@@ -215,251 +87,196 @@ class model:
         Examples:
             >>> params = model.get_parameters()
         """
+        self.model.parameters()
 
-        params = []
-        if hasattr(self.model.kernel, 'kernels'):
-            for kernel_i, kernel in enumerate(self.model.kernel.kernels):
-                params.append({})
-                for param_name, param_val in kernel.__dict__.items():
-                    if isinstance(param_val, gpflow.base.Parameter):
-                        params[kernel_i][param_name] = param_val.read_value().numpy()
-        else:
-            params.append({})
-            for param_name, param_val in self.model.kernel.__dict__.items():
-                if isinstance(param_val, gpflow.base.Parameter):
-                    params[0][param_name] = param_val.read_value().numpy()
-        return params
+    #def get_parameter(self, q, key):
+    #    """
+    #    Gets a kernel parameter for component 'q' with key the parameter name.
 
-    def get_likelihood_parameters(self):
-        """
-        Returns all parameters set for the likelihood.
+    #    Args:
+    #        q (int): Component of kernel.
+    #        key (str): Name of component.
+    #        
+    #    Returns:
+    #        val (numpy.ndarray): Value of parameter.
 
-        Examples:
-            >>> params = model.get_likelihood_parameters()
-        """
-        params = {}
-        for param_name, param_val in self.model.likelihood.__dict__.items():
-            if isinstance(param_val, gpflow.base.Parameter):
-                params[param_name] = param_val.read_value().numpy()
-        return params
+    #    Examples:
+    #        >>> val = model.get_parameter(0, 'variance') # for Q=0 get the parameter called 'variance'
+    #    """
+    #    if hasattr(self.model.kernel, 'kernels'):
+    #        if q < 0 or len(self.model.kernel.kernels) <= q:
+    #            raise Exception("qth component %d does not exist" % (q,))
+    #        kern = self.model.kernel.kernels[q].__dict__
+    #    else:
+    #        if q != 0:
+    #            raise Exception("qth component %d does not exist" % (q,))
+    #        kern = self.model.kernel.__dict__
+    #    
+    #    if key not in kern or not isinstance(kern[key], gpflow.base.Parameter):
+    #        raise Exception("parameter name '%s' does not exist for q=%d" % (key, q))
+    #
+    #    return kern[key].read_value().numpy()
 
-    def get_parameter(self, q, key):
-        """
-        Gets a kernel parameter for component 'q' with key the parameter name.
+    #def set_parameter(self, q, key, val):
+    #    """
+    #    Sets a kernel parameter for component 'q' with key the parameter name.
 
-        Args:
-            q (int): Component of kernel.
-            key (str): Name of component.
-            
-        Returns:
-            val (numpy.ndarray): Value of parameter.
+    #    Args:
+    #        q (int): Component of kernel.
+    #        key (str): Name of component.
+    #        val (float, numpy.ndarray): Value of parameter.
 
-        Examples:
-            >>> val = model.get_parameter(0, 'variance') # for Q=0 get the parameter called 'variance'
-        """
-        if hasattr(self.model.kernel, 'kernels'):
-            if q < 0 or len(self.model.kernel.kernels) <= q:
-                raise Exception("qth component %d does not exist" % (q,))
-            kern = self.model.kernel.kernels[q].__dict__
-        else:
-            if q != 0:
-                raise Exception("qth component %d does not exist" % (q,))
-            kern = self.model.kernel.__dict__
-        
-        if key not in kern or not isinstance(kern[key], gpflow.base.Parameter):
-            raise Exception("parameter name '%s' does not exist for q=%d" % (key, q))
-    
-        return kern[key].read_value().numpy()
+    #    Examples:
+    #        >>> model.set_parameter(0, 'variance', np.array([5.0, 3.0])) # for Q=0 set the parameter called 'variance'
+    #    """
+    #    if isinstance(val, (int, float, list)):
+    #        val = np.array(val)
+    #    if not isinstance(val, np.ndarray):
+    #        raise Exception("value %s of type %s is not a number type or ndarray" % (val, type(val)))
 
-    def set_parameter(self, q, key, val):
-        """
-        Sets a kernel parameter for component 'q' with key the parameter name.
+    #    if hasattr(self.model.kernel, 'kernels'):
+    #        if q < 0 or len(self.model.kernel.kernels) <= q:
+    #            raise Exception("qth component %d does not exist" % (q,))
+    #        kern = self.model.kernel.kernels[q].__dict__
+    #    else:
+    #        if q != 0:
+    #            raise Exception("qth component %d does not exist" % (q,))
+    #        kern = self.model.kernel.__dict__
 
-        Args:
-            q (int): Component of kernel.
-            key (str): Name of component.
-            val (float, numpy.ndarray): Value of parameter.
+    #    if key not in kern or not isinstance(kern[key], gpflow.base.Parameter):
+    #        raise Exception("parameter name '%s' does not exist for q=%d" % (key, q))
 
-        Examples:
-            >>> model.set_parameter(0, 'variance', np.array([5.0, 3.0])) # for Q=0 set the parameter called 'variance'
-        """
-        if isinstance(val, (int, float, list)):
-            val = np.array(val)
-        if not isinstance(val, np.ndarray):
-            raise Exception("value %s of type %s is not a number type or ndarray" % (val, type(val)))
+    #    if kern[key].shape != val.shape:
+    #        raise Exception("parameter name '%s' must have shape %s and not %s for q=%d" % (key, kern[key].shape, val.shape, q))
 
-        if hasattr(self.model.kernel, 'kernels'):
-            if q < 0 or len(self.model.kernel.kernels) <= q:
-                raise Exception("qth component %d does not exist" % (q,))
-            kern = self.model.kernel.kernels[q].__dict__
-        else:
-            if q != 0:
-                raise Exception("qth component %d does not exist" % (q,))
-            kern = self.model.kernel.__dict__
+    #    # TODO: some parameters can be negative
+    #    #for i, v in np.ndenumerate(val):
+    #    #    if v < gpflow.config.default_positive_minimum():
+    #    #        val[i] = gpflow.config.default_positive_minimum() + eps
+    #    kern[key].assign(val)
 
-        if key not in kern or not isinstance(kern[key], gpflow.base.Parameter):
-            raise Exception("parameter name '%s' does not exist for q=%d" % (key, q))
+    #def fix_parameter(self, q, key):
+    #    """
+    #    Make parameter untrainable (undo with `unfix_parameter`).
 
-        if kern[key].shape != val.shape:
-            raise Exception("parameter name '%s' must have shape %s and not %s for q=%d" % (key, kern[key].shape, val.shape, q))
+    #    Args:
+    #        q: (int, list or array-like of ints): components to fix.
+    #        key (str): Name of the parameter.
 
-        # TODO: some parameters can be negative
-        #for i, v in np.ndenumerate(val):
-        #    if v < gpflow.config.default_positive_minimum():
-        #        val[i] = gpflow.config.default_positive_minimum() + eps
-        kern[key].assign(val)
+    #    Examples:
+    #        >>> model.fix_parameter([0, 1], 'variance')
+    #    """
 
-    def set_likelihood_parameter(self, key, val):
-        """
-        Sets a likelihood parameter with key the parameter name.
+    #    if isinstance(q, int):
+    #        q = [q]
 
-        Args:
-            key (str): Name of component.
-            val (float, ndarray): Value of parameter.
+    #    if hasattr(self.model.kernel, 'kernels'):
+    #        for kernel_i in q:
+    #            kernel = self.model.kernel.kernels[kernel_i]
+    #            for param_name, param_val in kernel.__dict__.items():
+    #                if param_name == key and isinstance(param_val, gpflow.base.Parameter):
+    #                    set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
+    #    else:
+    #        for param_name, param_val in self.model.kernel.__dict__.items():
+    #            if param_name == key and isinstance(param_val, gpflow.base.Parameter):
+    #                set_trainable(getattr(self.model.kernel, param_name), False)
 
-        Examples:
-            >>> model.set_likelihood_parameter('variance', np.array([5.0, 3.0])) # set the parameter called 'variance'
-        """
-        if isinstance(val, (int, float, list)):
-            val = np.array(val)
-        if not isinstance(val, np.ndarray):
-            raise Exception("value %s of type %s is not a number type or ndarray" % (val, type(val)))
+    #def unfix_parameter(self, q, key):
+    #    """
+    #    Make parameter trainable (that was previously fixed, see `fix_param`).
 
-        likelihood = self.model.likelihood.__dict__
-        if key not in likelihood or not isinstance(likelihood[key], gpflow.base.Parameter):
-            raise Exception("parameter name '%s' does not exist" % (key))
+    #    Args:
+    #    q: (int, list or array-like of ints): components to unfix.
+    #        key (str): Name of the parameter.
 
-        if likelihood[key].shape != val.shape:
-            raise Exception("parameter name '%s' must have shape %s and not %s" % (key, likelihood[key].shape, val.shape))
+    #    Examples:
+    #        >>> model.unfix_parameter('variance')
+    #    """
 
-        for i, v in np.ndenumerate(val):
-            if v < gpflow.config.default_positive_minimum():
-                val[i] = gpflow.config.default_positive_minimum() + eps
+    #    if isinstance(q, int):
+    #        q = [q]
 
-        likelihood[key].assign(val)
+    #    if hasattr(self.model.kernel, 'kernels'):
+    #         for kernel_i in q:
+    #            kernel = self.model.kernel.kernels[kernel_i]
+    #            for param_name, param_val in kernel.__dict__.items():
+    #                if param_name == key and isinstance(param_val, gpflow.base.Parameter):
+    #                    set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
+    #    else:
+    #        for param_name, param_val in self.model.kernel.__dict__.items():
+    #            if param_name == key and isinstance(param_val, gpflow.base.Parameter):
+    #                set_trainable(getattr(self.model.kernel, param_name), True)
 
-    def fix_parameter(self, q, key):
-        """
-        Make parameter untrainable (undo with `unfix_parameter`).
+    #def save_parameters(self, filename):
+    #    """
+    #    Save model parameters to a given file that can then be loaded with `load_parameters()`.
 
-        Args:
-            q: (int, list or array-like of ints): components to fix.
-            key (str): Name of the parameter.
+    #    Args:
+    #        filename (str): Filename to save to, automatically appends '.params'.
 
-        Examples:
-            >>> model.fix_parameter([0, 1], 'variance')
-        """
+    #    Examples:
+    #        >>> model.save_parameters('filename')
+    #    """
+    #    filename += "." + self.name + ".params"
 
-        if isinstance(q, int):
-            q = [q]
+    #    try:
+    #        os.remove(filename)
+    #    except OSError:
+    #        pass
+    #    
+    #    class NumpyEncoder(json.JSONEncoder):
+    #        def default(self, obj):
+    #            if isinstance(obj, np.ndarray):
+    #                return obj.tolist()
+    #            return json.JSONEncoder.default(self, obj)
 
-        if hasattr(self.model.kernel, 'kernels'):
-            for kernel_i in q:
-                kernel = self.model.kernel.kernels[kernel_i]
-                for param_name, param_val in kernel.__dict__.items():
-                    if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                        set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
-        else:
-            for param_name, param_val in self.model.kernel.__dict__.items():
-                if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                    set_trainable(getattr(self.model.kernel, param_name), False)
+    #    data = {
+    #        'model': self.__class__.__name__,
+    #        'likelihood': self.get_likelihood_parameters(),
+    #        'params': self.get_parameters()
+    #    }
+    #    with open(filename, 'w') as w:
+    #        json.dump(data, w, cls=NumpyEncoder)
 
-    def unfix_parameter(self, q, key):
-        """
-        Make parameter trainable (that was previously fixed, see `fix_param`).
+    #def load_parameters(self, filename):
+    #    """
+    #    Load model parameters from a given file that was previously saved with `save_parameters()`.
 
-        Args:
-        q: (int, list or array-like of ints): components to unfix.
-            key (str): Name of the parameter.
+    #    Args:
+    #        filename (str): Filename to load from, automatically appends '.params'.
 
-        Examples:
-            >>> model.unfix_parameter('variance')
-        """
+    #    Examples:
+    #        >>> model.load_parameters('filename')
+    #    """
+    #    filename += "." + self.name + ".params"
 
-        if isinstance(q, int):
-            q = [q]
+    #    with open(filename) as r:
+    #        data = json.load(r)
 
-        if hasattr(self.model.kernel, 'kernels'):
-             for kernel_i in q:
-                kernel = self.model.kernel.kernels[kernel_i]
-                for param_name, param_val in kernel.__dict__.items():
-                    if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                        set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
-        else:
-            for param_name, param_val in self.model.kernel.__dict__.items():
-                if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-                    set_trainable(getattr(self.model.kernel, param_name), True)
+    #        if not isinstance(data, dict) or 'model' not in data or 'likelihood' not in data or 'params' not in data:
+    #            raise Exception('parameter file has bad format')
+    #        if not isinstance(data['params'], list) or not all(isinstance(param, dict) for param in data['params']):
+    #            raise Exception('parameter file has bad format')
 
-    def save_parameters(self, filename):
-        """
-        Save model parameters to a given file that can then be loaded with `load_parameters()`.
+    #        if data['model'] != self.__class__.__name__:
+    #            raise Exception("parameter file uses model '%s' which is different from current model '%s'" % (data['model'], self.__class__.__name__))
 
-        Args:
-            filename (str): Filename to save to, automatically appends '.params'.
+    #        cur_params = self.get_parameters()
+    #        if len(data['params']) != len(cur_params):
+    #            raise Exception("parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model's Q different?" % (len(data['params']), len(cur_params)))
 
-        Examples:
-            >>> model.save_parameters('filename')
-        """
-        filename += "." + self.name + ".params"
+    #        for key, val in data['likelihood'].items():
+    #            self.set_likelihood_parameter(key, val)
 
-        try:
-            os.remove(filename)
-        except OSError:
-            pass
-        
-        class NumpyEncoder(json.JSONEncoder):
-            def default(self, obj):
-                if isinstance(obj, np.ndarray):
-                    return obj.tolist()
-                return json.JSONEncoder.default(self, obj)
-
-        data = {
-            'model': self.__class__.__name__,
-            'likelihood': self.get_likelihood_parameters(),
-            'params': self.get_parameters()
-        }
-        with open(filename, 'w') as w:
-            json.dump(data, w, cls=NumpyEncoder)
-
-    def load_parameters(self, filename):
-        """
-        Load model parameters from a given file that was previously saved with `save_parameters()`.
-
-        Args:
-            filename (str): Filename to load from, automatically appends '.params'.
-
-        Examples:
-            >>> model.load_parameters('filename')
-        """
-        filename += "." + self.name + ".params"
-
-        with open(filename) as r:
-            data = json.load(r)
-
-            if not isinstance(data, dict) or 'model' not in data or 'likelihood' not in data or 'params' not in data:
-                raise Exception('parameter file has bad format')
-            if not isinstance(data['params'], list) or not all(isinstance(param, dict) for param in data['params']):
-                raise Exception('parameter file has bad format')
-
-            if data['model'] != self.__class__.__name__:
-                raise Exception("parameter file uses model '%s' which is different from current model '%s'" % (data['model'], self.__class__.__name__))
-
-            cur_params = self.get_parameters()
-            if len(data['params']) != len(cur_params):
-                raise Exception("parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model's Q different?" % (len(data['params']), len(cur_params)))
-
-            for key, val in data['likelihood'].items():
-                self.set_likelihood_parameter(key, val)
-
-            for q, param in enumerate(data['params']):
-                for key, val in param.items():
-                    self.set_parameter(q, key, val)
+    #        for q, param in enumerate(data['params']):
+    #            for key, val in param.items():
+    #                self.set_parameter(q, key, val)
 
     def train(
         self,
         method='L-BFGS-B',
         tol=1e-6,
-        lr=0.001,
+        lr=1.0,
         maxiter=500,
         params={},
         verbose=False):
@@ -487,41 +304,36 @@ class model:
             >>> model.train(method='Adam', opt_params={...})
         """
         if verbose:
-            inital_time = time.time()
             training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
-            parameters = sum([int(np.prod(var.shape)) for var in self.model.trainable_variables])
+            parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
+            print(self.model.log_marginal_likelihood().detach())
             print('Starting optimization')
             print('‣ Model: {}'.format(self.name))
             print('‣ Channels: {}'.format(len(self.dataset)))
             print('‣ Components: {}'.format(self.Q))
             print('‣ Training points: {}'.format(training_points))
             print('‣ Parameters: {}'.format(parameters))
-            print('‣ Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().numpy()))
+            print('‣ Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().detach().numpy()))
+            inital_time = time.time()
 
-        def loss():
-            return -self.model.log_marginal_likelihood()
-
-        if method.lower() == 'adam':
-            opt = tf.optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999)
-            for step in range(maxiter):
-                opt.minimize(loss, self.model.trainable_variables)
-        else:
-            opt = gpflow.optimizers.Scipy()
-            opt_res = opt.minimize(closure=loss, variables=self.model.trainable_variables, method=method, tol=tol, options={'maxiter': maxiter, 'disp': True}, **params)
+        #if method.lower() == 'adam':
+        #    opt = tf.optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999)
+        #    for step in range(maxiter):
+        #        opt.minimize(loss, self.model.trainable_variables)
+        #else:
+        self.model.iters = 0
+        optimizer = torch.optim.LBFGS(self.model.parameters(), lr=lr, max_iter=maxiter, tolerance_grad=tol)
+        try:
+            optimizer.step(self.model.loss)
+        except Exception as e:
+            print(e)
+            return
 
         if verbose:
             elapsed_time = time.time() - inital_time
-            fun_evals = maxiter
-            if method.lower() != 'adam':
-                fun_evals = opt_res.nfev
             print('\nOptimization finished in {:.2f} minutes'.format(elapsed_time / 60.0))
-            print('‣ Function evaluations: {}'.format(fun_evals))
-            print('‣ Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().numpy()))
-
-        if method.lower() == "adam":
-            return
-        else:
-            return opt_res
+            print('‣ Function evaluations: {}'.format(self.model.iters))
+            print('‣ Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
 
     ################################################################################
     # Predictions ##################################################################
@@ -553,7 +365,7 @@ class model:
         if len(x) == 0:
             raise Exception('no prediction x range set, use x argument or set manually using DataSet.set_prediction_x() or Data.set_prediction_x()')
 
-        mu, var = self.model.predict_f(x)
+        mu, var = self.model.predict(x)
         self.dataset._from_kernel_prediction(self.name, mu, var)
         
         if plot:

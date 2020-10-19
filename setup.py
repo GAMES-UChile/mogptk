@@ -3,8 +3,7 @@ from os import path
 
 requirements = [
     'numpy>=1.10',
-    'gpflow>=2.0',
-    'tensorflow>=2.0',
+    'pytorch',
     'matplotlib',
     'scipy>=0.18',
     'scikit-learn',
