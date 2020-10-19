@@ -127,7 +127,7 @@ class model:
 
                         val = params[key]
                         if val.ndim == 0:
-                            val = '%.3f' % (val,)
+                            val = '%.3g' % (val,)
                         else:
                             val = str(val)
 
@@ -148,7 +148,7 @@ class model:
 
                     val = params[key]
                     if val.ndim == 0:
-                        val = '%.3f' % (val,)
+                        val = '%.3g' % (val,)
                     else:
                         val = str(val)
 
@@ -177,7 +177,7 @@ class model:
 
                         val = params[key]
                         if val.ndim == 0:
-                            val = '%.3f' % (val,)
+                            val = '%.3g' % (val,)
                         else:
                             val = str(val)
 
@@ -195,7 +195,7 @@ class model:
 
                     val = params[key]
                     if val.ndim == 0:
-                        val = '%.3f' % (val,)
+                        val = '%.3g' % (val,)
                     else:
                         val = str(val)
 
@@ -303,9 +303,10 @@ class model:
         if kern[key].shape != val.shape:
             raise Exception("parameter name '%s' must have shape %s and not %s for q=%d" % (key, kern[key].shape, val.shape, q))
 
-        for i, v in np.ndenumerate(val):
-            if v < gpflow.config.default_positive_minimum():
-                val[i] = gpflow.config.default_positive_minimum() + eps
+        # TODO: some parameters can be negative
+        #for i, v in np.ndenumerate(val):
+        #    if v < gpflow.config.default_positive_minimum():
+        #        val[i] = gpflow.config.default_positive_minimum() + eps
         kern[key].assign(val)
 
     def set_likelihood_parameter(self, key, val):
@@ -513,7 +514,7 @@ class model:
             fun_evals = maxiter
             if method.lower() != 'adam':
                 fun_evals = opt_res.nfev
-            print('Optimization finished in {:.2f} minutes'.format(elapsed_time / 60.0))
+            print('\nOptimization finished in {:.2f} minutes'.format(elapsed_time / 60.0))
             print('‣ Function evaluations: {}'.format(fun_evals))
             print('‣ Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().numpy()))
 
