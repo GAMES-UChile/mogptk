@@ -145,9 +145,8 @@ class GPR(Model):
         self.variance = Parameter(variance, name="variance", lower=1e-6)
         self.mean = mean
         
-        self.N = X.shape[0]
         self.input_dims = X.shape[1]
-        self.log_marginal_likelihood_constant = 0.5*self.N*np.log(2.0*np.pi)
+        self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
 
         self._register_parameters(self.variance)
         if mean is not None and issubclass(type(mean), Mean):
@@ -155,7 +154,7 @@ class GPR(Model):
         self._register_parameters(kernel)
 
     def log_marginal_likelihood(self):
-        K = self.kernel(self.X) + self.variance()*torch.eye(self.N)
+        K = self.kernel(self.X) + self.variance()*torch.eye(self.X.shape[0])
         try:
             L = torch.cholesky(K)
         except RuntimeError:
@@ -176,7 +175,7 @@ class GPR(Model):
         p = -0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
         p -= L.diagonal().log().sum()
         p -= self.log_marginal_likelihood_constant
-        return p
+        return p/self.X.shape[0]
 
     def predict(self, Z):
         if not isinstance(Z, torch.Tensor):
@@ -191,20 +190,20 @@ class GPR(Model):
             raise ValueError("X must have %s input dimensions" % self.input_dims)
 
         with torch.no_grad():
-            K = self.kernel(self.X) + self.variance()*torch.eye(self.N)
-            Ks = self.kernel(self.X,Z)
-            Kss = self.kernel(Z)
+            K = self.kernel(self.X) + self.variance()*torch.eye(self.X.shape[0])  # NxN
+            Ks = self.kernel(self.X,Z)  # NxM
+            Kss = self.kernel(Z) + self.variance()*torch.eye(Z.shape[0])  # MxM
 
-            L = torch.cholesky(K)
-            v = torch.triangular_solve(Ks,L,upper=False)[0]
+            L = torch.cholesky(K)  # NxN
+            v = torch.triangular_solve(Ks,L,upper=False)[0]  # NxM
 
             if self.mean is not None:
-                y = self.y - self.mean(X).reshape(-1,1)
-                mu = Ks.T.mm(torch.cholesky_solve(y,L))
-                mu += self.mean(Z).reshape(-1,1)
+                y = self.y - self.mean(X).reshape(-1,1)  # Nx1
+                mu = Ks.T.mm(torch.cholesky_solve(y,L))  # Mx1
+                mu += self.mean(Z).reshape(-1,1)         # Mx1
             else:
                 mu = Ks.T.mm(torch.cholesky_solve(self.y,L))
 
-            var = Kss - v.T.mm(v)
-            var = var.diag().reshape(-1,1)
+            var = Kss - v.T.mm(v)  # MxM
+            var = var.diag().reshape(-1,1)  # Mx1
         return mu.detach().numpy(), var.detach().numpy()
