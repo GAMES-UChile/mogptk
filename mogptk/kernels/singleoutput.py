@@ -129,9 +129,6 @@ class SpectralKernel(Kernel):
         X1,X2 = self._check_input(X1,X2)
     
         tau = self.distance(X1,X2)  # NxMxD
-        #exp = torch.exp(-2.0*np.pi**2 * torch.tensordot(tau**2, self.variance(), dims=1))  # NxM
-        #cos = torch.cos(2.0*np.pi * torch.tensordot(tau, self.mean(), dims=1))  # NxM
-        #return self.weight() * exp * cos
         exp = torch.exp(-2.0*np.pi**2 * tau**2 * self.variance().reshape(1,1,-1))  # NxMxD
         cos = torch.cos(2.0*np.pi * tau * self.mean().reshape(1,1,-1))  # NxMxD
         return self.weight() * torch.prod(exp * cos, dim=2)

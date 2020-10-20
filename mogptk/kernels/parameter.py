@@ -12,7 +12,7 @@ class Transform:
         raise NotImplementedError()
 
 class Softplus(Transform):
-    def __init__(self, lower=0.0, beta=1.0, threshold=20.0):
+    def __init__(self, lower=0.0, beta=0.1, threshold=20.0):
         self.beta = beta
         self.lower = lower
         self.threshold = threshold

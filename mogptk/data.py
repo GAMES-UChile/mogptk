@@ -250,13 +250,13 @@ class Data:
             self.Y_label = y_label
 
         # rescale X axis to fit in 0 -- 1000
-        for i in range(input_dims):
-            X = self.X[i].get_transformed()
-            xmin = np.min(X)
-            xmax = np.max(X)
-            t = TransformLinear(xmin, (xmax-xmin)/1000.0)
-            t.set_data(X)
-            self.X[i].apply(t)
+        #for i in range(input_dims):
+        #    X = self.X[i].get_transformed()
+        #    xmin = np.min(X)
+        #    xmax = np.max(X)
+        #    t = TransformLinear(xmin, (xmax-xmin)/1000.0)
+        #    t.set_data(X)
+        #    self.X[i].apply(t)
 
     def __str__(self):
         return self.__repr__()
@@ -753,12 +753,15 @@ class Data:
         self.X_pred = [Serie(X[:,i], self.X[i].transformers) for i in range(self.get_input_dims())]
 
         # clear old prediction data now that X_pred has been updated
-        self.Y_mu_pred = {}
-        self.Y_var_pred = {}
+        self.clear_predictions()
 
     def set_prediction(self, name, mu, var):
         self.Y_mu_pred[name] = mu
         self.Y_var_pred[name] = var
+    
+    def clear_predictions(self):
+        self.Y_mu_pred = {}
+        self.Y_var_pred = {}
 
     ################################################################
 
@@ -973,11 +976,7 @@ class Data:
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
             if self.Y_mu_pred[name].size != 0:
-                X_pred, mu, lower, upper = self.get_prediction(name)
-                if transformed:
-                    mu = mu.get_transformed()
-                    lower = lower.get_transformed()
-                    upper = upper.get_transformed()
+                X_pred, mu, lower, upper = self.get_prediction(name, transformed=transformed)
 
                 idx = np.argsort(X_pred[:,0])
                 ax.plot(X_pred[:,0][idx], mu[idx], ls='-', color=colors[i], lw=2)
@@ -1035,8 +1034,8 @@ class Data:
                 (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
             ))
 
-        xmin = self.X[0].min()
-        xmax = self.X[0].max()
+        xmin = min(self.X[0].min(), self.X_pred[0].min())
+        xmax = max(self.X[0].max(), self.X_pred[0].max())
         ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
         ax.set_xlabel(self.X_labels[0])

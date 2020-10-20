@@ -320,10 +320,25 @@ class model:
         #    for step in range(maxiter):
         #        opt.minimize(loss, self.model.trainable_variables)
         #else:
-        self.model.iters = 0
-        optimizer = torch.optim.LBFGS(self.model.parameters(), lr=lr, max_iter=maxiter, tolerance_grad=tol)
+        optimizer = torch.optim.LBFGS(self.model.parameters())
+        #optimizer = torch.optim.Adam(self.model.parameters(), lr=0.1)
+
+        #for i in range(60):
+        #    loss = self.model.loss()
+        #    print(loss.squeeze().tolist())
+        #    for p in self.model._params:
+        #        print("  ", p.name, "=", p.constrained.tolist())
+        #    optimizer.step()
+
+        def step():
+            loss = self.model.loss()
+            print(loss.squeeze().tolist())
+            for p in self.model._params:
+                print("  ", p.name, "=", p.unconstrained.tolist(), p.unconstrained.grad.tolist())
+            return loss
+
         try:
-            optimizer.step(self.model.loss)
+            optimizer.step(step)
         except Exception as e:
             print(e)
             return
@@ -331,12 +346,14 @@ class model:
         if verbose:
             elapsed_time = time.time() - inital_time
             print('\nOptimization finished in {:.2f} minutes'.format(elapsed_time / 60.0))
-            print('‣ Function evaluations: {}'.format(optimizer.state_dict()['state'][0]['func_evals']))
+            #print('‣ Function evaluations: {}'.format(optimizer.state_dict()['state'][0]['func_evals']))
             print('‣ Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
 
     ################################################################################
     # Predictions ##################################################################
     ################################################################################
+
+    # TODO: add get_prediction
 
     def predict(self, x=None, plot=False):
         """
