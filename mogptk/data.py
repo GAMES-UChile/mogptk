@@ -249,6 +249,7 @@ class Data:
         if isinstance(y_label, str):
             self.Y_label = y_label
 
+        # TODO: readd
         # rescale X axis to fit in 0 -- 1000
         #for i in range(input_dims):
         #    X = self.X[i].get_transformed()
@@ -758,7 +759,7 @@ class Data:
     def set_prediction(self, name, mu, var):
         self.Y_mu_pred[name] = mu
         self.Y_var_pred[name] = var
-    
+
     def clear_predictions(self):
         self.Y_mu_pred = {}
         self.Y_var_pred = {}

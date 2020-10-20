@@ -380,7 +380,7 @@ class DataSet:
 
         for i, channel in enumerate(self.channels):
             channel.set_prediction_range(start[i], end[i], n[i], step[i])
-    
+
     def clear_predictions(self):
         for i, channel in enumerate(self.channels):
             channel.clear_predictions()

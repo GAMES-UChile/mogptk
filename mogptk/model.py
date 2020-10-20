@@ -315,30 +315,20 @@ class model:
             print('‣ Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
             inital_time = time.time()
 
-        #if method.lower() == 'adam':
-        #    opt = tf.optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999)
-        #    for step in range(maxiter):
-        #        opt.minimize(loss, self.model.trainable_variables)
-        #else:
-        optimizer = torch.optim.LBFGS(self.model.parameters())
-        #optimizer = torch.optim.Adam(self.model.parameters(), lr=0.1)
-
-        #for i in range(60):
-        #    loss = self.model.loss()
-        #    print(loss.squeeze().tolist())
-        #    for p in self.model._params:
-        #        print("  ", p.name, "=", p.constrained.tolist())
-        #    optimizer.step()
-
-        def step():
-            loss = self.model.loss()
-            print(loss.squeeze().tolist())
-            for p in self.model._params:
-                print("  ", p.name, "=", p.unconstrained.tolist(), p.unconstrained.grad.tolist())
-            return loss
-
+        iters = 0
         try:
-            optimizer.step(step)
+            if method.lower() == 'l-bfgs-b':
+                optimizer = torch.optim.LBFGS(self.model.parameters())
+                optimizer.step(lambda: self.model.loss())
+                iters = optimizer.state_dict()['state'][0]['func_evals']
+            elif method.lower() == 'adam':
+                optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+                for i in range(maxiter):
+                    loss = self.model.loss()
+                    optimizer.step()
+                iters = maxiter
+            else:
+                print("Unknown optimizer:", method)
         except Exception as e:
             print(e)
             return
@@ -346,7 +336,7 @@ class model:
         if verbose:
             elapsed_time = time.time() - inital_time
             print('\nOptimization finished in {:.2f} minutes'.format(elapsed_time / 60.0))
-            #print('‣ Function evaluations: {}'.format(optimizer.state_dict()['state'][0]['func_evals']))
+            print('‣ Function evaluations: {}'.format(iters))
             print('‣ Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
 
     ################################################################################
