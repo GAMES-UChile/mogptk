@@ -53,8 +53,9 @@ class CSM(model):
         )
         kernel = MixtureKernel(spectral, Q=Q)
         self._build(kernel)
+        self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
     
-    def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=3000, plot=False):
+    def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='LBFGS', sm_maxiter=3000, plot=False):
         """
         Initialize kernel parameters.
 
@@ -69,20 +70,22 @@ class CSM(model):
         of each channel.
 
         Args:
-            method (str, optional): Method of estimation, possible values are 'BNSE' and 'SM'.
-            sm_method (str, optional): Method of estimating SM kernels. Only valid in 'SM' mode.
-            sm_opt (str, optional): Optimization method for SM kernels. Only valid in 'SM' mode.
-            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in 'SM' mode.
+            method (str, optional): Method of estimation, such as BNSE, LS, GMM, or SM.
+            sm_method (str, optional): Method of estimating SM kernels. Only valid with SM method.
+            sm_opt (str, optional): Optimization method for SM kernels. Only valid with SM method.
+            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid with SM method.
             plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in 'SM' mode.
         """
 
         output_dims = self.dataset.get_output_dims()
 
-        if method in ['BNSE', 'LS']:
-            if method == 'BNSE':
+        if method.lower() in ['bnse', 'ls', 'gmm']:
+            if method.lower() == 'bnse':
                 amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
-            else:
+            elif method.lower() == 'ls':
                 amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            else:
+                amplitudes, means, variances = self.dataset.get_gmm_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('{} could not find peaks for CSM'.format(method))
                 return
@@ -93,7 +96,7 @@ class CSM(model):
                     constant[i,q,:] = amplitudes[i][:,q].mean()
                 mean = np.array(means)[:,:,q].mean(axis=0)
                 variance = np.array(variances)[:,:,q].mean(axis=0)
-                self.model.kernel[q].mean.assign(mean * 2.0 * np.pi)
+                self.model.kernel[q].mean.assign(mean)
                 self.model.kernel[q].variance.assign(variance * 5.0)
 
             # normalize proportional to channel variance
@@ -104,7 +107,7 @@ class CSM(model):
             for q in range(self.Q):
                 self.model.kernel[q].amplitude.assign(constant[:,q,:])
 
-        elif method == 'SM':
+        elif method.lower() == 'sm':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
 
             constant = np.empty((output_dims, self.Q, self.Rq))
@@ -121,7 +124,7 @@ class CSM(model):
                 self.model.kernel[q].mean.assign(params[q]['mean'].mean(axis=1))
                 self.model.kernel[q].variance.assign(params[q]['scale'].mean(axis=1) * 2)
         else:
-            raise ValueError("valid methods of estimation are 'BNSE', 'LS', or 'SM'")
+            raise ValueError("valid methods of estimation are BNSE, LS, GMM, and SM")
 
         #noise = np.empty((output_dims,))
         #for i, channel in enumerate(self.dataset):

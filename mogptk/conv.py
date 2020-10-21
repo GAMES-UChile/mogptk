@@ -45,8 +45,9 @@ class CONV(model):
         )
         kernel = MixtureKernel(conv, Q=Q)
         self._build(kernel)
+        self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
-    def init_parameters(self, method='SM', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=2000, plot=False):
+    def init_parameters(self, method='SM', sm_method='BNSE', sm_opt='LBFGS', sm_maxiter=2000, plot=False):
         """
         Initialize kernel parameters, variance and mixture weights. 
 
@@ -57,17 +58,19 @@ class CONV(model):
         for each channel.
 
         Args:
-            method (str, optional): Method of estimation, possible value is 'SM'.
-            sm_method (str, optional): Method of estimating SM kernels. Only valid in 'SM' mode.
-            sm_opt (str, optional): Optimization method for SM kernels. Only valid in 'SM' mode.
-            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in 'SM' mode.
+            method (str, optional): Method of estimation, such as SM.
+            sm_method (str, optional): Method of estimating SM kernels. Only valid with SM method.
+            sm_opt (str, optional): Optimization method for SM kernels. Only valid with SM method.
+            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid with SM method.
             plot (bool): Show the PSD of the kernel after fitting SM kernels.
         """
 
         output_dims = self.dataset.get_output_dims()
 
-        if method == 'SM':
+        if method.lower() == 'sm':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot, fix_means=True)
+
+            print(params)
 
             constant = np.empty((output_dims, self.Q))
             for q in range(self.Q):
@@ -81,7 +84,7 @@ class CONV(model):
             for q in range(self.Q):
                 self.model.kernel[q].weight.assign(constant[:,q])
         else:
-            raise ValueError("valid method of estimation is only 'SM'")
+            raise ValueError("valid method of estimation is only SM")
 
         #noise = np.empty((output_dims,))
         #for i, channel in enumerate(self.dataset):

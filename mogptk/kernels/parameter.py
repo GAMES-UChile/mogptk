@@ -111,6 +111,10 @@ class Parameter:
             transform = Softplus(lower=upper, beta=-1.0)
 
         if transform is not None:
+            if lower is not None:
+                data = torch.where(data < lower, lower * torch.ones_like(data), data)
+            if upper is not None:
+                data = torch.where(upper < data, upper * torch.ones_like(data), data)
             data = transform.inverse(data)
         data.requires_grad = True
 

@@ -26,19 +26,19 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, active_dims=None, name="MOSM"):
         super(MultiOutputSpectralKernel, self).__init__(output_dims, input_dims, active_dims, name)
 
-        magnitude = torch.randn(output_dims)
+        magnitude = torch.rand(output_dims)
         mean = torch.rand(output_dims, input_dims)
         variance = torch.rand(output_dims, input_dims)
         delay = torch.zeros(output_dims, input_dims)
         phase = torch.zeros(output_dims)
 
         self.input_dims = input_dims
-        self.magnitude = Parameter(magnitude)
+        self.magnitude = Parameter(magnitude, lower=positive_minimum)
         self.mean = Parameter(mean, lower=positive_minimum)
         self.variance = Parameter(variance, lower=positive_minimum)
         if 1 < output_dims:
-            self.delay = Parameter(delay)  # TODO: first delay must remain zero
-            self.phase = Parameter(phase)  # TODO: first phase must remain zero
+            self.delay = Parameter(delay)
+            self.phase = Parameter(phase)
 
         self.twopi = np.power(2.0*np.pi,float(self.input_dims)/2.0)
 
@@ -62,13 +62,9 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
             delay = self.delay()[i] - self.delay()[j]  # D
             phase = self.phase()[i] - self.phase()[j]  # scalar
 
-            # TODO: more stable to do (squared) distance(X1+sqrt(delay),X2+sqrt(delay))?
-            #print("MOSM", X1.shape, X2.shape, tau.shape)
-            #print(self.squared_distance(X1,X2).shape)
-            #print(torch.tensordot((tau+delay)**2, variance, dims=1))
-            #print(torch.tensordot(variance, (tau+delay)**2, dims=1))
             alpha = magnitude * self.twopi * variance.prod().sqrt()  # scalar
             exp = torch.exp(-0.5 * torch.tensordot((tau+delay)**2, variance, dims=1))  # NxM
+            # TODO: why doesn't cos work with 2*pi?
             cos = torch.cos(torch.tensordot(tau+delay, mean, dims=1) + phase)  # NxM
             return alpha * exp * cos
 
@@ -90,19 +86,25 @@ class CrossSpectralKernel(MultiOutputKernel):
 
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
-        if X2 is None:
-            X2 = X1  # TODO
-
         tau = self.distance(X1,X2)  # NxMxD
-        shift = self.shift()[i] - self.shift()[j]  # Rq
+        if i == j:
+            # put Rq into third dimension and sum at the end
+            amplitude = self.amplitude()[i].reshape(1,1,-1)  # 1x1xRq
+            exp = torch.exp(-0.5 * torch.tensordot(tau**2, self.variance(), dims=1)).unsqueeze(2)  # NxMx1
+            # the following cos is as written in the paper, instead we take phi out of the product with the mean
+            #cos = torch.cos(torch.tensordot(tau.unsqueeze(2), self.mean(), dims=1))
+            cos = torch.cos(2.0*np.pi * torch.tensordot(tau, self.mean(), dims=1).unsqueeze(2)) # NxMxRq
+            return torch.sum(amplitude * exp * cos, dim=2)
+        else:
+            shift = self.shift()[i] - self.shift()[j]  # Rq
 
-        # put Rq into third dimension and sum at the end
-        amplitude = torch.sqrt(self.amplitude()[i]*self.amplitude()[j]).reshape(1,1,-1)  # 1x1xRq
-        exp = torch.exp(-0.5 * torch.tensordot(tau**2, self.variance(), dims=1)).unsqueeze(2)  # NxMx1
-        # the following cos is as written in the paper, the used one takes phi out of the product with the mean
-        #cos = torch.cos(torch.tensordot(tau.unsqueeze(2) + shift.reshape(1,1,-1,1), self.mean(), dims=1))
-        cos = torch.cos(torch.tensordot(tau, self.mean(), dims=1).unsqueeze(2) + shift.reshape(1,1,-1)) # NxMxRq
-        return torch.sum(amplitude * exp * cos, dim=2)
+            # put Rq into third dimension and sum at the end
+            amplitude = torch.sqrt(self.amplitude()[i]*self.amplitude()[j]).reshape(1,1,-1)  # 1x1xRq
+            exp = torch.exp(-0.5 * torch.tensordot(tau**2, self.variance(), dims=1)).unsqueeze(2)  # NxMx1
+            # the following cos is as written in the paper, instead we take phi out of the product with the mean
+            #cos = torch.cos(torch.tensordot(tau.unsqueeze(2) + shift.reshape(1,1,-1,1), self.mean(), dims=1))
+            cos = torch.cos(2.0*np.pi * (torch.tensordot(tau, self.mean(), dims=1).unsqueeze(2) + shift.reshape(1,1,-1))) # NxMxRq
+            return torch.sum(amplitude * exp * cos, dim=2)
 
 class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
     def __init__(self, *kernels, output_dims, input_dims, Q=None, Rq=1, name="LMC"):

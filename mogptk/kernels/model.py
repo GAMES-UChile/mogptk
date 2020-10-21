@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from IPython.display import display, HTML
-from . import Parameter, Kernel, device, dtype, positive_minimum
+from . import Parameter, Kernel, MultiOutputKernel, device, dtype, positive_minimum
 
 class Mean:
     def __init__(self, name=None):
@@ -28,6 +28,15 @@ class Model:
         self.name = name
         self.mean = None
         self._params = []
+
+    def __setattr__(self, name, val):
+        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
+            raise AttributeError("parameter is read-only, use Parameter.assign()")
+        if isinstance(val, Parameter):
+            val.parent = self
+            if val.name is None:
+                val.name = name
+        super(Model,self).__setattr__(name, val)        
 
     def _check_input(self, X, y=None):
         if len(X.shape) != 2:
@@ -116,7 +125,7 @@ class Model:
         return loss
 
 class GPR(Model):
-    def __init__(self, kernel, X, y, variance=1.0, name="GPR", mean=None):
+    def __init__(self, kernel, X, y, noise=1.0, name="GPR", mean=None):
         super(GPR, self).__init__(name)
 
         if not isinstance(X, torch.Tensor):
@@ -142,22 +151,24 @@ class GPR(Model):
         self.kernel = kernel
         self.X = X
         self.y = y
-        self.variance = Parameter(variance, name="variance", lower=1e-6)
         self.mean = mean
+        self.noise = Parameter(noise, name="noise", lower=positive_minimum)
         
         self.input_dims = X.shape[1]
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
 
-        self._register_parameters(self.variance)
+        self._register_parameters(self.noise)
         if mean is not None and issubclass(type(mean), Mean):
             self._register_parameters(mean)
         self._register_parameters(kernel)
 
     def log_marginal_likelihood(self):
-        K = self.kernel(self.X) + self.variance()*torch.eye(self.X.shape[0])
+        K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0])
         try:
             L = torch.cholesky(K)
-        except RuntimeError:
+        except RuntimeError as e:
+            print()
+            print("ERROR:", e.args[0])
             print("K =", K)
             if K.isnan().any():
                 print("Kernel matrix has NaNs!")
@@ -190,9 +201,9 @@ class GPR(Model):
             raise ValueError("X must have %s input dimensions" % self.input_dims)
 
         with torch.no_grad():
-            K = self.kernel(self.X) + self.variance()*torch.eye(self.X.shape[0])  # NxN
+            K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0])  # NxN
             Ks = self.kernel(self.X,Z)  # NxM
-            Kss = self.kernel(Z) + self.variance()*torch.eye(Z.shape[0])  # MxM
+            Kss = self.kernel(Z) + self.noise()*torch.eye(Z.shape[0])  # MxM
 
             L = torch.cholesky(K)  # NxN
             v = torch.triangular_solve(Ks,L,upper=False)[0]  # NxM

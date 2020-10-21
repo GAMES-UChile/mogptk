@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as functional
 import copy
-from . import Parameter, device, dtype
+from . import Parameter, device, dtype, positive_minimum
 
 class Kernel:
     def __init__(self, input_dims=None, active_dims=None, name=None):
@@ -103,10 +103,10 @@ class MultiOutputKernel(Kernel):
     def __init__(self, output_dims, input_dims=None, active_dims=None, name=None):
         super(MultiOutputKernel, self).__init__(input_dims, active_dims, name)
 
-        noise = 1e-8 * torch.ones(output_dims)
+        noise = torch.ones(output_dims)
 
         self.output_dims = output_dims
-        self.noise = Parameter(noise, lower=0.0, trainable=False)
+        self.noise = Parameter(noise, lower=positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,1+input_dims) where the first column is the channel ID

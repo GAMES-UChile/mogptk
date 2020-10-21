@@ -8,7 +8,7 @@ import logging
 
 logger = logging.getLogger('mogptk')
 
-def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='L-BFGS-B', maxiter=2000, plot=False, fix_means=False):
+def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='LBFGS', maxiter=2000, plot=False, fix_means=False):
     """
     Estimate kernel param with single ouput GP-SM
 
@@ -16,8 +16,7 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='L-BFGS-B', maxiter=2
         dataset (mogptk.DataSet): DataSet object of data with one channel.
         Q (int): Number of components.
         estimate (str): Method to estimate, 'BNSE', 'LS' or 'IPS'
-        method (str): Optimization method, either 'Adam' or any
-            scipy optimizer.
+        method (str): Optimization method.
         maxiter (int): Maximum number of iteration.
         plot (bool): If true plot the kernel PSD of each channel.
         fix_means(bool): Fix spectral means to zero in trainning.
@@ -130,7 +129,7 @@ class SM(model):
         """
 
         if method not in ['IPS', 'LS', 'BNSE', 'GMM']:
-            raise ValueError("valid methods of estimation are 'IPS', 'LS', 'BNSE', and 'GMM'")
+            raise ValueError("valid methods of estimation are IPS, LS, BNSE, and GMM")
 
         #if method == 'IPS':
         #    x, y = self.dataset[0].get_train_data(transformed=True)
@@ -139,17 +138,17 @@ class SM(model):
         #    self.set_parameter(0, 'mixture_means', np.array(means))
         #    self.set_parameter(0, 'mixture_scales', np.array(scales.T))
         #    return
-        if method == 'LS':
-            amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
-            if len(amplitudes) == 0:
-                logger.warning('LS could not find peaks for SM')
-                return
-        elif method == 'BNSE':
+        if method.lower() == 'bnse':
             amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logger.warning('BNSE could not find peaks for SM')
                 return
-        elif method == 'GMM':
+        elif method.lower() == 'ls':
+            amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
+            if len(amplitudes) == 0:
+                logger.warning('LS could not find peaks for SM')
+                return
+        elif method.lower() == 'gmm':
             amplitudes, means, variances = self.dataset[0].get_gmm_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logger.warning('GMM could not find peaks for SM')

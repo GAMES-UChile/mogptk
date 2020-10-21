@@ -57,8 +57,11 @@ class SM_LMC(model):
             Q=Q,
             Rq=Rq)
         self._build(kernel)
+        self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
+        for q in range(Q):
+            self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
     
-    def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='BFGS', sm_maxiter=2000, plot=False):
+    def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='LBFGS', sm_maxiter=2000, plot=False):
         """
         Initialize kernel parameters.
 
@@ -73,41 +76,40 @@ class SM_LMC(model):
         of each channel.
 
         Args:
-            method (str, optional): Method of estimation, possible values are 'BNSE' and 'SM'.
-            sm_method (str, optional): Method of estimating SM kernels. Only valid in 'SM' mode.
-            sm_opt (str, optional): Optimization method for SM kernels. Only valid in 'SM' mode.
-            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid in 'SM' mode.
+            method (str, optional): Method of estimation, such as BNSE, LS, GMM, or SM.
+            sm_method (str, optional): Method of estimating SM kernels. Only valid with SM method.
+            sm_opt (str, optional): Optimization method for SM kernels. Only valid with SM method.
+            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid with SM method.
             plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in 'SM' mode.
         """
         
         output_dims = self.dataset.get_output_dims()
         
-        if method in ['BNSE', 'LS']:
-            if method == 'BNSE':
-                amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        if method.lower() in ['bnse', 'ls', 'gmm']:
+            if method.lower() == 'bnse':
+                amplitudes, means, variances = self.dataset.get_bnse_estimation(1)
+            elif method.lower() == 'ls':
+                amplitudes, means, variances = self.dataset.get_lombscargle_estimation(1)
             else:
-                amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+                amplitudes, means, variances = self.dataset.get_gmm_estimation(1)
             if len(amplitudes) == 0:
                 logger.warning('{} could not find peaks for SM-LMC'.format(method))
                 return
 
             constant = np.empty((output_dims, self.Q, self.Rq))
-            for q in range(self.Q):
-                for i in range(len(self.dataset)):
-                    constant[i,q,:] = amplitudes[i][:,q].mean()
-                mean = np.array(means)[:,:,q].mean(axis=0)
-                variance = np.array(variances)[:,:,q].mean(axis=0)
-                self.model.kernel[q].mean.assign(mean * 2.0 * np.pi)
-                self.model.kernel[q].variance.assign(variance * 2.0)
+            for i in range(len(self.dataset)):
+                constant[i,i,:] = amplitudes[i][:,0]
+                self.model.kernel[i].mean.assign(means[i].mean(1))
+                self.model.kernel[i].variance.assign(variances[i].mean(1) * 2.0)
 
             # normalize proportional to channel variance
             for i, channel in enumerate(self.dataset):
                 _, y = channel.get_train_data(transformed=True)
-                constant[i,:,:] = constant[i,i,:] / constant[i,i,:].sum() * y.var() * 2
+                constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
 
             self.model.kernel.weight.assign(constant)
 
-        elif method == 'SM':
+        elif method.lower() == 'sm':
             params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
 
             constant = np.empty((output_dims, self.Q, self.Rq))
@@ -126,7 +128,7 @@ class SM_LMC(model):
                 self.model.kernel[q].mean.assign(params[q]['mean'].mean(axis=1))
                 self.model.kernel[q].variance.assign(params[q]['scale'].mean(axis=1) * 2)
         else:
-            raise ValueError("valid methods of estimation are 'BNSE', 'LS', or 'SM'")
+            raise ValueError("valid methods of estimation are BNSE, LS, GMM, and SM")
 
         #noise = np.empty((output_dims,))
         #for i, channel in enumerate(self.dataset):

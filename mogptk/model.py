@@ -274,7 +274,7 @@ class model:
 
     def train(
         self,
-        method='L-BFGS-B',
+        method='LBFGS',
         tol=1e-6,
         lr=1.0,
         maxiter=500,
@@ -289,9 +289,7 @@ class model:
         learning_rate can be set.
 
         Args:
-            method (str): Optimizer to use, if "Adam" is chosen,
-                gpflow.training.Adamoptimizer will be used, otherwise the passed scipy
-                optimizer is used. Defaults to scipy 'L-BFGS-B'.
+            method (str): Optimizer to use. Defaults to LBFGS.
             tol (float): Tolerance for optimizer. Defaults to 1e-6.
             lr (float): Learning rate for Adam optimizer.
             maxiter (int): Maximum number of iterations. Defaults to 2000.
@@ -309,7 +307,7 @@ class model:
             print('Starting optimization')
             print('‣ Model: {}'.format(self.name))
             print('‣ Channels: {}'.format(len(self.dataset)))
-            print('‣ Components: {}'.format(self.Q))
+            print('‣ Mixtures: {}'.format(self.Q))
             print('‣ Training points: {}'.format(training_points))
             print('‣ Parameters: {}'.format(parameters))
             print('‣ Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
@@ -317,7 +315,7 @@ class model:
 
         iters = 0
         try:
-            if method.lower() == 'l-bfgs-b':
+            if method.lower() in ('l-bfgs', 'lbfgs'):
                 optimizer = torch.optim.LBFGS(self.model.parameters())
                 optimizer.step(lambda: self.model.loss())
                 iters = optimizer.state_dict()['state'][0]['func_evals']
@@ -330,7 +328,6 @@ class model:
             else:
                 print("Unknown optimizer:", method)
         except Exception as e:
-            print(e)
             return
 
         if verbose:
