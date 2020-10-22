@@ -397,18 +397,18 @@ class DataSet:
         """
         return [channel.get_nyquist_estimation() for channel in self.channels]
     
-    def get_bnse_estimation(self, Q=1, n=10000):
+    def get_bnse_estimation(self, Q=1, n=1000):
         """
         Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
 
         Args:
             Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 10000.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
 
         Returns:
-            list: Amplitude array of shape (input_dims,Q) per channel.
-            list: Frequency array of shape (input_dims,Q) per channel.
-            list: Std.dev. array of shape (input_dims,Q) per channel.
+            list: Amplitude array of shape (Q,input_dims) per channel.
+            list: Frequency array of shape (Q,input_dims) per channel.
+            list: Std.dev. array of shape (Q,input_dims) per channel.
 
         Examples:
             >>> amplitudes, means, variances = dataset.get_bnse_estimation()
@@ -423,18 +423,18 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_lombscargle_estimation(self, Q=1, n=1000):
+    def get_lombscargle_estimation(self, Q=1, n=10000):
         """
         Peaks estimation using Lomb Scargle.
 
         Args:
             Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 10000.
 
         Returns:
-            list: Amplitude array of shape (input_dims,Q) per channel.
-            list: Frequency array of shape (input_dims,Q) per channel.
-            list: Std.dev. array of shape (input_dims,Q) per channel.
+            list: Amplitude array of shape (Q,input_dims) per channel.
+            list: Frequency array of shape (Q,input_dims) per channel.
+            list: Std.dev. array of shape (Q,input_dims) per channel.
 
         Examples:
             >>> amplitudes, means, variances = dataset.get_lombscargle_estimation()
@@ -448,32 +448,6 @@ class DataSet:
             means.append(channel_means)
             variances.append(channel_variances)
         return amplitudes, means, variances
-
-    #def get_gmm_estimation(self, Q=1, n=10000):
-    #    """
-    #    Parameter estimation using a GMM on a PSD estimate
-
-    #    Args:
-    #        Q (int): Number of peaks to find, defaults to 1.
-    #        n (int): Number of points to use for Lomb Scargle, defaults to 10000.
-
-    #    Returns:
-    #        list: Amplitude array of shape (input_dims,Q) per channel.
-    #        list: Frequency array of shape (input_dims,Q) per channel.
-    #        list: Std.dev. array of shape (input_dims,Q) per channel.
-
-    #    Examples:
-    #        >>> amplitudes, means, variances = dataset.get_gmm_estimation()
-    #    """
-    #    amplitudes = []
-    #    means = []
-    #    variances = []
-    #    for channel in self.channels:
-    #        channel_amplitudes, channel_means, channel_variances = channel.get_gmm_estimation(Q, n)
-    #        amplitudes.append(channel_amplitudes)
-    #        means.append(channel_means)
-    #        variances.append(channel_variances)
-    #    return amplitudes, means, variances
 
     def transform(self, transformer):
         """

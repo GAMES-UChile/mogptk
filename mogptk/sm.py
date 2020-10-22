@@ -58,10 +58,52 @@ def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='LBFGS', maxiter=2000
 
             for q in range(Q):
                 params[q]['weight'][channel,i] = sm.model.kernel[q].weight().detach().numpy()
-                params[q]['mean'][channel,i] = sm.model.kernel[q].mean().detach().numpy() * np.pi * 2.0
+                params[q]['mean'][channel,i] = sm.model.kernel[q].mean().detach().numpy()
                 params[q]['scale'][channel,i] = sm.model.kernel[q].variance().detach().numpy()
 
     return params
+
+def sm_estimation(dataset, Q, method='BNSE', optimizer='LBFGS', maxiter=2000, plot=False, fix_means=False):
+    input_dims = dataset.get_input_dims()[0]
+    output_dims = dataset.get_output_dims()
+
+    amplitudes = []
+    means = []
+    variances = []
+    for channel in range(output_dims):
+        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+        # i.e. A is the amplitude or peak height, B the mean or peak position, and C the std.dev. or peak width
+        A = np.zeros((Q, input_dims))
+        B = np.zeros((Q, input_dims))
+        C = np.zeros((Q, input_dims))
+
+        sm = SM(dataset[channel], Q)
+        sm.init_parameters(method)
+
+        if fix_means:
+            for q in range(Q):
+                sm.model.kernel[q].mean.assign(positive_minimum*np.ones((input_dims)))
+                sm.model.kernel[q].mean.trainable = False
+                sm.model.kernel[q].variance.assign(sm.model.kernel.kernels[q].variance() * 50)
+
+        sm.train(method=optimizer, maxiter=maxiter)
+
+        if plot:
+            nyquist = dataset[channel].get_nyquist_estimation()
+            means = np.array([sm.model.kernel[q].mean() for q in range(Q)])
+            weights = np.array([sm.model.kernel[q].weight() for q in range(Q)])
+            scales = np.array([sm.model.kernel[q].variance() for q in range(Q)])
+            plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=dataset[channel].name)
+
+        for q in range(Q):
+            A[q,:] = sm.model.kernel[q].weight().detach().numpy()  # TODO: weight is not per input_dims
+            B[q,:] = sm.model.kernel[q].mean().detach().numpy()
+            C[q,:] = sm.model.kernel[q].variance().detach().numpy()
+
+        amplitudes.append(A)
+        means.append(B)
+        variances.append(C)
+    return amplitudes, means, variances
 
 class SM(model):
     """
@@ -159,26 +201,26 @@ class SM(model):
             # noise proportional to the values
             noise_amp = np.random.multivariate_normal(
                 mean=np.zeros(self.Q),
-                cov=np.diag(amplitudes.mean(0) * pct))
+                cov=np.diag(amplitudes.mean(axis=1) * pct))
             # set value to a minimun value
             amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
 
             noise_mean = np.random.multivariate_normal(
                 mean=np.zeros(self.Q),
-                cov=np.diag(means.mean(0) * pct))
+                cov=np.diag(means.mean(axis=1) * pct))
             means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
 
             noise_var = np.random.multivariate_normal(
                 mean=np.zeros(self.Q),
-                cov=np.diag(variances.mean(0) * pct))
+                cov=np.diag(variances.mean(axis=1) * pct))
             variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
 
-        mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].std() * 2
+        mixture_weights = amplitudes.mean(axis=1) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].std() * 2
 
         for q in range(self.Q):
             self.model.kernel[q].weight.assign(mixture_weights[q])
-            self.model.kernel[q].mean.assign(means[:,q])
-            self.model.kernel[q].variance.assign(variances[:,q])
+            self.model.kernel[q].mean.assign(means[q,:])
+            self.model.kernel[q].variance.assign(variances[q,:])
 
     def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
         """

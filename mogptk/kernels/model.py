@@ -162,10 +162,9 @@ class GPR(Model):
             self._register_parameters(mean)
         self._register_parameters(kernel)
 
-    def log_marginal_likelihood(self):
-        K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0])
+    def _cholesky(self, K):
         try:
-            L = torch.cholesky(K)
+            return torch.cholesky(K)
         except RuntimeError as e:
             print()
             print("ERROR:", e.args[0])
@@ -178,10 +177,14 @@ class GPR(Model):
             self.print_parameters()
             raise
 
+    def log_marginal_likelihood(self):
+        K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0])  # NxN
+        L = self._cholesky(K)  # NxN
+
         if self.mean is not None:
-            y = self.y - self.mean(X).reshape(-1,1)
+            y = self.y - self.mean(X).reshape(-1,1)  # Nx1
         else:
-            y = self.y
+            y = self.y  # Nx1
 
         p = -0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
         p -= L.diagonal().log().sum()
@@ -205,7 +208,7 @@ class GPR(Model):
             Ks = self.kernel(self.X,Z)  # NxM
             Kss = self.kernel(Z) + self.noise()*torch.eye(Z.shape[0])  # MxM
 
-            L = torch.cholesky(K)  # NxN
+            L = self._cholesky(K)  # NxN
             v = torch.triangular_solve(Ks,L,upper=False)[0]  # NxM
 
             if self.mean is not None:

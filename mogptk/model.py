@@ -3,29 +3,18 @@ import json
 import time
 import numpy as np
 import torch
-#import gpflow
-#import tensorflow as tf
 from .dataset import DataSet
 from .kernels import GPR
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-#from gpflow import set_trainable
-
 from tabulate import tabulate
 
 import logging
-#logging.getLogger('tensorflow').propagate = False
-#logging.getLogger('tensorflow').setLevel(logging.ERROR)
-
-#tf.autograph.set_verbosity(0) # TODO: remove and fix problem
-
-#gpflow.config.set_default_positive_minimum(1e-12)
-eps = 1e-20
-
 logger = logging.getLogger('mogptk')
+
+eps = 1e-20
 
 class model:
     def __init__(self, name, dataset, **kwargs):

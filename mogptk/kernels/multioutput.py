@@ -27,6 +27,7 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
         super(MultiOutputSpectralKernel, self).__init__(output_dims, input_dims, active_dims, name)
 
         magnitude = torch.rand(output_dims)
+        # TODO: allow different input_dims per channel
         mean = torch.rand(output_dims, input_dims)
         variance = torch.rand(output_dims, input_dims)
         delay = torch.zeros(output_dims, input_dims)
@@ -49,13 +50,13 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
             variance = self.variance()[i]
             alpha = self.magnitude()[i]**2 * self.twopi * variance.prod().sqrt()  # scalar
             exp = torch.exp(-0.5*torch.tensordot(tau**2, variance, dims=1))  # NxM
-            cos = torch.cos(torch.tensordot(tau, self.mean()[i], dims=1))  # NxM
+            cos = torch.cos(2.0*np.pi * torch.tensordot(tau, self.mean()[i], dims=1))  # NxM
             return alpha * exp * cos
         else:
             inv_variances = 1.0/(self.variance()[i] + self.variance()[j])  # D
 
             diff_mean = self.mean()[i] - self.mean()[j]  # D
-            magnitude = self.magnitude()[i]*self.magnitude()[j]*torch.exp(-0.25 * diff_mean.dot(inv_variances*diff_mean))  # scalar
+            magnitude = self.magnitude()[i]*self.magnitude()[j]*torch.exp(-np.pi**2 * diff_mean.dot(inv_variances*diff_mean))  # scalar
 
             mean = inv_variances * (self.variance()[i]*self.mean()[j] + self.variance()[j]*self.mean()[i])  # D
             variance = 2.0 * self.variance()[i] * inv_variances * self.variance()[j]  # D
@@ -64,8 +65,7 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
 
             alpha = magnitude * self.twopi * variance.prod().sqrt()  # scalar
             exp = torch.exp(-0.5 * torch.tensordot((tau+delay)**2, variance, dims=1))  # NxM
-            # TODO: why doesn't cos work with 2*pi?
-            cos = torch.cos(torch.tensordot(tau+delay, mean, dims=1) + phase)  # NxM
+            cos = torch.cos(2.0*np.pi * torch.tensordot(tau+delay, mean, dims=1) + phase)  # NxM
             return alpha * exp * cos
 
 class CrossSpectralKernel(MultiOutputKernel):
@@ -123,8 +123,8 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
 
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
-        weight = torch.sum(self.weight()[i] * self.weight()[j], dim=1)  # K
-        kernels = torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2)  # NxMxK
+        weight = torch.sum(self.weight()[i] * self.weight()[j], dim=1)  # Q
+        kernels = torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2)  # NxMxQ
         return torch.tensordot(kernels, weight, dims=1)
 
 class GaussianConvolutionProcessKernel(MultiOutputKernel):
@@ -132,6 +132,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         super(GaussianConvolutionProcessKernel, self).__init__(output_dims, input_dims, active_dims, name)
 
         weight = torch.rand(output_dims)
+        # TODO: allow different input_dims per channel? not sure if possible with base_variance
         variance = torch.rand(output_dims, input_dims)
         base_variance = torch.rand(input_dims)
 

@@ -1,11 +1,7 @@
 import numpy as np
-#import gpflow
-#from gpflow import covariances as cov
-#from gpflow.base import TensorLike
-#from gpflow.kernels.base import Sum
 from .model import model
 from .dataset import DataSet
-from .sm import _estimate_from_sm
+from .sm import sm_estimation
 from .kernels import MultiOutputSpectralKernel, MixtureKernel# Noise, Kuu_mosm_vik, Kuf_mosm_vik
 from .plot import plot_spectrum
 #from .variational_inducing_variables import VariationalInducingFunctions
@@ -127,7 +123,7 @@ class MOSM(model):
         of each channel.
 
         Args:
-            method (str, optional): Method of estimation, such as BNSE, LS, GMM, or SM.
+            method (str, optional): Method of estimation, such as BNSE, LS, or SM.
             sm_method (str, optional): Method of estimating SM kernels. Only valid with SM method.
             sm_opt (str, optional): Optimization method for SM kernels. Only valid with SM method.
             sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid with SM method.
@@ -137,58 +133,40 @@ class MOSM(model):
         input_dims = self.dataset.get_input_dims()
         output_dims = self.dataset.get_output_dims()
 
-        if method.lower() in ['bnse', 'ls', 'gmm']:
-            if method.lower() == 'bnse':
-                amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
-            elif method.lower() == 'ls':
-                amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
-            else:
-                amplitudes, means, variances = self.dataset.get_gmm_estimation(self.Q)
-            if len(amplitudes) == 0:
-                logger.warning('{} could not find peaks for MOSM'.format(method))
-                return
+        if not method.lower() in ['bnse', 'ls', 'sm']:
+            raise ValueError("valid methods of estimation are BNSE, LS, and SM")
 
-            magnitude = np.zeros((output_dims, self.Q))
-            for q in range(self.Q):
-                mean = np.empty((output_dims,input_dims[0]))
-                variance = np.empty((output_dims,input_dims[0]))
-                for i in range(output_dims):
-                    magnitude[i,q] = amplitudes[i][:,q].mean()
-                    mean[i,:] = means[i][:,q] * 2.0 * np.pi
-                    # maybe will have problems with higher input dimensions
-                    variance[i,:] = variances[i][:,q] * (4 + 20 * (max(input_dims) - 1)) # 20
-
-                self.model.kernel[q].mean.assign(mean)
-                self.model.kernel[q].variance.assign(variance)
-
-            # normalize proportional to channels variances
-            for i, channel in enumerate(self.dataset):
-                _, y = channel.get_train_data(transformed=True)
-                magnitude[i,:] = np.sqrt(magnitude[i,:] / magnitude[i,:].sum() * y.var()) * 2
-            
-            for q in range(self.Q):
-                self.model.kernel[q].magnitude.assign(magnitude[:,q])
-            
-        elif method.lower() == 'sm':
-            params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
-
-            magnitude = np.zeros((output_dims, self.Q))
-            for q in range(self.Q):
-                magnitude[:,q] = params[q]['weight'].mean(axis=0)
-
-            # normalize proportional to channels variances
-            for i, channel in enumerate(self.dataset):
-                if magnitude[i,:].sum() == 0:
-                    raise Exception("sum of magnitudes equal to zero")
-                _, y = channel.get_train_data(transformed=True)
-                magnitude[i,:] = np.sqrt(magnitude[i,:] / magnitude[i,:].sum() * y.var()) * 2
-
-            for q in range(self.Q):
-                self.model.kernel[q].magnitude.assign(magnitude[:,q])
-                self.model.kernel[q].mean.assign(params[q]['mean'])
-                self.model.kernel[q].variance.assign(params[q]['scale'] * 2)
+        if method.lower() == 'bnse':
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        elif method.lower() == 'ls':
+            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            raise ValueError("valid methods of estimation are BNSE, LS, GMM, and SM")
+            amplitudes, means, variances = sm_estimation(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+        if len(amplitudes) == 0:
+            logger.warning('{} could not find peaks for MOSM'.format(method))
+            return
+
+        # TODO: input_dims must be the same for all channels (restriction of MOSM)
+        magnitude = np.zeros((output_dims, self.Q))
+        for q in range(self.Q):
+            mean = np.zeros((output_dims,input_dims[0]))
+            variance = np.zeros((output_dims,input_dims[0]))
+            for i in range(output_dims):
+                if q < amplitudes[i].shape[0]:
+                    magnitude[i,q] = amplitudes[i][q,:].mean()
+                    mean[i,:] = means[i][q,:]
+                    # maybe will have problems with higher input dimensions
+                    variance[i,:] = variances[i][q,:] * (4 + 20 * (max(input_dims) - 1)) # 20
+            self.model.kernel[q].mean.assign(mean)
+            self.model.kernel[q].variance.assign(variance)
+
+        # normalize proportional to channels variances
+        for i, channel in enumerate(self.dataset):
+            _, y = channel.get_train_data(transformed=True)
+            magnitude[i,:] = np.sqrt(magnitude[i,:] / magnitude[i,:].sum() * y.var()) * 2
+        
+        for q in range(self.Q):
+            self.model.kernel[q].magnitude.assign(magnitude[:,q])
 
         #noise = np.empty((output_dims,))
         #for i, channel in enumerate(self.dataset):

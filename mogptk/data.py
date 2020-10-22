@@ -795,9 +795,9 @@ class Data:
             n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
 
         Returns:
-            numpy.ndarray: Amplitude array of shape (input_dims,Q).
-            numpy.ndarray: Frequency array of shape (input_dims,Q).
-            numpy.ndarray: Std.dev. array of shape (input_dims,Q).
+            numpy.ndarray: Amplitude array of shape (Q,input_dims).
+            numpy.ndarray: Frequency array of shape (Q,input_dims).
+            numpy.ndarray: Std.dev. array of shape (Q,input_dims).
 
         Examples:
             >>> amplitudes, means, variances = data.get_bnse_estimation()
@@ -806,9 +806,9 @@ class Data:
 
         # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
         # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
-        A = np.zeros((input_dims, Q))
-        B = np.zeros((input_dims, Q))
-        C = np.zeros((input_dims, Q))
+        A = np.zeros((Q, input_dims))
+        B = np.zeros((Q, input_dims))
+        C = np.zeros((Q, input_dims))
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
@@ -822,20 +822,16 @@ class Data:
             if len(positions) == 0:
                 continue
 
-            n_pos = len(positions)
-            if n_pos < Q and n_pos != 0:
-                # if there are not enough peaks, we will repeat them
-                j = 0
-                while len(positions) < Q:
-                    amplitudes = np.append(amplitudes, amplitudes[j])
-                    positions = np.append(positions, positions[j])
-                    variances = np.append(variances, variances[j])
-                    j = (j+1) % n_pos
+            if Q < len(amplitudes):
+                amplitudes = amplitudes[:Q]
+                positions = positions[:Q]
+                variances = variances[:Q]
 
+            n = len(amplitudes)
             # division by 100 makes it similar to other estimators (emperically found)
-            A[i,:] = np.sqrt(amplitudes[:Q]) / 100  
-            B[i,:] = positions[:Q]
-            C[i,:] = variances[:Q]
+            A[:n,i] = np.sqrt(amplitudes) / 100  
+            B[:n,i] = positions
+            C[:n,i] = variances
 
         return A, B, C
 
@@ -848,9 +844,9 @@ class Data:
             n (int): Number of points to use for Lomb Scargle, defaults to 10000.
 
         Returns:
-            numpy.ndarray: Amplitude array of shape (input_dims,Q).
-            numpy.ndarray: Frequency array of shape (input_dims,Q).
-            numpy.ndarray: Std.dev. array of shape (input_dims,Q).
+            numpy.ndarray: Amplitude array of shape (Q,input_dims).
+            numpy.ndarray: Frequency array of shape (Q,input_dims).
+            numpy.ndarray: Std.dev. array of shape (Q,input_dims).
 
         Examples:
             >>> amplitudes, means, variances = data.get_lombscargle_estimation()
@@ -859,9 +855,9 @@ class Data:
 
         # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
         # i.e. A is the amplitude or peak height, B the mean or peak position, and C the std.dev. or peak width
-        A = np.zeros((input_dims, Q))
-        B = np.zeros((input_dims, Q))
-        C = np.zeros((input_dims, Q))
+        A = np.zeros((Q, input_dims))
+        B = np.zeros((Q, input_dims))
+        C = np.zeros((Q, input_dims))
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
@@ -881,73 +877,17 @@ class Data:
             # note that amplitudes / width_heights is near 2 when the base of the peak is near zero
             stddevs = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) 
 
-            n_pos = len(positions)
-            if n_pos < Q and n_pos != 0:
-                # if there not enough peaks, we will repeat them
-                j = 0
-                while len(positions) < Q:
-                    amplitudes = np.append(amplitudes, amplitudes[j])
-                    positions = np.append(positions, positions[j])
-                    stddevs = np.append(stddevs, stddevs[j])
-                    j = (j+1) % n_pos
+            if Q < len(amplitudes):
+                amplitudes = amplitudes[:Q]
+                positions = positions[:Q]
+                stddevs = stddevs[:Q]
 
-            A[i,:] = np.sqrt(amplitudes[:Q])
-            B[i,:] = positions[:Q]
-            C[i,:] = stddevs[:Q]
+            n = len(amplitudes)
+            A[:n,i] = np.sqrt(amplitudes)
+            B[:n,i] = positions
+            C[:n,i] = stddevs
 
         return A, B, C
-
-    #def get_gmm_estimation(self, Q=1, n=10000):
-    #    """
-    #    Parameter estimation using a GMM on a PSD estimated by Lomb Scargle.
-
-    #    Args:
-    #        Q (int): Number of peaks to find, defaults to 1.
-    #        n (int): Number of points to use for Lomb Scargle, defaults to 10000.
-
-    #    Returns:
-    #        numpy.ndarray: Amplitude array of shape (input_dims,Q).
-    #        numpy.ndarray: Frequency array of shape (input_dims,Q).
-    #        numpy.ndarray: Std.dev. array of shape (input_dims,Q).
-
-    #    Examples:
-    #        >>> amplitudes, means, variances = data.get_gmm_estimation()
-    #    """
-
-    #    input_dims = self.get_input_dims()
-    #    
-    #    A = np.zeros((input_dims, Q))
-    #    B = np.zeros((input_dims, Q))
-    #    C = np.zeros((input_dims, Q))
-
-    #    nyquist = self.get_nyquist_estimation()
-    #    for i in range(input_dims):
-    #        x, y = self.get_train_data(transformed=True)
-    #        freq = np.linspace(0, nyquist[i], n+1)[1:]
-    #        psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, freq, normalize=True)
-    #        plt.plot(freq, psd)
-    #        plt.show()
-    #        
-    #        ind, _ = signal.find_peaks(psd)
-    #        ind = ind[np.argsort(psd[ind])[::-1]] # sort by biggest peak first
-    #        
-    #        means_init = freq[ind][:Q].reshape(-1,1)
-    #        model = GaussianMixture(10, covariance_type='diag')#, max_iter=500, tol=1e-6)#, means_init=means_init)
-    #        model.fit(y.reshape(-1,1))
-    #        print(model)
-    #        print(model.means_)
-    #        print(model.weights_)
-    #        print(model.covariances_)
-    #        x = np.linspace(0, len(y), 500)
-    #        y = np.exp(model.score_samples(x.reshape(-1,1)))
-    #        plt.plot(x, y)
-    #        plt.show()
-    #        
-    #        B[i,:] = model.means_[:,0]
-    #        C[i,:] = model.covariances_[:,0]
-    #        A[i,:] = model.weights_ / np.sqrt(2 * np.pi * C[i,:])
-    #        
-    #    return A, B, C
 
     def plot(self, ax=None, legend=True, transformed=False):
         """

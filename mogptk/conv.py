@@ -58,7 +58,7 @@ class CONV(model):
         for each channel.
 
         Args:
-            method (str, optional): Method of estimation, such as SM.
+            method (str, optional): Method of estimation, such as BNSE, LS, or SM.
             sm_method (str, optional): Method of estimating SM kernels. Only valid with SM method.
             sm_opt (str, optional): Optimization method for SM kernels. Only valid with SM method.
             sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid with SM method.
@@ -67,24 +67,31 @@ class CONV(model):
 
         output_dims = self.dataset.get_output_dims()
 
-        if method.lower() == 'sm':
-            params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot, fix_means=True)
+        if not method.lower() in ['bnse', 'ls', 'sm']:
+            raise ValueError("valid methods of estimation are BNSE, LS, and SM")
 
-            print(params)
-
-            constant = np.empty((output_dims, self.Q))
-            for q in range(self.Q):
-                constant[:,q] = params[q]['weight'].mean(axis=0)
-                self.model.kernel[q].variance.assign(params[q]['scale'] * 10.0)
-
-            for i, channel in enumerate(self.dataset):
-                _, y = channel.get_train_data(transformed=True)
-                constant[i,:] = constant[i,:] / constant[i,:].sum() * y.var()
-
-            for q in range(self.Q):
-                self.model.kernel[q].weight.assign(constant[:,q])
+        if method.lower() == 'bnse':
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        elif method.lower() == 'ls':
+            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            raise ValueError("valid method of estimation is only SM")
+            amplitudes, means, variances = sm_estimation(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+        if len(amplitudes) == 0:
+            logger.warning('{} could not find peaks for MOSM'.format(method))
+            return
+
+        # TODO: input_dims must be the same for all channels (restriction of MOSM)
+        constant = np.empty((output_dims, self.Q))
+        for q in range(self.Q):
+            constant[:,q] = np.array([amplitude[q,:] for amplitude in amplitudes]).mean(axis=0)
+            self.model.kernel[q].variance.assign([variance[q,:] * 10.0 for variance in variances])
+
+        for i, channel in enumerate(self.dataset):
+            _, y = channel.get_train_data(transformed=True)
+            constant[i,:] = constant[i,:] / constant[i,:].sum() * y.var()
+
+        for q in range(self.Q):
+            self.model.kernel[q].weight.assign(constant[:,q])
 
         #noise = np.empty((output_dims,))
         #for i, channel in enumerate(self.dataset):

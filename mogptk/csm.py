@@ -1,7 +1,7 @@
 import numpy as np
 from .model import model
 from .kernels import CrossSpectralKernel, MixtureKernel
-from .sm import _estimate_from_sm
+from .sm import sm_estimation
 
 class CSM(model):
     """
@@ -39,9 +39,6 @@ class CSM(model):
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
     def __init__(self, dataset, Q=1, Rq=1, name="CSM"):
-        if Rq != 1:
-            raise Exception("Rq != 1 is not (yet) supported") # TODO: support
-
         model.__init__(self, name, dataset)
         self.Q = Q
         self.Rq = Rq
@@ -70,7 +67,7 @@ class CSM(model):
         of each channel.
 
         Args:
-            method (str, optional): Method of estimation, such as BNSE, LS, GMM, or SM.
+            method (str, optional): Method of estimation, such as BNSE, LS, or SM.
             sm_method (str, optional): Method of estimating SM kernels. Only valid with SM method.
             sm_opt (str, optional): Optimization method for SM kernels. Only valid with SM method.
             sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid with SM method.
@@ -79,52 +76,43 @@ class CSM(model):
 
         output_dims = self.dataset.get_output_dims()
 
-        if method.lower() in ['bnse', 'ls', 'gmm']:
-            if method.lower() == 'bnse':
-                amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
-            elif method.lower() == 'ls':
-                amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
-            else:
-                amplitudes, means, variances = self.dataset.get_gmm_estimation(self.Q)
-            if len(amplitudes) == 0:
-                logger.warning('{} could not find peaks for CSM'.format(method))
-                return
+        if not method.lower() in ['bnse', 'ls', 'sm']:
+            raise ValueError("valid methods of estimation are BNSE, LS, and SM")
 
-            constant = np.empty((output_dims, self.Q, self.Rq))
-            for q in range(self.Q):
-                for i in range(len(self.dataset)):
-                    constant[i,q,:] = amplitudes[i][:,q].mean()
-                mean = np.array(means)[:,:,q].mean(axis=0)
-                variance = np.array(variances)[:,:,q].mean(axis=0)
-                self.model.kernel[q].mean.assign(mean)
-                self.model.kernel[q].variance.assign(variance * 5.0)
-
-            # normalize proportional to channel variance
-            for i, channel in enumerate(self.dataset):
-                _, y = channel.get_train_data(transformed=True)
-                constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
-
-            for q in range(self.Q):
-                self.model.kernel[q].amplitude.assign(constant[:,q,:])
-
-        elif method.lower() == 'sm':
-            params = _estimate_from_sm(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
-
-            constant = np.empty((output_dims, self.Q, self.Rq))
-            for q in range(self.Q):
-                constant[:,q,:] = params[q]['weight'].mean(axis=0)
-
-            # normalize proportional to channel variance
-            for i, channel in enumerate(self.dataset):
-                _, y = channel.get_train_data(transformed=True)
-                constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
-                
-            for q in range(self.Q):
-                self.model.kernel[q].amplitude.assign(constant[:,q,:])
-                self.model.kernel[q].mean.assign(params[q]['mean'].mean(axis=1))
-                self.model.kernel[q].variance.assign(params[q]['scale'].mean(axis=1) * 2)
+        if method.lower() == 'bnse':
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        elif method.lower() == 'ls':
+            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            raise ValueError("valid methods of estimation are BNSE, LS, GMM, and SM")
+            amplitudes, means, variances = sm_estimation(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+        if len(amplitudes) == 0:
+            logger.warning('{} could not find peaks for MOSM'.format(method))
+            return
+
+        # flatten output_dims and mixtures
+        channels = [channel for channel, amplitude in enumerate(amplitudes) for q in range(amplitude.shape[0])]
+        amplitudes = [amplitude[q,:] for amplitude in amplitudes for q in range(amplitude.shape[0])]
+        means = [mean[q,:] for mean in means for q in range(mean.shape[0])]
+        variances = [variance[q,:] for variance in variances for q in range(variance.shape[0])]
+        idx = np.argsort([amplitude.mean() for amplitude in amplitudes])[::-1][:self.Q]
+        if self.Q < len(idx):
+            idx = idx[:self.Q]
+
+        constant = np.zeros((output_dims, self.Q, self.Rq))
+        for q in range(len(idx)):
+            i = idx[q]
+            channel = channels[i]
+            constant[channel,q,:] = amplitudes[i].mean()
+            self.model.kernel[q].mean.assign(means[i])
+            self.model.kernel[q].variance.assign(variances[i] * 5.0)
+
+        # normalize proportional to channel variance
+        for i, channel in enumerate(self.dataset):
+            _, y = channel.get_train_data(transformed=True)
+            constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
+
+        for q in range(self.Q):
+            self.model.kernel[q].amplitude.assign(constant[:,q,:])
 
         #noise = np.empty((output_dims,))
         #for i, channel in enumerate(self.dataset):
