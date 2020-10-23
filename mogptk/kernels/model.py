@@ -76,7 +76,9 @@ class Model:
                 yield p.unconstrained
     
     def print_parameters(self):
-        def param_range(lower, upper):
+        def param_range(lower, upper, trainable=True):
+            if not trainable:
+                return "fixed"
             if lower is None and upper is None:
                 return "(-∞,∞)"
             elif lower is None:
@@ -94,18 +96,18 @@ class Model:
                     name = ""
                 elif p.parent is not None:
                     name = p.parent.name + "." + name
-                table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (name, param_range(p.lower, p.upper), p.constrained.detach().numpy())
+                table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (name, param_range(p.lower, p.upper, p.trainable), p.constrained.detach().numpy())
             table += '</table>'
             display(HTML(table))
         except Exception as e:
-            vals = [["name", "range", "value"]]
+            vals = [["Name", "Range", "Value"]]
             for p in self._params:
                 name = p.name
                 if name is None:
                     name = ""
                 elif p.parent is not None:
                     name = p.parent.name + "." + name
-                vals.append([name, str(p.transform), str(p.constrained.detach().numy())])
+                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.constrained.detach().numy())])
 
             nameWidth = max([len(val[0]) for val in vals])
             rangeWidth = max([len(val[1]) for val in vals])
@@ -123,6 +125,20 @@ class Model:
         loss = -self.log_marginal_likelihood() - self.log_prior()
         loss.backward()
         return loss
+
+    def sample(self, Z, n=None):
+        with torch.no_grad():
+            S = n
+            if n is None:
+                S = 1
+
+            mu, var = self.predict(Z, full_var=True)  # MxD and MxMxD
+            u = torch.normal(torch.zeros(Z.shape[0], S, device=device, dtype=dtype), torch.tensor(1.0, device=device, dtype=dtype))  # MxS
+            L = torch.cholesky(var + 1e-6*torch.ones(Z.shape[0]).diagflat())  # MxM
+            samples = mu + L.mm(u)  # MxS
+            if num is None:
+                samples = samples.squeeze()
+            return samples.detach().numpy()
 
 class GPR(Model):
     def __init__(self, kernel, X, y, noise=1.0, name="GPR", mean=None):
@@ -220,4 +236,4 @@ class GPR(Model):
 
             var = Kss - v.T.mm(v)  # MxM
             var = var.diag().reshape(-1,1)  # Mx1
-        return mu.detach().numpy(), var.detach().numpy()
+            return mu.detach().numpy(), var.detach().numpy()

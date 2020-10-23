@@ -1,109 +1,10 @@
 import numpy as np
-from .model import model
-from .kernels import SpectralKernel, MixtureKernel, positive_minimum
-from .plot import plot_spectrum
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 import logging
 
-logger = logging.getLogger('mogptk')
-
-def _estimate_from_sm(dataset, Q, method='BNSE', optimizer='LBFGS', maxiter=2000, plot=False, fix_means=False):
-    """
-    Estimate kernel param with single ouput GP-SM
-
-    Args:
-        dataset (mogptk.DataSet): DataSet object of data with one channel.
-        Q (int): Number of components.
-        estimate (str): Method to estimate, 'BNSE', 'LS' or 'IPS'
-        method (str): Optimization method.
-        maxiter (int): Maximum number of iteration.
-        plot (bool): If true plot the kernel PSD of each channel.
-        fix_means(bool): Fix spectral means to zero in trainning.
-
-    Returns: 
-        params[q][name][output dim][input dim]
-    """
-    input_dims = dataset.get_input_dims()[0]
-    output_dims = dataset.get_output_dims()
-
-    params = []
-    for q in range(Q):
-        params.append({
-            'weight': np.empty((output_dims, input_dims)),
-            'mean': np.empty((output_dims, input_dims)),
-            'scale': np.empty((output_dims, input_dims)),
-        })
-
-    sm = None
-    for channel in range(output_dims):
-        for i in range(input_dims):  # TODO one SM per channel
-            sm = SM(dataset[channel], Q)
-            sm.init_parameters(method)
-
-            if fix_means:
-                for q in range(Q):
-                    sm.model.kernel[q].mean.assign(positive_minimum*np.ones((input_dims)))
-                    sm.model.kernel[q].mean.trainable = False
-                    sm.model.kernel[q].variance.assign(sm.model.kernel.kernels[q].variance() * 50)
-
-            sm.train(method=optimizer, maxiter=maxiter)
-
-            if plot:
-                nyquist = dataset[channel].get_nyquist_estimation()
-                means = np.array([sm.model.kernel[q].mean() for q in range(Q)])
-                weights = np.array([sm.model.kernel[q].weight() for q in range(Q)])
-                scales = np.array([sm.model.kernel[q].variance() for q in range(Q)])
-                plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=dataset[channel].name)
-
-            for q in range(Q):
-                params[q]['weight'][channel,i] = sm.model.kernel[q].weight().detach().numpy()
-                params[q]['mean'][channel,i] = sm.model.kernel[q].mean().detach().numpy()
-                params[q]['scale'][channel,i] = sm.model.kernel[q].variance().detach().numpy()
-
-    return params
-
-def sm_estimation(dataset, Q, method='BNSE', optimizer='LBFGS', maxiter=2000, plot=False, fix_means=False):
-    input_dims = dataset.get_input_dims()[0]
-    output_dims = dataset.get_output_dims()
-
-    amplitudes = []
-    means = []
-    variances = []
-    for channel in range(output_dims):
-        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
-        # i.e. A is the amplitude or peak height, B the mean or peak position, and C the std.dev. or peak width
-        A = np.zeros((Q, input_dims))
-        B = np.zeros((Q, input_dims))
-        C = np.zeros((Q, input_dims))
-
-        sm = SM(dataset[channel], Q)
-        sm.init_parameters(method)
-
-        if fix_means:
-            for q in range(Q):
-                sm.model.kernel[q].mean.assign(positive_minimum*np.ones((input_dims)))
-                sm.model.kernel[q].mean.trainable = False
-                sm.model.kernel[q].variance.assign(sm.model.kernel.kernels[q].variance() * 50)
-
-        sm.train(method=optimizer, maxiter=maxiter)
-
-        if plot:
-            nyquist = dataset[channel].get_nyquist_estimation()
-            means = np.array([sm.model.kernel[q].mean() for q in range(Q)])
-            weights = np.array([sm.model.kernel[q].weight() for q in range(Q)])
-            scales = np.array([sm.model.kernel[q].variance() for q in range(Q)])
-            plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=dataset[channel].name)
-
-        for q in range(Q):
-            A[q,:] = sm.model.kernel[q].weight().detach().numpy()  # TODO: weight is not per input_dims
-            B[q,:] = sm.model.kernel[q].mean().detach().numpy()
-            C[q,:] = sm.model.kernel[q].variance().detach().numpy()
-
-        amplitudes.append(A)
-        means.append(B)
-        variances.append(C)
-    return amplitudes, means, variances
+from .model import model, logger
+from .kernels import SpectralKernel, MixtureKernel, positive_minimum
 
 class SM(model):
     """
@@ -157,7 +58,7 @@ class SM(model):
             noise (boolean, optional): Add noise of std.dev. equal to 1/10th of the estimated value.
 
         Methods:
-            IPS:  Independant parameter sampling (Taken from phd thesis from Andrew wilson 2014)
+            IPS:  Independant parameter sampling (from the PhD thesis of Andrew Wilson 2014)
                   takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2),
                   the means drawn from Unif(0, 0.5 / minimum distance between two points),
                   and the mixture weights by taking the stdv of the y values divided by the
@@ -166,12 +67,10 @@ class SM(model):
                   and using the first Q peaks as the means and mixture weights.
             BNSE: Uses the BNSE (Tobar 2018) to estimate the PSD 
                   and use the first Q peaks as the means and mixture weights.
-            GMM:  Fits a Gaussian mixture model of Q componentson the PSD
-                  estimate by lombscargle.
         """
 
-        if method not in ['IPS', 'LS', 'BNSE', 'GMM']:
-            raise ValueError("valid methods of estimation are IPS, LS, BNSE, and GMM")
+        if method.lower() not in ['ips', 'ls', 'bnse']:
+            raise ValueError("valid methods of estimation are IPS, LS, and BNSE")
 
         #if method == 'IPS':
         #    x, y = self.dataset[0].get_train_data(transformed=True)
@@ -189,11 +88,6 @@ class SM(model):
             amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('LS could not find peaks for SM')
-                return
-        elif method.lower() == 'gmm':
-            amplitudes, means, variances = self.dataset[0].get_gmm_estimation(self.Q)
-            if np.sum(amplitudes) == 0.0:
-                logger.warning('GMM could not find peaks for SM')
                 return
 
         if noise:

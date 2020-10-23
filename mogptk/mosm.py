@@ -1,12 +1,10 @@
 import numpy as np
-from .model import model
-from .dataset import DataSet
-from .sm import sm_estimation
-from .kernels import MultiOutputSpectralKernel, MixtureKernel# Noise, Kuu_mosm_vik, Kuf_mosm_vik
-from .plot import plot_spectrum
-#from .variational_inducing_variables import VariationalInducingFunctions
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+
+from .model import model, logger
+from .kernels import MultiOutputSpectralKernel, MixtureKernel
+from .plot import plot_spectrum
 
 class MOSM(model):
     """
@@ -141,7 +139,7 @@ class MOSM(model):
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            amplitudes, means, variances = sm_estimation(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return

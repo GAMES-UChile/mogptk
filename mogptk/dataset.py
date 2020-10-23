@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
-from .data import *
 import matplotlib.pyplot as plt
+
+from .data import Data
 
 def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
     """
@@ -397,6 +398,32 @@ class DataSet:
         """
         return [channel.get_nyquist_estimation() for channel in self.channels]
     
+    def get_lombscargle_estimation(self, Q=1, n=10000):
+        """
+        Peaks estimation using Lomb Scargle.
+
+        Args:
+            Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 10000.
+
+        Returns:
+            list: Amplitude array of shape (Q,input_dims) per channel.
+            list: Frequency array of shape (Q,input_dims) per channel.
+            list: Variance array of shape (Q,input_dims) per channel.
+
+        Examples:
+            >>> amplitudes, means, variances = dataset.get_lombscargle_estimation()
+        """
+        amplitudes = []
+        means = []
+        variances = []
+        for channel in self.channels:
+            channel_amplitudes, channel_means, channel_variances = channel.get_lombscargle_estimation(Q, n)
+            amplitudes.append(channel_amplitudes)
+            means.append(channel_means)
+            variances.append(channel_variances)
+        return amplitudes, means, variances
+    
     def get_bnse_estimation(self, Q=1, n=1000):
         """
         Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
@@ -408,7 +435,7 @@ class DataSet:
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
             list: Frequency array of shape (Q,input_dims) per channel.
-            list: Std.dev. array of shape (Q,input_dims) per channel.
+            list: Variance array of shape (Q,input_dims) per channel.
 
         Examples:
             >>> amplitudes, means, variances = dataset.get_bnse_estimation()
@@ -423,27 +450,30 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_lombscargle_estimation(self, Q=1, n=10000):
+    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', maxiter=100, plot=False):
         """
-        Peaks estimation using Lomb Scargle.
+        Peaks estimation using the Spectral Mixture kernel.
 
         Args:
             Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 10000.
+            method (str, optional): Method of estimating SM kernels.
+            optimizer (str, optional): Optimization method for SM kernels.
+            maxiter (str, optional): Maximum iteration for SM kernels.
+            plot (bool, optional): Show the PSD of the kernel after fitting.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
             list: Frequency array of shape (Q,input_dims) per channel.
-            list: Std.dev. array of shape (Q,input_dims) per channel.
+            list: Variance array of shape (Q,input_dims) per channel.
 
         Examples:
-            >>> amplitudes, means, variances = dataset.get_lombscargle_estimation()
+            >>> amplitudes, means, variances = dataset.get_sm_estimation()
         """
         amplitudes = []
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_lombscargle_estimation(Q, n)
+            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, maxiter, plot)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)

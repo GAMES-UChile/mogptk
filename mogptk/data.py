@@ -1,24 +1,23 @@
-import csv
+import re
 import copy
 import inspect
+import logging
+import datetime
+
 import numpy as np
-from .bnse import *
-from .serie import *
+import pandas as pd
 from scipy import signal
-import dateutil, datetime
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-import pandas as pd
-import re
-import logging
-from sklearn.mixture import GaussianMixture
+
+from .bnse import bse
+from .serie import Serie
 
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
 eps = 1e-20
-
 logger = logging.getLogger('mogptk')
 
 def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
@@ -786,55 +785,6 @@ class Data:
             nyquist[i] = 0.5/dist
         return nyquist
 
-    def get_bnse_estimation(self, Q=1, n=1000):
-        """
-        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
-
-        Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
-
-        Returns:
-            numpy.ndarray: Amplitude array of shape (Q,input_dims).
-            numpy.ndarray: Frequency array of shape (Q,input_dims).
-            numpy.ndarray: Std.dev. array of shape (Q,input_dims).
-
-        Examples:
-            >>> amplitudes, means, variances = data.get_bnse_estimation()
-        """
-        input_dims = self.get_input_dims()
-
-        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
-        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
-        A = np.zeros((Q, input_dims))
-        B = np.zeros((Q, input_dims))
-        C = np.zeros((Q, input_dims))
-
-        nyquist = self.get_nyquist_estimation()
-        for i in range(input_dims):
-            x, y = self.get_train_data(transformed=True)
-            bnse = bse(x[:,i], y)
-            bnse.set_freqspace(nyquist[i], dimension=n)
-            bnse.train()
-            bnse.compute_moments()
-
-            amplitudes, positions, variances = bnse.get_freq_peaks()
-            if len(positions) == 0:
-                continue
-
-            if Q < len(amplitudes):
-                amplitudes = amplitudes[:Q]
-                positions = positions[:Q]
-                variances = variances[:Q]
-
-            n = len(amplitudes)
-            # division by 100 makes it similar to other estimators (emperically found)
-            A[:n,i] = np.sqrt(amplitudes) / 100  
-            B[:n,i] = positions
-            C[:n,i] = variances
-
-        return A, B, C
-
     def get_lombscargle_estimation(self, Q=1, n=10000):
         """
         Peak estimation using Lomb Scargle.
@@ -846,7 +796,7 @@ class Data:
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
             numpy.ndarray: Frequency array of shape (Q,input_dims).
-            numpy.ndarray: Std.dev. array of shape (Q,input_dims).
+            numpy.ndarray: Variance array of shape (Q,input_dims).
 
         Examples:
             >>> amplitudes, means, variances = data.get_lombscargle_estimation()
@@ -886,7 +836,100 @@ class Data:
             A[:n,i] = np.sqrt(amplitudes)
             B[:n,i] = positions
             C[:n,i] = stddevs
+        return A, B, C
 
+    def get_bnse_estimation(self, Q=1, n=1000):
+        """
+        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+
+        Args:
+            Q (int): Number of peaks to find, defaults to 1.
+            n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
+
+        Returns:
+            numpy.ndarray: Amplitude array of shape (Q,input_dims).
+            numpy.ndarray: Frequency array of shape (Q,input_dims).
+            numpy.ndarray: Variance array of shape (Q,input_dims).
+
+        Examples:
+            >>> amplitudes, means, variances = data.get_bnse_estimation()
+        """
+        input_dims = self.get_input_dims()
+
+        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
+        A = np.zeros((Q, input_dims))
+        B = np.zeros((Q, input_dims))
+        C = np.zeros((Q, input_dims))
+
+        nyquist = self.get_nyquist_estimation()
+        for i in range(input_dims):
+            x, y = self.get_train_data(transformed=True)
+            bnse = bse(x[:,i], y)
+            bnse.set_freqspace(nyquist[i], dimension=n)
+            bnse.train()
+            bnse.compute_moments()
+
+            amplitudes, positions, variances = bnse.get_freq_peaks()
+            if len(positions) == 0:
+                continue
+
+            if Q < len(amplitudes):
+                amplitudes = amplitudes[:Q]
+                positions = positions[:Q]
+                variances = variances[:Q]
+
+            n = len(amplitudes)
+            # division by 100 makes it similar to other estimators (emperically found)
+            A[:n,i] = np.sqrt(amplitudes) / 100  
+            B[:n,i] = positions
+            C[:n,i] = variances
+        return A, B, C
+
+    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', maxiter=100, plot=False):
+        """
+        Peaks estimation using the Spectral Mixture kernel.
+
+        Args:
+            Q (int): Number of peaks to find, defaults to 1.
+            method (str, optional): Method of estimating SM kernels.
+            optimizer (str, optional): Optimization method for SM kernels.
+            maxiter (str, optional): Maximum iteration for SM kernels.
+            plot (bool, optional): Show the PSD of the kernel after fitting.
+
+        Returns:
+            numpy.ndarray: Amplitude array of shape (Q,input_dims).
+            numpy.ndarray: Frequency array of shape (Q,input_dims).
+            numpy.ndarray: Variance array of shape (Q,input_dims).
+
+        Examples:
+            >>> amplitudes, means, variances = data.get_sm_estimation()
+        """
+        from .sm import SM
+
+        input_dims = self.get_input_dims()
+
+        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
+        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
+        A = np.zeros((Q, input_dims))
+        B = np.zeros((Q, input_dims))
+        C = np.zeros((Q, input_dims))
+
+        sm = SM(self, Q)
+        sm.init_parameters(method)
+        sm.train(method=optimizer, maxiter=maxiter)
+
+        if plot:
+            nyquist = self.get_nyquist_estimation()
+            means = np.array([sm.model.kernel[q].mean() for q in range(Q)])
+            weights = np.array([sm.model.kernel[q].weight() for q in range(Q)])
+            scales = np.array([sm.model.kernel[q].variance() for q in range(Q)])
+            plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
+
+        for q in range(Q):
+            A[q,:] = sm.model.kernel[q].weight().detach().numpy()  # TODO: weight is not per input_dims
+            B[q,:] = sm.model.kernel[q].mean().detach().numpy()
+            C[q,:] = sm.model.kernel[q].variance().detach().numpy()
         return A, B, C
 
     def plot(self, ax=None, legend=True, transformed=False):

@@ -1,7 +1,7 @@
 import numpy as np
-from .model import model
+
+from .model import model, logger
 from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
-from .sm import sm_estimation
 
 class SM_LMC(model):
     """
@@ -90,7 +90,7 @@ class SM_LMC(model):
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            amplitudes, means, variances = sm_estimation(self.dataset, int(np.ceil(self.Q/output_dims)), method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(int(np.ceil(self.Q/output_dims)), method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for SM-LMC'.format(method))
             return

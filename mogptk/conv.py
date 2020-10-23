@@ -1,7 +1,7 @@
 import numpy as np
-from .model import model
+
+from .model import model, logger
 from .kernels import GaussianConvolutionProcessKernel, MixtureKernel
-from .sm import _estimate_from_sm
 
 class CONV(model):
     """
@@ -75,7 +75,7 @@ class CONV(model):
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            amplitudes, means, variances = sm_estimation(self.dataset, self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
