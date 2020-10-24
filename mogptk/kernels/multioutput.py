@@ -132,7 +132,6 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         super(GaussianConvolutionProcessKernel, self).__init__(output_dims, input_dims, active_dims, name)
 
         weight = torch.rand(output_dims)
-        # TODO: allow different input_dims per channel? not sure if possible with base_variance
         variance = torch.rand(output_dims, input_dims)
         base_variance = torch.rand(input_dims)
 
@@ -144,15 +143,16 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
         tau = self.distance(X1,X2)  # NxMxD
-        inv_base_variance = 1.0/self.base_variance()  # D
+
+        # differences with the thesis from Parra is that it lacks a multiplication of 2*pi, lacks a minus in the exponencial function, and doesn't write the variance matrices as inverted
         if X2 is None:
-            variances = 2.0/self.variance()[i] + inv_base_variance  # D
-            weight = self.weight()[i]**2 * torch.sqrt(inv_base_variance.prod()/variances.prod())  # scalar
+            variances = 2.0*self.variance()[i] + self.base_variance()  # D
+            weight = self.weight()[i]**2 * torch.sqrt(self.base_variance().prod()/variances.prod())  # scalar
             exp = torch.exp(-0.5 * torch.tensordot(tau**2, 1.0/variances, dims=1))  # NxM
-            return weight * exp
+            return np.sqrt(2.0*np.pi) * weight * exp
         else:
-            variances = 1.0/self.variance()[i] + 1.0/self.variance()[j] + inv_base_variance  # D
-            weight_variance = torch.sqrt(inv_base_variance.prod()/variances.prod())  # scalar
+            variances = self.variance()[i] + self.variance()[j] + self.base_variance()  # D
+            weight_variance = torch.sqrt(self.base_variance().prod()/variances.prod())  # scalar
             weight = self.weight()[i] * self.weight()[j] * weight_variance  # scalar
             exp = torch.exp(-0.5 * torch.tensordot(tau**2, 1.0/variances, dims=1))  # NxM
-            return weight * exp
+            return np.sqrt(2.0*np.pi) * weight * exp

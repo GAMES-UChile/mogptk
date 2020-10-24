@@ -72,25 +72,34 @@ class SM(model):
         if method.lower() not in ['ips', 'ls', 'bnse']:
             raise ValueError("valid methods of estimation are IPS, LS, and BNSE")
 
-        #if method == 'IPS':
-        #    x, y = self.dataset[0].get_train_data(transformed=True)
-        #    weights, means, scales = sm_init(x, y, self.Q)
-        #    self.set_parameter(0, 'mixture_weights', weights)
-        #    self.set_parameter(0, 'mixture_means', np.array(means))
-        #    self.set_parameter(0, 'mixture_scales', np.array(scales.T))
-        #    return
-        if method.lower() == 'bnse':
-            amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
-            if np.sum(amplitudes) == 0.0:
-                logger.warning('BNSE could not find peaks for SM')
-                return
+        if method.lower() == 'ips':
+            input_dims = self.dataset[0].get_input_dims()
+            nyquist = self.dataset[0].get_nyquist_estimation()
+            x, y = self.dataset[0].get_train_data(transformed=True)
+            x_range = np.max(x, axis=0) - np.min(x, axis=0)
+
+            weights = [y.std()/self.Q] * self.Q
+            means = nyquist * np.random.rand(self.Q, input_dims)
+            variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims)) * x_range)
+
+            for q in range(self.Q):
+                self.model.kernel[q].weight.assign(weights[q])
+                self.model.kernel[q].mean.assign(means[q,:])
+                self.model.kernel[q].variance.assign(variances[q,:])
+            return
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('LS could not find peaks for SM')
                 return
+        elif method.lower() == 'bnse':
+            amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
+            if np.sum(amplitudes) == 0.0:
+                logger.warning('BNSE could not find peaks for SM')
+                return
 
         if noise:
+            # TODO: what is this? check noise for all kernels
             pct = 1/30.0
             # noise proportional to the values
             noise_amp = np.random.multivariate_normal(
@@ -109,6 +118,7 @@ class SM(model):
                 cov=np.diag(variances.mean(axis=1) * pct))
             variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
 
+        # TODO: check weights for all kernels
         mixture_weights = amplitudes.mean(axis=1) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].std() * 2
 
         for q in range(self.Q):

@@ -39,6 +39,11 @@ class CONV(model):
         model.__init__(self, name, dataset)
         self.Q = Q
 
+        input_dims = self.dataset.get_input_dims()
+        for input_dim in input_dims[1:]:
+            if input_dim != input_dims[0]:
+                raise ValueError("input dimensions for all channels must match")
+
         conv = GaussianConvolutionProcessKernel(
             output_dims=self.dataset.get_output_dims(),
             input_dims=self.dataset.get_input_dims()[0],
@@ -80,7 +85,7 @@ class CONV(model):
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
 
-        # TODO: input_dims must be the same for all channels (restriction of MOSM)
+        # input_dims must be the same for all channels (restriction of MOSM)
         constant = np.empty((output_dims, self.Q))
         for q in range(self.Q):
             constant[:,q] = np.array([amplitude[q,:] for amplitude in amplitudes]).mean(axis=0)
