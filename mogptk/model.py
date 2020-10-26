@@ -9,7 +9,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from tabulate import tabulate
 
 import logging
 logger = logging.getLogger('mogptk')
@@ -29,15 +28,18 @@ def Load(filename):
     with open(filename, 'rb') as r:
         return pickle.load(r)
 
-class model:
-    def __init__(self, name, dataset, **kwargs):
+class Exact:
+    def build(self, kernel, x, y):
+        return GPR(kernel, x, y)
+
+class Model:
+    def __init__(self, dataset, kernel, model=Exact(), name=None):
         """
         Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
 
         Args:
+            dataset (mogptk.dataset.DataSet, mogptk.data.Data): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
             name (str): Name of the model.
-            dataset (mogptk.dataset.DataSet, mogptk.data.Data): DataSet with Data objects for all the channels.
-            When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
         """
         
         if not isinstance(dataset, DataSet):
@@ -57,20 +59,11 @@ class model:
                 elif 1e4 < xran:
                     logger.warning("Very large X range may give problems, it is suggested to scale down your X-axis")
 
-        self.name = name
+        x, y = dataset._to_kernel()
         self.dataset = dataset
-    
-    def _build(self, kernel):
-        """
-        Build the model using the given kernel and likelihood. The variational and sparse booleans decide which GPflow model will be used.
-
-        Args:
-            kernel (mogptk.kernels.Kernel): Kernel to use.
-        """
-
-        x, y = self.dataset._to_kernel()
-        self.model = GPR(kernel, x, y)
-        self.kernel = self.model.kernel
+        self.kernel = kernel
+        self.model = model.build(kernel, x, y)
+        self.name = name
 
     ################################################################
 
@@ -111,12 +104,10 @@ class model:
 
     def train(
         self,
-        method='LBFGS',
-        tol=1e-6,
-        lr=1.0,
-        maxiter=500,
-        params={},
-        verbose=False):
+        method='Adam',
+        iters=500,
+        verbose=False,
+        **kwargs):
         """
         Trains the model using the kernel and its parameters.
 
@@ -126,17 +117,17 @@ class model:
         learning_rate can be set.
 
         Args:
-            method (str): Optimizer to use. Defaults to LBFGS.
-            tol (float): Tolerance for optimizer. Defaults to 1e-6.
-            lr (float): Learning rate for Adam optimizer.
-            maxiter (int): Maximum number of iterations. Defaults to 2000.
-            params (dict): Additional dictionary with parameters to minimize. 
+            method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD. Defaults to Adam.
+            iters (int): Number of iterations, or maximum in case of LBFGS optimizer. Defaults to 500.
             verbose (bool): Print verbose output about the state of the optimizer.
+            **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
 
         Examples:
-            >>> model.train(tol=1e-6, maxiter=10000)
+            >>> model.train()
             
-            >>> model.train(method='Adam', opt_params={...})
+            >>> model.train(method='lbfgs', tolerance_grad=1e-10, tolerance_change=1e-12)
+            
+            >>> model.train(method='adam', lr=1e-4)
         """
         if verbose:
             training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
@@ -144,24 +135,36 @@ class model:
             print('Starting optimization')
             print('‣ Model: {}'.format(self.name))
             print('‣ Channels: {}'.format(len(self.dataset)))
-            print('‣ Mixtures: {}'.format(self.Q))
+            if hasattr(self, 'Q'):
+                print('‣ Mixtures: {}'.format(self.Q))
             print('‣ Training points: {}'.format(training_points))
             print('‣ Parameters: {}'.format(parameters))
             print('‣ Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
             inital_time = time.time()
 
-        iters = 0
         try:
-            if method.lower() in ('l-bfgs', 'lbfgs'):
-                optimizer = torch.optim.LBFGS(self.model.parameters())
+            if method.lower() in ('l-bfgs', 'lbfgs', 'l-bfgs-b', 'lbfgsb'):
+                if not 'max_iter' in kwargs:
+                    kwargs['max_iter'] = iters
+                    iters = 0
+                optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
                 optimizer.step(lambda: self.model.loss())
                 iters = optimizer.state_dict()['state'][0]['func_evals']
             elif method.lower() == 'adam':
-                optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-                for i in range(maxiter):
+                optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
+                for i in range(iters):
                     loss = self.model.loss()
                     optimizer.step()
-                iters = maxiter
+            elif method.lower() == 'sgd':
+                optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
+                for i in range(iters):
+                    loss = self.model.loss()
+                    optimizer.step()
+            elif method.lower() == 'adagrad':
+                optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
+                for i in range(iters):
+                    loss = self.model.loss()
+                    optimizer.step()
             else:
                 print("Unknown optimizer:", method)
         except Exception as e:

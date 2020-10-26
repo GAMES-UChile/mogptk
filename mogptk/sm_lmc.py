@@ -1,9 +1,9 @@
 import numpy as np
 
-from .model import model, logger
+from .model import Model, Exact, logger
 from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
 
-class SM_LMC(model):
+class SM_LMC(Model):
     """
     Spectral Mixture - Linear Model of Coregionalization kernel with Q components and Rq latent functions.
     The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2].
@@ -40,21 +40,22 @@ class SM_LMC(model):
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
-    def __init__(self, dataset, Q=1, Rq=1, name="SM-LMC"):
-        model.__init__(self, name, dataset)
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name="SM-LMC"):
         self.Q = Q
         self.Rq = Rq
 
-        spectral = SpectralKernel(self.dataset.get_input_dims()[0])
+        spectral = SpectralKernel(dataset.get_input_dims()[0])
         spectral.weight.trainable = False
         kernel = LinearModelOfCoregionalizationKernel(
             spectral,
-            output_dims=self.dataset.get_output_dims(),
-            input_dims=self.dataset.get_input_dims()[0],
+            output_dims=dataset.get_output_dims(),
+            input_dims=dataset.get_input_dims()[0],
             Q=Q,
             Rq=Rq)
-        self._build(kernel)
-        self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
+
+        super(SM_LMC, self).__init__(dataset, kernel, model, name)
+        if issubclass(type(model), Exact):
+            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
         for q in range(Q):
             self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
     

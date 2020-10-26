@@ -41,7 +41,6 @@ class Sigmoid(Transform):
 
 class Parameter:
     def __init__(self, data, name=None, lower=None, upper=None, prior=None, trainable=True):
-        self.parent = None
         self.name = name
         self.lower = None
         self.upper = None

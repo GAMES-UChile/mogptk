@@ -1,9 +1,9 @@
 import numpy as np
 
-from .model import model, logger
+from .model import Model, Exact, logger
 from .kernels import CrossSpectralKernel, MixtureKernel
 
-class CSM(model):
+class CSM(Model):
     """
     Cross Spectral Mixture kernel [1] with Q components and Rq latent functions.
 
@@ -38,19 +38,20 @@ class CSM(model):
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
-    def __init__(self, dataset, Q=1, Rq=1, name="CSM"):
-        model.__init__(self, name, dataset)
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name="CSM"):
         self.Q = Q
         self.Rq = Rq
 
         spectral = CrossSpectralKernel(
-            output_dims=self.dataset.get_output_dims(),
-            input_dims=self.dataset.get_input_dims()[0],
+            output_dims=dataset.get_output_dims(),
+            input_dims=dataset.get_input_dims()[0],
             Rq=Rq,
         )
         kernel = MixtureKernel(spectral, Q=Q)
-        self._build(kernel)
-        self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
+
+        super(CSM, self).__init__(dataset, kernel, model, name)
+        if issubclass(type(model), Exact):
+            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
     
     def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='LBFGS', sm_maxiter=3000, plot=False):
         """

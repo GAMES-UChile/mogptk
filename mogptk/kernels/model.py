@@ -50,15 +50,20 @@ class Model:
             if X.shape[0] != y.shape[0]:
                 raise ValueError("number of data points for X and y must match")
 
-    def _register_parameters(self, obj):
+    def _register_parameters(self, obj, name=None):
         if isinstance(obj, Parameter):
+            if name is not None:
+                if obj.name is not None:
+                    obj.name = name + "." + obj.name
+                else:
+                    obj.name = name
             self._params.append(obj)
         elif isinstance(obj, list):
-            for v in obj:
-                self._register_parameters(v)
+            for i, v in enumerate(obj):
+                self._register_parameters(v, (name if name is not None else "")+"["+str(i)+"]")
         elif issubclass(type(obj), Kernel) or issubclass(type(obj), Mean):
             for v in obj.__dict__.values():
-                self._register_parameters(v)
+                self._register_parameters(v, (name+"." if name is not None else "")+obj.name)
 
     def zero_grad(self):
         for p in self._params:
@@ -94,8 +99,6 @@ class Model:
                 name = p.name
                 if name is None:
                     name = ""
-                elif p.parent is not None:
-                    name = p.parent.name + "." + name
                 table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (name, param_range(p.lower, p.upper, p.trainable), p.constrained.detach().numpy())
             table += '</table>'
             display(HTML(table))
@@ -105,8 +108,6 @@ class Model:
                 name = p.name
                 if name is None:
                     name = ""
-                elif p.parent is not None:
-                    name = p.parent.name + "." + name
                 vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.constrained.detach().numy())])
 
             nameWidth = max([len(val[0]) for val in vals])

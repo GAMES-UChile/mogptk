@@ -71,16 +71,13 @@ class Kernel:
         for i, kernel in enumerate(kernels):
             if not issubclass(type(kernel), Kernel):
                 raise ValueError("must pass kernels")
-            kernel.name = self.name + "[" + str(i) + "]." + kernel.name
         return kernels
 
     def __setattr__(self, name, val):
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
-        if isinstance(val, Parameter):
-            val.parent = self
-            if val.name is None:
-                val.name = name
+        if isinstance(val, Parameter) and val.name is None:
+            val.name = name
         super(Kernel,self).__setattr__(name, val)        
 
     def distance(self, X1, X2=None):

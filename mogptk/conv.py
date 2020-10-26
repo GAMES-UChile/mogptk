@@ -1,9 +1,9 @@
 import numpy as np
 
-from .model import model, logger
+from .model import Model, Exact, logger
 from .kernels import GaussianConvolutionProcessKernel, MixtureKernel
 
-class CONV(model):
+class CONV(Model):
     """
     CONV is the Convolutional Gaussian kernel with Q components [1].
 
@@ -33,24 +33,25 @@ class CONV(model):
 
     [1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009
     """
-    def __init__(self, dataset, Q=1, name="CONV"):
+    def __init__(self, dataset, Q=1, model=Exact(), name="CONV"):
         if len(dataset)<2:
             raise Exception("Number of channels equal 1, model CONV must be used with at least 2, for 1 channel use SM instead.")
-        model.__init__(self, name, dataset)
         self.Q = Q
 
-        input_dims = self.dataset.get_input_dims()
+        input_dims = dataset.get_input_dims()
         for input_dim in input_dims[1:]:
             if input_dim != input_dims[0]:
                 raise ValueError("input dimensions for all channels must match")
 
         conv = GaussianConvolutionProcessKernel(
-            output_dims=self.dataset.get_output_dims(),
-            input_dims=self.dataset.get_input_dims()[0],
+            output_dims=dataset.get_output_dims(),
+            input_dims=dataset.get_input_dims()[0],
         )
         kernel = MixtureKernel(conv, Q=Q)
-        self._build(kernel)
-        self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
+
+        super(CONV, self).__init__(dataset, kernel, model, name)
+        if issubclass(type(model), Exact):
+            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
     def init_parameters(self, method='SM', sm_method='BNSE', sm_opt='LBFGS', sm_maxiter=2000, plot=False):
         """

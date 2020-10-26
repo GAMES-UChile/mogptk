@@ -5,10 +5,7 @@ from . import MultiOutputKernel, Parameter, device, dtype, positive_minimum
 class IndependentMultiOutputKernel(MultiOutputKernel):
     def __init__(self, *kernels, output_dims, name="IMO"):
         super(IndependentMultiOutputKernel, self).__init__(output_dims, name=name)
-
-        kernels = self._check_kernels(kernels, output_dims)
-
-        self.kernels = kernels
+        self.kernels = self._check_kernels(kernels, output_dims)
 
     def __getitem__(self, key):
         return self.kernels[key]

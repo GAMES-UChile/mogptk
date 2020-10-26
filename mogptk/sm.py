@@ -1,12 +1,11 @@
 import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-import logging
 
-from .model import model, logger
+from .model import Model, Exact, logger
 from .kernels import SpectralKernel, MixtureKernel, positive_minimum
 
-class SM(model):
+class SM(Model):
     """
     A single output GP Spectral mixture kernel as proposed by [1].
 
@@ -37,15 +36,13 @@ class SM(model):
 
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
     """
-    def __init__(self, dataset, Q=1, name="SM"):
-        model.__init__(self, name, dataset)
+    def __init__(self, dataset, Q=1, kernel=Exact(), name="SM"):
         self.Q = Q
-
-        if self.dataset.get_output_dims() != 1:
+        if dataset.get_output_dims() != 1:
             raise Exception("single output spectral mixture kernel can only have one output dimension in the data")
 
-        kernel = MixtureKernel(SpectralKernel(self.dataset.get_input_dims()[0]), self.Q)
-        self._build(kernel)
+        kernel = MixtureKernel(SpectralKernel(dataset.get_input_dims()[0]), self.Q)
+        super(SM, self).__init__(dataset, kernel, model, name)
 
     def init_parameters(self, method='BNSE', noise=False):
         """

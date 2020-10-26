@@ -2,11 +2,11 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from .model import model, logger
+from .model import Model, Exact, logger
 from .kernels import MultiOutputSpectralKernel, MixtureKernel
 from .plot import plot_spectrum
 
-class MOSM(model):
+class MOSM(Model):
     """
     MOGP with Multi Output Spectral Mixture kernel, as proposed in [1].
 
@@ -43,68 +43,18 @@ class MOSM(model):
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
-    def __init__(self, dataset, Q=1, name="MOSM"):
-        model.__init__(self, name, dataset)
+    def __init__(self, dataset, Q=1, model=Exact(), name="MOSM"):
         self.Q = Q
 
         spectral = MultiOutputSpectralKernel(
-            output_dims=self.dataset.get_output_dims(),
-            input_dims=self.dataset.get_input_dims()[0],
+            output_dims=dataset.get_output_dims(),
+            input_dims=dataset.get_input_dims()[0],
         )
         kernel = MixtureKernel(spectral, Q=Q)
-        self._build(kernel)
-        self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
-    #def _build(self, kernel, likelihood, variational, sparse, like_params, inducing_variable, **kwargs):
-    #    """
-    #    Build the model using the given kernel and likelihood. The variational and sparse booleans decide which GPflow model will be used.
-
-    #    Args:
-    #        kernel (gpflow.Kernel): Kernel to use.
-    #        likelihood (gpflow.likelihoods): Likelihood to use from GPFlow, if None
-    #            a default exact inference Gaussian likelihood is used.
-    #        variational (bool): If True, use variational inference to approximate
-    #            function values as Gaussian. If False it will use Monte carlo Markov Chain.
-    #        sparse (bool): If True, will use sparse GP regression.
-    #        like_params (dict): Parameters to GPflow likelihood.
-    #    """
-
-    #    x, y = self.dataset._to_kernel()
-
-    #    # Gaussian likelihood
-    #    if likelihood is None:
-    #        if not sparse:
-    #            self.model = gpflow.models.GPR((x, y), kernel, **kwargs)
-    #        else:
-    #            # TODO: it will cause problem if they use other model after this is executed
-    #            self.name += ' (sparse variational)'
-    #            if isinstance(inducing_variable, VariationalInducingFunctions):
-    #                cov.Kuu.add((VariationalInducingFunctions, MultiOutputSpectralMixture), func=Kuu_mosm_vik)
-    #                cov.Kuu.add((VariationalInducingFunctions, Sum), func=Kuu_mosm_vik)
-
-    #                cov.Kuf.add((VariationalInducingFunctions, MultiOutputSpectralMixture, TensorLike), func=Kuf_mosm_vik)
-    #                cov.Kuf.add((VariationalInducingFunctions, Sum, TensorLike), func=Kuf_mosm_vik)
-    #                
-    #            self.model = gpflow.models.SGPR((x, y), kernel, inducing_variable=inducing_variable, **kwargs)         
-    #                
-    #    # MCMC
-    #    elif not variational:
-    #        self.likelihood = likelihood(**like_params)
-    #        if not sparse:
-    #            self.name += ' (MCMC approx)'
-    #            self.model = gpflow.models.GPMC((x, y), kernel, self.likelihood, **kwargs)
-    #        else:
-    #            self.name += ' (sparse variational with MCMC approx)'
-    #            self.model = gpflow.models.SGPMC((x, y), kernel, self.likelihood, **kwargs)
-    #    # Variational
-    #    else:
-    #        self.likelihood = likelihood(**like_params)
-    #        if not sparse:
-    #            self.name += ' (variational approx)'
-    #            self.model = gpflow.models.VGP((x, y), kernel, self.likelihood, **kwargs)
-    #        else:
-    #            self.name += ' (sparse variational with variational approx)'
-    #            self.model = gpflow.models.SVGP((x, y), kernel, self.likelihood, **kwargs)
+        super(MOSM, self).__init__(dataset, kernel, model, name)
+        if issubclass(type(model), Exact):
+            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
     def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='LBFGS', sm_maxiter=3000, plot=False):
         """
