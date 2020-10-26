@@ -145,6 +145,15 @@ class Serie(np.ndarray):
             ret.transformed = ret.transformed.__getitem__(index)
         return ret
 
+    def __reduce__(self):
+        parent = super(Serie, self).__reduce__()
+        return (parent[0], parent[1], parent[2] + (self.transformed,self.transformers))
+
+    def __setstate__(self, data):
+        super(Serie, self).__setstate__(data[:-2])
+        self.transformed = data[-2]
+        self.transformers = data[-1]
+
     def apply(self, transformers, x=None):
         if not isinstance(transformers, list):
             transformers = [transformers]

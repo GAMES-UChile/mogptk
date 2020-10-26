@@ -1,6 +1,6 @@
 import os
-import json
 import time
+import pickle
 import numpy as np
 import torch
 from .dataset import DataSet
@@ -15,6 +15,19 @@ import logging
 logger = logging.getLogger('mogptk')
 
 eps = 1e-20
+
+def Load(filename):
+    """
+    Load model from a given file that was previously saved with `model.save()`.
+
+    Args:
+        filename (str): Filename to load from.
+
+    Examples:
+        >>> Load('filename')
+    """
+    with open(filename, 'rb') as r:
+        return pickle.load(r)
 
 class model:
     def __init__(self, name, dataset, **kwargs):
@@ -57,6 +70,7 @@ class model:
 
         x, y = self.dataset._to_kernel()
         self.model = GPR(kernel, x, y)
+        self.kernel = self.model.kernel
 
     ################################################################
 
@@ -78,188 +92,22 @@ class model:
         """
         self.model.parameters()
 
-    #def get_parameter(self, q, key):
-    #    """
-    #    Gets a kernel parameter for component 'q' with key the parameter name.
+    def save(self, filename):
+        """
+        Save model to a given file that can then be loaded with `Load()`.
 
-    #    Args:
-    #        q (int): Component of kernel.
-    #        key (str): Name of component.
-    #        
-    #    Returns:
-    #        val (numpy.ndarray): Value of parameter.
+        Args:
+            filename (str): Filename to save to, automatically appends '.model'.
 
-    #    Examples:
-    #        >>> val = model.get_parameter(0, 'variance') # for Q=0 get the parameter called 'variance'
-    #    """
-    #    if hasattr(self.model.kernel, 'kernels'):
-    #        if q < 0 or len(self.model.kernel.kernels) <= q:
-    #            raise Exception("qth component %d does not exist" % (q,))
-    #        kern = self.model.kernel.kernels[q].__dict__
-    #    else:
-    #        if q != 0:
-    #            raise Exception("qth component %d does not exist" % (q,))
-    #        kern = self.model.kernel.__dict__
-    #    
-    #    if key not in kern or not isinstance(kern[key], gpflow.base.Parameter):
-    #        raise Exception("parameter name '%s' does not exist for q=%d" % (key, q))
-    #
-    #    return kern[key].read_value().numpy()
-
-    #def set_parameter(self, q, key, val):
-    #    """
-    #    Sets a kernel parameter for component 'q' with key the parameter name.
-
-    #    Args:
-    #        q (int): Component of kernel.
-    #        key (str): Name of component.
-    #        val (float, numpy.ndarray): Value of parameter.
-
-    #    Examples:
-    #        >>> model.set_parameter(0, 'variance', np.array([5.0, 3.0])) # for Q=0 set the parameter called 'variance'
-    #    """
-    #    if isinstance(val, (int, float, list)):
-    #        val = np.array(val)
-    #    if not isinstance(val, np.ndarray):
-    #        raise Exception("value %s of type %s is not a number type or ndarray" % (val, type(val)))
-
-    #    if hasattr(self.model.kernel, 'kernels'):
-    #        if q < 0 or len(self.model.kernel.kernels) <= q:
-    #            raise Exception("qth component %d does not exist" % (q,))
-    #        kern = self.model.kernel.kernels[q].__dict__
-    #    else:
-    #        if q != 0:
-    #            raise Exception("qth component %d does not exist" % (q,))
-    #        kern = self.model.kernel.__dict__
-
-    #    if key not in kern or not isinstance(kern[key], gpflow.base.Parameter):
-    #        raise Exception("parameter name '%s' does not exist for q=%d" % (key, q))
-
-    #    if kern[key].shape != val.shape:
-    #        raise Exception("parameter name '%s' must have shape %s and not %s for q=%d" % (key, kern[key].shape, val.shape, q))
-
-    #    # TODO: some parameters can be negative
-    #    #for i, v in np.ndenumerate(val):
-    #    #    if v < gpflow.config.default_positive_minimum():
-    #    #        val[i] = gpflow.config.default_positive_minimum() + eps
-    #    kern[key].assign(val)
-
-    #def fix_parameter(self, q, key):
-    #    """
-    #    Make parameter untrainable (undo with `unfix_parameter`).
-
-    #    Args:
-    #        q: (int, list or array-like of ints): components to fix.
-    #        key (str): Name of the parameter.
-
-    #    Examples:
-    #        >>> model.fix_parameter([0, 1], 'variance')
-    #    """
-
-    #    if isinstance(q, int):
-    #        q = [q]
-
-    #    if hasattr(self.model.kernel, 'kernels'):
-    #        for kernel_i in q:
-    #            kernel = self.model.kernel.kernels[kernel_i]
-    #            for param_name, param_val in kernel.__dict__.items():
-    #                if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-    #                    set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
-    #    else:
-    #        for param_name, param_val in self.model.kernel.__dict__.items():
-    #            if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-    #                set_trainable(getattr(self.model.kernel, param_name), False)
-
-    #def unfix_parameter(self, q, key):
-    #    """
-    #    Make parameter trainable (that was previously fixed, see `fix_param`).
-
-    #    Args:
-    #    q: (int, list or array-like of ints): components to unfix.
-    #        key (str): Name of the parameter.
-
-    #    Examples:
-    #        >>> model.unfix_parameter('variance')
-    #    """
-
-    #    if isinstance(q, int):
-    #        q = [q]
-
-    #    if hasattr(self.model.kernel, 'kernels'):
-    #         for kernel_i in q:
-    #            kernel = self.model.kernel.kernels[kernel_i]
-    #            for param_name, param_val in kernel.__dict__.items():
-    #                if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-    #                    set_trainable(getattr(self.model.kernel.kernels[kernel_i], param_name), False)
-    #    else:
-    #        for param_name, param_val in self.model.kernel.__dict__.items():
-    #            if param_name == key and isinstance(param_val, gpflow.base.Parameter):
-    #                set_trainable(getattr(self.model.kernel, param_name), True)
-
-    #def save_parameters(self, filename):
-    #    """
-    #    Save model parameters to a given file that can then be loaded with `load_parameters()`.
-
-    #    Args:
-    #        filename (str): Filename to save to, automatically appends '.params'.
-
-    #    Examples:
-    #        >>> model.save_parameters('filename')
-    #    """
-    #    filename += "." + self.name + ".params"
-
-    #    try:
-    #        os.remove(filename)
-    #    except OSError:
-    #        pass
-    #    
-    #    class NumpyEncoder(json.JSONEncoder):
-    #        def default(self, obj):
-    #            if isinstance(obj, np.ndarray):
-    #                return obj.tolist()
-    #            return json.JSONEncoder.default(self, obj)
-
-    #    data = {
-    #        'model': self.__class__.__name__,
-    #        'likelihood': self.get_likelihood_parameters(),
-    #        'params': self.get_parameters()
-    #    }
-    #    with open(filename, 'w') as w:
-    #        json.dump(data, w, cls=NumpyEncoder)
-
-    #def load_parameters(self, filename):
-    #    """
-    #    Load model parameters from a given file that was previously saved with `save_parameters()`.
-
-    #    Args:
-    #        filename (str): Filename to load from, automatically appends '.params'.
-
-    #    Examples:
-    #        >>> model.load_parameters('filename')
-    #    """
-    #    filename += "." + self.name + ".params"
-
-    #    with open(filename) as r:
-    #        data = json.load(r)
-
-    #        if not isinstance(data, dict) or 'model' not in data or 'likelihood' not in data or 'params' not in data:
-    #            raise Exception('parameter file has bad format')
-    #        if not isinstance(data['params'], list) or not all(isinstance(param, dict) for param in data['params']):
-    #            raise Exception('parameter file has bad format')
-
-    #        if data['model'] != self.__class__.__name__:
-    #            raise Exception("parameter file uses model '%s' which is different from current model '%s'" % (data['model'], self.__class__.__name__))
-
-    #        cur_params = self.get_parameters()
-    #        if len(data['params']) != len(cur_params):
-    #            raise Exception("parameter file uses model with %d kernels which is different from current model that uses %d kernels, is the model's Q different?" % (len(data['params']), len(cur_params)))
-
-    #        for key, val in data['likelihood'].items():
-    #            self.set_likelihood_parameter(key, val)
-
-    #        for q, param in enumerate(data['params']):
-    #            for key, val in param.items():
-    #                self.set_parameter(q, key, val)
+        Examples:
+            >>> model.save('filename')
+        """
+        try:
+            os.remove(filename)
+        except OSError:
+            pass
+        with open(filename, 'wb') as w:
+            pickle.dump(self, w)
 
     def train(
         self,
