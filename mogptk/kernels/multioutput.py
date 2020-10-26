@@ -26,8 +26,9 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, active_dims=None, name="MOSM"):
         super(MultiOutputSpectralKernel, self).__init__(output_dims, input_dims, active_dims, name)
 
-        magnitude = torch.rand(output_dims)
+        # TODO: incorporate mixtures?
         # TODO: allow different input_dims per channel
+        magnitude = torch.rand(output_dims)
         mean = torch.rand(output_dims, input_dims)
         variance = torch.rand(output_dims, input_dims)
         delay = torch.zeros(output_dims, input_dims)

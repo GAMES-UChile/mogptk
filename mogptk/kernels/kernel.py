@@ -96,6 +96,40 @@ class Kernel:
         #return (X1.unsqueeze(1) - X2)**2  # slower than cdist for large X
         return torch.cdist(X2.T.unsqueeze(2), X1.T.unsqueeze(2)).T**2
 
+class AddKernel(Kernel):
+    def __init__(self, *kernels, name="Add"):
+        super(AddKernel, self).__init__(name=name)
+        self.kernels = self._check_kernels(kernels)
+
+    def __getitem__(self, key):
+        return self.kernels[key]
+
+    def K(self, X1, X2=None):
+        return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).sum(dim=2)
+
+class MulKernel(Kernel):
+    def __init__(self, *kernels, name="Mul"):
+        super(MulKernel, self).__init__(name=name)
+        self.kernels = self._check_kernels(kernels)
+
+    def __getitem__(self, key):
+        return self.kernels[key]
+
+    def K(self, X1, X2=None):
+        return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).prod(dim=2)
+
+class MixtureKernel(AddKernel):
+    def __init__(self, kernel, Q, name="Mixture"):
+        Kernel.__init__(self, name=name)
+        self.kernels = self._check_kernels(kernel, Q)
+
+class AutomaticRelevanceDeterminationKernel(MulKernel):
+    def __init__(self, kernel, input_dims, name="ARD"):
+        Kernel.__init__(self, name=name)
+        self.kernels = self._check_kernels(kernel, input_dims)
+        for i, kernel in enumerate(self.kernels):
+            kernel.set_active_dims(i)
+
 class MultiOutputKernel(Kernel):
     # The MultiOutputKernel is a base class for multi output kernels. It assumes that the first dimension of X contains channel IDs (integers) and calculate the final kernel matrix accordingly. Concretely, it will call the Ksub method for derived kernels from this class, which should return the kernel matrix between channel i and j, given inputs X1 and X2. This class will automatically split and recombine the input vectors and kernel matrices respectively, in order to create the final kernel matrix of the multi output kernel.
     # Be aware that for implementation of Ksub, i==j is true for the diagonal matrices. X2==None is true when calculating the Gram matrix (i.e. X1==X2) and when i==j. It is thus a subset of the case i==j, and if X2==None than i is always equal to j.

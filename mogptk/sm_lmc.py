@@ -118,8 +118,8 @@ class SM_LMC(model):
             constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
         self.model.kernel.weight.assign(constant)
 
-        #noise = np.empty((output_dims,))
-        #for i, channel in enumerate(self.dataset):
-        #    _, y = channel.get_train_data(transformed=True)
-        #    noise[i] = y.var() / 30
-        #self.set_parameter(self.Q, 'noise', noise)
+        noise = np.empty((output_dims,))
+        for i, channel in enumerate(self.dataset):
+            _, y = channel.get_train_data(transformed=True)
+            noise[i] = y.var() / 30.0
+        self.model.kernel.noise.assign(noise)

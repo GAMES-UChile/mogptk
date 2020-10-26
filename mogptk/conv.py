@@ -98,9 +98,10 @@ class CONV(model):
         for q in range(self.Q):
             self.model.kernel[q].weight.assign(constant[:,q])
 
-        #noise = np.empty((output_dims,))
-        #for i, channel in enumerate(self.dataset):
-        #    _, y = channel.get_train_data(transformed=True)
-        #    noise[i] = y.var() / 30
-        #self.set_parameter(self.Q, 'noise', noise)
+        noise = np.empty((output_dims,))
+        for i, channel in enumerate(self.dataset):
+            _, y = channel.get_train_data(transformed=True)
+            noise[i] = y.var() / 30.0
+        for q in range(self.Q):
+            self.model.kernel[q].noise.assign(noise)
     
