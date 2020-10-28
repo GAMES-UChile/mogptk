@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+from .dataset import DataSet
 from .model import Model, Exact, logger
 from .kernels import MultiOutputSpectralKernel, MixtureKernel
 from .plot import plot_spectrum
@@ -44,15 +45,17 @@ class MOSM(Model):
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
     def __init__(self, dataset, Q=1, model=Exact(), name="MOSM"):
-        self.Q = Q
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
 
         spectral = MultiOutputSpectralKernel(
             output_dims=dataset.get_output_dims(),
             input_dims=dataset.get_input_dims()[0],
         )
-        kernel = MixtureKernel(spectral, Q=Q)
+        kernel = MixtureKernel(spectral, Q)
 
         super(MOSM, self).__init__(dataset, kernel, model, name)
+        self.Q = Q
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 

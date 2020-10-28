@@ -48,8 +48,6 @@ class Model:
             raise Exception("dataset must have at least one channel")
         if len(set(dataset.get_names())) != len(dataset.get_names()):
             raise Exception("all data channels must have unique names")
-        if len(set(dataset.get_input_dims())) != 1:
-            raise Exception("all data channels must have the same amount of input dimensions")
 
         for channel in dataset:
             for dim in range(channel.get_input_dims()):

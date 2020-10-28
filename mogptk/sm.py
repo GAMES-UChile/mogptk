@@ -2,8 +2,9 @@ import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 
+from .dataset import DataSet
 from .model import Model, Exact, logger
-from .kernels import SpectralKernel, MixtureKernel, positive_minimum
+from .kernels import SpectralKernel, IndependentMultiOutputKernel, MixtureKernel, positive_minimum
 
 class SM(Model):
     """
@@ -36,13 +37,18 @@ class SM(Model):
 
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
     """
-    def __init__(self, dataset, Q=1, kernel=Exact(), name="SM"):
-        self.Q = Q
-        if dataset.get_output_dims() != 1:
-            raise Exception("single output spectral mixture kernel can only have one output dimension in the data")
+    def __init__(self, dataset, Q=1, model=Exact(), name="SM"):
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
 
-        kernel = MixtureKernel(SpectralKernel(dataset.get_input_dims()[0]), self.Q)
+        spectral = IndependentMultiOutputKernel(
+            [SpectralKernel(dataset[i].get_input_dims()) for i in range(dataset.get_output_dims())],
+            output_dims=dataset.get_output_dims(),
+        )
+        kernel = MixtureKernel(spectral, Q)
+
         super(SM, self).__init__(dataset, kernel, model, name)
+        self.Q = Q
 
     def init_parameters(self, method='BNSE', noise=False):
         """
@@ -66,62 +72,66 @@ class SM(Model):
                   and use the first Q peaks as the means and mixture weights.
         """
 
+        input_dims = self.dataset.get_input_dims()
+        output_dims = self.dataset.get_output_dims()
+
         if method.lower() not in ['ips', 'ls', 'bnse']:
             raise ValueError("valid methods of estimation are IPS, LS, and BNSE")
 
         if method.lower() == 'ips':
-            input_dims = self.dataset[0].get_input_dims()
-            nyquist = self.dataset[0].get_nyquist_estimation()
-            x, y = self.dataset[0].get_train_data(transformed=True)
-            x_range = np.max(x, axis=0) - np.min(x, axis=0)
+            for i in range(output_dims):
+                nyquist = self.dataset[i].get_nyquist_estimation()
+                x, y = self.dataset[i].get_train_data(transformed=True)
+                x_range = np.max(x, axis=0) - np.min(x, axis=0)
 
-            weights = [y.std()/self.Q] * self.Q
-            means = nyquist * np.random.rand(self.Q, input_dims)
-            variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims)) * x_range)
+                weights = [y.std()/self.Q] * self.Q
+                means = nyquist * np.random.rand(self.Q, input_dims[i])
+                variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[i])) * x_range)
 
-            for q in range(self.Q):
-                self.model.kernel[q].weight.assign(weights[q])
-                self.model.kernel[q].mean.assign(means[q,:])
-                self.model.kernel[q].variance.assign(variances[q,:])
+                for q in range(self.Q):
+                    self.model.kernel[i][q].weight.assign(weights[q])
+                    self.model.kernel[i][q].mean.assign(means[q,:])
+                    self.model.kernel[i][q].variance.assign(variances[q,:])
             return
         elif method.lower() == 'ls':
-            amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('LS could not find peaks for SM')
                 return
         elif method.lower() == 'bnse':
-            amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logger.warning('BNSE could not find peaks for SM')
                 return
 
-        if noise:
-            # TODO: what is this? check noise for all kernels
-            pct = 1/30.0
-            # noise proportional to the values
-            noise_amp = np.random.multivariate_normal(
-                mean=np.zeros(self.Q),
-                cov=np.diag(amplitudes.mean(axis=1) * pct))
-            # set value to a minimun value
-            amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
+        #if noise:
+        #    # TODO: what is this? check noise for all kernels
+        #    pct = 1/30.0
+        #    # noise proportional to the values
+        #    noise_amp = np.random.multivariate_normal(
+        #        mean=np.zeros(self.Q),
+        #        cov=np.diag(amplitudes.mean(axis=1) * pct))
+        #    # set value to a minimun value
+        #    amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
 
-            noise_mean = np.random.multivariate_normal(
-                mean=np.zeros(self.Q),
-                cov=np.diag(means.mean(axis=1) * pct))
-            means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
+        #    noise_mean = np.random.multivariate_normal(
+        #        mean=np.zeros(self.Q),
+        #        cov=np.diag(means.mean(axis=1) * pct))
+        #    means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
 
-            noise_var = np.random.multivariate_normal(
-                mean=np.zeros(self.Q),
-                cov=np.diag(variances.mean(axis=1) * pct))
-            variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
+        #    noise_var = np.random.multivariate_normal(
+        #        mean=np.zeros(self.Q),
+        #        cov=np.diag(variances.mean(axis=1) * pct))
+        #    variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
 
-        # TODO: check weights for all kernels
-        mixture_weights = amplitudes.mean(axis=1) / amplitudes.sum() * self.dataset[0].Y.transformed[self.dataset[0].mask].std() * 2
-
-        for q in range(self.Q):
-            self.model.kernel[q].weight.assign(mixture_weights[q])
-            self.model.kernel[q].mean.assign(means[q,:])
-            self.model.kernel[q].variance.assign(variances[q,:])
+        for i in range(output_dims):
+            # TODO: check weights for all kernels
+            _, y = self.dataset[i].get_train_data(transformed=True)
+            mixture_weights = 2.0*y.std() * amplitudes[i].mean(axis=1)/amplitudes[i].sum()
+            for q in range(self.Q):
+                self.model.kernel[i][q].weight.assign(mixture_weights[q])
+                self.model.kernel[i][q].mean.assign(means[i][q,:])
+                self.model.kernel[i][q].variance.assign(variances[i][q,:])
 
     def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
         """

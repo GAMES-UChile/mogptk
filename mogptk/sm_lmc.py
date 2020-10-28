@@ -1,5 +1,6 @@
 import numpy as np
 
+from .dataset import DataSet
 from .model import Model, Exact, logger
 from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
 
@@ -41,8 +42,8 @@ class SM_LMC(Model):
     [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
     def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name="SM-LMC"):
-        self.Q = Q
-        self.Rq = Rq
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
 
         spectral = SpectralKernel(dataset.get_input_dims()[0])
         spectral.weight.trainable = False
@@ -54,6 +55,8 @@ class SM_LMC(Model):
             Rq=Rq)
 
         super(SM_LMC, self).__init__(dataset, kernel, model, name)
+        self.Q = Q
+        self.Rq = Rq
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
         for q in range(Q):

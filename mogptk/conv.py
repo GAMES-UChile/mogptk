@@ -1,5 +1,6 @@
 import numpy as np
 
+from .dataset import DataSet
 from .model import Model, Exact, logger
 from .kernels import GaussianConvolutionProcessKernel, MixtureKernel
 
@@ -34,9 +35,8 @@ class CONV(Model):
     [1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009
     """
     def __init__(self, dataset, Q=1, model=Exact(), name="CONV"):
-        if len(dataset)<2:
-            raise Exception("Number of channels equal 1, model CONV must be used with at least 2, for 1 channel use SM instead.")
-        self.Q = Q
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
 
         input_dims = dataset.get_input_dims()
         for input_dim in input_dims[1:]:
@@ -47,13 +47,14 @@ class CONV(Model):
             output_dims=dataset.get_output_dims(),
             input_dims=dataset.get_input_dims()[0],
         )
-        kernel = MixtureKernel(conv, Q=Q)
+        kernel = MixtureKernel(conv, Q)
 
         super(CONV, self).__init__(dataset, kernel, model, name)
+        self.Q = Q
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
-    def init_parameters(self, method='SM', sm_method='BNSE', sm_opt='LBFGS', sm_maxiter=2000, plot=False):
+    def init_parameters(self, method='SM', sm_init='BNSE', sm_method='LBFGS', sm_iters=2000, sm_plot=False):
         """
         Initialize kernel parameters, variance and mixture weights. 
 
@@ -65,14 +66,34 @@ class CONV(Model):
 
         Args:
             method (str, optional): Method of estimation, such as BNSE, LS, or SM.
-            sm_method (str, optional): Method of estimating SM kernels. Only valid with SM method.
-            sm_opt (str, optional): Optimization method for SM kernels. Only valid with SM method.
-            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid with SM method.
-            plot (bool): Show the PSD of the kernel after fitting SM kernels.
+            sm_init (str, optional): Parameter initialization strategy for SM initialization.
+            sm_method (str, optional): Optimization method for SM initialization.
+            sm_iters (str, optional): Number of iterations for SM initialization.
+            sm_plot (bool): Show the PSD of the kernel after fitting SM.
         """
 
         output_dims = self.dataset.get_output_dims()
 
+        #for j in range(output_dims):
+        #    input_dims = self.dataset[j].get_input_dims()
+        #    x, y = self.dataset[j].get_train_data(transformed=True)
+        #    dx = np.zeros((input_dims,))
+        #    dy = np.zeros((input_dims,))
+        #    for i in range(input_dims):
+        #        idx = np.argsort(x[:,i])
+        #        xx = x[idx,i]
+        #        yy = y[idx]
+        #        dxx = np.abs(xx[1:]-xx[:-1])
+        #        dxx /= np.count_nonzero(dxx)
+        #        dx[i] = np.sum(dxx)
+        #        dyy = np.abs(yy[1:]-yy[:-1])
+        #        dyy /= np.count_nonzero(dyy)
+        #        dy[i] = np.sum(dyy)
+        #    print('sigma', dx.mean())
+        #    print('l', dy.mean())
+        #    print('noise', 0.5*dy.mean() + 0.5*np.min(dy))
+
+        # TODO: doesn't work well
         if not method.lower() in ['bnse', 'ls', 'sm']:
             raise ValueError("valid methods of estimation are BNSE, LS, and SM")
 
@@ -81,7 +102,7 @@ class CONV(Model):
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, plot=sm_plot)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return

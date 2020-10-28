@@ -1,5 +1,6 @@
 import numpy as np
 
+from .dataset import DataSet
 from .model import Model, Exact, logger
 from .kernels import CrossSpectralKernel, MixtureKernel
 
@@ -39,17 +40,19 @@ class CSM(Model):
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
     def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name="CSM"):
-        self.Q = Q
-        self.Rq = Rq
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
 
         spectral = CrossSpectralKernel(
             output_dims=dataset.get_output_dims(),
             input_dims=dataset.get_input_dims()[0],
             Rq=Rq,
         )
-        kernel = MixtureKernel(spectral, Q=Q)
+        kernel = MixtureKernel(spectral, Q)
 
         super(CSM, self).__init__(dataset, kernel, model, name)
+        self.Q = Q
+        self.Rq = Rq
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
     

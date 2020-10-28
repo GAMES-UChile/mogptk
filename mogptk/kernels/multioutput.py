@@ -135,22 +135,22 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 
         self.input_dims = input_dims
         self.weight = Parameter(weight, lower=positive_minimum)
-        self.variance = Parameter(variance, lower=positive_minimum)
+        self.variance = Parameter(variance, lower=0.0)
         self.base_variance = Parameter(base_variance, lower=positive_minimum)
 
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
-        tau = self.distance(X1,X2)  # NxMxD
+        tau = self.squared_distance(X1,X2)  # NxMxD
 
         # differences with the thesis from Parra is that it lacks a multiplication of 2*pi, lacks a minus in the exponencial function, and doesn't write the variance matrices as inverted
         if X2 is None:
             variances = 2.0*self.variance()[i] + self.base_variance()  # D
             weight = self.weight()[i]**2 * torch.sqrt(self.base_variance().prod()/variances.prod())  # scalar
-            exp = torch.exp(-0.5 * torch.tensordot(tau**2, 1.0/variances, dims=1))  # NxM
-            return np.sqrt(2.0*np.pi) * weight * exp
+            exp = torch.exp(-0.5 * torch.tensordot(tau, 1.0/variances, dims=1))  # NxM
+            return weight * exp
         else:
             variances = self.variance()[i] + self.variance()[j] + self.base_variance()  # D
             weight_variance = torch.sqrt(self.base_variance().prod()/variances.prod())  # scalar
             weight = self.weight()[i] * self.weight()[j] * weight_variance  # scalar
-            exp = torch.exp(-0.5 * torch.tensordot(tau**2, 1.0/variances, dims=1))  # NxM
-            return np.sqrt(2.0*np.pi) * weight * exp
+            exp = torch.exp(-0.5 * torch.tensordot(tau, 1.0/variances, dims=1))  # NxM
+            return weight * exp

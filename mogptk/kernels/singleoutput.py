@@ -70,7 +70,7 @@ class SquaredExponentialKernel(Kernel):
         X1,X2 = self._check_input(X1,X2)
 
         sqdist = self.squared_distance(X1,X2)  # NxMxD
-        exp = torch.exp(-0.5*torch.tensordot(sqdist, self.l()**2, dims=1))  # NxM
+        exp = torch.exp(-0.5*torch.tensordot(sqdist, 1.0/self.l()**2, dims=1))  # NxM
         return self.sigma()**2 * exp
 
 class RationalQuadraticKernel(Kernel):

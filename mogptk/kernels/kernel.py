@@ -14,27 +14,15 @@ class Kernel:
         self.active_dims = active_dims
         self.name = name
 
-    @property
-    def active_dims(self):
-        return self._active_dims
-
-    @active_dims.setter
-    def active_dims(self, active_dims):
-        if active_dims is not None:
-            if not isinstance(active_dims, list):
-                active_dims = [active_dims]
-            if not all(isinstance(item, int) for item in active_dims):
-                raise ValueError("active dimensions must be a list of integers")
-            active_dims = torch.tensor(active_dims, device=device, dtype=torch.long)
-            if self.input_dims is not None and self.input_dims != active_dims.shape[0]:
-                raise ValueError("input dimensions must match the number of actived dimensions")
-        self._active_dims = active_dims
-
-    def K(self, X1, X2=None):
-        raise NotImplementedError()
-
     def __call__(self, X1, X2=None):
         return self.K(X1,X2)
+
+    def __setattr__(self, name, val):
+        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
+            raise AttributeError("parameter is read-only, use Parameter.assign()")
+        if isinstance(val, Parameter) and val.name is None:
+            val.name = name
+        super(Kernel,self).__setattr__(name, val)
 
     def _check_input(self, X1, X2=None):
         if len(X1.shape) != 2:
@@ -58,7 +46,10 @@ class Kernel:
 
     def _check_kernels(self, kernels, length=None):
         if isinstance(kernels, tuple):
-            kernels = list(kernels)
+            if len(kernels) == 1 and isinstance(kernels[0], list):
+                kernels = kernels[0]
+            else:
+                kernels = list(kernels)
         elif not isinstance(kernels, list):
             kernels = [kernels]
         if len(kernels) == 0:
@@ -73,12 +64,24 @@ class Kernel:
                 raise ValueError("must pass kernels")
         return kernels
 
-    def __setattr__(self, name, val):
-        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
-            raise AttributeError("parameter is read-only, use Parameter.assign()")
-        if isinstance(val, Parameter) and val.name is None:
-            val.name = name
-        super(Kernel,self).__setattr__(name, val)        
+    @property
+    def active_dims(self):
+        return self._active_dims
+
+    @active_dims.setter
+    def active_dims(self, active_dims):
+        if active_dims is not None:
+            if not isinstance(active_dims, list):
+                active_dims = [active_dims]
+            if not all(isinstance(item, int) for item in active_dims):
+                raise ValueError("active dimensions must be a list of integers")
+            active_dims = torch.tensor(active_dims, device=device, dtype=torch.long)
+            if self.input_dims is not None and self.input_dims != active_dims.shape[0]:
+                raise ValueError("input dimensions must match the number of actived dimensions")
+        self._active_dims = active_dims
+
+    def K(self, X1, X2=None):
+        raise NotImplementedError()
 
     def distance(self, X1, X2=None):
         # X1 is NxD, X2 is MxD, then ret is NxMxD

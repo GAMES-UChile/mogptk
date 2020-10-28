@@ -17,10 +17,8 @@ class Mean:
     def __setattr__(self, name, val):
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
-        if isinstance(val, Parameter):
-            val.parent = self
-            if val.name is None:
-                val.name = name
+        if isinstance(val, Parameter) and val.name is None:
+            val.name = name
         super(Mean,self).__setattr__(name, val)        
 
 class Model:
@@ -28,14 +26,13 @@ class Model:
         self.name = name
         self.mean = None
         self._params = []
+        self._param_names = []
 
     def __setattr__(self, name, val):
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
-        if isinstance(val, Parameter):
-            val.parent = self
-            if val.name is None:
-                val.name = name
+        if isinstance(val, Parameter) and val.name is None:
+            val.name = name
         super(Model,self).__setattr__(name, val)        
 
     def _check_input(self, X, y=None):
@@ -52,12 +49,15 @@ class Model:
 
     def _register_parameters(self, obj, name=None):
         if isinstance(obj, Parameter):
-            if name is not None:
-                if obj.name is not None:
-                    obj.name = name + "." + obj.name
+            if obj.name is not None:
+                if name is None:
+                    name = obj.name
                 else:
-                    obj.name = name
+                    name += "." + obj.name
+            elif name is None:
+                name = ""
             self._params.append(obj)
+            self._param_names.append(name)
         elif isinstance(obj, list):
             for i, v in enumerate(obj):
                 self._register_parameters(v, (name if name is not None else "")+"["+str(i)+"]")
@@ -95,19 +95,13 @@ class Model:
         try:
             get_ipython  # fails if we're not in a notebook
             table = '<table><tr><th style="text-align:left">Name</th><th>Range</th><th>Value</th></tr>'
-            for p in self._params:
-                name = p.name
-                if name is None:
-                    name = ""
+            for name, p in zip(self._param_names, self._params):
                 table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (name, param_range(p.lower, p.upper, p.trainable), p.constrained.detach().numpy())
             table += '</table>'
             display(HTML(table))
         except Exception as e:
             vals = [["Name", "Range", "Value"]]
-            for p in self._params:
-                name = p.name
-                if name is None:
-                    name = ""
+            for name, p in zip(self._param_names, self._params):
                 vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.constrained.detach().numy())])
 
             nameWidth = max([len(val[0]) for val in vals])

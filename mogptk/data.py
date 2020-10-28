@@ -886,7 +886,7 @@ class Data:
             C[:n,i] = variances
         return A, B, C
 
-    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', maxiter=100, plot=False):
+    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', iters=100, plot=False):
         """
         Peaks estimation using the Spectral Mixture kernel.
 
@@ -894,7 +894,7 @@ class Data:
             Q (int): Number of peaks to find, defaults to 1.
             method (str, optional): Method of estimating SM kernels.
             optimizer (str, optional): Optimization method for SM kernels.
-            maxiter (str, optional): Maximum iteration for SM kernels.
+            iters (str, optional): Maximum iteration for SM kernels.
             plot (bool, optional): Show the PSD of the kernel after fitting.
 
         Returns:
@@ -917,19 +917,19 @@ class Data:
 
         sm = SM(self, Q)
         sm.init_parameters(method)
-        sm.train(method=optimizer, maxiter=maxiter)
+        sm.train(method=optimizer, iters=iters)
 
         if plot:
             nyquist = self.get_nyquist_estimation()
-            means = np.array([sm.model.kernel[q].mean() for q in range(Q)])
-            weights = np.array([sm.model.kernel[q].weight() for q in range(Q)])
-            scales = np.array([sm.model.kernel[q].variance() for q in range(Q)])
+            means = np.array([sm.model.kernel[0][q].mean() for q in range(Q)])
+            weights = np.array([sm.model.kernel[0][q].weight() for q in range(Q)])
+            scales = np.array([sm.model.kernel[0][q].variance() for q in range(Q)])
             plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
         for q in range(Q):
-            A[q,:] = sm.model.kernel[q].weight().detach().numpy()  # TODO: weight is not per input_dims
-            B[q,:] = sm.model.kernel[q].mean().detach().numpy()
-            C[q,:] = sm.model.kernel[q].variance().detach().numpy()
+            A[q,:] = sm.model.kernel[0][q].weight().detach().numpy()  # TODO: weight is not per input_dims
+            B[q,:] = sm.model.kernel[0][q].mean().detach().numpy()
+            C[q,:] = sm.model.kernel[0][q].variance().detach().numpy()
         return A, B, C
 
     def plot(self, ax=None, legend=True, transformed=False):
