@@ -238,7 +238,7 @@ class Data:
         if isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
             self.X_labels = x_labels
 
-        self.name = ''
+        self.name = None
         if isinstance(name, str):
             self.name = name
         elif isinstance(y_label, str):
@@ -1107,7 +1107,7 @@ class Data:
         ax.plot(X_freq, Y_freq, '-', color='xkcd:strawberry', lw=2.3)
         if len(Y_freq_err) != 0:
             ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
-        ax.set_title(self.name + ' Spectrum', fontsize=14)
+        ax.set_title(self.name + ' Spectrum' if self.name is not None else '', fontsize=14)
 
         xmin = X_freq.min()
         xmax = X_freq.max()

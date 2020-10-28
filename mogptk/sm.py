@@ -49,6 +49,8 @@ class SM(Model):
 
         super(SM, self).__init__(dataset, kernel, model, name)
         self.Q = Q
+        if issubclass(type(model), Exact):
+            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
     def init_parameters(self, method='BNSE', noise=False):
         """
@@ -79,19 +81,19 @@ class SM(Model):
             raise ValueError("valid methods of estimation are IPS, LS, and BNSE")
 
         if method.lower() == 'ips':
-            for i in range(output_dims):
-                nyquist = self.dataset[i].get_nyquist_estimation()
-                x, y = self.dataset[i].get_train_data(transformed=True)
+            for j in range(output_dims):
+                nyquist = self.dataset[j].get_nyquist_estimation()
+                x, y = self.dataset[j].get_train_data(transformed=True)
                 x_range = np.max(x, axis=0) - np.min(x, axis=0)
 
                 weights = [y.std()/self.Q] * self.Q
-                means = nyquist * np.random.rand(self.Q, input_dims[i])
-                variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[i])) * x_range)
+                means = nyquist * np.random.rand(self.Q, input_dims[j])
+                variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
 
                 for q in range(self.Q):
-                    self.model.kernel[i][q].weight.assign(weights[q])
-                    self.model.kernel[i][q].mean.assign(means[q,:])
-                    self.model.kernel[i][q].variance.assign(variances[q,:])
+                    self.model.kernel[q][j].weight.assign(weights[q])
+                    self.model.kernel[q][j].mean.assign(means[q,:])
+                    self.model.kernel[q][j].variance.assign(variances[q,:])
             return
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
@@ -124,49 +126,60 @@ class SM(Model):
         #        cov=np.diag(variances.mean(axis=1) * pct))
         #    variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
 
-        for i in range(output_dims):
+        for j in range(output_dims):
             # TODO: check weights for all kernels
-            _, y = self.dataset[i].get_train_data(transformed=True)
-            mixture_weights = 2.0*y.std() * amplitudes[i].mean(axis=1)/amplitudes[i].sum()
+            _, y = self.dataset[j].get_train_data(transformed=True)
+            mixture_weights = 2.0*y.std() * amplitudes[j].mean(axis=1)/amplitudes[j].sum()
             for q in range(self.Q):
-                self.model.kernel[i][q].weight.assign(mixture_weights[q])
-                self.model.kernel[i][q].mean.assign(means[i][q,:])
-                self.model.kernel[i][q].variance.assign(variances[i][q,:])
+                self.model.kernel[q][j].weight.assign(mixture_weights[q])
+                self.model.kernel[q][j].mean.assign(means[j][q,:])
+                self.model.kernel[q][j].variance.assign(variances[j][q,:])
 
-    def plot_psd(self, figsize=(10, 4), title='', log_scale=False):
+    def plot_psd(self, title=None, log_scale=False):
         """
         Plot power spectral density of single output GP-SM.
         """
-        #TODO: fix
-        means = np.array([self.model.kernel[q].mean()*2.0*np.pi for q in range(self.Q)])
-        weights = np.array([self.model.kernel[q].weight() for q in range(self.Q)])
-        scales = np.array([self.model.kernel[q].variance() for q in range(self.Q)])
-        
-        # calculate bounds
-        x_low = norm.ppf(0.001, loc=means, scale=scales).min()
-        x_high = norm.ppf(0.99, loc=means, scale=scales).max()
-        
-        x = np.linspace(0, x_high + 1, 10000)
+        output_dims = self.dataset.get_output_dims()
 
-        psd = np.zeros_like(x)
+        fig, axes = plt.subplots(output_dims, output_dims, figsize=(10*output_dims, 10*output_dims), squeeze=False)
+        fig.set_tight_layout(True)
+        if title is not None:
+            fig.suptitle(title, fontsize=36)
 
-        fig, axes = plt.subplots(1, 1, figsize=figsize)
-        for q in range(self.Q):
-            single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
-            axes.plot(x, single_psd, '--', lw=1.2, c='xkcd:strawberry', zorder=2)
-            axes.axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color='grey')
-            psd = psd + single_psd
+        for j in range(self.dataset.get_output_dims()):
+            means = np.array([self.model.kernel[q][j].mean.numpy()*2.0*np.pi for q in range(self.Q)])
+            weights = np.array([self.model.kernel[q][j].weight.numpy() for q in range(self.Q)])
+            scales = np.array([self.model.kernel[q][j].variance.numpy() for q in range(self.Q)])
             
-        # symmetrize PSD
-        if psd[x<0].size != 0:
-            psd = psd + np.r_[psd[x<0][::-1], np.zeros((x>=0).sum())]
+            # calculate bounds
+            x_low = norm.ppf(0.001, loc=means, scale=scales).min()
+            x_high = norm.ppf(0.99, loc=means, scale=scales).max()
             
-        axes.plot(x, psd, lw=2.5, c='r', alpha=0.7, zorder=1)
-        axes.set_xlim(0, x[-1] + 0.1)
-        if log_scale:
-            axes.set_yscale('log')
-        axes.set_xlabel('Frequency [Hz]')
-        axes.set_ylabel('PSD')
-        axes.set_title(title)
+            x = np.linspace(0, x_high + 1, 10000)
+
+            psd = np.zeros_like(x)
+            for q in range(self.Q):
+                single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
+                axes[j,j].plot(x, single_psd, '--', c='xkcd:strawberry', zorder=2)
+                axes[j,j].axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color='grey')
+                psd = psd + single_psd
+                
+            # symmetrize PSD
+            if psd[x<0].size != 0:
+                psd = psd + np.r_[psd[x<0][::-1], np.zeros((x>=0).sum())]
+                
+            axes[j,j].plot(x, psd, lw=2, c='r', alpha=0.7, zorder=1)
+            axes[j,j].set_xlim(0, x[-1] + 0.1)
+            if log_scale:
+                axes[j,j].set_yscale('log')
+            axes[j,j].set_xlabel('Frequency')
+            axes[j,j].set_yticks([])
+
+            for i in range(self.dataset.get_output_dims()):
+                if i < j:
+                    axes[j,i].set_xticks([])
+                    axes[j,i].set_yticks([])
+                elif j < i:
+                    axes[j,i].set_axis_off()
 
         return fig, axes

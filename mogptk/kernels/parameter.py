@@ -64,6 +64,9 @@ class Parameter:
             return self.transform.forward(self.unconstrained)
         return self.unconstrained
 
+    def numpy(self):
+        return self.constrained.detach().numpy()
+
     def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
         if not isinstance(data, torch.Tensor):
             data = torch.tensor(data, device=device, dtype=dtype)

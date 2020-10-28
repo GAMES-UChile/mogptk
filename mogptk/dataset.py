@@ -224,7 +224,7 @@ class DataSet:
             >>> dataset.get_names()
             ['A', 'B', 'C']
         """
-        return [channel.get_name() if channel.get_name() != "" else "#"+str(i+1) for i, channel in enumerate(self.channels)]
+        return [channel.get_name() for i, channel in enumerate(self.channels)]
 
     def get(self, index):
         """
@@ -450,7 +450,7 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', maxiter=100, plot=False):
+    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', iters=100, plot=False):
         """
         Peaks estimation using the Spectral Mixture kernel.
 
@@ -473,7 +473,7 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, maxiter, plot)
+            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, plot)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)

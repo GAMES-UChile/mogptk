@@ -46,7 +46,8 @@ class Model:
             dataset = DataSet(dataset)
         if dataset.get_output_dims() == 0:
             raise Exception("dataset must have at least one channel")
-        if len(set(dataset.get_names())) != len(dataset.get_names()):
+        names = [name for name in dataset.get_names() if name is not None]
+        if len(set(names)) != len(names):
             raise Exception("all data channels must have unique names")
 
         for channel in dataset:
@@ -130,7 +131,7 @@ class Model:
         if verbose:
             training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
             parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
-            print('Starting optimization')
+            print('\nStarting optimization using', method)
             print('‣ Model: {}'.format(self.name))
             print('‣ Channels: {}'.format(len(self.dataset)))
             if hasattr(self, 'Q'):

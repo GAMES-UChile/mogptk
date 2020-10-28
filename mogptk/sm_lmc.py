@@ -62,7 +62,7 @@ class SM_LMC(Model):
         for q in range(Q):
             self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
     
-    def init_parameters(self, method='BNSE', sm_method='BNSE', sm_opt='LBFGS', sm_maxiter=2000, plot=False):
+    def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='LBFGS', sm_iters=100, sm_plot=False):
         """
         Initialize kernel parameters.
 
@@ -78,10 +78,10 @@ class SM_LMC(Model):
 
         Args:
             method (str, optional): Method of estimation, such as BNSE, LS, or SM.
-            sm_method (str, optional): Method of estimating SM kernels. Only valid with SM method.
-            sm_opt (str, optional): Optimization method for SM kernels. Only valid with SM method.
-            sm_maxiter (str, optional): Maximum iteration for SM kernels. Only valid with SM method.
-            plot (bool, optional): Show the PSD of the kernel after fitting SM kernels. Only valid in 'SM' mode.
+            sm_init (str, optional): Parameter initialization strategy for SM initialization.
+            sm_method (str, optional): Optimization method for SM initialization.
+            sm_iters (str, optional): Number of iterations for SM initialization.
+            sm_plot (bool): Show the PSD of the kernel after fitting SM.
         """
         
         output_dims = self.dataset.get_output_dims()
@@ -94,7 +94,7 @@ class SM_LMC(Model):
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(int(np.ceil(self.Q/output_dims)), method=sm_method, optimizer=sm_opt, maxiter=sm_maxiter, plot=plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, plot=sm_plot)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for SM-LMC'.format(method))
             return

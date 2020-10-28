@@ -54,7 +54,7 @@ class CONV(Model):
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
-    def init_parameters(self, method='SM', sm_init='BNSE', sm_method='LBFGS', sm_iters=2000, sm_plot=False):
+    def init_parameters(self, method='SM', sm_init='BNSE', sm_method='LBFGS', sm_iters=100, sm_plot=False):
         """
         Initialize kernel parameters, variance and mixture weights. 
 
