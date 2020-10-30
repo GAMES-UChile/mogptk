@@ -4,14 +4,12 @@ from os import path
 requirements = [
     'numpy>=1.10',
     'pytorch',
-    'matplotlib',
+    'matplotlib>=3.3.0',
     'scipy>=0.18',
-    'scikit-learn',
     'pandas',
-    'seaborn',
     'python-dateutil',
-    'ipython',
-    'dataclasses',
+    'seaborn',  # only used by bnse.py
+    'scikit-learn',  # only used by errors.py
 ]
 
 this_directory = path.abspath(path.dirname(__file__))
@@ -30,6 +28,5 @@ setup(name='mogptk',
       packages=['mogptk', 'mogptk.kernels'],
       keywords=['MOGP', 'MOSM', 'GP', 'Gaussian Process', 'Multi-Output', 'Tobar', 'Parra'],
       python_requires='>=3.6',
-      extra_require={'TensorFlow with GPU': 'tensorflow-gpu'},
       install_requires=requirements,
 )

@@ -29,8 +29,8 @@ def Load(filename):
         return pickle.load(r)
 
 class Exact:
-    def build(self, kernel, x, y):
-        return GPR(kernel, x, y)
+    def build(self, kernel, x, y, name=None):
+        return GPR(kernel, x, y, name=name)
 
 class Model:
     def __init__(self, dataset, kernel, model=Exact(), name=None):
@@ -61,7 +61,7 @@ class Model:
         x, y = dataset._to_kernel()
         self.dataset = dataset
         self.kernel = kernel
-        self.model = model.build(kernel, x, y)
+        self.model = model.build(kernel, x, y, name)
         self.name = name
 
     ################################################################
@@ -216,48 +216,44 @@ class Model:
         _, mu, lower, upper = self.dataset.get_prediction(self.name)
         return mu, lower, upper
 
-    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, figsize=(10, 10), title='', retmatrix=False):
+    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
         """
         Plot the gram matrix of associated kernel.
 
-        The gram matrix is evaluated depending a equaly spaced grid 
+        The gram matrix is evaluated depending a equally spaced grid 
         between [xmin_i, xmax_i] for i = 0, ..., n_channels.
 
         Args:
             xmin (float, list, array): 
             xmax (float, list, array):
             n_points (int): Number of points per channel
-            figsize (2-tuple of ints): Figure size.
             title (str): Figure title.
-            retmatrix(Bool): if True, return the gram matrix
+        
         Returns:
-            fig : Matplotlib figure
-            ax : Matplotlib axis
-
+            fig: Matplotlib figure
+            ax: Matplotlib axis
         """
         if xmin is None:
             xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
-
         if xmax is None:
             xmax = [np.array(data.X[0].transformed).max() for data in self.dataset]
 
         M = len(self.dataset)
-
         if not isinstance(xmin, (list, np.ndarray)):
             xmin = [xmin] * M
-
         if not isinstance(xmax, (list, np.ndarray)):
             xmax = [xmax] * M
 
-        xx = np.zeros((M * n_points, 2))
-        xx[:, 0] = np.repeat(np.arange(M), n_points)
-
+        X = np.zeros((M*n_points, 2))
+        X[:,0] = np.repeat(np.arange(M), n_points)
         for m in range(M):
-            xx[m * n_points: (m + 1) * n_points, 1] = np.linspace(xmin[m], xmax[m], n_points)
+            X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
             
-        K_gram = self.model.kernel.K(xx)
-        
-        fig, ax = plt.subplots(figsize=figsize)
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        K_gram = self.model.K(X)
         color_range = np.abs(K_gram).max()
         norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
         im = ax.matshow(K_gram, cmap='coolwarm', norm=norm)
@@ -272,13 +268,10 @@ class Model:
 
         ax.set_xticks(major_ticks)
         ax.set_yticks(major_ticks)
-        ax.grid(which='major', alpha=.8, linewidth=1.5, color='k')
+        ax.grid(which='major', lw=1.5, c='k')
         ax.set_xticklabels([])
         ax.set_yticklabels([])
-        ax.set_title(title)
+        ax.tick_params(axis='both', which='both', length=0)
 
-        if retmatrix:
-            return fig, ax, K_gram.numpy()
-        else:
-            return fig, ax
+        return fig, ax
 

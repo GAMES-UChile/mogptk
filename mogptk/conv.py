@@ -6,31 +6,34 @@ from .kernels import GaussianConvolutionProcessKernel, MixtureKernel
 
 class CONV(Model):
     """
-    CONV is the Convolutional Gaussian kernel with Q components [1].
+    CONV is the Convolutional Gaussian kernel with Q components [1]. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
         Q (int, optional): Number of components.
+        model: Gaussian Process model to use, such as mogptk.Exact.
         name (str, optional): Name of the model.
-        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
-        sparse (bool), optional: If True, will use sparse GP regression.
-        like_params (dict, optional): Parameters to GPflow likelihood.
+
+    Attributes:
+        dataset: The associated mogptk.DataSet.
+        model: The mogptk.kernels.Model.
+        kernel: The mogptk.kernels.Kernel.
 
     Examples:
 
     >>> import numpy as np
+    >>> import mogptk
+    >>> 
     >>> t = np.linspace(0, 10, 100)
     >>> y1 = np.sin(0.5 * t)
-    >>> y2 = 2 * np.sin(0.2 * t)
-    >>> import mogptk
-    >>> data_list = []
-    >>> mogptk.data_list.append(mogptk.Data(t, y1))
-    >>> mogptk.data_list.append(mogptk.Data(t, y2))
-    >>> model = mogptk.CG(data_list, Q=2)
-    >>> model.build()
+    >>> y2 = 2.0 * np.sin(0.2 * t)
+    >>> 
+    >>> dataset = mogptk.DataSet(t, [y1, y2])
+    >>> model = mogptk.CONV(dataset, Q=2)
+    >>> model.init_parameters()
     >>> model.train()
-    >>> model.plot_prediction()
+    >>> model.predict()
+    >>> dataset.plot()
 
     [1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009
     """
@@ -126,4 +129,3 @@ class CONV(Model):
             noise[i] = y.var() / 30.0
         for q in range(self.Q):
             self.model.kernel[q].noise.assign(noise)
-    

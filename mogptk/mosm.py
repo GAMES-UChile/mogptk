@@ -9,38 +9,33 @@ from .plot import plot_spectrum
 
 class MOSM(Model):
     """
-    MOGP with Multi Output Spectral Mixture kernel, as proposed in [1].
-
-    The model contain the dataset and the associated gpflow model, 
-    when the mogptk.Model is instanciated the gpflow model is built 
-    using random parameters.
+    MOGP with Multi Output Spectral Mixture kernel, as proposed in [1]. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
         Q (int, optional): Number of components.
+        model: Gaussian Process model to use, such as mogptk.Exact.
         name (str, optional): Name of the model.
-        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
-        sparse (bool, optional): If True, will use sparse GP regression.
-        like_params (dict, optional): Parameters to GPflow likelihood.
 
     Atributes:
-        dataset: Constains the mogptk.DataSet associated.
-        model: GPflow model.
+        dataset: The associated mogptk.DataSet.
+        model: The mogptk.kernels.Model.
+        kernel: The mogptk.kernels.Kernel.
 
     Examples:
     >>> import numpy as np
+    >>> import mogptk
+    >>> 
     >>> t = np.linspace(0, 10, 100)
     >>> y1 = np.sin(0.5 * t)
-    >>> y2 = 2 * np.sin(0.2 * t)
-    >>> import mogptk
-    >>> data_list = []
-    >>> mogptk.data_list.append(mogptk.Data(t, y1))
-    >>> mogptk.data_list.append(mogptk.Data(t, y2))
-    >>> model = mogptk.MOSM(data_list, Q=2)
-    >>> model.build()
+    >>> y2 = 2.0 * np.sin(0.2 * t)
+    >>> 
+    >>> dataset = mogptk.DataSet(t, [y1, y2])
+    >>> model = mogptk.MOSM(dataset, Q=2)
+    >>> model.init_parameters()
     >>> model.train()
-    >>> model.plot_prediction()
+    >>> model.predict()
+    >>> dataset.plot()
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
@@ -61,17 +56,9 @@ class MOSM(Model):
 
     def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='LBFGS', sm_iters=100, sm_plot=False):
         """
-        Initialize kernel parameters.
+        Initialize kernel parameters. The initialization can be done in two ways, the first by estimating the PSD via BNSE (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, the peaks position, magnitude and width initialize the mean, magnitude and variance of the kernel respectively. The second way is by fitting independent Gaussian process for each channel, each one with SM kernel, using the fitted parameters for initial values of the multioutput kernel.
 
-        The initialization can be done in two ways, the first by estimating the PSD via 
-        BNSE (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum,
-        the peaks position, magnitude and width initialize the mean, magnitude and variance
-        of the kernel respectively.
-        The second way is by fitting independent Gaussian process for each channel, each one
-        with SM kernel, using the fitted parameters for initial values of the multioutput kernel.
-
-        In all cases the noise is initialized with 1/30 of the variance 
-        of each channel.
+        In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Args:
             method (str, optional): Method of estimation, such as BNSE, LS, or SM.
@@ -97,7 +84,6 @@ class MOSM(Model):
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
 
-        # TODO: input_dims must be the same for all channels (restriction of MOSM)
         magnitude = np.zeros((output_dims, self.Q))
         for q in range(self.Q):
             mean = np.zeros((output_dims,input_dims[0]))
@@ -127,6 +113,9 @@ class MOSM(Model):
             self.model.kernel[q].noise.assign(noise)
 
     def check(self):
+        """
+        Check validity of model and parameters.
+        """
         for j in range(self.dataset.get_output_dims()):
             for q in range(self.Q):
                 mean = self.model.kernel[q].mean.numpy()[j,:]
@@ -134,7 +123,10 @@ class MOSM(Model):
                 if np.linalg.norm(mean) < np.linalg.norm(var):
                     print("‣ MOSM approaches RBF kernel for q=%d in channel='%s'" % (q, self.dataset[j].name))
 
-    def plot(self):
+    def plot(self, title=None):
+        """
+        Plot spectrum of kernel.
+        """
         names = self.dataset.get_names()
         nyquist = self.dataset.get_nyquist_estimation()
 
@@ -142,28 +134,37 @@ class MOSM(Model):
         scales = np.array([self.model.kernel[q].variance.numpy() for q in range(self.Q)])
         weights = np.array([self.model.kernel[q].magnitude.numpy() for q in range(self.Q)])**2
 
-        plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names)
+        return plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names, title=title)
 
-    def plot_psd(self, figsize=(20, 14), title=None):
+    def plot_psd(self, title=None, figsize=(12,12)):
         """
         Plot power spectral density and power cross spectral density.
-
-        Note: Implemented only for 1 input dimension.
         """
+
+        if not all(input_dims == 1 for input_dims in self.dataset.get_input_dims()):
+            raise RuntimeError("not implemented for multiple input dimensions")
 
         cross_params = self._get_cross_parameters()
         output_dims = self.dataset.get_output_dims()
 
-        fig, axes = plt.subplots(output_dims, output_dims, figsize=(10*output_dims, 10*output_dims), squeeze=False)
-        fig.set_tight_layout(True)
+        h = figsize[1]
+        fig, axes = plt.subplots(output_dims, output_dims, figsize=figsize, squeeze=False, constrained_layout=True)
         if title is not None:
-            fig.suptitle(title, fontsize=36)
+            fig.suptitle(title, y=(h+0.8)/h, fontsize=18)
 
         for j in range(output_dims):
             for i in range(j+1):
                 self._plot_power_cross_spectral_density(axes[j,i], cross_params, channels=(j,i))
             for i in range(j+1, output_dims):
                 axes[j,i].set_axis_off()
+
+        legends = []
+        legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Full (real)'))
+        legends.append(plt.Line2D([0], [0], ls='--', color='k', label='Mixture (real)'))
+        legends.append(plt.Line2D([0], [0], ls='-', color='silver', label='Full (imag)'))
+        legends.append(plt.Line2D([0], [0], ls='--', color='silver', label='Mixture (imag)'))
+        fig.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
+
         return fig, axes
 
     def _plot_power_cross_spectral_density(self, ax, params, channels=(0, 0)):
@@ -194,9 +195,9 @@ class MOSM(Model):
                 psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q])
                 psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q])
                 psd_q *= magn[q] * 0.5
-                ax.plot(w, psd_q, '--r')
+                ax.plot(w, psd_q, ls='--', c='k')
                 psd_total += psd_q
-            ax.plot(w, psd_total, 'r', lw=2, alpha=0.7)
+            ax.plot(w, psd_total, c='k')
         # power cross spectral density
         else:
             psd_total = np.zeros(len(w)) + 0.j
@@ -204,11 +205,11 @@ class MOSM(Model):
                 psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
                 psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
                 psd_q *= magn[q] * 0.5
-                ax.plot(w, np.real(psd_q), '--b')
-                ax.plot(w, np.imag(psd_q), '--g')
+                ax.plot(w, np.real(psd_q), ls='--', c='k')
+                ax.plot(w, np.imag(psd_q), ls='--', c='silver')
                 psd_total += psd_q
-            ax.plot(w, np.real(psd_total), 'b', alpha=0.7)
-            ax.plot(w, np.imag(psd_total), 'g', alpha=0.7)
+            ax.plot(w, np.real(psd_total), c='k')
+            ax.plot(w, np.imag(psd_total), c='silver')
         ax.set_yticks([])
         return
 

@@ -5,35 +5,37 @@ import matplotlib.pyplot as plt
 from .dataset import DataSet
 from .model import Model, Exact, logger
 from .kernels import SpectralKernel, IndependentMultiOutputKernel, MixtureKernel, positive_minimum
+from .plot import plot_spectrum
 
 class SM(Model):
     """
-    A single output GP Spectral mixture kernel as proposed by [1].
-
-    The model contain the dataset and the associated gpflow model, 
-    when the mogptk.Model is instanciated the gpflow model is built 
-    using random parameters.
+    An independent spectral mixture kernel as proposed by [1] per channel. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
 
     Args:
-        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
+        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
         Q (int, optional): Number of components.
+        model: Gaussian Process model to use, such as mogptk.Exact.
         name (str, optional): Name of the model.
-        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
-        sparse (bool, optional): If True, will use sparse GP regression.
-        like_params (dict, optional): Parameters to GPflow likelihood.
+
+    Attributes:
+        dataset: The associated mogptk.DataSet.
+        model: The mogptk.kernels.Model.
+        kernel: The mogptk.kernels.Kernel.
 
     Examples:
 
     >>> import numpy as np
+    >>> import mogptk
+    >>> 
     >>> t = np.linspace(0, 10, 100)
     >>> y = np.sin(0.5 * t)
-    >>> import mogptk
+    >>> 
     >>> data = mogptk.Data(t, y)
-    >>> model = mogptk.SM([data], Q=1)
-    >>> model.build()
+    >>> model = mogptk.SM(data, Q=1)
+    >>> model.init_parameters()
     >>> model.train()
-    >>> model.predict([np.linspace(1, 15, 150)])
+    >>> model.predict()
+    >>> data.plot()
 
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
     """
@@ -54,24 +56,16 @@ class SM(Model):
 
     def init_parameters(self, method='BNSE', noise=False):
         """
-        Initialize parameters of kernel from data using different methods.
-
-        Kernel parameters can be initialized using 3 heuristics using the train data:
+        Initialize parameters of kernel from the data.
 
         Arguments:
-            method (str, optional): Method of estimation.
+            method (str, optional): Method of estimation, such as IPS, LS, or BNSE.
             noise (boolean, optional): Add noise of std.dev. equal to 1/10th of the estimated value.
 
         Methods:
-            IPS:  Independant parameter sampling (from the PhD thesis of Andrew Wilson 2014)
-                  takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2),
-                  the means drawn from Unif(0, 0.5 / minimum distance between two points),
-                  and the mixture weights by taking the stdv of the y values divided by the
-                  number of mixtures.
-            LS:   Uses Lomb Scargle periodogram for estimating the PSD,
-                  and using the first Q peaks as the means and mixture weights.
-            BNSE: Uses the BNSE (Tobar 2018) to estimate the PSD 
-                  and use the first Q peaks as the means and mixture weights.
+            IPS: Independent parameter sampling (from the PhD thesis of Andrew Wilson 2014) takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the means drawn from Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the y values divided by the number of mixtures.
+            LS: Uses Lomb Scargle periodogram for estimating the PSD, and using the first Q peaks as the means and mixture weights.
+            BNSE: Uses the BNSE (Tobar 2018) to estimate the PSD and use the first Q peaks as the means and mixture weights.
         """
 
         input_dims = self.dataset.get_input_dims()
@@ -135,51 +129,16 @@ class SM(Model):
                 self.model.kernel[q][j].mean.assign(means[j][q,:])
                 self.model.kernel[q][j].variance.assign(variances[j][q,:])
 
-    def plot_psd(self, title=None, log_scale=False):
+    def plot(self, title=None, figsize=(12,12), log_scale=False):
         """
-        Plot power spectral density of single output GP-SM.
+        Plot spectrum of kernel.
         """
+        names = self.dataset.get_names()
+        nyquist = self.dataset.get_nyquist_estimation()
         output_dims = self.dataset.get_output_dims()
 
-        fig, axes = plt.subplots(output_dims, output_dims, figsize=(10*output_dims, 10*output_dims), squeeze=False)
-        fig.set_tight_layout(True)
-        if title is not None:
-            fig.suptitle(title, fontsize=36)
+        means = np.array([[self.model.kernel[q][j].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
+        scales = np.array([[self.model.kernel[q][j].variance.numpy() for j in range(output_dims)] for q in range(self.Q)])
+        weights = np.array([[self.model.kernel[q][j].weight.numpy()[0] for j in range(output_dims)] for q in range(self.Q)])
 
-        for j in range(self.dataset.get_output_dims()):
-            means = np.array([self.model.kernel[q][j].mean.numpy()*2.0*np.pi for q in range(self.Q)])
-            weights = np.array([self.model.kernel[q][j].weight.numpy() for q in range(self.Q)])
-            scales = np.array([self.model.kernel[q][j].variance.numpy() for q in range(self.Q)])
-            
-            # calculate bounds
-            x_low = norm.ppf(0.001, loc=means, scale=scales).min()
-            x_high = norm.ppf(0.99, loc=means, scale=scales).max()
-            
-            x = np.linspace(0, x_high + 1, 10000)
-
-            psd = np.zeros_like(x)
-            for q in range(self.Q):
-                single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
-                axes[j,j].plot(x, single_psd, '--', c='xkcd:strawberry', zorder=2)
-                axes[j,j].axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color='grey')
-                psd = psd + single_psd
-                
-            # symmetrize PSD
-            if psd[x<0].size != 0:
-                psd = psd + np.r_[psd[x<0][::-1], np.zeros((x>=0).sum())]
-                
-            axes[j,j].plot(x, psd, lw=2, c='r', alpha=0.7, zorder=1)
-            axes[j,j].set_xlim(0, x[-1] + 0.1)
-            if log_scale:
-                axes[j,j].set_yscale('log')
-            axes[j,j].set_xlabel('Frequency')
-            axes[j,j].set_yticks([])
-
-            for i in range(self.dataset.get_output_dims()):
-                if i < j:
-                    axes[j,i].set_xticks([])
-                    axes[j,i].set_yticks([])
-                elif j < i:
-                    axes[j,i].set_axis_off()
-
-        return fig, axes
+        return plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names, title=title)

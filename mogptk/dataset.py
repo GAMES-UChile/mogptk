@@ -103,11 +103,7 @@ class DataSet:
     DataSet is a class that holds multiple Data objects as channels.
 
     Args:
-        *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Accepts multiple arguments,
-            each of which should be either a DataSet or Data object, a list of
-            Data objects or a dictionary of Data objects. Each Data object will be added to the
-            list of channels. In case of a dictionary, the key will set the name of the Data object.
-            If a DataSet is passed, its channels will be added.
+        *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict, np.ndarray): Accepts multiple arguments, each of which should be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added. It is also possible to pass x and y data array directly by either passing two np.ndarrays or two lists of np.ndarrays for x and y data.
 
     Examples:
         Three different ways to use DataSet:
@@ -124,12 +120,28 @@ class DataSet:
         >>> dataset.append(mogptk.LoadDataFrame(df, x_col='Date', y_col='Wind Velocity', name='wind'))
         >>> dataset.append(mogptk.LoadDataFrame(df, x_col='Date', y_col='Tidal Height', name='tidal'))
 
+        >>> dataset = mogptk.DataSet(x, y)
+
+        >>> dataset = mogptk.DataSet(x, [y1, y2, y3])
+        
+        >>> dataset = mogptk.DataSet([x1, x2, x3], [y1, y2, y3])
+
         Accessing individual channels:
         >>> dataset[0]       # first channel
         >>> dataset['wind']  # wind velocity channel
     """
     def __init__(self, *args):
         self.channels = []
+        if len(args) == 2 and (isinstance(args[1], np.ndarray) or isinstance(args[1], list) and all(isinstance(item, np.ndarray) for item in args[1])):
+            if isinstance(args[0], np.ndarray):
+                for y in args[1]:
+                    self.append(Data(args[0], y))
+                return
+            elif isinstance(args[0], list) and all(isinstance(item, np.ndarray) for item in args[0]) and isinstance(args[1], list) and len(args[0]) == len(args[1]):
+                for x, y in zip(args[0], args[1]):
+                    self.append(Data(x, y))
+                return
+
         for arg in args:
             self.append(arg)
 
@@ -597,9 +609,9 @@ class DataSet:
             >>> fig, axes = dataset.plot(title='Title')
         """
         if figsize is None:
-            figsize = (12, 2.5 * len(self))
+            figsize = (12, 2.5 * len(self.channels))
 
-        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
+        fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         if title is not None:
             fig.suptitle(title, fontsize=18)
 
@@ -635,9 +647,9 @@ class DataSet:
             maxfreq = [maxfreq] * len(self.channels)
 
         if figsize is None:
-            figsize = (12, 2.5 * len(self))
+            figsize = (12, 2.5 * len(self.channels))
 
-        fig, axes = plt.subplots(self.get_output_dims(), 1, constrained_layout=True, squeeze=False, figsize=figsize)
+        fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         if title != None:
             fig.suptitle(title, fontsize=18)
 

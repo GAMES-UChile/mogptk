@@ -6,36 +6,35 @@ from .kernels import CrossSpectralKernel, MixtureKernel
 
 class CSM(Model):
     """
-    Cross Spectral Mixture kernel [1] with Q components and Rq latent functions.
-
-    The model contain the dataset and the associated gpflow model, 
-    when the mogptk.Model is instanciated the gpflow model is built 
-    using random parameters.
+    Cross Spectral Mixture kernel [1] with Q components and Rq latent functions. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
         Q (int, optional): Number of components.
-        Rq (int, optional): Sub components por components.
+        Rq (int, optional): Number of subcomponents.
+        model: Gaussian Process model to use, such as mogptk.Exact.
         name (str, optional): Name of the model.
-        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
-        sparse (bool, optional): If True, will use sparse GP regression.
-        like_params (dict, optional): Parameters to GPflow likelihood.
+
+    Attributes:
+        dataset: The associated mogptk.DataSet.
+        model: The mogptk.kernels.Model.
+        kernel: The mogptk.kernels.Kernel.
 
     Examples:
 
     >>> import numpy as np
+    >>> import mogptk
+    >>> 
     >>> t = np.linspace(0, 10, 100)
     >>> y1 = np.sin(0.5 * t)
-    >>> y2 = 2 * np.sin(0.2 * t)
-    >>> import mogptk
-    >>> data_list = []
-    >>> mogptk.data_list.append(mogptk.Data(t, y1))
-    >>> mogptk.data_list.append(mogptk.Data(t, y2))
-    >>> model = mogptk.CSM(data_list, Q=2)
-    >>> model.build()
+    >>> y2 = 2.0 * np.sin(0.2 * t)
+    >>> 
+    >>> dataset = mogptk.DataSet(t, [y1, y2])
+    >>> model = mogptk.CSM(dataset, Q=2)
+    >>> model.init_parameters()
     >>> model.train()
-    >>> model.plot_prediction()
+    >>> model.predict()
+    >>> dataset.plot()
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """

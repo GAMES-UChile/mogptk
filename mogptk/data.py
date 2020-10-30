@@ -1056,8 +1056,6 @@ class Data:
         if ax is None:
             ax = plt.gca()
         
-        ax.set_title(self.name, fontsize=36)
-
         X_scale = 1.0
         if np.issubdtype(self.X[0].dtype, np.datetime64):
             if per is None:
@@ -1104,7 +1102,7 @@ class Data:
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
-        ax.plot(X_freq, Y_freq, '-', color='xkcd:strawberry', lw=2.3)
+        ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
         if len(Y_freq_err) != 0:
             ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
         ax.set_title(self.name + ' Spectrum' if self.name is not None else '', fontsize=14)
