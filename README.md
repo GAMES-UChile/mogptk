@@ -2,7 +2,7 @@
 
 **[Paper](https://arxiv.org/abs/2002.03471) - [API Documentation](https://games-uchile.github.io/mogptk/) - [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials)**
 
-The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and interpreting Gaussian process models with multiple data channels. It builds upon [GPflow](https://www.gpflow.org/) and [TensorFlow](https://www.tensorflow.org/) to provide an easy way to train multi-output models effectively and interpret their results. The main authors are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar as part of the Center for Mathematical Modelling at the University of Chile.
+The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and interpreting Gaussian process models with multiple data channels. It builds upon [PyTorch](https://pytorch.org/) to provide an easy way to train multi-output models effectively on CPUs and GPUs. The main authors are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar as part of the Center for Mathematical Modelling at the University of Chile.
 
 ## Installation
 With [Anaconda](https://www.anaconda.com/distribution/) installed on your system, open a command prompt and create a virtual environment:
@@ -12,13 +12,7 @@ conda create -n myenv python=3.7
 conda activate myenv
 ```
 
-where `myenv` is the name of your environment, and where the version of Python could be 3.6 or above. In order to use TensorFlow on the GPU, the easiest way is to install TensorFlow through conda (and not pip) before we install this toolkit. If you will be using the CPU you can skip this step.
-
-```
-conda install tensorflow-gpu
-```
-
-Next we will install this toolkit and automatically install the necessary dependencies such as GPflow2 and TensorFlow2.
+where `myenv` is the name of your environment, and where the version of Python could be 3.6 or above. Next we will install this toolkit and automatically install the necessary dependencies such as PyTorch.
 
 ```
 pip install mogptk
@@ -30,7 +24,7 @@ In order to upgrade to a new version of MOGPTK or any of its dependencies, use `
 pip install --upgrade mogptk
 ```
 
-For developers of the library or for users who need the latest changes, we recommend cloning the git `develop` branch and to use the following command inside the repository folder:
+For developers of the library or for users who need the latest changes, we recommend cloning the git `master` or `develop` branch and to use the following command inside the repository folder:
 
 ```
 pip install --upgrade -e .
@@ -45,7 +39,7 @@ The main kernel corresponds to Multi Output Spectral Mixture Kernel, which corre
 
 The kernel learns the cross-channel correlations of the data, so it is particularly well-suited for the task of signal reconstruction in the event of sporadic data loss. All other included kernels can be derived from the Multi Output Spectral Mixture kernel by restricting some parameters or applying some transformations.
 
-One of the main advantages of the present toolkit is the GPU support, which enables the user to train models through TensorFlow, speeding computations significantly. It also includes sparse-variational GP regression functionality, to decrease computation time even further.
+One of the main advantages of the present toolkit is the GPU support, which enables the user to train models through PyTorch, speeding computations significantly. It also includes sparse-variational GP regression functionality to decrease computation time even further.
 
 See [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://arxiv.org/abs/2002.03471) for our publication on arXiv.
 

@@ -27,7 +27,7 @@ pip install mogptk
 - **GP**: Gaussian process, see [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) by C.E. Rasmussen and C.K.I. Williams.
 - **M**: the number of channels (i.e. output dimensions)
 - **N**: the number of data points
-- **Q**: the number of components to use for a kernel. Each component is added additively to the kernel set using the GPflow kernel addition operator
+- **Q**: the number of components to use for a kernel. Each component is added additively to the main kernel
 - **MOSM**: Multi-output spectral mixture kernel, see [Spectral Mixture Kernels for Multi-Output Gaussian Processes](https://arxiv.org/abs/1709.01298) by G. Parra and F. Tobar.
 - **CSM**: Cross spectral mixture kernel, see [GP Kernels for Cross-Spectrum Analysis](https://papers.nips.cc/paper/5966-gp-kernels-for-cross-spectrum-analysis) by K.R. Ulrich et al.
 - **CONV**: Convolution Gaussian kernel, see [Sparse Convolved Multiple Output Gaussian Processes](https://arxiv.org/abs/0911.5107) by M.A. Álvarez and N.D. Lawrence.

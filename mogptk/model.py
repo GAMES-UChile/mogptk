@@ -15,7 +15,7 @@ logger = logging.getLogger('mogptk')
 
 eps = 1e-20
 
-def Load(filename):
+def LoadModel(filename):
     """
     Load model from a given file that was previously saved with `model.save()`.
 
@@ -25,6 +25,7 @@ def Load(filename):
     Examples:
         >>> Load('filename')
     """
+    filename += ".npy" 
     with open(filename, 'rb') as r:
         return pickle.load(r)
 
@@ -94,6 +95,7 @@ class Model:
         Examples:
             >>> model.save('filename')
         """
+        filename += ".npy" 
         try:
             os.remove(filename)
         except OSError:
@@ -216,7 +218,7 @@ class Model:
         _, mu, lower, upper = self.dataset.get_prediction(self.name)
         return mu, lower, upper
 
-    def plot_gram_matrix(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+    def plot_gram(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
         """
         Plot the gram matrix of associated kernel.
 
@@ -224,14 +226,15 @@ class Model:
         between [xmin_i, xmax_i] for i = 0, ..., n_channels.
 
         Args:
-            xmin (float, list, array): 
-            xmax (float, list, array):
-            n_points (int): Number of points per channel
+            xmin (float, list, array): Interval minimum.
+            xmax (float, list, array): Interval maximum.
+            n_points (int): Number of points per channel.
             title (str): Figure title.
+            figsize (tuple): Figure size.
         
         Returns:
-            fig: Matplotlib figure
-            ax: Matplotlib axis
+            fig: Matplotlib figure.
+            ax: Matplotlib axis.
         """
         if xmin is None:
             xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]

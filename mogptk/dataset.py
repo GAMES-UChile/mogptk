@@ -591,11 +591,12 @@ class DataSet:
         """
         return copy.deepcopy(self)
 
-    def plot(self, title=None, figsize=None, legend=True, transformed=False):
+    def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
         """
         Plot each Data channel.
 
         Args:
+            pred (std, optional): Specify model name to draw.
             title (str, optional): Set the title of the plot.
             figsize (tuple, optional): Set the figure size.
             legend (boolean, optional): Disable legend.
@@ -611,13 +612,22 @@ class DataSet:
         if figsize is None:
             figsize = (12, 2.5 * len(self.channels))
 
+        h = figsize[1]
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         if title is not None:
-            fig.suptitle(title, fontsize=18)
+            fig.suptitle(title, y=(h+0.8)/h, fontsize=18)
 
+        legends = {}
         for channel in range(self.get_output_dims()):
-            ax = self.channels[channel].plot(ax=axes[channel,0], legend=channel==0, transformed=transformed)
+            ax = self.channels[channel].plot(pred=pred, ax=axes[channel,0], transformed=transformed)
+            legend = ax.get_legend()
+            for text, handle in zip(legend.texts, legend.legendHandles):
+                if text.get_text() == "Training Points":
+                    handle.set_marker('.')
+                legends[text.get_text()] = handle
+            legend.remove()
 
+        fig.legend(handles=legends.values(), loc="upper center", bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
         return fig, axes
 
     def plot_spectrum(self, method='lombscargle', per=None, maxfreq=None, title=None, figsize=None, transformed=False):
@@ -653,9 +663,7 @@ class DataSet:
         if title != None:
             fig.suptitle(title, fontsize=18)
 
-        legends = []
         for channel in range(self.get_output_dims()):
             ax = self.channels[channel].plot_spectrum(method=method[channel], ax=axes[channel,0], per=per[channel], maxfreq=maxfreq[channel], transformed=transformed)
-
         return fig, axes
 

@@ -17,7 +17,6 @@ from .serie import Serie
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
-eps = 1e-20
 logger = logging.getLogger('mogptk')
 
 def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
@@ -723,7 +722,7 @@ class Data:
                 step = (end[0]-start[0])/100
             else:
                 step = _parse_delta(step)
-            X_pred[0] = np.arange(start[0], end[0]+eps, step)
+            X_pred[0] = np.arange(start[0], end[0]+step, step)
         
         self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(X_pred)]
     
@@ -932,7 +931,7 @@ class Data:
             C[q,:] = sm.model.kernel[0][q].variance().detach().numpy()
         return A, B, C
 
-    def plot(self, ax=None, legend=True, transformed=False):
+    def plot(self, pred=None, ax=None, legend=True, transformed=False):
         """
         Plot the data including removed observations, latent function, and predictions.
 
@@ -959,7 +958,7 @@ class Data:
         legends = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
-            if self.Y_mu_pred[name].size != 0:
+            if self.Y_mu_pred[name].size != 0 and (pred is None or name.lower() == pred.lower()):
                 X_pred, mu, lower, upper = self.get_prediction(name, transformed=transformed)
 
                 idx = np.argsort(X_pred[:,0])
@@ -1012,7 +1011,7 @@ class Data:
                 y0 = ax.get_ylim()[0]
                 y1 = ax.get_ylim()[1]
                 ax.add_patch(patches.Rectangle(
-                    (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.25, lw=0,
+                    (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.2, lw=0,
                 ))
             legends.append(patches.Rectangle(
                 (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
@@ -1027,7 +1026,7 @@ class Data:
         ax.set_title(self.name, fontsize=14)
 
         if 0 < len(legends) and legend:
-            ax.legend(handles=legends, loc='upper center', ncol=min(6,len(legends)), borderaxespad=-3)
+            ax.legend(handles=legends, loc='upper center', ncol=5, borderaxespad=-3)
         return ax
 
     def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None, transformed=False):

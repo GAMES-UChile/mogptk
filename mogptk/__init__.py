@@ -1,6 +1,7 @@
 """
 .. include:: ./documentation.md
 """
+from .serie import *
 from .data import *
 from .dataset import *
 
