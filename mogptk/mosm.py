@@ -54,7 +54,7 @@ class MOSM(Model):
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
-    def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='LBFGS', sm_iters=100, sm_plot=False):
+    def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='LBFGS', sm_iters=100, sm_params={}, sm_plot=False):
         """
         Initialize kernel parameters. The initialization can be done in two ways, the first by estimating the PSD via BNSE (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, the peaks position, magnitude and width initialize the mean, magnitude and variance of the kernel respectively. The second way is by fitting independent Gaussian process for each channel, each one with SM kernel, using the fitted parameters for initial values of the multioutput kernel.
 
@@ -65,6 +65,7 @@ class MOSM(Model):
             sm_init (str, optional): Parameter initialization strategy for SM initialization.
             sm_method (str, optional): Optimization method for SM initialization.
             sm_iters (str, optional): Number of iterations for SM initialization.
+            sm_params (object, optional): Additional parameters for PyTorch optimizer.
             sm_plot (bool): Show the PSD of the kernel after fitting SM.
         """
 
@@ -79,7 +80,7 @@ class MOSM(Model):
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, plot=sm_plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
@@ -100,7 +101,8 @@ class MOSM(Model):
         # normalize proportional to channels variances
         for j, channel in enumerate(self.dataset):
             _, y = channel.get_train_data(transformed=True)
-            magnitude[j,:] = np.sqrt(magnitude[j,:] / magnitude[j,:].sum() * y.var()) * 2
+            if 0.0 < magnitude[j,:].sum():
+                magnitude[j,:] = np.sqrt(magnitude[j,:] / magnitude[j,:].sum() * y.var()) * 2
         
         for q in range(self.Q):
             self.model.kernel[q].magnitude.assign(magnitude[:,q])
@@ -123,7 +125,7 @@ class MOSM(Model):
                 if np.linalg.norm(mean) < np.linalg.norm(var):
                     print("‣ MOSM approaches RBF kernel for q=%d in channel='%s'" % (q, self.dataset[j].name))
 
-    def plot(self, title=None):
+    def plot_spectrum(self, title=None):
         """
         Plot spectrum of kernel.
         """
@@ -136,7 +138,7 @@ class MOSM(Model):
 
         return plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names, title=title)
 
-    def plot_psd(self, title=None, figsize=(12,12)):
+    def plot_cross_spectrum(self, title=None, figsize=(12,12)):
         """
         Plot power spectral density and power cross spectral density.
         """

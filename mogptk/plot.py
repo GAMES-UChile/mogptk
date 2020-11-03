@@ -31,7 +31,7 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
     if isinstance(nyquist, np.ndarray) and (nyquist.ndim != 2 or nyquist.shape[0] != output_dims or nyquist.shape[1] != input_dims):
         raise Exception('nyquist must have shape (output_dims,input_dims)')
 
-    h = 2.5*output_dims
+    h = 3.0*output_dims
     fig, axes = plt.subplots(output_dims, input_dims, figsize=(12,h), squeeze=False, constrained_layout=True)
     if title is not None:
         fig.suptitle(title, y=(h+0.8)/h, fontsize=18)

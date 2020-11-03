@@ -43,11 +43,10 @@ class SM(Model):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        spectral = IndependentMultiOutputKernel(
-            [SpectralKernel(dataset[i].get_input_dims()) for i in range(dataset.get_output_dims())],
+        kernel = IndependentMultiOutputKernel(
+            [MixtureKernel(SpectralKernel(dataset[i].get_input_dims()), Q) for i in range(dataset.get_output_dims())],
             output_dims=dataset.get_output_dims(),
         )
-        kernel = MixtureKernel(spectral, Q)
 
         super(SM, self).__init__(dataset, kernel, model, name)
         self.Q = Q
@@ -85,9 +84,9 @@ class SM(Model):
                 variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
 
                 for q in range(self.Q):
-                    self.model.kernel[q][j].weight.assign(weights[q])
-                    self.model.kernel[q][j].mean.assign(means[q,:])
-                    self.model.kernel[q][j].variance.assign(variances[q,:])
+                    self.model.kernel[j][q].weight.assign(weights[q])
+                    self.model.kernel[j][q].mean.assign(means[q,:])
+                    self.model.kernel[j][q].variance.assign(variances[q,:])
             return
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
@@ -123,13 +122,16 @@ class SM(Model):
         for j in range(output_dims):
             # TODO: check weights for all kernels
             _, y = self.dataset[j].get_train_data(transformed=True)
-            mixture_weights = 2.0*y.std() * amplitudes[j].mean(axis=1)/amplitudes[j].sum()
+            mixture_weights = amplitudes[j].mean(axis=1)
+            if 0.0 < amplitudes[j].sum():
+                mixture_weights /= amplitudes[j].sum()
+            mixture_weights *= 2.0 * y.std()
             for q in range(self.Q):
-                self.model.kernel[q][j].weight.assign(mixture_weights[q])
-                self.model.kernel[q][j].mean.assign(means[j][q,:])
-                self.model.kernel[q][j].variance.assign(variances[j][q,:])
+                self.model.kernel[j][q].weight.assign(mixture_weights[q])
+                self.model.kernel[j][q].mean.assign(means[j][q,:])
+                self.model.kernel[j][q].variance.assign(variances[j][q,:])
 
-    def plot(self, title=None, figsize=(12,12), log_scale=False):
+    def plot_spectrum(self, title=None):
         """
         Plot spectrum of kernel.
         """

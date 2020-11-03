@@ -57,7 +57,7 @@ class CONV(Model):
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
-    def init_parameters(self, method='SM', sm_init='BNSE', sm_method='LBFGS', sm_iters=100, sm_plot=False):
+    def init_parameters(self, method='SM', sm_init='BNSE', sm_method='LBFGS', sm_iters=100, sm_params={}, sm_plot=False):
         """
         Initialize kernel parameters, variance and mixture weights. 
 
@@ -72,6 +72,7 @@ class CONV(Model):
             sm_init (str, optional): Parameter initialization strategy for SM initialization.
             sm_method (str, optional): Optimization method for SM initialization.
             sm_iters (str, optional): Number of iterations for SM initialization.
+            sm_params (object, optional): Additional parameters for PyTorch optimizer.
             sm_plot (bool): Show the PSD of the kernel after fitting SM.
         """
 
@@ -105,7 +106,7 @@ class CONV(Model):
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, plot=sm_plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
@@ -118,7 +119,8 @@ class CONV(Model):
 
         for i, channel in enumerate(self.dataset):
             _, y = channel.get_train_data(transformed=True)
-            constant[i,:] = constant[i,:] / constant[i,:].sum() * y.var()
+            if 0.0 < constant[i,:].sum():
+                constant[i,:] = constant[i,:] / constant[i,:].sum() * y.var()
 
         for q in range(self.Q):
             self.model.kernel[q].weight.assign(constant[:,q])

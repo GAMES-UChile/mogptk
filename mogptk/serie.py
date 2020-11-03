@@ -128,7 +128,7 @@ class Serie(np.ndarray):
         else:
             obj.transformed = transformed
             obj.transformers = obj.transformers
-        
+
         obj.flags['WRITEABLE'] = False
         obj.transformed.flags['WRITEABLE'] = False
         return obj

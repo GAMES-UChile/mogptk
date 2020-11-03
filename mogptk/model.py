@@ -103,6 +103,9 @@ class Model:
         with open(filename, 'wb') as w:
             pickle.dump(self, w)
 
+    def log_marginal_likelihood(self):
+        return self.model.log_marginal_likelihood().detach().numpy()
+
     def train(
         self,
         method='Adam',
@@ -152,6 +155,8 @@ class Model:
                 optimizer.step(lambda: self.model.loss())
                 iters = optimizer.state_dict()['state'][0]['func_evals']
             elif method.lower() == 'adam':
+                if not 'lr' in kwargs:
+                    kwargs['lr'] = 0.1
                 optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
                 for i in range(iters):
                     loss = self.model.loss()
@@ -218,7 +223,7 @@ class Model:
         _, mu, lower, upper = self.dataset.get_prediction(self.name)
         return mu, lower, upper
 
-    def plot_gram(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+    def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
         """
         Plot the gram matrix of associated kernel.
 

@@ -55,7 +55,7 @@ class CSM(Model):
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
     
-    def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='LBFGS', sm_iters=100, sm_plot=False):
+    def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='LBFGS', sm_iters=100, sm_params={}, sm_plot=False):
         """
         Initialize kernel parameters.
 
@@ -74,6 +74,7 @@ class CSM(Model):
             sm_init (str, optional): Parameter initialization strategy for SM initialization.
             sm_method (str, optional): Optimization method for SM initialization.
             sm_iters (str, optional): Number of iterations for SM initialization.
+            sm_params (object, optional): Additional parameters for PyTorch optimizer.
             sm_plot (bool): Show the PSD of the kernel after fitting SM.
         """
 
@@ -87,7 +88,7 @@ class CSM(Model):
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, plot=sm_plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
@@ -97,22 +98,22 @@ class CSM(Model):
         amplitudes = [amplitude[q,:] for amplitude in amplitudes for q in range(amplitude.shape[0])]
         means = [mean[q,:] for mean in means for q in range(mean.shape[0])]
         variances = [variance[q,:] for variance in variances for q in range(variance.shape[0])]
-        idx = np.argsort([amplitude.mean() for amplitude in amplitudes])[::-1][:self.Q]
-        if self.Q < len(idx):
-            idx = idx[:self.Q]
+        idx = np.argsort([amplitude.mean() for amplitude in amplitudes])[::-1]
 
-        constant = np.zeros((output_dims, self.Q, self.Rq))
+        constant = np.random.random((output_dims, self.Q, self.Rq))
         for q in range(len(idx)):
             i = idx[q]
             channel = channels[i]
-            constant[channel,q,:] = amplitudes[i].mean()
-            self.model.kernel[q].mean.assign(means[i])
-            self.model.kernel[q].variance.assign(variances[i] * 5.0)
+            constant[channel,q % self.Q,:] = amplitudes[i].mean()
+            if q < self.Q:
+                self.model.kernel[q].mean.assign(means[i])
+                self.model.kernel[q].variance.assign(variances[i] * 5.0)
 
         # normalize proportional to channel variance
         for i, channel in enumerate(self.dataset):
             _, y = channel.get_train_data(transformed=True)
-            constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
+            if 0.0 < constant[i,:,:].sum():
+                constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
 
         for q in range(self.Q):
             self.model.kernel[q].amplitude.assign(constant[:,q,:])

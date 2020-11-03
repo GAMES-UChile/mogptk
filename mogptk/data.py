@@ -461,7 +461,7 @@ class Data:
         Returns all observations, train and test.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data as used for training.
+            transformed (boolean, optional): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -479,7 +479,7 @@ class Data:
         Returns the observations used for training.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data as used for training.
+            transformed (boolean, optional): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -497,7 +497,7 @@ class Data:
         Returns the observations used for testing.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data as used for training.
+            transformed (boolean, optional): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -885,7 +885,7 @@ class Data:
             C[:n,i] = variances
         return A, B, C
 
-    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', iters=100, plot=False):
+    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', iters=100, params={}, plot=False):
         """
         Peaks estimation using the Spectral Mixture kernel.
 
@@ -894,6 +894,7 @@ class Data:
             method (str, optional): Method of estimating SM kernels.
             optimizer (str, optional): Optimization method for SM kernels.
             iters (str, optional): Maximum iteration for SM kernels.
+            params (object, optional): Additional parameters for PyTorch optimizer.
             plot (bool, optional): Show the PSD of the kernel after fitting.
 
         Returns:
@@ -916,7 +917,7 @@ class Data:
 
         sm = SM(self, Q)
         sm.init_parameters(method)
-        sm.train(method=optimizer, iters=iters)
+        sm.train(method=optimizer, iters=iters, **params)
 
         if plot:
             nyquist = self.get_nyquist_estimation()
@@ -926,16 +927,18 @@ class Data:
             plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
         for q in range(Q):
-            A[q,:] = sm.model.kernel[0][q].weight().detach().numpy()  # TODO: weight is not per input_dims
-            B[q,:] = sm.model.kernel[0][q].mean().detach().numpy()
-            C[q,:] = sm.model.kernel[0][q].variance().detach().numpy()
+            A[q,:] = sm.kernel[0][q].weight().detach().numpy()  # TODO: weight is not per input_dims
+            B[q,:] = sm.kernel[0][q].mean().detach().numpy()
+            C[q,:] = sm.kernel[0][q].variance().detach().numpy()
         return A, B, C
 
-    def plot(self, pred=None, ax=None, legend=True, transformed=False):
+    def plot(self, title=None, pred=None, ax=None, legend=True, transformed=False):
         """
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
+            title (str, optional): Set the title of the plot.
+            pred (std, optional): Specify model name to draw.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
             legend (boolean, optional): Display legend.
             transformed (boolean, optional): Display transformed Y data as used for training.
@@ -953,7 +956,7 @@ class Data:
             raise Exception("two dimensional input data not yet implemented") # TODO
 
         if ax is None:
-            ax = plt.gca()
+            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
 
         legends = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -964,8 +967,8 @@ class Data:
                 idx = np.argsort(X_pred[:,0])
                 ax.plot(X_pred[:,0][idx], mu[idx], ls='-', color=colors[i], lw=2)
                 ax.fill_between(X_pred[:,0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
-                ax.plot(X_pred[:,0][idx], lower[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
-                ax.plot(X_pred[:,0][idx], upper[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
+                #ax.plot(X_pred[:,0][idx], lower[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
+                #ax.plot(X_pred[:,0][idx], upper[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
 
                 label = 'Prediction ' + name
                 legends.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
@@ -1001,7 +1004,10 @@ class Data:
         x, y = self.get_train_data()
         if transformed:
             y = self.Y.transform(y, self.X[0].transform(x))
-        ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
+        if 1000 < x.shape[0]:
+            ax.plot(x[:,0], y, 'k-')
+        else:
+            ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
         legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
 
         if self.has_test_data():
@@ -1023,17 +1029,18 @@ class Data:
 
         ax.set_xlabel(self.X_labels[0])
         ax.set_ylabel(self.Y_label)
-        ax.set_title(self.name, fontsize=14)
+        ax.set_title(self.name if title is None else title, fontsize=14)
 
-        if 0 < len(legends) and legend:
-            ax.legend(handles=legends, loc='upper center', ncol=5, borderaxespad=-3)
+        if legend:
+            ax.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(3.0+1.2)/3.0), ncol=5)
         return ax
 
-    def plot_spectrum(self, method='lombscargle', ax=None, per=None, maxfreq=None, transformed=False):
+    def plot_spectrum(self, title=None, method='lombscargle', ax=None, per=None, maxfreq=None, transformed=False):
         """
         Plot the spectrum of the data.
 
         Args:
+            title (str, optional): Set the title of the plot.
             method (str, optional): Set the method to get the spectrum: lombscargle or bnse.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
             per (str, float, np.timedelta64, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3d'.
@@ -1053,7 +1060,7 @@ class Data:
             raise Exception("two dimensional input data not yet implemented") # TODO
 
         if ax is None:
-            ax = plt.gca()
+            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
         
         X_scale = 1.0
         if np.issubdtype(self.X[0].dtype, np.datetime64):
@@ -1104,7 +1111,7 @@ class Data:
         ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
         if len(Y_freq_err) != 0:
             ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
-        ax.set_title(self.name + ' Spectrum' if self.name is not None else '', fontsize=14)
+        ax.set_title((self.name + ' Spectrum' if self.name is not None else '') if title is None else title, fontsize=14)
 
         xmin = X_freq.min()
         xmax = X_freq.max()

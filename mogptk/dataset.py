@@ -122,7 +122,7 @@ class DataSet:
 
         >>> dataset = mogptk.DataSet(x, y)
 
-        >>> dataset = mogptk.DataSet(x, [y1, y2, y3])
+        >>> dataset = mogptk.DataSet(x, [y1, y2, y3], names=['A', 'B', 'C'])
         
         >>> dataset = mogptk.DataSet([x1, x2, x3], [y1, y2, y3])
 
@@ -130,16 +130,19 @@ class DataSet:
         >>> dataset[0]       # first channel
         >>> dataset['wind']  # wind velocity channel
     """
-    def __init__(self, *args):
+    def __init__(self, *args, names=None):
         self.channels = []
         if len(args) == 2 and (isinstance(args[1], np.ndarray) or isinstance(args[1], list) and all(isinstance(item, np.ndarray) for item in args[1])):
+            if names is None or isinstance(names, str):
+                names = [names]
+
             if isinstance(args[0], np.ndarray):
-                for y in args[1]:
-                    self.append(Data(args[0], y))
+                for name, y in zip(names, args[1]):
+                    self.append(Data(args[0], y, name=name))
                 return
             elif isinstance(args[0], list) and all(isinstance(item, np.ndarray) for item in args[0]) and isinstance(args[1], list) and len(args[0]) == len(args[1]):
-                for x, y in zip(args[0], args[1]):
-                    self.append(Data(x, y))
+                for name, x, y in zip(names, args[0], args[1]):
+                    self.append(Data(x, y, name=name))
                 return
 
         for arg in args:
@@ -260,22 +263,12 @@ class DataSet:
                     return channel
         raise ValueError("channel '%d' does not exist in DataSet" % (index))
     
-    def get_train_data(self):
-        """
-        Returns observations used for training.
-
-        Returns:
-            list: X data of shape (n,input_dims) per channel.
-            list: Y data of shape (n,) per channel.
-
-        Examples:
-            >>> x, y = dataset.get_train_data()
-        """
-        return [channel.get_train_data()[0] for channel in self.channels], [channel.get_train_data()[1] for channel in self.channels]
-    
-    def get_data(self):
+    def get_data(self, transformed=False):
         """
         Returns all observations, train and test.
+
+        Arguments:
+            transformed (boolean, optional): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -284,12 +277,31 @@ class DataSet:
         Examples:
             >>> x, y = dataset.get_data()
         """
-        return [channel.get_data()[0] for channel in self.channels], [channel.get_data()[1] for channel in self.channels]
+        return [channel.get_data(transformed=transformed)[0] for channel in self.channels], [channel.get_data(transformed=transformed)[1] for channel in self.channels]
+    
+    def get_train_data(self, transformed=False):
+        """
+        Returns observations used for training.
 
-    def get_test_data(self):
+        Arguments:
+            transformed (boolean, optional): Return transformed data.
+
+        Returns:
+            list: X data of shape (n,input_dims) per channel.
+            list: Y data of shape (n,) per channel.
+
+        Examples:
+            >>> x, y = dataset.get_train_data()
+        """
+        return [channel.get_train_data(transformed=transformed)[0] for channel in self.channels], [channel.get_train_data(transformed=transformed)[1] for channel in self.channels]
+
+    def get_test_data(self, transformed=False):
         """
         Returns the observations used for testing which correspond to the 
         removed points.
+
+        Arguments:
+            transformed (boolean, optional): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -298,7 +310,7 @@ class DataSet:
         Examples:
             >>> x, y = dataset.get_test_data()
         """
-        return [channel.get_test_data()[0] for channel in self.channels], [channel.get_test_data()[1] for channel in self.channels]
+        return [channel.get_test_data(transformed=transformed)[0] for channel in self.channels], [channel.get_test_data(transformed=transformed)[1] for channel in self.channels]
     
     def get_prediction(self, name, sigma=2):
         """
@@ -462,7 +474,7 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', iters=100, plot=False):
+    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', iters=100, params={}, plot=False):
         """
         Peaks estimation using the Spectral Mixture kernel.
 
@@ -470,7 +482,8 @@ class DataSet:
             Q (int): Number of peaks to find, defaults to 1.
             method (str, optional): Method of estimating SM kernels.
             optimizer (str, optional): Optimization method for SM kernels.
-            maxiter (str, optional): Maximum iteration for SM kernels.
+            iters (str, optional): Maximum iteration for SM kernels.
+            params (object, optional): Additional parameters for PyTorch optimizer.
             plot (bool, optional): Show the PSD of the kernel after fitting.
 
         Returns:
@@ -485,7 +498,7 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, plot)
+            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, params, plot)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
@@ -591,13 +604,13 @@ class DataSet:
         """
         return copy.deepcopy(self)
 
-    def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
+    def plot(self, title=None, pred=None, figsize=None, legend=True, transformed=False):
         """
         Plot each Data channel.
 
         Args:
-            pred (std, optional): Specify model name to draw.
             title (str, optional): Set the title of the plot.
+            pred (std, optional): Specify model name to draw.
             figsize (tuple, optional): Set the figure size.
             legend (boolean, optional): Disable legend.
             transformed (boolean, optional): Display transformed Y data as used for training.
@@ -610,7 +623,7 @@ class DataSet:
             >>> fig, axes = dataset.plot(title='Title')
         """
         if figsize is None:
-            figsize = (12, 2.5 * len(self.channels))
+            figsize = (12, 3.0 * len(self.channels))
 
         h = figsize[1]
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
@@ -630,15 +643,15 @@ class DataSet:
         fig.legend(handles=legends.values(), loc="upper center", bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
         return fig, axes
 
-    def plot_spectrum(self, method='lombscargle', per=None, maxfreq=None, title=None, figsize=None, transformed=False):
+    def plot_spectrum(self, title=None, method='lombscargle', per=None, maxfreq=None, figsize=None, transformed=False):
         """
         Plot each Data channel spectrum.
 
         Args:
+            title (str, optional): Set the title of the plot.
             method (list, str, optional): Set the method to get the spectrum such as 'lombscargle'.
             per (list, str, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3d'.
             maxfreq (list, float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-            title (str, optional): Set the title of the plot.
             figsize (tuple, optional): Set the figure size.
             transformed (boolean, optional): Display transformed Y data as used for training.
 
@@ -657,7 +670,7 @@ class DataSet:
             maxfreq = [maxfreq] * len(self.channels)
 
         if figsize is None:
-            figsize = (12, 2.5 * len(self.channels))
+            figsize = (12, 3.0 * len(self.channels))
 
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         if title != None:
