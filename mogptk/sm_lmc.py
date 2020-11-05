@@ -60,7 +60,7 @@ class SM_LMC(Model):
         for q in range(Q):
             self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
     
-    def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='LBFGS', sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
         """
         Initialize kernel parameters.
 
