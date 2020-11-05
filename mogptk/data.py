@@ -119,13 +119,9 @@ class Data:
         """
         Data class holds all the observations, latent functions and prediction data.
 
-        This class takes the data raw, but you can load data also conveniently using
-        LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model.
-        Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure,
-        and aggregating data for given spans on X, such as aggregating daily data into
-        weekly data. Additionally, we also use this class to set the range we want to predict.
+        This class takes the data raw, but you can load data also conveniently using LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model. Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
 
-        It is possible to use the format given by np.meshgrid for X and its values in Y.
+        It is possible to use the format given by numpy.meshgrid for X and its values in Y.
 
         Args:
             X (list, numpy.ndarray, dict): Independent variable data of shape (n) or (n,input_dims).
@@ -349,8 +345,7 @@ class Data:
             t = transformer()
         t.set_data(self)
 
-        X = np.array([x.transformed for x in self.X]).T
-        self.Y.apply(t, X)
+        self.Y.apply(t, np.array([x for x in self.X]).T)
     
     def filter(self, start, end):
         """
@@ -412,7 +407,7 @@ class Data:
             Y[i] = f(self.Y[ind])
 
         self.X = [Serie(X, self.X[0].transformers)]
-        self.Y = Serie(Y, self.Y.transformers, np.array([x.transformed for x in self.X]).T)
+        self.Y = Serie(Y, self.Y.transformers, np.array([x for x in self.X]).T)
         self.mask = np.array([True] * len(self.X[0]))
 
     ################################################################
@@ -640,13 +635,30 @@ class Data:
     def get_prediction_names(self):
         return self.Y_mu_pred.keys()
     
-    def get_prediction(self, name, sigma=2, transformed=False):
+    def get_prediction_x(self, transformed=False):
+        """
+        Returns the prediction X range.
+
+        Args:
+            transformed (boolean, optional): Return transformed data as used for training.
+
+        Returns:
+            numpy.ndarray: X prediction of shape (n,input_dims).
+
+        Examples:
+            >>> x = data.get_prediction_x()
+        """
+        if transformed:
+            return np.array([x.transformed for x in self.X_pred]).T
+        return np.array([x for x in self.X_pred]).T
+    
+    def get_prediction(self, name, sigma=2.0, transformed=False):
         """
         Returns the prediction of a given name with a normal variance of sigma.
 
         Args:
             name (str): Name of the prediction, equals the name of the model that made the prediction.
-            sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2.
+            sigma (float, optional): The uncertainty interval's number of standard deviations.
             transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
@@ -665,14 +677,43 @@ class Data:
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
-        X_pred = np.array([x.transformed for x in self.X_pred]).T
         if transformed:
+            X_pred = np.array([x.transformed for x in self.X_pred]).T
             return X_pred, mu, lower, upper
 
+        X_pred = np.array([x for x in self.X_pred]).T
         mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
         lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
         upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
-        return np.array([x for x in self.X_pred]).T, mu, lower, upper
+        return X_pred, mu, lower, upper
+    
+    def set_prediction_x(self, X):
+        """
+        Set the prediction range directly.
+
+        Args:
+            X (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+
+        Examples:
+            >>> data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
+        """
+        # TODO: accept multiple input dims and make sure dtype equals X
+        if isinstance(X, list):
+            X = np.array(X)
+        elif not isinstance(X, np.ndarray):
+            raise ValueError("X expected to be a list or numpy.ndarray")
+
+        X = X.astype(np.float64)
+
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+        if X.ndim != 2 or X.shape[1] != self.get_input_dims():
+            raise ValueError("X shape must be (n,input_dims)")
+
+        self.X_pred = [Serie(X[:,i], self.X[i].transformers) for i in range(self.get_input_dims())]
+
+        # clear old prediction data now that X_pred has been updated
+        self.clear_predictions()
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
         """
@@ -725,40 +766,14 @@ class Data:
             X_pred[0] = np.arange(start[0], end[0]+step, step)
         
         self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(X_pred)]
-    
-    def set_prediction_x(self, X):
-        """
-        Set the prediction range directly.
-
-        Args:
-            X (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
-
-        Examples:
-            >>> data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
-        """
-        # TODO: accept multiple input dims and make sure dtype equals X
-        if isinstance(X, list):
-            X = np.array(X)
-        elif not isinstance(X, np.ndarray):
-            raise ValueError("X expected to be a list or numpy.ndarray")
-
-        X = X.astype(np.float64)
-
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
-        if X.ndim != 2 or X.shape[1] != self.get_input_dims():
-            raise ValueError("X shape must be (n,input_dims)")
-
-        self.X_pred = [Serie(X[:,i], self.X[i].transformers) for i in range(self.get_input_dims())]
 
         # clear old prediction data now that X_pred has been updated
         self.clear_predictions()
 
-    def set_prediction(self, name, mu, var):
-        self.Y_mu_pred[name] = mu
-        self.Y_var_pred[name] = var
-
     def clear_predictions(self):
+        """
+        Clear all saved predictions.
+        """
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
 
@@ -989,7 +1004,7 @@ class Data:
 
             y = self.F(x)
             if transformed:
-                y = self.Y.transform(y, self.X[0].transform(x))
+                y = self.Y.transform(y, x)
 
             ax.plot(x[:,0], y, 'r--', lw=1)
             legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
@@ -1003,7 +1018,7 @@ class Data:
 
         x, y = self.get_train_data()
         if transformed:
-            y = self.Y.transform(y, self.X[0].transform(x))
+            y = self.Y.transform(y, x)
         if 1000 < x.shape[0]:
             ax.plot(x[:,0], y, 'k-')
         else:
@@ -1032,7 +1047,8 @@ class Data:
         ax.set_title(self.name if title is None else title, fontsize=14)
 
         if legend:
-            ax.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(3.0+1.2)/3.0), ncol=5)
+            legend_rows = (len(legends)-1)/5 + 1
+            ax.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(3.0+0.7+0.3*legend_rows)/3.0), ncol=5)
         return ax
 
     def plot_spectrum(self, title=None, method='lombscargle', ax=None, per=None, maxfreq=None, transformed=False):
@@ -1043,7 +1059,7 @@ class Data:
             title (str, optional): Set the title of the plot.
             method (str, optional): Set the method to get the spectrum: lombscargle or bnse.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            per (str, float, np.timedelta64, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3d'.
+            per (str, float, numpy.timedelta64, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.
             maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
             transformed (boolean, optional): Display transformed Y data as used for training.
 

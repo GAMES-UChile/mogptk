@@ -263,6 +263,28 @@ class DataSet:
                     return channel
         raise ValueError("channel '%d' does not exist in DataSet" % (index))
     
+    def get_index(self, index):
+        """
+        Return channel numeric index given a channel index or name.
+
+        Args:
+            index (int, str): Index or name of the channel.
+
+        Returns:
+            int: Channel index.
+
+        Examples:
+            >>> channel_index = dataset.get_index('A')
+        """
+        if isinstance(index, int):
+            if index < len(self.channels):
+                return index
+        elif isinstance(index, str):
+            for channel in self.channels:
+                if channel.name == index:
+                    return index
+        raise ValueError("channel '%d' does not exist in DataSet" % (index))
+    
     def get_data(self, transformed=False):
         """
         Returns all observations, train and test.
@@ -312,13 +334,32 @@ class DataSet:
         """
         return [channel.get_test_data(transformed=transformed)[0] for channel in self.channels], [channel.get_test_data(transformed=transformed)[1] for channel in self.channels]
     
-    def get_prediction(self, name, sigma=2):
+    def get_prediction_x(self, transformed=False):
         """
-        Returns the prediction of a given name with a normal variance of sigma.
+        Returns the prediction X range for all channels.
+
+        Args:
+            transformed (boolean, optional): Return transformed data as used for training.
+
+        Returns:
+            list: X prediction of shape (n,input_dims) per channel.
+
+        Examples:
+            >>> x = dataset.get_prediction()
+        """
+        x = []
+        for channel in self.channels:
+            x.append(channel.get_prediction_x(transformed=transformed))
+        return x
+    
+    def get_prediction(self, name, sigma=2.0, transformed=False):
+        """
+        Returns the prediction of a given name with a normal variance of sigma for all channels.
 
         Args:
             name (str): Name of the prediction, equals the name of the model that made the prediction.
-            sigma (float): The uncertainty interval calculated at mean-sigma*var and mean+sigma*var. Defaults to 2,
+            sigma (float, optional): The uncertainty interval's number of standard deviations.
+            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             list: X prediction of shape (n,input_dims) per channel.
@@ -334,7 +375,7 @@ class DataSet:
         lower = []
         upper = []
         for channel in self.channels:
-            cx, cmu, clower, cupper = channel.get_prediction(name, sigma)
+            cx, cmu, clower, cupper = channel.get_prediction(name, sigma, transformed=transformed)
             x.append(cx)
             mu.append(cmu)
             lower.append(clower)
@@ -407,6 +448,9 @@ class DataSet:
             channel.set_prediction_range(start[i], end[i], n[i], step[i])
 
     def clear_predictions(self):
+        """
+        Clear all saved predictions for all channels.
+        """
         for i, channel in enumerate(self.channels):
             channel.clear_predictions()
     
@@ -521,77 +565,6 @@ class DataSet:
         for channel in self.channels:
             channel.transform(transformer)
 
-    def _to_kernel(self):
-        """
-        Return the data vectors in the format as used by the kernels.
-
-        Returns:
-            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
-            numpy.ndarray: Y data.
-
-        Examples:
-            >>> x, y = dataset._to_kernel()
-        """
-        x = [np.array([x[channel.mask].transformed for x in channel.X]).T for channel in self.channels]
-        y = [channel.Y[channel.mask].transformed for channel in self.channels]
-
-        chan = [i * np.ones(len(x[i])) for i in range(len(x))]
-        chan = np.concatenate(chan).reshape(-1, 1)
-        
-        x = np.concatenate(x)
-        x = np.concatenate((chan, x), axis=1)
-        if y is None:
-            return x
-
-        y = np.concatenate(y).reshape(-1, 1)
-        return x, y
-
-    def _to_kernel_prediction(self):
-        """
-        Return the prediction input vectors in the format as used by the kernels.
-
-        Returns:
-            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
-
-        Examples:
-            >>> x = dataset._to_kernel_prediction()
-        """
-        x = [np.array([x.transformed for x in channel.X_pred]).T for channel in self.channels]
-
-        chan = [i * np.ones(len(x[i])) for i in range(len(x))]
-        chan = np.concatenate(chan).reshape(-1, 1)
-        if len(chan) == 0:
-            return np.array([]).reshape(-1, 1)
-
-        x = np.concatenate(x)
-        x = np.concatenate((chan, x), axis=1)
-        return x
-
-    def _from_kernel_prediction(self, name, mu, var):
-        """
-        Returns the predictions from the format as used by the kernels. The prediction is stored in the Data class by the given name.
-
-        Args:
-            name (str): Name to store the prediction under.
-            mu (numpy.ndarray): Y mean prediction of shape (m*n(m)), i.e. a flat array of n(m) data points per channel m.
-            var (numpy.ndarray): Y variance prediction of shape (m*n(m)), i.e. a flat array of n(m) data points per channel m.
-
-        Examples:
-            >>> x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
-            >>> mu, var = model.model.predict_f(x)
-            >>> dataset._from_kernel_prediction('MOSM', mu, var)
-        """
-        N = [len(channel.X_pred[0]) for channel in self.channels]
-        if len(mu) != len(var) or sum(N) != len(mu):
-            raise ValueError("prediction mu or var different length from prediction x")
-
-        i = 0
-        for idx in range(len(self.channels)):
-            cmu = np.squeeze(mu[i:i+N[idx]])
-            cvar = np.squeeze(var[i:i+N[idx]])
-            self.channels[idx].set_prediction(name, cmu, cvar)
-            i += N[idx]
-
     def copy(self):
         """
         Make a deep copy of DataSet.
@@ -627,8 +600,6 @@ class DataSet:
 
         h = figsize[1]
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
-        if title is not None:
-            fig.suptitle(title, y=(h+0.8)/h, fontsize=18)
 
         legends = {}
         for channel in range(self.get_output_dims()):
@@ -640,7 +611,11 @@ class DataSet:
                 legends[text.get_text()] = handle
             legend.remove()
 
-        fig.legend(handles=legends.values(), loc="upper center", bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
+        legend_rows = (len(legends)-1)/5 + 1
+        if title is not None:
+            fig.suptitle(title, y=(h+0.2+0.4*legend_rows)/h, fontsize=18)
+
+        fig.legend(handles=legends.values(), loc="upper center", bbox_to_anchor=(0.5,(h-0.3+0.5*legend_rows)/h), ncol=5)
         return fig, axes
 
     def plot_spectrum(self, title=None, method='lombscargle', per=None, maxfreq=None, figsize=None, transformed=False):
@@ -679,4 +654,3 @@ class DataSet:
         for channel in range(self.get_output_dims()):
             ax = self.channels[channel].plot_spectrum(method=method[channel], ax=axes[channel,0], per=per[channel], maxfreq=maxfreq[channel], transformed=transformed)
         return fig, axes
-

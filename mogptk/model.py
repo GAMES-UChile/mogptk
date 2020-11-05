@@ -3,6 +3,7 @@ import time
 import pickle
 import numpy as np
 import torch
+from .serie import Serie
 from .dataset import DataSet
 from .kernels import GPR
 import matplotlib
@@ -59,11 +60,15 @@ class Model:
                 elif 1e4 < xran:
                     logger.warning("Very large X range may give problems, it is suggested to scale down your X-axis")
 
-        x, y = dataset._to_kernel()
+        self.name = name
         self.dataset = dataset
         self.kernel = kernel
+
+        X = [np.array([x[channel.mask] for x in channel.X]).T for channel in self.dataset.channels]
+        Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset.channels]
+        x, y = self._to_kernel_format(X, Y)
+
         self.model = model.build(kernel, x, y, name)
-        self.name = name
 
     ################################################################
 
@@ -104,7 +109,7 @@ class Model:
             pickle.dump(self, w)
 
     def log_marginal_likelihood(self):
-        return self.model.log_marginal_likelihood().detach().numpy()
+        return self.model.log_marginal_likelihood().detach().item()
 
     def train(
         self,
@@ -188,40 +193,123 @@ class Model:
 
     # TODO: add get_prediction
 
-    def predict(self, x=None, plot=False):
+    def _to_kernel_format(self, X, Y=None):
+        """
+        Return the data vectors in the format as used by the kernels.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+            numpy.ndarray: Y data.
+        """
+        if isinstance(X, dict):
+            x_dict = X
+            X = self.dataset.get_prediction()
+            for name, channel_x in x_dict.items():
+                X[self.dataset.get_index(name)] = channel_x
+        elif isinstance(X, np.ndarray):
+            X = list(X)
+        elif not isinstance(X, list):
+            raise ValueError("X must be a list, dict or numpy.ndarray")
+        if len(X) != len(self.dataset.channels):
+            raise ValueError("X must be a list of shape (n,input_dims) for each channel")
+        X_orig = [channel_x.copy() for channel_x in X]
+        for j, channel_x in enumerate(X):
+            input_dims = self.dataset.get_input_dims()[j]
+            if isinstance(channel_x, list):
+                channel_x = np.array(channel_x)
+            elif not isinstance(channel_x, np.ndarray):
+                raise ValueError("X must be a list of lists or numpy.ndarrays")
+            if channel_x.ndim == 1:
+                channel_x = channel_x.reshape(-1, 1)
+            if channel_x.ndim != 2 or channel_x.shape[1] != input_dims:
+                raise ValueError("X must be a list of shape (n,input_dims) for each channel")
+            X[j] = np.array([self.dataset[j].X[i].transform(channel_x[:,i]) for i in range(input_dims)]).T
+
+        chan = [i * np.ones(len(X[i])) for i in range(len(X))]
+        chan = np.concatenate(chan).reshape(-1, 1)
+        if len(X) == 0:
+            x = np.array([])
+        else:
+            x = np.concatenate(X, axis=0)
+            x = np.concatenate([chan, x], axis=1)
+        if Y is None:
+            return x
+
+        if isinstance(Y, np.ndarray):
+            Y = list(Y)
+        elif not isinstance(Y, list):
+            raise ValueError("Y must be a list or numpy.ndarray")
+        if len(Y) != len(self.dataset.channels):
+            raise ValueError("Y must be a list of shape (n,) for each channel")
+        for j, channel_y in enumerate(Y):
+            if channel_y.ndim != 1:
+                raise ValueError("Y must be a list of shape (n,) for each channel")
+            if channel_y.shape[0] != X[j].shape[0]:
+                raise ValueError("Y must have the same number of data points per channel as X")
+            Y[j] = self.dataset[j].Y.transform(channel_y, x=X_orig[j])
+        if len(Y) == 0:
+            y = np.array([])
+        else:
+            y = np.concatenate(Y, axis=0).reshape(-1, 1)
+        return x, y
+
+    def predict(self, X=None, sigma=2.0, transformed=False):
         """
         Predict with model.
 
         Will make a prediction using x as input. If no input value is passed, the prediction will 
         be made with atribute self.X_pred that can be setted with other functions.
-        It returns the X, Y_mu, Y_var values per channel.
 
         Args:
-            x_pred (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            X (list, dict, optional): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+            sigma (float, optional): The uncertainty interval's number of standard deviations.
+            transformed (boolean, optional): Return transformed data as used for training.
 
-        returns :
-            mu (ndarray): Posterior mean.
-            lower (ndarray): Lower confidence interval.
-            upper (ndarray): Upper confidence interval.
+        Returns:
+            numpy.ndarray: Y mean prediction of shape (n,).
+            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
+            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
 
         Examples:
             >>> model.predict(plot=True)
         """
-        if x is not None:
-            self.dataset.set_prediction_x(x)
-
-        x = self.dataset._to_kernel_prediction()
-        if len(x) == 0:
-            raise Exception('no prediction x range set, use x argument or set manually using DataSet.set_prediction_x() or Data.set_prediction_x()')
+        save = X is None
+        if save:
+            X = self.dataset.get_prediction_x()
+        x = self._to_kernel_format(X)
 
         mu, var = self.model.predict(x)
-        self.dataset._from_kernel_prediction(self.name, mu, var)
-        
-        if plot:
-            self.dataset.plot()
 
-        _, mu, lower, upper = self.dataset.get_prediction(self.name)
-        return mu, lower, upper
+        i = 0
+        Mu = []
+        Var = []
+        for j in range(self.dataset.get_output_dims()):
+            N = X[j].shape[0]
+            Mu.append(np.squeeze(mu[i:i+N]))
+            Var.append(np.squeeze(var[i:i+N]))
+            i += N
+
+        if save:
+            for j in range(self.dataset.get_output_dims()):
+                #self.dataset[j].X_pred = [Serie(X[j][:,i], self.dataset[j].X[i].transformers) for i in range(self.dataset[j].get_input_dims())]
+                self.dataset[j].Y_mu_pred[self.name] = Mu[j]
+                self.dataset[j].Y_var_pred[self.name] = Var[j]
+        else:
+            Lower = []
+            Upper = []
+            for j in range(self.dataset.get_output_dims()):
+                Lower.append(Mu[j] - sigma*np.sqrt(Var[j]))
+                Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
+
+            X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
+            if transformed:
+                return X_pred, Mu, Lower, Upper
+            else:
+                for j in range(self.dataset.get_output_dims()):
+                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
+                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
+                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+                return X, Mu, Lower, Upper
 
     def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
         """
