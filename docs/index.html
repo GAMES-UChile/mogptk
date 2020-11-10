@@ -22,7 +22,7 @@
 <h1 class="title">Module <code>mogptk</code></h1>
 </header>
 <section id="section-intro">
-<p>MOGPTK is a Python toolkit for multi output Gaussian processes. It contains data handling classes and different multi output models to facilitate the training and prediction of multi channel data sets. It provides a complete toolkit to improve the training of MOGPs, where it allows for easy reformatting of data (date/time to numbers), detrending or transformation of the data (such as taking the natural logarithm), functions that aid in adding gaps to the data or specifying which range should be predicted, and more.</p>
+<p>MOGPTK is a Python toolkit for multi output Gaussian processes. It contains data handling classes and different multi output models to facilitate the training and prediction of multi channel data sets. It provides a complete toolkit to improve the training of MOGPs, where it allows for easy detrending or transformation of the data (such as taking the natural logarithm), functions that aid in adding gaps to the data or specifying which range should be predicted, and more.</p>
 <p>The following four MOGP models have been implemented:</p>
 <ul>
 <li>Multi Output Spectral Mixture (MOSM) as proposed by [1]</li>
@@ -48,24 +48,13 @@
 <li><strong>GP</strong>: Gaussian process, see <a href="http://www.gaussianprocess.org/gpml/">Gaussian Processes for Machine Learning</a> by C.E. Rasmussen and C.K.I. Williams.</li>
 <li><strong>M</strong>: the number of channels (i.e. output dimensions)</li>
 <li><strong>N</strong>: the number of data points</li>
-<li><strong>Q</strong>: the number of components to use for a kernel. Each component is added additively to the kernel set using the GPflow kernel addition operator</li>
+<li><strong>Q</strong>: the number of components to use for a kernel. Each component is added additively to the main kernel</li>
 <li><strong>MOSM</strong>: Multi-output spectral mixture kernel, see <a href="https://arxiv.org/abs/1709.01298">Spectral Mixture Kernels for Multi-Output Gaussian Processes</a> by G. Parra and F. Tobar.</li>
 <li><strong>CSM</strong>: Cross spectral mixture kernel, see <a href="https://papers.nips.cc/paper/5966-gp-kernels-for-cross-spectrum-analysis">GP Kernels for Cross-Spectrum Analysis</a> by K.R. Ulrich et al.</li>
 <li><strong>CONV</strong>: Convolution Gaussian kernel, see <a href="https://arxiv.org/abs/0911.5107">Sparse Convolved Multiple Output Gaussian Processes</a> by M.A. Álvarez and N.D. Lawrence.</li>
 <li><strong>SM-LMC</strong>: Spectral mixture linear model of coregionalization kernel, see <a href="https://arxiv.org/abs/1302.4245">Gaussian Process Kernels for Pattern Discovery and Extrapolation</a> by A.G. Wilson and R.P. Adams and the book "Geostatistics for Natural Resource Evaluation" by P. Goovaerts.</li>
 </ul>
 <h2 id="data-handling">Data handling</h2>
-<h3 id="formats">Formats</h3>
-<p>The format classes allow the independent (X axis) data to be formatted so that it can be converted into numbers. Each class implements the following functions:</p>
-<ul>
-<li><strong>parse(str) returns num</strong>: parses a string to a number, can raise <code>ValueError</code></li>
-<li><strong>parse_delta(str) returns num</strong>: parses a string to a number as a difference/interval, e.g. duration in seconds or distance in meters</li>
-<li><strong>format(num) returns str</strong>: format a number to be displayed</li>
-<li><strong>get_scale(maxfreq=None) returns (num, str)</strong>: returns the default duration unit of the format and its name, e.g. to plot the frequency per day or per year</li>
-</ul>
-<h4 id="formatnumber">FormatNumber</h4>
-<h4 id="formatdate">FormatDate</h4>
-<h4 id="formatdatetime">FormatDateTime</h4>
 <h3 id="transformations">Transformations</h3>
 <p>The transformation classes allow transforming the dependent data (Y axis) to be transformed. Each class implements the following functions:</p>
 <ul>
@@ -87,19 +76,22 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/__init__.py#L0-L12" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/__init__.py#L0-L15" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
 .. include:: ./documentation.md
 &#34;&#34;&#34;
+from .serie import *
+from .data import *
+from .dataset import *
+
 from .model import *
 from .sm import *
 from .mosm import *
 from .csm import *
 from .conv import *
 from .sm_lmc import *
-from .data import *
-from .dataset import *
+
 from .plot import *
 from .errors import *</code></pre>
 </details>
@@ -147,6 +139,10 @@ from .errors import *</code></pre>
 <dd>
 <section class="desc"></section>
 </dd>
+<dt><code class="name"><a title="mogptk.serie" href="serie.html">mogptk.serie</a></code></dt>
+<dd>
+<section class="desc"></section>
+</dd>
 <dt><code class="name"><a title="mogptk.sm" href="sm.html">mogptk.sm</a></code></dt>
 <dd>
 <section class="desc"></section>
@@ -171,12 +167,6 @@ from .errors import *</code></pre>
 <li><a href="#installation">Installation</a></li>
 <li><a href="#glossary">Glossary</a></li>
 <li><a href="#data-handling">Data handling</a><ul>
-<li><a href="#formats">Formats</a><ul>
-<li><a href="#formatnumber">FormatNumber</a></li>
-<li><a href="#formatdate">FormatDate</a></li>
-<li><a href="#formatdatetime">FormatDateTime</a></li>
-</ul>
-</li>
 <li><a href="#transformations">Transformations</a><ul>
 <li><a href="#transformdetrend">TransformDetrend</a></li>
 <li><a href="#transformnormalize">TransformNormalize</a></li>
@@ -210,6 +200,7 @@ from .errors import *</code></pre>
 <li><code><a title="mogptk.model" href="model.html">mogptk.model</a></code></li>
 <li><code><a title="mogptk.mosm" href="mosm.html">mogptk.mosm</a></code></li>
 <li><code><a title="mogptk.plot" href="plot.html">mogptk.plot</a></code></li>
+<li><code><a title="mogptk.serie" href="serie.html">mogptk.serie</a></code></li>
 <li><code><a title="mogptk.sm" href="sm.html">mogptk.sm</a></code></li>
 <li><code><a title="mogptk.sm_lmc" href="sm_lmc.html">mogptk.sm_lmc</a></code></li>
 </ul>

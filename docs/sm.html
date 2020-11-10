@@ -25,207 +25,154 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/sm.py#L0-L198" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/sm.py#L0-L145" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
-from .model import model
-from .kernels import SpectralMixture, sm_init, Noise
-from .plot import plot_spectrum
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-import logging
 
-logger = logging.getLogger(&#39;mogptk&#39;)
+from .dataset import DataSet
+from .model import Model, Exact, logger
+from .kernels import SpectralKernel, IndependentMultiOutputKernel, MixtureKernel, positive_minimum
+from .plot import plot_spectrum
 
-def _estimate_from_sm(dataset, Q, method=&#39;BNSE&#39;, optimizer=&#39;BFGS&#39;, maxiter=2000, plot=False, fix_means=False):
+class SM(Model):
     &#34;&#34;&#34;
-    Estimate kernel param with single ouput GP-SM
+    An independent spectral mixture kernel as proposed by [1] per channel. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
 
     Args:
-        dataset (mogptk.DataSet): DataSet object of data with one channel.
-        Q (int): Number of components.
-        estimate (str): Method to estimate, &#39;BNSE&#39;, &#39;LS&#39; or &#39;AGW&#39;
-        method (str): Optimization method, either &#39;Adam&#39; or any
-            scipy optimizer.
-        maxiter (int): Maximum number of iteration.
-        plot (bool): If true plot the kernel PSD of each channel.
-        fix_means(bool): Fix spectral means to zero in trainning.
-
-    Returns: 
-        params[q][name][output dim][input dim]
-    &#34;&#34;&#34;
-    input_dims = dataset.get_input_dims()[0]
-    output_dims = dataset.get_output_dims()
-
-    params = []
-    for q in range(Q):
-        params.append({
-            &#39;weight&#39;: np.empty((input_dims, output_dims)),
-            &#39;mean&#39;: np.empty((input_dims, output_dims)),
-            &#39;scale&#39;: np.empty((input_dims, output_dims)),
-        })
-
-    for channel in range(output_dims):
-        for i in range(input_dims):  # TODO one SM per channel
-            sm = SM(dataset[channel], Q)
-            sm.init_parameters(method)
-
-            if fix_means:
-                sm.set_parameter(0, &#39;mixture_means&#39;, np.zeros((Q, input_dims)))
-                sm.set_parameter(0, &#39;mixture_scales&#39;, sm.get_parameter(0, &#39;mixture_scales&#39;) * 50)
-                sm.fix_parameters(0, &#39;mixture_means&#39;)
-
-            sm.train(method=optimizer, maxiter=maxiter)
-
-            if plot:
-                nyquist = dataset[channel].get_nyquist_estimation()
-                means = sm.get_parameter(0, &#39;mixture_means&#39;)
-                weights = sm.get_parameter(0, &#39;mixture_weights&#39;)
-                scales = sm.get_parameter(0, &#39;mixture_scales&#39;).T
-                plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=dataset[channel].name)
-
-            for q in range(Q):
-                params[q][&#39;weight&#39;][i,channel] = sm.get_parameter(0, &#39;mixture_weights&#39;)[q]
-                params[q][&#39;mean&#39;][i,channel] = sm.get_parameter(0, &#39;mixture_means&#39;)[q,:] * np.pi * 2
-                params[q][&#39;scale&#39;][i,channel] = sm.get_parameter(0, &#39;mixture_scales&#39;)[:,q]
-
-    return params
-
-class SM(model):
-    &#34;&#34;&#34;
-    A single output GP Spectral mixture kernel as proposed by [1].
-
-    The model contain the dataset and the associated gpflow model, 
-    when the mogptk.Model is instanciated the gpflow model is built 
-    using random parameters.
-
-    Args:
-        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
+        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
         Q (int, optional): Number of components.
+        model: Gaussian Process model to use, such as mogptk.Exact.
         name (str, optional): Name of the model.
-        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
-        sparse (bool, optional): If True, will use sparse GP regression.
-        like_params (dict, optional): Parameters to GPflow likelihood.
+
+    Attributes:
+        dataset: The associated mogptk.DataSet.
+        model: The mogptk.kernels.Model.
+        kernel: The mogptk.kernels.Kernel.
 
     Examples:
 
     &gt;&gt;&gt; import numpy as np
+    &gt;&gt;&gt; import mogptk
+    &gt;&gt;&gt; 
     &gt;&gt;&gt; t = np.linspace(0, 10, 100)
     &gt;&gt;&gt; y = np.sin(0.5 * t)
-    &gt;&gt;&gt; import mogptk
+    &gt;&gt;&gt; 
     &gt;&gt;&gt; data = mogptk.Data(t, y)
-    &gt;&gt;&gt; model = mogptk.SM([data], Q=1)
-    &gt;&gt;&gt; model.build()
+    &gt;&gt;&gt; model = mogptk.SM(data, Q=1)
+    &gt;&gt;&gt; model.init_parameters()
     &gt;&gt;&gt; model.train()
-    &gt;&gt;&gt; model.predict([np.linspace(1, 15, 150)])
+    &gt;&gt;&gt; model.predict()
+    &gt;&gt;&gt; data.plot()
 
     [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, name=&#34;SM&#34;, likelihood=None, variational=False, sparse=False, like_params={}):
-        model.__init__(self, name, dataset)
-        self.Q = Q
+    def __init__(self, dataset, Q=1, model=Exact(), name=&#34;SM&#34;):
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
 
-        if self.dataset.get_output_dims() != 1:
-            raise Exception(&#34;single output spectral mixture kernel can only have one output dimension in the data&#34;)
-
-        kernel = SpectralMixture(
-            self.dataset.get_input_dims()[0],
-            self.Q,
+        kernel = IndependentMultiOutputKernel(
+            [MixtureKernel(SpectralKernel(dataset[i].get_input_dims()), Q) for i in range(dataset.get_output_dims())],
+            output_dims=dataset.get_output_dims(),
         )
-        self._build(kernel, likelihood, variational, sparse, like_params)
 
-    def init_parameters(self, method=&#39;BNSE&#39;):
+        super(SM, self).__init__(dataset, kernel, model, name)
+        self.Q = Q
+        if issubclass(type(model), Exact):
+            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
+
+    def init_parameters(self, method=&#39;BNSE&#39;, noise=False):
         &#34;&#34;&#34;
-        Initialize parameters of kernel from data using different methods.
+        Initialize parameters of kernel from the data.
 
-        Kernel parameters can be initialized using 3 heuristics using the train data:
+        Arguments:
+            method (str, optional): Method of estimation, such as IPS, LS, or BNSE.
+            noise (boolean, optional): Add noise of std.dev. equal to 1/10th of the estimated value.
 
-        &#39;AGW&#39;: (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
-            of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
-            means drawn from Unif(0, 0.5 / minimum distance between two points),
-            and the mixture weights by taking the stdv of the y values divided by the
-            number of mixtures.
-        &#39;LS&#39;_ is using Lomb Scargle periodogram for estimating the PSD,
-            and using the first Q peaks as the means and mixture weights.
-        &#39;BNSE&#39;: third is using the BNSE (Tobar 2018) to estimate the PSD 
-            and use the first Q peaks as the means and mixture weights.
-
-        In all cases the noise is initialized with 1/30 of the variance of each channel.
-
-        *** Only for single input dimension for each channel.
+        Methods:
+            IPS: Independent parameter sampling (from the PhD thesis of Andrew Wilson 2014) takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the means drawn from Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the y values divided by the number of mixtures.
+            LS: Uses Lomb Scargle periodogram for estimating the PSD, and using the first Q peaks as the means and mixture weights.
+            BNSE: Uses the BNSE (Tobar 2018) to estimate the PSD and use the first Q peaks as the means and mixture weights.
         &#34;&#34;&#34;
 
-        if method not in [&#39;AGW&#39;, &#39;LS&#39;, &#39;BNSE&#39;]:
-            raise Exception(&#34;possible methods are &#39;AGW&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
+        input_dims = self.dataset.get_input_dims()
+        output_dims = self.dataset.get_output_dims()
 
-        if method == &#39;AGW&#39;:
-            x, y = self.dataset[0].get_train_data()
-            weights, means, scales = sm_init(x, y, self.Q)
-            self.set_parameter(0, &#39;mixture_weights&#39;, weights)
-            self.set_parameter(0, &#39;mixture_means&#39;, np.array(means))
-            self.set_parameter(0, &#39;mixture_scales&#39;, np.array(scales.T))
+        if method.lower() not in [&#39;ips&#39;, &#39;ls&#39;, &#39;bnse&#39;]:
+            raise ValueError(&#34;valid methods of estimation are IPS, LS, and BNSE&#34;)
 
-        elif method == &#39;LS&#39;:
-            amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
+        if method.lower() == &#39;ips&#39;:
+            for j in range(output_dims):
+                nyquist = self.dataset[j].get_nyquist_estimation()
+                x, y = self.dataset[j].get_train_data(transformed=True)
+                x_range = np.max(x, axis=0) - np.min(x, axis=0)
+
+                weights = [y.std()/self.Q] * self.Q
+                means = nyquist * np.random.rand(self.Q, input_dims[j])
+                variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
+
+                for q in range(self.Q):
+                    self.model.kernel[j][q].weight.assign(weights[q])
+                    self.model.kernel[j][q].mean.assign(means[q,:])
+                    self.model.kernel[j][q].variance.assign(variances[q,:])
+            return
+        elif method.lower() == &#39;ls&#39;:
+            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning(&#39;LS could not find peaks for SM&#39;)
                 return
-            
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
-
-            self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
-            self.set_parameter(0, &#39;mixture_means&#39;, means.T)
-            self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)
-
-        elif method == &#39;BNSE&#39;:
-            amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
+        elif method.lower() == &#39;bnse&#39;:
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logger.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
+        #if noise:
+        #    # TODO: what is this? check noise for all kernels
+        #    pct = 1/30.0
+        #    # noise proportional to the values
+        #    noise_amp = np.random.multivariate_normal(
+        #        mean=np.zeros(self.Q),
+        #        cov=np.diag(amplitudes.mean(axis=1) * pct))
+        #    # set value to a minimun value
+        #    amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
 
-            self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
-            self.set_parameter(0, &#39;mixture_means&#39;, means.T)
-            self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)
+        #    noise_mean = np.random.multivariate_normal(
+        #        mean=np.zeros(self.Q),
+        #        cov=np.diag(means.mean(axis=1) * pct))
+        #    means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
 
-    def plot_psd(self, figsize=(10, 4), title=&#39;&#39;, log_scale=False):
+        #    noise_var = np.random.multivariate_normal(
+        #        mean=np.zeros(self.Q),
+        #        cov=np.diag(variances.mean(axis=1) * pct))
+        #    variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
+
+        for j in range(output_dims):
+            # TODO: check weights for all kernels
+            _, y = self.dataset[j].get_train_data(transformed=True)
+            mixture_weights = amplitudes[j].mean(axis=1)
+            if 0.0 &lt; amplitudes[j].sum():
+                mixture_weights /= amplitudes[j].sum()
+            mixture_weights *= 2.0 * y.std()
+            for q in range(self.Q):
+                self.model.kernel[j][q].weight.assign(mixture_weights[q])
+                self.model.kernel[j][q].mean.assign(means[j][q,:])
+                self.model.kernel[j][q].variance.assign(variances[j][q,:])
+
+    def plot_spectrum(self, title=None):
         &#34;&#34;&#34;
-        Plot power spectral density of single output GP-SM.
+        Plot spectrum of kernel.
         &#34;&#34;&#34;
-        means = self.get_parameter(0, &#39;mixture_means&#39;) * 2.0 * np.pi
-        weights = self.get_parameter(0, &#39;mixture_weights&#39;)
-        scales = self.get_parameter(0, &#39;mixture_scales&#39;).T
-        
-        # calculate bounds
-        x_low = norm.ppf(0.001, loc=means, scale=scales).min()
-        x_high = norm.ppf(0.99, loc=means, scale=scales).max()
-        
-        x = np.linspace(0, x_high + 1, 10000)
+        names = self.dataset.get_names()
+        nyquist = self.dataset.get_nyquist_estimation()
+        output_dims = self.dataset.get_output_dims()
 
-        psd = np.zeros_like(x)
+        means = np.array([[self.model.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
+        scales = np.array([[self.model.kernel[j][q].variance.numpy() for j in range(output_dims)] for q in range(self.Q)])
+        weights = np.array([[self.model.kernel[j][q].weight.numpy()[0] for j in range(output_dims)] for q in range(self.Q)])
 
-        fig, axes = plt.subplots(1, 1, figsize=figsize)
-        for q in range(self.Q):
-            single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
-            axes.plot(x, single_psd, &#39;--&#39;, lw=1.2, c=&#39;xkcd:strawberry&#39;, zorder=2)
-            axes.axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color=&#39;grey&#39;)
-            psd = psd + single_psd
-            
-        # symmetrize PSD
-        if psd[x&lt;0].size != 0:
-            psd = psd + np.r_[psd[x&lt;0][::-1], np.zeros((x&gt;=0).sum())]
-            
-        axes.plot(x, psd, lw=2.5, c=&#39;r&#39;, alpha=0.7, zorder=1)
-        axes.set_xlim(0, x[-1] + 0.1)
-        if log_scale:
-            axes.set_yscale(&#39;log&#39;)
-        axes.set_xlabel(&#39;Frequency [Hz]&#39;)
-        axes.set_ylabel(&#39;PSD&#39;)
-        axes.set_title(title)
-
-        return fig, axes</code></pre>
+        return plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names, title=title)</code></pre>
 </details>
 </section>
 <section>
@@ -239,343 +186,343 @@ class SM(model):
 <dl>
 <dt id="mogptk.sm.SM"><code class="flex name class">
 <span>class <span class="ident">SM</span></span>
-<span>(</span><span>dataset, Q=1, name='SM', likelihood=None, variational=False, sparse=False, like_params={})</span>
+<span>(</span><span>dataset, Q=1, model=&lt;mogptk.model.Exact object&gt;, name='SM')</span>
 </code></dt>
 <dd>
-<section class="desc"><p>A single output GP Spectral mixture kernel as proposed by [1].</p>
-<p>The model contain the dataset and the associated gpflow model,
-when the mogptk.Model is instanciated the gpflow model is built
-using random parameters.</p>
+<section class="desc"><p>An independent spectral mixture kernel as proposed by [1] per channel. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
-<dd>DataSet object of data for all channels. Only one channel allowed for SM.</dd>
+<dd>DataSet object of data for all channels.</dd>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Number of components.</dd>
+<dt><strong><code>model</code></strong></dt>
+<dd>Gaussian Process model to use, such as mogptk.Exact.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpflow.likelihoods</code>, optional</dt>
-<dd>Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.</dd>
-<dt><strong><code>variational</code></strong> :&ensp;<code>bool</code>, optional</dt>
-<dd>If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.</dd>
-<dt><strong><code>sparse</code></strong> :&ensp;<code>bool</code>, optional</dt>
-<dd>If True, will use sparse GP regression.</dd>
-<dt><strong><code>like_params</code></strong> :&ensp;<code>dict</code>, optional</dt>
-<dd>Parameters to GPflow likelihood.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>dataset</code></strong></dt>
+<dd>The associated mogptk.DataSet.</dd>
+<dt><strong><code>model</code></strong></dt>
+<dd>The mogptk.kernels.Model.</dd>
+<dt><strong><code>kernel</code></strong></dt>
+<dd>The mogptk.kernels.Kernel.</dd>
 </dl>
 <p>Examples:</p>
 <pre><code>&gt;&gt;&gt; import numpy as np
+&gt;&gt;&gt; import mogptk
+&gt;&gt;&gt; 
 &gt;&gt;&gt; t = np.linspace(0, 10, 100)
 &gt;&gt;&gt; y = np.sin(0.5 * t)
-&gt;&gt;&gt; import mogptk
+&gt;&gt;&gt; 
 &gt;&gt;&gt; data = mogptk.Data(t, y)
-&gt;&gt;&gt; model = mogptk.SM([data], Q=1)
-&gt;&gt;&gt; model.build()
+&gt;&gt;&gt; model = mogptk.SM(data, Q=1)
+&gt;&gt;&gt; model.init_parameters()
 &gt;&gt;&gt; model.train()
-&gt;&gt;&gt; model.predict([np.linspace(1, 15, 150)])
+&gt;&gt;&gt; model.predict()
+&gt;&gt;&gt; data.plot()
 </code></pre>
 <p>[1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013</p>
 <p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
 <h2 id="args_1">Args</h2>
 <dl>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a>, <a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a></dt>
+<dd>DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a>, <a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a></dt>
-<dd>DataSet with Data objects for all the channels.</dd>
-</dl>
-<p>When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</p></section>
+</dl></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/sm.py#L65-L199" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/sm.py#L10-L146" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">class SM(model):
+<pre><code class="python">class SM(Model):
     &#34;&#34;&#34;
-    A single output GP Spectral mixture kernel as proposed by [1].
-
-    The model contain the dataset and the associated gpflow model, 
-    when the mogptk.Model is instanciated the gpflow model is built 
-    using random parameters.
+    An independent spectral mixture kernel as proposed by [1] per channel. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
 
     Args:
-        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels. Only one channel allowed for SM.
+        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
         Q (int, optional): Number of components.
+        model: Gaussian Process model to use, such as mogptk.Exact.
         name (str, optional): Name of the model.
-        likelihood (gpflow.likelihoods, optional): Likelihood to use from GPFlow, if None a default exact inference Gaussian likelihood is used.
-        variational (bool, optional): If True, use variational inference to approximate function values as Gaussian. If False it will use Monte Carlo Markov Chain.
-        sparse (bool, optional): If True, will use sparse GP regression.
-        like_params (dict, optional): Parameters to GPflow likelihood.
+
+    Attributes:
+        dataset: The associated mogptk.DataSet.
+        model: The mogptk.kernels.Model.
+        kernel: The mogptk.kernels.Kernel.
 
     Examples:
 
     &gt;&gt;&gt; import numpy as np
+    &gt;&gt;&gt; import mogptk
+    &gt;&gt;&gt; 
     &gt;&gt;&gt; t = np.linspace(0, 10, 100)
     &gt;&gt;&gt; y = np.sin(0.5 * t)
-    &gt;&gt;&gt; import mogptk
+    &gt;&gt;&gt; 
     &gt;&gt;&gt; data = mogptk.Data(t, y)
-    &gt;&gt;&gt; model = mogptk.SM([data], Q=1)
-    &gt;&gt;&gt; model.build()
+    &gt;&gt;&gt; model = mogptk.SM(data, Q=1)
+    &gt;&gt;&gt; model.init_parameters()
     &gt;&gt;&gt; model.train()
-    &gt;&gt;&gt; model.predict([np.linspace(1, 15, 150)])
+    &gt;&gt;&gt; model.predict()
+    &gt;&gt;&gt; data.plot()
 
     [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, name=&#34;SM&#34;, likelihood=None, variational=False, sparse=False, like_params={}):
-        model.__init__(self, name, dataset)
-        self.Q = Q
+    def __init__(self, dataset, Q=1, model=Exact(), name=&#34;SM&#34;):
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
 
-        if self.dataset.get_output_dims() != 1:
-            raise Exception(&#34;single output spectral mixture kernel can only have one output dimension in the data&#34;)
-
-        kernel = SpectralMixture(
-            self.dataset.get_input_dims()[0],
-            self.Q,
+        kernel = IndependentMultiOutputKernel(
+            [MixtureKernel(SpectralKernel(dataset[i].get_input_dims()), Q) for i in range(dataset.get_output_dims())],
+            output_dims=dataset.get_output_dims(),
         )
-        self._build(kernel, likelihood, variational, sparse, like_params)
 
-    def init_parameters(self, method=&#39;BNSE&#39;):
+        super(SM, self).__init__(dataset, kernel, model, name)
+        self.Q = Q
+        if issubclass(type(model), Exact):
+            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
+
+    def init_parameters(self, method=&#39;BNSE&#39;, noise=False):
         &#34;&#34;&#34;
-        Initialize parameters of kernel from data using different methods.
+        Initialize parameters of kernel from the data.
 
-        Kernel parameters can be initialized using 3 heuristics using the train data:
+        Arguments:
+            method (str, optional): Method of estimation, such as IPS, LS, or BNSE.
+            noise (boolean, optional): Add noise of std.dev. equal to 1/10th of the estimated value.
 
-        &#39;AGW&#39;: (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
-            of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
-            means drawn from Unif(0, 0.5 / minimum distance between two points),
-            and the mixture weights by taking the stdv of the y values divided by the
-            number of mixtures.
-        &#39;LS&#39;_ is using Lomb Scargle periodogram for estimating the PSD,
-            and using the first Q peaks as the means and mixture weights.
-        &#39;BNSE&#39;: third is using the BNSE (Tobar 2018) to estimate the PSD 
-            and use the first Q peaks as the means and mixture weights.
-
-        In all cases the noise is initialized with 1/30 of the variance of each channel.
-
-        *** Only for single input dimension for each channel.
+        Methods:
+            IPS: Independent parameter sampling (from the PhD thesis of Andrew Wilson 2014) takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the means drawn from Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the y values divided by the number of mixtures.
+            LS: Uses Lomb Scargle periodogram for estimating the PSD, and using the first Q peaks as the means and mixture weights.
+            BNSE: Uses the BNSE (Tobar 2018) to estimate the PSD and use the first Q peaks as the means and mixture weights.
         &#34;&#34;&#34;
 
-        if method not in [&#39;AGW&#39;, &#39;LS&#39;, &#39;BNSE&#39;]:
-            raise Exception(&#34;possible methods are &#39;AGW&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
+        input_dims = self.dataset.get_input_dims()
+        output_dims = self.dataset.get_output_dims()
 
-        if method == &#39;AGW&#39;:
-            x, y = self.dataset[0].get_train_data()
-            weights, means, scales = sm_init(x, y, self.Q)
-            self.set_parameter(0, &#39;mixture_weights&#39;, weights)
-            self.set_parameter(0, &#39;mixture_means&#39;, np.array(means))
-            self.set_parameter(0, &#39;mixture_scales&#39;, np.array(scales.T))
+        if method.lower() not in [&#39;ips&#39;, &#39;ls&#39;, &#39;bnse&#39;]:
+            raise ValueError(&#34;valid methods of estimation are IPS, LS, and BNSE&#34;)
 
-        elif method == &#39;LS&#39;:
-            amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
+        if method.lower() == &#39;ips&#39;:
+            for j in range(output_dims):
+                nyquist = self.dataset[j].get_nyquist_estimation()
+                x, y = self.dataset[j].get_train_data(transformed=True)
+                x_range = np.max(x, axis=0) - np.min(x, axis=0)
+
+                weights = [y.std()/self.Q] * self.Q
+                means = nyquist * np.random.rand(self.Q, input_dims[j])
+                variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
+
+                for q in range(self.Q):
+                    self.model.kernel[j][q].weight.assign(weights[q])
+                    self.model.kernel[j][q].mean.assign(means[q,:])
+                    self.model.kernel[j][q].variance.assign(variances[q,:])
+            return
+        elif method.lower() == &#39;ls&#39;:
+            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning(&#39;LS could not find peaks for SM&#39;)
                 return
-            
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
-
-            self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
-            self.set_parameter(0, &#39;mixture_means&#39;, means.T)
-            self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)
-
-        elif method == &#39;BNSE&#39;:
-            amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
+        elif method.lower() == &#39;bnse&#39;:
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
             if np.sum(amplitudes) == 0.0:
                 logger.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-            mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
+        #if noise:
+        #    # TODO: what is this? check noise for all kernels
+        #    pct = 1/30.0
+        #    # noise proportional to the values
+        #    noise_amp = np.random.multivariate_normal(
+        #        mean=np.zeros(self.Q),
+        #        cov=np.diag(amplitudes.mean(axis=1) * pct))
+        #    # set value to a minimun value
+        #    amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
 
-            self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
-            self.set_parameter(0, &#39;mixture_means&#39;, means.T)
-            self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)
+        #    noise_mean = np.random.multivariate_normal(
+        #        mean=np.zeros(self.Q),
+        #        cov=np.diag(means.mean(axis=1) * pct))
+        #    means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
 
-    def plot_psd(self, figsize=(10, 4), title=&#39;&#39;, log_scale=False):
+        #    noise_var = np.random.multivariate_normal(
+        #        mean=np.zeros(self.Q),
+        #        cov=np.diag(variances.mean(axis=1) * pct))
+        #    variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
+
+        for j in range(output_dims):
+            # TODO: check weights for all kernels
+            _, y = self.dataset[j].get_train_data(transformed=True)
+            mixture_weights = amplitudes[j].mean(axis=1)
+            if 0.0 &lt; amplitudes[j].sum():
+                mixture_weights /= amplitudes[j].sum()
+            mixture_weights *= 2.0 * y.std()
+            for q in range(self.Q):
+                self.model.kernel[j][q].weight.assign(mixture_weights[q])
+                self.model.kernel[j][q].mean.assign(means[j][q,:])
+                self.model.kernel[j][q].variance.assign(variances[j][q,:])
+
+    def plot_spectrum(self, title=None):
         &#34;&#34;&#34;
-        Plot power spectral density of single output GP-SM.
+        Plot spectrum of kernel.
         &#34;&#34;&#34;
-        means = self.get_parameter(0, &#39;mixture_means&#39;) * 2.0 * np.pi
-        weights = self.get_parameter(0, &#39;mixture_weights&#39;)
-        scales = self.get_parameter(0, &#39;mixture_scales&#39;).T
-        
-        # calculate bounds
-        x_low = norm.ppf(0.001, loc=means, scale=scales).min()
-        x_high = norm.ppf(0.99, loc=means, scale=scales).max()
-        
-        x = np.linspace(0, x_high + 1, 10000)
+        names = self.dataset.get_names()
+        nyquist = self.dataset.get_nyquist_estimation()
+        output_dims = self.dataset.get_output_dims()
 
-        psd = np.zeros_like(x)
+        means = np.array([[self.model.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
+        scales = np.array([[self.model.kernel[j][q].variance.numpy() for j in range(output_dims)] for q in range(self.Q)])
+        weights = np.array([[self.model.kernel[j][q].weight.numpy()[0] for j in range(output_dims)] for q in range(self.Q)])
 
-        fig, axes = plt.subplots(1, 1, figsize=figsize)
-        for q in range(self.Q):
-            single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
-            axes.plot(x, single_psd, &#39;--&#39;, lw=1.2, c=&#39;xkcd:strawberry&#39;, zorder=2)
-            axes.axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color=&#39;grey&#39;)
-            psd = psd + single_psd
-            
-        # symmetrize PSD
-        if psd[x&lt;0].size != 0:
-            psd = psd + np.r_[psd[x&lt;0][::-1], np.zeros((x&gt;=0).sum())]
-            
-        axes.plot(x, psd, lw=2.5, c=&#39;r&#39;, alpha=0.7, zorder=1)
-        axes.set_xlim(0, x[-1] + 0.1)
-        if log_scale:
-            axes.set_yscale(&#39;log&#39;)
-        axes.set_xlabel(&#39;Frequency [Hz]&#39;)
-        axes.set_ylabel(&#39;PSD&#39;)
-        axes.set_title(title)
-
-        return fig, axes</code></pre>
+        return plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names, title=title)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.model.model" href="model.html#mogptk.model.model">model</a></li>
+<li><a title="mogptk.model.Model" href="model.html#mogptk.model.Model">Model</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.sm.SM.init_parameters"><code class="name flex">
-<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE')</span>
+<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', noise=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Initialize parameters of kernel from data using different methods.</p>
-<p>Kernel parameters can be initialized using 3 heuristics using the train data:</p>
-<p>'AGW': (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
-of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
-means drawn from Unif(0, 0.5 / minimum distance between two points),
-and the mixture weights by taking the stdv of the y values divided by the
-number of mixtures.
-'LS'_ is using Lomb Scargle periodogram for estimating the PSD,
-and using the first Q peaks as the means and mixture weights.
-'BNSE': third is using the BNSE (Tobar 2018) to estimate the PSD
-and use the first Q peaks as the means and mixture weights.</p>
-<p>In all cases the noise is initialized with 1/30 of the variance of each channel.</p>
-<p>*** Only for single input dimension for each channel.</p></section>
+<section class="desc"><p>Initialize parameters of kernel from the data.</p>
+<h2 id="arguments">Arguments</h2>
+<dl>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Method of estimation, such as IPS, LS, or BNSE.</dd>
+<dt><strong><code>noise</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dd>Add noise of std.dev. equal to 1/10th of the estimated value.</dd>
+</dl>
+<h2 id="methods">Methods</h2>
+<dl>
+<dt><strong><code>IPS</code></strong></dt>
+<dd>Independent parameter sampling (from the PhD thesis of Andrew Wilson 2014) takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the means drawn from Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the y values divided by the number of mixtures.</dd>
+<dt><strong><code>LS</code></strong></dt>
+<dd>Uses Lomb Scargle periodogram for estimating the PSD, and using the first Q peaks as the means and mixture weights.</dd>
+<dt><strong><code>BNSE</code></strong></dt>
+<dd>Uses the BNSE (Tobar 2018) to estimate the PSD and use the first Q peaks as the means and mixture weights.</dd>
+</dl></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/sm.py#L109-L162" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/sm.py#L56-L132" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;):
+<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, noise=False):
     &#34;&#34;&#34;
-    Initialize parameters of kernel from data using different methods.
+    Initialize parameters of kernel from the data.
 
-    Kernel parameters can be initialized using 3 heuristics using the train data:
+    Arguments:
+        method (str, optional): Method of estimation, such as IPS, LS, or BNSE.
+        noise (boolean, optional): Add noise of std.dev. equal to 1/10th of the estimated value.
 
-    &#39;AGW&#39;: (Taken from phd thesis from Andrew wilson 2014) is taking the inverse
-        of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the
-        means drawn from Unif(0, 0.5 / minimum distance between two points),
-        and the mixture weights by taking the stdv of the y values divided by the
-        number of mixtures.
-    &#39;LS&#39;_ is using Lomb Scargle periodogram for estimating the PSD,
-        and using the first Q peaks as the means and mixture weights.
-    &#39;BNSE&#39;: third is using the BNSE (Tobar 2018) to estimate the PSD 
-        and use the first Q peaks as the means and mixture weights.
-
-    In all cases the noise is initialized with 1/30 of the variance of each channel.
-
-    *** Only for single input dimension for each channel.
+    Methods:
+        IPS: Independent parameter sampling (from the PhD thesis of Andrew Wilson 2014) takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the means drawn from Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the y values divided by the number of mixtures.
+        LS: Uses Lomb Scargle periodogram for estimating the PSD, and using the first Q peaks as the means and mixture weights.
+        BNSE: Uses the BNSE (Tobar 2018) to estimate the PSD and use the first Q peaks as the means and mixture weights.
     &#34;&#34;&#34;
 
-    if method not in [&#39;AGW&#39;, &#39;LS&#39;, &#39;BNSE&#39;]:
-        raise Exception(&#34;possible methods are &#39;AGW&#39;, &#39;LS&#39; and &#39;BNSE&#39; (see documentation).&#34;)
+    input_dims = self.dataset.get_input_dims()
+    output_dims = self.dataset.get_output_dims()
 
-    if method == &#39;AGW&#39;:
-        x, y = self.dataset[0].get_train_data()
-        weights, means, scales = sm_init(x, y, self.Q)
-        self.set_parameter(0, &#39;mixture_weights&#39;, weights)
-        self.set_parameter(0, &#39;mixture_means&#39;, np.array(means))
-        self.set_parameter(0, &#39;mixture_scales&#39;, np.array(scales.T))
+    if method.lower() not in [&#39;ips&#39;, &#39;ls&#39;, &#39;bnse&#39;]:
+        raise ValueError(&#34;valid methods of estimation are IPS, LS, and BNSE&#34;)
 
-    elif method == &#39;LS&#39;:
-        amplitudes, means, variances = self.dataset[0].get_lombscargle_estimation(self.Q)
+    if method.lower() == &#39;ips&#39;:
+        for j in range(output_dims):
+            nyquist = self.dataset[j].get_nyquist_estimation()
+            x, y = self.dataset[j].get_train_data(transformed=True)
+            x_range = np.max(x, axis=0) - np.min(x, axis=0)
+
+            weights = [y.std()/self.Q] * self.Q
+            means = nyquist * np.random.rand(self.Q, input_dims[j])
+            variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
+
+            for q in range(self.Q):
+                self.model.kernel[j][q].weight.assign(weights[q])
+                self.model.kernel[j][q].mean.assign(means[q,:])
+                self.model.kernel[j][q].variance.assign(variances[q,:])
+        return
+    elif method.lower() == &#39;ls&#39;:
+        amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         if len(amplitudes) == 0:
             logger.warning(&#39;LS could not find peaks for SM&#39;)
             return
-        
-        mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
-
-        self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
-        self.set_parameter(0, &#39;mixture_means&#39;, means.T)
-        self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)
-
-    elif method == &#39;BNSE&#39;:
-        amplitudes, means, variances = self.dataset[0].get_bnse_estimation(self.Q)
+    elif method.lower() == &#39;bnse&#39;:
+        amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
         if np.sum(amplitudes) == 0.0:
             logger.warning(&#39;BNSE could not find peaks for SM&#39;)
             return
 
-        mixture_weights = amplitudes.mean(axis=0) / amplitudes.sum() * self.dataset[0].Y[self.dataset[0].mask].var() * 2
+    #if noise:
+    #    # TODO: what is this? check noise for all kernels
+    #    pct = 1/30.0
+    #    # noise proportional to the values
+    #    noise_amp = np.random.multivariate_normal(
+    #        mean=np.zeros(self.Q),
+    #        cov=np.diag(amplitudes.mean(axis=1) * pct))
+    #    # set value to a minimun value
+    #    amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
 
-        self.set_parameter(0, &#39;mixture_weights&#39;, mixture_weights)
-        self.set_parameter(0, &#39;mixture_means&#39;, means.T)
-        self.set_parameter(0, &#39;mixture_scales&#39;, variances * 2.0)</code></pre>
+    #    noise_mean = np.random.multivariate_normal(
+    #        mean=np.zeros(self.Q),
+    #        cov=np.diag(means.mean(axis=1) * pct))
+    #    means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
+
+    #    noise_var = np.random.multivariate_normal(
+    #        mean=np.zeros(self.Q),
+    #        cov=np.diag(variances.mean(axis=1) * pct))
+    #    variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
+
+    for j in range(output_dims):
+        # TODO: check weights for all kernels
+        _, y = self.dataset[j].get_train_data(transformed=True)
+        mixture_weights = amplitudes[j].mean(axis=1)
+        if 0.0 &lt; amplitudes[j].sum():
+            mixture_weights /= amplitudes[j].sum()
+        mixture_weights *= 2.0 * y.std()
+        for q in range(self.Q):
+            self.model.kernel[j][q].weight.assign(mixture_weights[q])
+            self.model.kernel[j][q].mean.assign(means[j][q,:])
+            self.model.kernel[j][q].variance.assign(variances[j][q,:])</code></pre>
 </details>
 </dd>
-<dt id="mogptk.sm.SM.plot_psd"><code class="name flex">
-<span>def <span class="ident">plot_psd</span></span>(<span>self, figsize=(10, 4), title='', log_scale=False)</span>
+<dt id="mogptk.sm.SM.plot_spectrum"><code class="name flex">
+<span>def <span class="ident">plot_spectrum</span></span>(<span>self, title=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Plot power spectral density of single output GP-SM.</p></section>
+<section class="desc"><p>Plot spectrum of kernel.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/0c70b5fda96e7c10567d4b4d9dffc5b5031dd586/mogptk/sm.py#L164-L199" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/sm.py#L134-L146" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_psd(self, figsize=(10, 4), title=&#39;&#39;, log_scale=False):
+<pre><code class="python">def plot_spectrum(self, title=None):
     &#34;&#34;&#34;
-    Plot power spectral density of single output GP-SM.
+    Plot spectrum of kernel.
     &#34;&#34;&#34;
-    means = self.get_parameter(0, &#39;mixture_means&#39;) * 2.0 * np.pi
-    weights = self.get_parameter(0, &#39;mixture_weights&#39;)
-    scales = self.get_parameter(0, &#39;mixture_scales&#39;).T
-    
-    # calculate bounds
-    x_low = norm.ppf(0.001, loc=means, scale=scales).min()
-    x_high = norm.ppf(0.99, loc=means, scale=scales).max()
-    
-    x = np.linspace(0, x_high + 1, 10000)
+    names = self.dataset.get_names()
+    nyquist = self.dataset.get_nyquist_estimation()
+    output_dims = self.dataset.get_output_dims()
 
-    psd = np.zeros_like(x)
+    means = np.array([[self.model.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
+    scales = np.array([[self.model.kernel[j][q].variance.numpy() for j in range(output_dims)] for q in range(self.Q)])
+    weights = np.array([[self.model.kernel[j][q].weight.numpy()[0] for j in range(output_dims)] for q in range(self.Q)])
 
-    fig, axes = plt.subplots(1, 1, figsize=figsize)
-    for q in range(self.Q):
-        single_psd = weights[q] * norm.pdf(x, loc=means[q], scale=scales[q])
-        axes.plot(x, single_psd, &#39;--&#39;, lw=1.2, c=&#39;xkcd:strawberry&#39;, zorder=2)
-        axes.axvline(means[q], ymin=0.001, ymax=0.1, lw=2, color=&#39;grey&#39;)
-        psd = psd + single_psd
-        
-    # symmetrize PSD
-    if psd[x&lt;0].size != 0:
-        psd = psd + np.r_[psd[x&lt;0][::-1], np.zeros((x&gt;=0).sum())]
-        
-    axes.plot(x, psd, lw=2.5, c=&#39;r&#39;, alpha=0.7, zorder=1)
-    axes.set_xlim(0, x[-1] + 0.1)
-    if log_scale:
-        axes.set_yscale(&#39;log&#39;)
-    axes.set_xlabel(&#39;Frequency [Hz]&#39;)
-    axes.set_ylabel(&#39;PSD&#39;)
-    axes.set_title(title)
-
-    return fig, axes</code></pre>
+    return plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names, title=title)</code></pre>
 </details>
 </dd>
 </dl>
 <h3>Inherited members</h3>
 <ul class="hlist">
-<li><code><b><a title="mogptk.model.model" href="model.html#mogptk.model.model">model</a></b></code>:
+<li><code><b><a title="mogptk.model.Model" href="model.html#mogptk.model.Model">Model</a></b></code>:
 <ul class="hlist">
-<li><code><a title="mogptk.model.model.fix_parameter" href="model.html#mogptk.model.model.fix_parameter">fix_parameter</a></code></li>
-<li><code><a title="mogptk.model.model.get_likelihood_parameters" href="model.html#mogptk.model.model.get_likelihood_parameters">get_likelihood_parameters</a></code></li>
-<li><code><a title="mogptk.model.model.get_parameter" href="model.html#mogptk.model.model.get_parameter">get_parameter</a></code></li>
-<li><code><a title="mogptk.model.model.get_parameters" href="model.html#mogptk.model.model.get_parameters">get_parameters</a></code></li>
-<li><code><a title="mogptk.model.model.load_parameters" href="model.html#mogptk.model.model.load_parameters">load_parameters</a></code></li>
-<li><code><a title="mogptk.model.model.plot_gram_matrix" href="model.html#mogptk.model.model.plot_gram_matrix">plot_gram_matrix</a></code></li>
-<li><code><a title="mogptk.model.model.plot_prediction" href="model.html#mogptk.model.model.plot_prediction">plot_prediction</a></code></li>
-<li><code><a title="mogptk.model.model.predict" href="model.html#mogptk.model.model.predict">predict</a></code></li>
-<li><code><a title="mogptk.model.model.print_parameters" href="model.html#mogptk.model.model.print_parameters">print_parameters</a></code></li>
-<li><code><a title="mogptk.model.model.save_parameters" href="model.html#mogptk.model.model.save_parameters">save_parameters</a></code></li>
-<li><code><a title="mogptk.model.model.set_likelihood_parameter" href="model.html#mogptk.model.model.set_likelihood_parameter">set_likelihood_parameter</a></code></li>
-<li><code><a title="mogptk.model.model.set_parameter" href="model.html#mogptk.model.model.set_parameter">set_parameter</a></code></li>
-<li><code><a title="mogptk.model.model.train" href="model.html#mogptk.model.model.train">train</a></code></li>
-<li><code><a title="mogptk.model.model.unfix_parameter" href="model.html#mogptk.model.model.unfix_parameter">unfix_parameter</a></code></li>
+<li><code><a title="mogptk.model.Model.get_parameters" href="model.html#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.plot" href="model.html#mogptk.model.Model.plot">plot</a></code></li>
+<li><code><a title="mogptk.model.Model.predict" href="model.html#mogptk.model.Model.predict">predict</a></code></li>
+<li><code><a title="mogptk.model.Model.print_parameters" href="model.html#mogptk.model.Model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.save" href="model.html#mogptk.model.Model.save">save</a></code></li>
+<li><code><a title="mogptk.model.Model.train" href="model.html#mogptk.model.Model.train">train</a></code></li>
 </ul>
 </li>
 </ul>
@@ -600,7 +547,7 @@ and use the first Q peaks as the means and mixture weights.</p>
 <h4><code><a title="mogptk.sm.SM" href="#mogptk.sm.SM">SM</a></code></h4>
 <ul class="">
 <li><code><a title="mogptk.sm.SM.init_parameters" href="#mogptk.sm.SM.init_parameters">init_parameters</a></code></li>
-<li><code><a title="mogptk.sm.SM.plot_psd" href="#mogptk.sm.SM.plot_psd">plot_psd</a></code></li>
+<li><code><a title="mogptk.sm.SM.plot_spectrum" href="#mogptk.sm.SM.plot_spectrum">plot_spectrum</a></code></li>
 </ul>
 </li>
 </ul>
