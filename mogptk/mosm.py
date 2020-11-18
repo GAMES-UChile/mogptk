@@ -161,9 +161,9 @@ class MOSM(Model):
                 axes[j,i].set_axis_off()
 
         legends = []
-        legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Full (real)'))
+        legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Total (real)'))
         legends.append(plt.Line2D([0], [0], ls='--', color='k', label='Mixture (real)'))
-        legends.append(plt.Line2D([0], [0], ls='-', color='silver', label='Full (imag)'))
+        legends.append(plt.Line2D([0], [0], ls='-', color='silver', label='Total (imag)'))
         legends.append(plt.Line2D([0], [0], ls='--', color='silver', label='Mixture (imag)'))
         fig.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
 

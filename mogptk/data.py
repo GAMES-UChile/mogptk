@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 from .bnse import bse
-from .serie import Serie
+from .serie import Serie, TransformLinear
 
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
@@ -243,15 +243,14 @@ class Data:
         if isinstance(y_label, str):
             self.Y_label = y_label
 
-        # TODO: readd
         # rescale X axis to fit in 0 -- 1000
-        #for i in range(input_dims):
-        #    X = self.X[i].get_transformed()
-        #    xmin = np.min(X)
-        #    xmax = np.max(X)
-        #    t = TransformLinear(xmin, (xmax-xmin)/1000.0)
-        #    t.set_data(X)
-        #    self.X[i].apply(t)
+        for i in range(input_dims):
+            X = self.X[i].transformed
+            xmin = np.min(X)
+            xmax = np.max(X)
+            t = TransformLinear(xmin, (xmax-xmin)/1000.0)
+            t.set_data(X)
+            self.X[i].apply(t)
 
     def __str__(self):
         return self.__repr__()
@@ -343,9 +342,11 @@ class Data:
         t = transformer
         if isinstance(t, type):
             t = transformer()
+        else:
+            t = copy.deepcopy(t)
         t.set_data(self)
 
-        self.Y.apply(t, np.array([x for x in self.X]).T)
+        self.Y.apply(t, np.array([x.transformed for x in self.X]).T)
     
     def filter(self, start, end):
         """
@@ -356,10 +357,8 @@ class Data:
             end (float, str): End of interval.
 
         Examples:
-            >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
             >>> data.filter(3, 8)
         
-            >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price')
             >>> data.filter('2016-01-15', '2016-06-15')
         """
         if self.get_input_dims() != 1:
@@ -407,7 +406,7 @@ class Data:
             Y[i] = f(self.Y[ind])
 
         self.X = [Serie(X, self.X[0].transformers)]
-        self.Y = Serie(Y, self.Y.transformers, np.array([x for x in self.X]).T)
+        self.Y = Serie(Y, self.Y.transformers, np.array([x.transformed for x in self.X]).T)
         self.mask = np.array([True] * len(self.X[0]))
 
     ################################################################
@@ -466,7 +465,7 @@ class Data:
             >>> x, y = data.get_data()
         """
         if transformed:
-            return np.array([x.transformed() for x in self.X]).T, self.Y.transformed
+            return np.array([x.transformed for x in self.X]).T, self.Y.transformed
         return np.array([x for x in self.X]).T, np.array(self.Y)
 
     def get_train_data(self, transformed=False):
@@ -673,19 +672,19 @@ class Data:
         if name not in self.Y_mu_pred:
             raise Exception("prediction name '%s' does not exist" % (name))
        
+        X = np.array([x for x in self.X_pred]).T
         mu = self.Y_mu_pred[name]
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
         if transformed:
-            X_pred = np.array([x.transformed for x in self.X_pred]).T
-            return X_pred, mu, lower, upper
+            return X, mu, lower, upper
 
-        X_pred = np.array([x for x in self.X_pred]).T
+        X_pred = np.array([x.transformed for x in self.X_pred]).T
         mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
         lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
         upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
-        return X_pred, mu, lower, upper
+        return X, mu, lower, upper
     
     def set_prediction_x(self, X):
         """
@@ -900,7 +899,7 @@ class Data:
             C[:n,i] = variances
         return A, B, C
 
-    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False):
         """
         Peaks estimation using the Spectral Mixture kernel.
 
@@ -947,13 +946,13 @@ class Data:
             C[q,:] = sm.kernel[0][q].variance().detach().numpy()
         return A, B, C
 
-    def plot(self, title=None, pred=None, ax=None, legend=True, transformed=False):
+    def plot(self, pred=None, title=None, ax=None, legend=True, transformed=False):
         """
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
+            pred (str, optional): Specify model name to draw.
             title (str, optional): Set the title of the plot.
-            pred (std, optional): Specify model name to draw.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
             legend (boolean, optional): Display legend.
             transformed (boolean, optional): Display transformed Y data as used for training.
@@ -1009,21 +1008,19 @@ class Data:
             ax.plot(x[:,0], y, 'r--', lw=1)
             legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
-        Y = self.Y
-        if transformed:
-            Y = self.Y.get_transformed()
+        _, Y = self.get_data(transformed=transformed)
         idx = np.argsort(self.X[0])
         ax.plot(self.X[0][idx], Y[idx], 'k--', alpha=0.8)
         legends.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
-        x, y = self.get_train_data()
-        if transformed:
-            y = self.Y.transform(y, x)
+        x, _ = self.get_train_data()
+        _, y = self.get_train_data(transformed=transformed)
         if 1000 < x.shape[0]:
             ax.plot(x[:,0], y, 'k-')
+            legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Training Points'))
         else:
             ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
-        legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
+            legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
 
         if self.has_test_data():
             for removed_range in self.removed_ranges[0]:
@@ -1096,7 +1093,7 @@ class Data:
         X = self.X[0].astype(np.float)
         Y = self.Y
         if transformed:
-            Y = self.Y.get_transformed()
+            Y = self.Y.transformed
 
         idx = np.argsort(X)
         X = X[idx] * X_scale

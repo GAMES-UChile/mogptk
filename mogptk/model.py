@@ -212,7 +212,7 @@ class Model:
             raise ValueError("X must be a list, dict or numpy.ndarray")
         if len(X) != len(self.dataset.channels):
             raise ValueError("X must be a list of shape (n,input_dims) for each channel")
-        X_orig = [channel_x.copy() for channel_x in X]
+        X = X.copy()
         for j, channel_x in enumerate(X):
             input_dims = self.dataset.get_input_dims()[j]
             if isinstance(channel_x, list):
@@ -241,12 +241,13 @@ class Model:
             raise ValueError("Y must be a list or numpy.ndarray")
         if len(Y) != len(self.dataset.channels):
             raise ValueError("Y must be a list of shape (n,) for each channel")
+        Y = Y.copy()
         for j, channel_y in enumerate(Y):
             if channel_y.ndim != 1:
                 raise ValueError("Y must be a list of shape (n,) for each channel")
             if channel_y.shape[0] != X[j].shape[0]:
                 raise ValueError("Y must have the same number of data points per channel as X")
-            Y[j] = self.dataset[j].Y.transform(channel_y, x=X_orig[j])
+            Y[j] = self.dataset[j].Y.transform(channel_y, x=X[j])
         if len(Y) == 0:
             y = np.array([])
         else:
@@ -291,7 +292,6 @@ class Model:
 
         if save:
             for j in range(self.dataset.get_output_dims()):
-                #self.dataset[j].X_pred = [Serie(X[j][:,i], self.dataset[j].X[i].transformers) for i in range(self.dataset[j].get_input_dims())]
                 self.dataset[j].Y_mu_pred[self.name] = Mu[j]
                 self.dataset[j].Y_var_pred[self.name] = Var[j]
         else:
@@ -301,34 +301,36 @@ class Model:
                 Lower.append(Mu[j] - sigma*np.sqrt(Var[j]))
                 Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
 
-            X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
             if transformed:
-                return X_pred, Mu, Lower, Upper
+                return X, Mu, Lower, Upper
             else:
+                X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
                 for j in range(self.dataset.get_output_dims()):
-                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
-                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
-                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X_pred[j])
+                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X_pred[j])
+                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X_pred[j])
                 return X, Mu, Lower, Upper
 
-    def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+    def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
         """
-        Plot the gram matrix of associated kernel.
-
-        The gram matrix is evaluated depending a equally spaced grid 
-        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
+        Plot each Data channel.
 
         Args:
-            xmin (float, list, array): Interval minimum.
-            xmax (float, list, array): Interval maximum.
-            n_points (int): Number of points per channel.
-            title (str): Figure title.
-            figsize (tuple): Figure size.
-        
+            title (str, optional): Set the title of the plot.
+            figsize (tuple, optional): Set the figure size.
+            legend (boolean, optional): Disable legend.
+            transformed (boolean, optional): Display transformed Y data as used for training.
+
         Returns:
-            fig: Matplotlib figure.
-            ax: Matplotlib axis.
+            matplotlib.figure.Figure: The figure.
+            list of matplotlib.axes.Axes: List of axes.
+
+        Examples:
+            >>> fig, axes = dataset.plot(title='Title')
         """
+        return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
+
+    def get_gram_matrix(self, xmin=None, xmax=None, n_points=31):
         if xmin is None:
             xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
         if xmax is None:
@@ -343,13 +345,37 @@ class Model:
         X = np.zeros((M*n_points, 2))
         X[:,0] = np.repeat(np.arange(M), n_points)
         for m in range(M):
-            X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+            if n_points == 1:
+                X[m*n_points:(m+1)*n_points,1] = np.array((xmin[m]+xmax[m])/2.0)
+            else:
+                X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+
+        return self.model.K(X)
+
+    def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+        """
+        Plot the gram matrix of associated kernel.
+
+        The gram matrix is evaluated depending a equally spaced grid 
+        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
+
+        Args:
+            xmin (float, list, array): Interval minimum.
+            xmax (float, list, array): Interval maximum.
+            n_points (int): Number of points per channel.
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            fig: Matplotlib figure.
+            ax: Matplotlib axis.
+        """
+        K_gram = self.get_gram_matrix(xmin, xmax, n_points)
             
         fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
         if title is not None:
             fig.suptitle(title, fontsize=18)
 
-        K_gram = self.model.K(X)
         color_range = np.abs(K_gram).max()
         norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
         im = ax.matshow(K_gram, cmap='coolwarm', norm=norm)
@@ -368,6 +394,5 @@ class Model:
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.tick_params(axis='both', which='both', length=0)
-
         return fig, ax
 

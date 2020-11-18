@@ -55,17 +55,23 @@ See [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://arxiv.org/abs/20
 
 **[04 - Model Training](https://github.com/GAMES-UChile/mogptk/blob/master/examples/04_Model_Training.ipynb)**: Training of models while keeping certain parameters fixed.
 
-**[05 - Error Metrics](https://github.com/GAMES-UChile/mogptk/blob/master/examples/05_Error_Metrics.ipynb)** Obtain different metrics to compare models.
+**[05 - Error Metrics](https://github.com/GAMES-UChile/mogptk/blob/master/examples/05_Error_Metrics.ipynb)** Obtain different metrics in order to compare models.
+
+**[06 - Custom Kernels](https://github.com/GAMES-UChile/mogptk/blob/master/examples/06_Custom_Kernels.ipynb)** Use or create custom kernels.
 
 ## Examples
 
+**[Airline passangers](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_airline_passengers.ipynb)**: Regression using a single output spectral mixture on the yearly number of passengers of an airline.
+
+**[Seasonal CO2 of Mauna-Loa](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_mauna_loa.ipynb)**: Regression using a single output spectral mixture on the CO2 concentration at Mauna-Loa throughout many years.
+
 **[Currency Exchange](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_currency_exchange.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchange rates (against the dollar) from 2017 and 2018. These 11 channels are fitted with the MOSM, SM-LMC, CSM, and CONV kernels and their results are compared and interpreted.
 
-**[Gold, Oil, NASDAQ, USD-index](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_GONU.ipynb)**: The commodity indices for gold and oil, together with the indices for the NASDAQ and the USD against a basket of other currencies, we train multiple models to find correlations between the macro economic indicators.
+**[Gold, Oil, NASDAQ, USD-index](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_gold_oil_NASDAQ_USD.ipynb)**: The commodity indices for gold and oil, together with the indices for the NASDAQ and the USD against a basket of other currencies, we train multiple models to find correlations between the macro economic indicators.
 
-**[Human Activity Recognition](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_HAR.ipynb)**: Using the Inertial Measurement Unit (IMU) of an Apple iPhone 4, the accelerometer, gyroscope and magnetometer 3D data were recorded for different activities resulting in nine channels.
+**[Human Activity Recognition](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_human_activity_recognition.ipynb)**: Using the Inertial Measurement Unit (IMU) of an Apple iPhone 4, the accelerometer, gyroscope and magnetometer 3D data were recorded for different activities resulting in nine channels.
 
-**[Seasonal CO2 and Airline passangers](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_single_output_spectral_mixture.ipynb)**: Regression for 2 datasets using a single output spectral mixture, first the Mauna Loa CO2 concentration and the second the passangers in a airline.
+**[Bramblemet tidal waves](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_bramblemet.ipynb)**: Tidal wave data set of four locations in the south of England. We model the tidal wave periods of approximately 12.5 hours using different multi-output Gaussian processes.
 
 ## Documentation
 See the [API documentation](https://games-uchile.github.io/mogptk/) for documentation of our toolkit, including usage and examples of functions and classes.

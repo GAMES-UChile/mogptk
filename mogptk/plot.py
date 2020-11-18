@@ -62,7 +62,7 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
     axes[output_dims-1,i].set_xlabel('Frequency')
 
     legends = []
-    legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Full'))
+    legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Total'))
     legends.append(plt.Line2D([0], [0], ls='--', color='k', label='Mixture'))
     legends.append(plt.Line2D([0], [0], ls='-', lw=2, color='silver', label='Peak location'))
     fig.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(h+0.4)/h), ncol=3)

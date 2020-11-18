@@ -69,7 +69,7 @@ def prediction_error(dataset, all_obs=False, disp=False):
     else:
         return errors
 
-def error(*models, X, Y, per_channel=False, disp=False):
+def error(*models, X=None, Y=None, per_channel=False, disp=False):
     """
     Return test errors given a model and test set. The function assumes all models have been trained and all models share equal number of inputs and outputs (channels).
 
@@ -91,6 +91,8 @@ def error(*models, X, Y, per_channel=False, disp=False):
     """
     if len(models) == 0:
         raise ValueError("must pass models")
+    elif len(models) == 1 and X is None and Y is None:
+        X, Y = models[0].dataset.get_test_data()
     output_dims = models[0].dataset.get_output_dims()
     if not isinstance(X, list):
         X = [X] * output_dims

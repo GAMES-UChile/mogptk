@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -518,7 +520,7 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='LBFGS', iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False):
         """
         Peaks estimation using the Spectral Mixture kernel.
 
@@ -565,6 +567,44 @@ class DataSet:
         for channel in self.channels:
             channel.transform(transformer)
 
+    def filter(self, start, end):
+        """
+        Filter the data range to be between start and end.
+
+        Args:
+            start (float, str): Start of interval.
+            end (float, str): End of interval.
+
+        Examples:
+            >>> dataset.filter(3, 8)
+
+            >>> dataset.filter('2016-01-15', '2016-06-15')
+        """
+        for channel in self.channels:
+            channel.filter(start, end)
+
+    def aggregate(self, duration, f=np.mean):
+        """
+        Aggregate the data by duration and apply a function to obtain a reduced dataset.
+
+        For example, group daily data by week and take the mean.
+        The duration can be set as a number which defined the intervals on the X axis,
+        or by a string written in the duration format with:
+        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
+        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+
+        Args:
+            duration (float, str): Duration along the X axis or as a string in the duration format.
+            f (function, optional): Function to use to reduce data, by default uses np.mean.
+
+        Examples:
+            >>> dataset.aggregate(5)
+
+            >>> dataset.aggregate('2w', f=np.sum)
+        """
+        for channel in self.channels:
+            channel.aggregate(duration, f)
+
     def copy(self):
         """
         Make a deep copy of DataSet.
@@ -577,13 +617,13 @@ class DataSet:
         """
         return copy.deepcopy(self)
 
-    def plot(self, title=None, pred=None, figsize=None, legend=True, transformed=False):
+    def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
         """
         Plot each Data channel.
 
         Args:
+            pred (str, optional): Specify model name to draw.
             title (str, optional): Set the title of the plot.
-            pred (std, optional): Specify model name to draw.
             figsize (tuple, optional): Set the figure size.
             legend (boolean, optional): Disable legend.
             transformed (boolean, optional): Display transformed Y data as used for training.
@@ -607,7 +647,7 @@ class DataSet:
             legend = ax.get_legend()
             for text, handle in zip(legend.texts, legend.legendHandles):
                 if text.get_text() == "Training Points":
-                    handle.set_marker('.')
+                    handle = plt.Line2D([0], [0], ls='-', color='k', marker='.', ms=10, label='Training Points')
                 legends[text.get_text()] = handle
             legend.remove()
 

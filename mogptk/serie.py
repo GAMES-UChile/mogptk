@@ -179,9 +179,6 @@ class Serie(np.ndarray):
             return ''
         return unit[locBracket+1:-1]
 
-    def get_transformed(self):
-        return self.transformed
-
     def transform(self, array, x=None):
         array = array.astype(self.dtype).astype(np.float64)
         for t in self.transformers:
