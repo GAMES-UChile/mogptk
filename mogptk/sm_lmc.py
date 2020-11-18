@@ -1,8 +1,7 @@
 import numpy as np
 
-from .config import logger
 from .dataset import DataSet
-from .model import Model, Exact
+from .model import Model, Exact, logger
 from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
 
 class SM_LMC(Model):
@@ -63,17 +62,13 @@ class SM_LMC(Model):
     
     def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
         """
-        Initialize kernel parameters.
+        Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
-        The initialization can be done in two ways, the first by estimating the PSD via 
-        BNSE (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum,
-        the peaks position, magnitude and width initialize the mean, magnitude and variance
-        of the kernel respectively.
-        The second way is by fitting independent Gaussian process for each channel, each one
-        with SM kernel, using the fitted parameters for initial values of the multioutput kernel.
+        - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak's position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
+        - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
+        - SM fits independent Gaussian processes for each channel, each one with a spectral mixture kernel, and uses the fitted parameters as initial values for the multi-output kernel.
 
-        In all cases the noise is initialized with 1/30 of the variance 
-        of each channel.
+        In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Args:
             method (str, optional): Method of estimation, such as BNSE, LS, or SM.

@@ -1,14 +1,13 @@
 import numpy as np
 
-from .config import logger
 from .dataset import DataSet
-from .model import Model, Exact
+from .model import Model, Exact, logger
 from .kernels import SpectralKernel, IndependentMultiOutputKernel, MixtureKernel
 from .plot import plot_spectrum
 
 class SM(Model):
     """
-    An independent spectral mixture kernel as proposed by [1] per channel. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
+    Independent Spectral Mixture kernels per channel. The spectral mixture kernel is proposed by [1]. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
 
     Args:
         dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
@@ -52,18 +51,18 @@ class SM(Model):
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
-    def init_parameters(self, method='BNSE', noise=False):
+    def init_parameters(self, method='BNSE'):
         """
-        Initialize parameters of kernel from the data.
+        Estimate kernel parameters from the data set. The initialization can be done using three methods:
+
+        - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak's position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
+        - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
+        - IPS uses independent parameter sampling from the PhD thesis of Andrew Wilson 2014. It takes the inverse of the lengthscales drawn from a truncated Gaussian N(0, max_dist^2), the means drawn from a Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the y values divided by the number of mixtures.
+
+        In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Arguments:
             method (str, optional): Method of estimation, such as IPS, LS, or BNSE.
-            noise (boolean, optional): Add noise of std.dev. equal to 1/10th of the estimated value.
-
-        Methods:
-            IPS: Independent parameter sampling (from the PhD thesis of Andrew Wilson 2014) takes the inverse of lengthscales drawn from truncated Gaussian N(0, max_dist^2), the means drawn from Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the y values divided by the number of mixtures.
-            LS: Uses Lomb Scargle periodogram for estimating the PSD, and using the first Q peaks as the means and mixture weights.
-            BNSE: Uses the BNSE (Tobar 2018) to estimate the PSD and use the first Q peaks as the means and mixture weights.
         """
 
         input_dims = self.dataset.get_input_dims()
@@ -99,7 +98,7 @@ class SM(Model):
                 return
 
         #if noise:
-        #    # TODO: what is this? check noise for all kernels
+        #    # TODO: remove this and set noise parameter to 1/30
         #    pct = 1/30.0
         #    # noise proportional to the values
         #    noise_amp = np.random.multivariate_normal(

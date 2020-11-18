@@ -12,7 +12,7 @@ import matplotlib.patches as patches
 from pandas.plotting import register_matplotlib_converters
 
 from .bnse import bse
-from .config import logger
+from .model import logger
 from .serie import Serie, TransformLinear
 
 register_matplotlib_converters()

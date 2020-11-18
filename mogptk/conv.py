@@ -1,8 +1,7 @@
 import numpy as np
 
-from .config import logger
 from .dataset import DataSet
-from .model import Model, Exact
+from .model import Model, Exact, logger
 from .kernels import GaussianConvolutionProcessKernel, MixtureKernel
 
 class CONV(Model):
@@ -60,13 +59,13 @@ class CONV(Model):
 
     def init_parameters(self, method='SM', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
         """
-        Initialize kernel parameters, variance and mixture weights. 
+        Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
-        The initialization is done fitting a single output GP with Sepectral mixture (SM)
-        kernel for each channel with spectral means fixed to 0 for all Q.
+        - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak's position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
+        - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
+        - SM fits independent Gaussian processes for each channel, each one with a spectral mixture kernel, and uses the fitted parameters as initial values for the multi-output kernel.
 
-        In all cases the noise is initialized with 1/30 of the variance 
-        for each channel.
+        In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Args:
             method (str, optional): Method of estimation, such as BNSE, LS, or SM.
@@ -78,25 +77,6 @@ class CONV(Model):
         """
 
         output_dims = self.dataset.get_output_dims()
-
-        #for j in range(output_dims):
-        #    input_dims = self.dataset[j].get_input_dims()
-        #    x, y = self.dataset[j].get_train_data(transformed=True)
-        #    dx = np.zeros((input_dims,))
-        #    dy = np.zeros((input_dims,))
-        #    for i in range(input_dims):
-        #        idx = np.argsort(x[:,i])
-        #        xx = x[idx,i]
-        #        yy = y[idx]
-        #        dxx = np.abs(xx[1:]-xx[:-1])
-        #        dxx /= np.count_nonzero(dxx)
-        #        dx[i] = np.sum(dxx)
-        #        dyy = np.abs(yy[1:]-yy[:-1])
-        #        dyy /= np.count_nonzero(dyy)
-        #        dy[i] = np.sum(dyy)
-        #    print('sigma', dx.mean())
-        #    print('l', dy.mean())
-        #    print('noise', 0.5*dy.mean() + 0.5*np.min(dy))
 
         # TODO: doesn't work well
         if not method.lower() in ['bnse', 'ls', 'sm']:

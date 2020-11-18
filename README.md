@@ -88,20 +88,17 @@ This is a list of users of this toolbox, feel free to add your project!
 We accept and encourage contributions to the toolkit in the form of pull requests (PRs), bug reports and discussions (GitHub issues). It is adviced to start an open discussion before proposing large PRs. For small PRs we suggest that they address only one issue or add one new feature. All PRs should keep documentation and notebooks up to date.
 
 ## Citing
-Please use our publication at arXiv to cite our toolkit: [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://arxiv.org/abs/2002.03471). We recommend the following BiBTeX entry:
+Please use our publication at arXiv to cite our toolkit: [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://doi.org/10.1016/j.neucom.2020.09.085). We recommend the following BibTeX entry:
 
 ```
 @article{mogptk,
-       author = {T. {de Wolff} and A. {Cuevas} and F. {Tobar}},
-        title = {{MOGPTK: The Multi-Output Gaussian Process Toolkit}},
-      journal = {arXiv e-prints},
-         year = {2020},
-          eid = {arXiv:2002.03471},
-        pages = {arXiv:2002.03471},
-archivePrefix = {arXiv},
-       eprint = {2002.03471},
- primaryClass = {stat.ML},
-          url = {https://github.com/GAMES-UChile/mogptk},
+    author = {T. {de Wolff} and A. {Cuevas} and F. {Tobar}},
+    title = {{MOGPTK: The Multi-Output Gaussian Process Toolkit}},
+    journal = "Neurocomputing",
+    year = "2020",
+    issn = "0925-2312",
+    doi = "https://doi.org/10.1016/j.neucom.2020.09.085",
+    url = "https://github.com/GAMES-UChile/mogptk"
 }
 ```
 

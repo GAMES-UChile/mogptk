@@ -2,14 +2,13 @@ from setuptools import setup
 from os import path
 
 requirements = [
-    'numpy>=1.10',
-    'torch',
     'matplotlib>=3.3.0',
-    'scipy>=0.18',
+    'numpy>=1.10',
     'pandas',
     'python-dateutil',
+    'scipy>=0.18',
     'seaborn',  # only used by bnse.py
-    'scikit-learn',  # only used by errors.py
+    'torch',
 ]
 
 this_directory = path.abspath(path.dirname(__file__))

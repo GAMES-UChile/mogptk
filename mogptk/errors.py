@@ -1,17 +1,36 @@
 import numpy as np
 import pandas as pd
-from sklearn import metrics  # TODO: remove dependency on sklearn?
 
-def mean_absolute_percentage_error(y_true, y_pred):
+def _check_arrays(y_true, y_pred):
     y_true, y_pred = np.array(y_true), np.array(y_pred)
     idx = np.nonzero(y_true)
-    y_true, y_pred = y_true[idx], y_pred[idx]
+    return y_true[idx], y_pred[idx]
+
+def mean_absolute_error(y_true, y_pred):
+    """
+    Mean Absolute Error (MAE) between the true and the predicted values.
+    """
+    y_true, y_pred = _check_arrays(y_true, y_pred)
+    return np.mean(np.abs(y_true - y_pred))
+
+def root_mean_squared_error(y_true, y_pred):
+    """
+    Root Mean Squared Error (RMSE) between the true and the predicted values.
+    """
+    y_true, y_pred = _check_arrays(y_true, y_pred)
+    return np.sqrt(np.mean((y_true - y_pred)^2))
+
+def mean_absolute_percentage_error(y_true, y_pred):
+    """
+    Mean Absolute Percentage Error (MAPE) between the true and the predicted values.
+    """
+    y_true, y_pred = _check_arrays(y_true, y_pred)
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
 # TODO: use relative error per channel
 def prediction_error(dataset, all_obs=False, disp=False):
     """
-    Return error metrics for the predictions on the dataset (MAE, MSE, MAPE) by comparing the removed observations from the predicted means. The predicted values are interpolated linearly to match the X position of the removed observations. However, if a latent function is defined in the data then this will be used instead as the true values.
+    Return error metrics for the predictions on the dataset (MAE, RMSE, MAPE) by comparing the removed observations from the predicted means. The predicted values are interpolated linearly to match the X position of the removed observations. However, if a latent function is defined for the data then this will be used instead as the true values.
 
     Args:
         dataset (mogptk.DataSet): Data set containing predictions to evaluate.
@@ -19,7 +38,7 @@ def prediction_error(dataset, all_obs=False, disp=False):
         disp (boolean, optional): Display errors instead of returning them.
     
     Returns:
-        errors (dict): Dictionary with lists of ndarrays containing different error metrics per model, per channel. The dictionary has three keys, 'Name' which contains the model name; 'MAE' contains mean absolute error; 'MSE' mean squared error; 'MAPE' mean absolute percentage error.
+        errors (list): List of dictionaries per model, containing numpy.ndarrays for each error metric. The dictionary has the following keys: Name which contains the model name, MAE contains the mean absolute error, MAPE the mean absolute percentage error, and RMSE the root mean squared error.
 
     """
     if dataset.get_output_dims() == 0:
@@ -57,9 +76,9 @@ def prediction_error(dataset, all_obs=False, disp=False):
             
         errors.append({
             "Name": name,
-            "MAE": metrics.mean_absolute_error(Y_true, Y_pred),
-            "RMSE": metrics.mean_squared_error(Y_true, Y_pred, squared=False),
+            "MAE": mean_absolute_error(Y_true, Y_pred),
             "MAPE": mean_absolute_percentage_error(Y_true, Y_pred),
+            "RMSE": root_mean_squared_error(Y_true, Y_pred),
         })
 
     if disp:
@@ -71,7 +90,7 @@ def prediction_error(dataset, all_obs=False, disp=False):
 
 def error(*models, X=None, Y=None, per_channel=False, disp=False):
     """
-    Return test errors given a model and test set. The function assumes all models have been trained and all models share equal number of inputs and outputs (channels).
+    Return test errors given a model and a test set. The function assumes all models have been trained and all models share equal numbers of inputs and outputs (channels). If X and Y are not passed and only one model is given, than the dataset's test data of the model is used.
 
     Args:
         models (list of mogptk.model): Trained model to evaluate, can be more than one
@@ -81,13 +100,11 @@ def error(*models, X=None, Y=None, per_channel=False, disp=False):
         disp (boolean, optional): Display errors instead of returning them.
 
     Returns:
-        List with length equal to the number of models, each element contains a list of length of the output dim and each element is an array with the errors.
+        List with length equal to the number of models (times the number of channels if per_channel is given), each element containing a dictionary with the following keys: Name which contains the model name, MAE contains the mean absolute error, MAPE the mean absolute percentage error, and RMSE the root mean squared error.
 
     Example:
-        Given model1, model2, x_test, y_test of correct format.
-
-        >>> errors = mogptk.test_errors(model1, model2, X_true, Y_true)
-        >>> errors[i][j]  # numpy array with errors from model 'i' at channel 'j'
+        >>> errors = mogptk.test_errors(model1, model2, X_true, Y_true, per_channel=True)
+        >>> errors[i][j]  # error metrics for model i and channel j
     """
     if len(models) == 0:
         raise ValueError("must pass models")
@@ -113,9 +130,9 @@ def error(*models, X=None, Y=None, per_channel=False, disp=False):
             for i in range(model.dataset.get_output_dims()):
                 model_errors.append({
                     "Name": model.name + " channel " + str(i),
-                    "MAE": metrics.mean_absolute_error(Y_true[i], Y_pred[i]),
-                    "RMSE": metrics.mean_squared_error(Y_true[i], Y_pred[i], squared=False),
+                    "MAE": mean_absolute_error(Y_true[i], Y_pred[i]),
                     "MAPE": mean_absolute_percentage_error(Y_true[i], Y_pred[i]),
+                    "RMSE": root_mean_squared_error(Y_true[i], Y_pred[i]),
                 })
             errors.append(model_errors)
         else:
@@ -123,9 +140,9 @@ def error(*models, X=None, Y=None, per_channel=False, disp=False):
             Ys_pred = [item for sublist in Y_pred for item in sublist]
             errors.append({
                 "Name": model.name,
-                "MAE": metrics.mean_absolute_error(Ys_true, Ys_pred),
-                "RMSE": metrics.mean_squared_error(Ys_true, Ys_pred, squared=False),
+                "MAE": mean_absolute_error(Ys_true, Ys_pred),
                 "MAPE": mean_absolute_percentage_error(Ys_true, Ys_pred),
+                "RMSE": root_mean_squared_error(Ys_true, Ys_pred),
             })
 
     if disp:

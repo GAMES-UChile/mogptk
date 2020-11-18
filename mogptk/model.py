@@ -3,14 +3,16 @@ import time
 import pickle
 import numpy as np
 import torch
+import logging
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from .config import logger
 from .serie import Serie
 from .dataset import DataSet
 from .kernels import GPR
+
+logger = logging.getLogger('mogptk')
 
 def LoadModel(filename):
     """
@@ -33,10 +35,13 @@ class Exact:
 class Model:
     def __init__(self, dataset, kernel, model=Exact(), name=None):
         """
-        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+        ---
+        Model is the base class for multi-output Gaussian process models.
 
         Args:
             dataset (mogptk.dataset.DataSet, mogptk.data.Data): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+            kernel (mogptk.kernels.Kernel): The kernel class.
+            model: Gaussian Process model to use, such as mogptk.Exact.
             name (str): Name of the model.
         """
         
