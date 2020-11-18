@@ -179,7 +179,7 @@ class Model:
 
         if verbose:
             elapsed_time = time.time() - inital_time
-            print('\nOptimization finished in {:.2f} minutes'.format(elapsed_time / 60.0))
+            print('\nOptimization finished in {}'.format(_format_duration(elapsed_time)))
             print('‣ Function evaluations: {}'.format(iters))
             print('‣ Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
 
@@ -381,6 +381,7 @@ class Model:
         fig.colorbar(im, cax=cax)
 
         # Major ticks every 20, minor ticks every 5
+        M = len(self.dataset)
         major_ticks = np.arange(-0.5, M * n_points, n_points)
         minor_ticks = np.arange(-0.5, M * n_points, 2)
 
@@ -392,3 +393,30 @@ class Model:
         ax.tick_params(axis='both', which='both', length=0)
         return fig, ax
 
+def _format_duration(s):
+    s = round(s)
+    days = int(s/86400)
+    hours = int(s%86400/3600)
+    minutes = int(s%3600/60)
+    seconds = int(s%60)
+
+    duration = ''
+    if 1 < days:
+        duration += ' %d days' % days
+    elif days == 1:
+        duration += ' 1 day'
+    if 1 < hours:
+        duration += ' %d hours' % hours
+    elif hours == 1:
+        duration += ' 1 hour'
+    if 1 < minutes:
+        duration += ' %d minutes' % minutes
+    elif minutes == 1:
+        duration += ' 1 minute'
+    if 1 < seconds:
+        duration += ' %d seconds' % seconds
+    elif days == 1:
+        duration += ' 1 second'
+    else:
+        duration += ' less than one second'
+    return duration[1:]

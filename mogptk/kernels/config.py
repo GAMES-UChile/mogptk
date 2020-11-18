@@ -34,9 +34,11 @@ def print_gpu_information():
         return
 
     print("CUDA is available:")
-    current = config.device.index
+    current = None
+    if config.device.type == 'cuda':
+        current = config.device.index
     for n in range(torch.cuda.device_count()):
-        print("%2d  %s%s", n, torch.cuda.get_device_name(n), " (default)" if n == default else "")
+        print("%2d  %s%s" % (n, torch.cuda.get_device_name(n), " (selected)" if n == current else ""))
 
 def set_positive_minimum(val):
     config.positive_minimum = val

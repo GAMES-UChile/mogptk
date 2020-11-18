@@ -3,7 +3,7 @@ from os import path
 
 requirements = [
     'numpy>=1.10',
-    'pytorch',
+    'torch',
     'matplotlib>=3.3.0',
     'scipy>=0.18',
     'pandas',
