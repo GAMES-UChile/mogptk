@@ -25,25 +25,21 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L0-L372" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L0-L421" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import time
 import pickle
 import numpy as np
 import torch
+import matplotlib
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+from .config import logger
 from .serie import Serie
 from .dataset import DataSet
 from .kernels import GPR
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-import logging
-logger = logging.getLogger(&#39;mogptk&#39;)
-
-eps = 1e-20
 
 def LoadModel(filename):
     &#34;&#34;&#34;
@@ -212,7 +208,7 @@ class Model:
 
         if verbose:
             elapsed_time = time.time() - inital_time
-            print(&#39;\nOptimization finished in {:.2f} minutes&#39;.format(elapsed_time / 60.0))
+            print(&#39;\nOptimization finished in {}&#39;.format(_format_duration(elapsed_time)))
             print(&#39;‣ Function evaluations: {}&#39;.format(iters))
             print(&#39;‣ Final NLL: {:.3f}&#39;.format(-self.model.log_marginal_likelihood().tolist()))
 
@@ -241,7 +237,7 @@ class Model:
             raise ValueError(&#34;X must be a list, dict or numpy.ndarray&#34;)
         if len(X) != len(self.dataset.channels):
             raise ValueError(&#34;X must be a list of shape (n,input_dims) for each channel&#34;)
-        X_orig = [channel_x.copy() for channel_x in X]
+        X = X.copy()
         for j, channel_x in enumerate(X):
             input_dims = self.dataset.get_input_dims()[j]
             if isinstance(channel_x, list):
@@ -270,12 +266,13 @@ class Model:
             raise ValueError(&#34;Y must be a list or numpy.ndarray&#34;)
         if len(Y) != len(self.dataset.channels):
             raise ValueError(&#34;Y must be a list of shape (n,) for each channel&#34;)
+        Y = Y.copy()
         for j, channel_y in enumerate(Y):
             if channel_y.ndim != 1:
                 raise ValueError(&#34;Y must be a list of shape (n,) for each channel&#34;)
             if channel_y.shape[0] != X[j].shape[0]:
                 raise ValueError(&#34;Y must have the same number of data points per channel as X&#34;)
-            Y[j] = self.dataset[j].Y.transform(channel_y, x=X_orig[j])
+            Y[j] = self.dataset[j].Y.transform(channel_y, x=X[j])
         if len(Y) == 0:
             y = np.array([])
         else:
@@ -320,7 +317,6 @@ class Model:
 
         if save:
             for j in range(self.dataset.get_output_dims()):
-                #self.dataset[j].X_pred = [Serie(X[j][:,i], self.dataset[j].X[i].transformers) for i in range(self.dataset[j].get_input_dims())]
                 self.dataset[j].Y_mu_pred[self.name] = Mu[j]
                 self.dataset[j].Y_var_pred[self.name] = Var[j]
         else:
@@ -330,34 +326,36 @@ class Model:
                 Lower.append(Mu[j] - sigma*np.sqrt(Var[j]))
                 Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
 
-            X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
             if transformed:
-                return X_pred, Mu, Lower, Upper
+                return X, Mu, Lower, Upper
             else:
+                X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
                 for j in range(self.dataset.get_output_dims()):
-                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
-                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
-                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X_pred[j])
+                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X_pred[j])
+                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X_pred[j])
                 return X, Mu, Lower, Upper
 
-    def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+    def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
         &#34;&#34;&#34;
-        Plot the gram matrix of associated kernel.
-
-        The gram matrix is evaluated depending a equally spaced grid 
-        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
+        Plot each Data channel.
 
         Args:
-            xmin (float, list, array): Interval minimum.
-            xmax (float, list, array): Interval maximum.
-            n_points (int): Number of points per channel.
-            title (str): Figure title.
-            figsize (tuple): Figure size.
-        
+            title (str, optional): Set the title of the plot.
+            figsize (tuple, optional): Set the figure size.
+            legend (boolean, optional): Disable legend.
+            transformed (boolean, optional): Display transformed Y data as used for training.
+
         Returns:
-            fig: Matplotlib figure.
-            ax: Matplotlib axis.
+            matplotlib.figure.Figure: The figure.
+            list of matplotlib.axes.Axes: List of axes.
+
+        Examples:
+            &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
         &#34;&#34;&#34;
+        return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
+
+    def get_gram_matrix(self, xmin=None, xmax=None, n_points=31):
         if xmin is None:
             xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
         if xmax is None:
@@ -372,15 +370,39 @@ class Model:
         X = np.zeros((M*n_points, 2))
         X[:,0] = np.repeat(np.arange(M), n_points)
         for m in range(M):
-            X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+            if n_points == 1:
+                X[m*n_points:(m+1)*n_points,1] = np.array((xmin[m]+xmax[m])/2.0)
+            else:
+                X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+
+        return self.model.K(X)
+
+    def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+        &#34;&#34;&#34;
+        Plot the gram matrix of associated kernel.
+
+        The gram matrix is evaluated depending a equally spaced grid 
+        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
+
+        Args:
+            xmin (float, list, array): Interval minimum.
+            xmax (float, list, array): Interval maximum.
+            n_points (int): Number of points per channel.
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            fig: Matplotlib figure.
+            ax: Matplotlib axis.
+        &#34;&#34;&#34;
+        K_gram = self.get_gram_matrix(xmin, xmax, n_points)
             
         fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
         if title is not None:
             fig.suptitle(title, fontsize=18)
 
-        K_gram = self.model.K(X)
         color_range = np.abs(K_gram).max()
-        norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
+        norm = matplotlib.colors.Normalize(vmin=-color_range, vmax=color_range)
         im = ax.matshow(K_gram, cmap=&#39;coolwarm&#39;, norm=norm)
 
         divider = make_axes_locatable(ax)
@@ -388,6 +410,7 @@ class Model:
         fig.colorbar(im, cax=cax)
 
         # Major ticks every 20, minor ticks every 5
+        M = len(self.dataset)
         major_ticks = np.arange(-0.5, M * n_points, n_points)
         minor_ticks = np.arange(-0.5, M * n_points, 2)
 
@@ -397,8 +420,35 @@ class Model:
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.tick_params(axis=&#39;both&#39;, which=&#39;both&#39;, length=0)
+        return fig, ax
 
-        return fig, ax</code></pre>
+def _format_duration(s):
+    s = round(s)
+    days = int(s/86400)
+    hours = int(s%86400/3600)
+    minutes = int(s%3600/60)
+    seconds = int(s%60)
+
+    duration = &#39;&#39;
+    if 1 &lt; days:
+        duration += &#39; %d days&#39; % days
+    elif days == 1:
+        duration += &#39; 1 day&#39;
+    if 1 &lt; hours:
+        duration += &#39; %d hours&#39; % hours
+    elif hours == 1:
+        duration += &#39; 1 hour&#39;
+    if 1 &lt; minutes:
+        duration += &#39; %d minutes&#39; % minutes
+    elif minutes == 1:
+        duration += &#39; 1 minute&#39;
+    if 1 &lt; seconds:
+        duration += &#39; %d seconds&#39; % seconds
+    elif days == 1:
+        duration += &#39; 1 second&#39;
+    else:
+        duration += &#39; less than one second&#39;
+    return duration[1:]</code></pre>
 </details>
 </section>
 <section>
@@ -424,7 +474,7 @@ class Model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L19-L31" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L15-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -454,7 +504,7 @@ class Model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L33-L35" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L29-L31" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     def build(self, kernel, x, y, name=None):
@@ -470,7 +520,7 @@ class Model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L34-L35" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L30-L31" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def build(self, kernel, x, y, name=None):
     return GPR(kernel, x, y, name=name)</code></pre>
@@ -494,7 +544,7 @@ class Model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L37-L372" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L33-L394" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, model=Exact(), name=None):
@@ -645,7 +695,7 @@ class Model:
 
         if verbose:
             elapsed_time = time.time() - inital_time
-            print(&#39;\nOptimization finished in {:.2f} minutes&#39;.format(elapsed_time / 60.0))
+            print(&#39;\nOptimization finished in {}&#39;.format(_format_duration(elapsed_time)))
             print(&#39;‣ Function evaluations: {}&#39;.format(iters))
             print(&#39;‣ Final NLL: {:.3f}&#39;.format(-self.model.log_marginal_likelihood().tolist()))
 
@@ -674,7 +724,7 @@ class Model:
             raise ValueError(&#34;X must be a list, dict or numpy.ndarray&#34;)
         if len(X) != len(self.dataset.channels):
             raise ValueError(&#34;X must be a list of shape (n,input_dims) for each channel&#34;)
-        X_orig = [channel_x.copy() for channel_x in X]
+        X = X.copy()
         for j, channel_x in enumerate(X):
             input_dims = self.dataset.get_input_dims()[j]
             if isinstance(channel_x, list):
@@ -703,12 +753,13 @@ class Model:
             raise ValueError(&#34;Y must be a list or numpy.ndarray&#34;)
         if len(Y) != len(self.dataset.channels):
             raise ValueError(&#34;Y must be a list of shape (n,) for each channel&#34;)
+        Y = Y.copy()
         for j, channel_y in enumerate(Y):
             if channel_y.ndim != 1:
                 raise ValueError(&#34;Y must be a list of shape (n,) for each channel&#34;)
             if channel_y.shape[0] != X[j].shape[0]:
                 raise ValueError(&#34;Y must have the same number of data points per channel as X&#34;)
-            Y[j] = self.dataset[j].Y.transform(channel_y, x=X_orig[j])
+            Y[j] = self.dataset[j].Y.transform(channel_y, x=X[j])
         if len(Y) == 0:
             y = np.array([])
         else:
@@ -753,7 +804,6 @@ class Model:
 
         if save:
             for j in range(self.dataset.get_output_dims()):
-                #self.dataset[j].X_pred = [Serie(X[j][:,i], self.dataset[j].X[i].transformers) for i in range(self.dataset[j].get_input_dims())]
                 self.dataset[j].Y_mu_pred[self.name] = Mu[j]
                 self.dataset[j].Y_var_pred[self.name] = Var[j]
         else:
@@ -763,34 +813,36 @@ class Model:
                 Lower.append(Mu[j] - sigma*np.sqrt(Var[j]))
                 Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
 
-            X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
             if transformed:
-                return X_pred, Mu, Lower, Upper
+                return X, Mu, Lower, Upper
             else:
+                X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
                 for j in range(self.dataset.get_output_dims()):
-                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
-                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
-                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X_pred[j])
+                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X_pred[j])
+                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X_pred[j])
                 return X, Mu, Lower, Upper
 
-    def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+    def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
         &#34;&#34;&#34;
-        Plot the gram matrix of associated kernel.
-
-        The gram matrix is evaluated depending a equally spaced grid 
-        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
+        Plot each Data channel.
 
         Args:
-            xmin (float, list, array): Interval minimum.
-            xmax (float, list, array): Interval maximum.
-            n_points (int): Number of points per channel.
-            title (str): Figure title.
-            figsize (tuple): Figure size.
-        
+            title (str, optional): Set the title of the plot.
+            figsize (tuple, optional): Set the figure size.
+            legend (boolean, optional): Disable legend.
+            transformed (boolean, optional): Display transformed Y data as used for training.
+
         Returns:
-            fig: Matplotlib figure.
-            ax: Matplotlib axis.
+            matplotlib.figure.Figure: The figure.
+            list of matplotlib.axes.Axes: List of axes.
+
+        Examples:
+            &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
         &#34;&#34;&#34;
+        return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
+
+    def get_gram_matrix(self, xmin=None, xmax=None, n_points=31):
         if xmin is None:
             xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
         if xmax is None:
@@ -805,15 +857,39 @@ class Model:
         X = np.zeros((M*n_points, 2))
         X[:,0] = np.repeat(np.arange(M), n_points)
         for m in range(M):
-            X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+            if n_points == 1:
+                X[m*n_points:(m+1)*n_points,1] = np.array((xmin[m]+xmax[m])/2.0)
+            else:
+                X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+
+        return self.model.K(X)
+
+    def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+        &#34;&#34;&#34;
+        Plot the gram matrix of associated kernel.
+
+        The gram matrix is evaluated depending a equally spaced grid 
+        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
+
+        Args:
+            xmin (float, list, array): Interval minimum.
+            xmax (float, list, array): Interval maximum.
+            n_points (int): Number of points per channel.
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            fig: Matplotlib figure.
+            ax: Matplotlib axis.
+        &#34;&#34;&#34;
+        K_gram = self.get_gram_matrix(xmin, xmax, n_points)
             
         fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
         if title is not None:
             fig.suptitle(title, fontsize=18)
 
-        K_gram = self.model.K(X)
         color_range = np.abs(K_gram).max()
-        norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
+        norm = matplotlib.colors.Normalize(vmin=-color_range, vmax=color_range)
         im = ax.matshow(K_gram, cmap=&#39;coolwarm&#39;, norm=norm)
 
         divider = make_axes_locatable(ax)
@@ -821,6 +897,7 @@ class Model:
         fig.colorbar(im, cax=cax)
 
         # Major ticks every 20, minor ticks every 5
+        M = len(self.dataset)
         major_ticks = np.arange(-0.5, M * n_points, n_points)
         minor_ticks = np.arange(-0.5, M * n_points, 2)
 
@@ -830,7 +907,6 @@ class Model:
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.tick_params(axis=&#39;both&#39;, which=&#39;both&#39;, length=0)
-
         return fig, ax</code></pre>
 </details>
 <h3>Subclasses</h3>
@@ -843,6 +919,39 @@ class Model:
 </ul>
 <h3>Methods</h3>
 <dl>
+<dt id="mogptk.model.Model.get_gram_matrix"><code class="name flex">
+<span>def <span class="ident">get_gram_matrix</span></span>(<span>self, xmin=None, xmax=None, n_points=31)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L329-L349" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def get_gram_matrix(self, xmin=None, xmax=None, n_points=31):
+    if xmin is None:
+        xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
+    if xmax is None:
+        xmax = [np.array(data.X[0].transformed).max() for data in self.dataset]
+
+    M = len(self.dataset)
+    if not isinstance(xmin, (list, np.ndarray)):
+        xmin = [xmin] * M
+    if not isinstance(xmax, (list, np.ndarray)):
+        xmax = [xmax] * M
+
+    X = np.zeros((M*n_points, 2))
+    X[:,0] = np.repeat(np.arange(M), n_points)
+    for m in range(M):
+        if n_points == 1:
+            X[m*n_points:(m+1)*n_points,1] = np.array((xmin[m]+xmax[m])/2.0)
+        else:
+            X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+
+    return self.model.K(X)</code></pre>
+</details>
+</dd>
 <dt id="mogptk.model.Model.get_parameters"><code class="name flex">
 <span>def <span class="ident">get_parameters</span></span>(<span>self)</span>
 </code></dt>
@@ -854,7 +963,7 @@ class Model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L84-L91" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L80-L87" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -874,7 +983,7 @@ class Model:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L111-L112" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L107-L108" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     return self.model.log_marginal_likelihood().detach().item()</code></pre>
@@ -910,7 +1019,7 @@ between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L314-L372" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L351-L394" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -925,34 +1034,19 @@ between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
         n_points (int): Number of points per channel.
         title (str): Figure title.
         figsize (tuple): Figure size.
-    
+
     Returns:
         fig: Matplotlib figure.
         ax: Matplotlib axis.
     &#34;&#34;&#34;
-    if xmin is None:
-        xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
-    if xmax is None:
-        xmax = [np.array(data.X[0].transformed).max() for data in self.dataset]
-
-    M = len(self.dataset)
-    if not isinstance(xmin, (list, np.ndarray)):
-        xmin = [xmin] * M
-    if not isinstance(xmax, (list, np.ndarray)):
-        xmax = [xmax] * M
-
-    X = np.zeros((M*n_points, 2))
-    X[:,0] = np.repeat(np.arange(M), n_points)
-    for m in range(M):
-        X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+    K_gram = self.get_gram_matrix(xmin, xmax, n_points)
         
     fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
     if title is not None:
         fig.suptitle(title, fontsize=18)
 
-    K_gram = self.model.K(X)
     color_range = np.abs(K_gram).max()
-    norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
+    norm = matplotlib.colors.Normalize(vmin=-color_range, vmax=color_range)
     im = ax.matshow(K_gram, cmap=&#39;coolwarm&#39;, norm=norm)
 
     divider = make_axes_locatable(ax)
@@ -960,6 +1054,7 @@ between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
     fig.colorbar(im, cax=cax)
 
     # Major ticks every 20, minor ticks every 5
+    M = len(self.dataset)
     major_ticks = np.arange(-0.5, M * n_points, n_points)
     minor_ticks = np.arange(-0.5, M * n_points, 2)
 
@@ -969,8 +1064,54 @@ between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
     ax.set_xticklabels([])
     ax.set_yticklabels([])
     ax.tick_params(axis=&#39;both&#39;, which=&#39;both&#39;, length=0)
-
     return fig, ax</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.plot_prediction"><code class="name flex">
+<span>def <span class="ident">plot_prediction</span></span>(<span>self, title=None, figsize=None, legend=True, transformed=False)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Plot each Data channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Set the title of the plot.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>Set the figure size.</dd>
+<dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dd>Disable legend.</dd>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dd>Display transformed Y data as used for training.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>matplotlib.figure.Figure: The figure.
+list of matplotlib.axes.Axes: List of axes.</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; fig, axes = dataset.plot(title='Title')
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L310-L327" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
+    &#34;&#34;&#34;
+    Plot each Data channel.
+
+    Args:
+        title (str, optional): Set the title of the plot.
+        figsize (tuple, optional): Set the figure size.
+        legend (boolean, optional): Disable legend.
+        transformed (boolean, optional): Display transformed Y data as used for training.
+
+    Returns:
+        matplotlib.figure.Figure: The figure.
+        list of matplotlib.axes.Axes: List of axes.
+
+    Examples:
+        &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
+    &#34;&#34;&#34;
+    return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.Model.predict"><code class="name flex">
@@ -999,7 +1140,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L256-L312" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L253-L308" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -1039,7 +1180,6 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 
     if save:
         for j in range(self.dataset.get_output_dims()):
-            #self.dataset[j].X_pred = [Serie(X[j][:,i], self.dataset[j].X[i].transformers) for i in range(self.dataset[j].get_input_dims())]
             self.dataset[j].Y_mu_pred[self.name] = Mu[j]
             self.dataset[j].Y_var_pred[self.name] = Var[j]
     else:
@@ -1049,14 +1189,14 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
             Lower.append(Mu[j] - sigma*np.sqrt(Var[j]))
             Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
 
-        X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
         if transformed:
-            return X_pred, Mu, Lower, Upper
+            return X, Mu, Lower, Upper
         else:
+            X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
             for j in range(self.dataset.get_output_dims()):
-                Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
-                Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
-                Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+                Mu[j] = self.dataset[j].Y.detransform(Mu[j], X_pred[j])
+                Lower[j] = self.dataset[j].Y.detransform(Lower[j], X_pred[j])
+                Upper[j] = self.dataset[j].Y.detransform(Upper[j], X_pred[j])
             return X, Mu, Lower, Upper</code></pre>
 </details>
 </dd>
@@ -1071,7 +1211,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L75-L82" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L71-L78" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -1099,7 +1239,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L93-L109" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L89-L105" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -1150,7 +1290,7 @@ learning_rate can be set.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/model.py#L114-L188" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L110-L184" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -1224,7 +1364,7 @@ learning_rate can be set.</p>
 
     if verbose:
         elapsed_time = time.time() - inital_time
-        print(&#39;\nOptimization finished in {:.2f} minutes&#39;.format(elapsed_time / 60.0))
+        print(&#39;\nOptimization finished in {}&#39;.format(_format_duration(elapsed_time)))
         print(&#39;‣ Function evaluations: {}&#39;.format(iters))
         print(&#39;‣ Final NLL: {:.3f}&#39;.format(-self.model.log_marginal_likelihood().tolist()))</code></pre>
 </details>
@@ -1261,9 +1401,11 @@ learning_rate can be set.</p>
 <li>
 <h4><code><a title="mogptk.model.Model" href="#mogptk.model.Model">Model</a></code></h4>
 <ul class="">
+<li><code><a title="mogptk.model.Model.get_gram_matrix" href="#mogptk.model.Model.get_gram_matrix">get_gram_matrix</a></code></li>
 <li><code><a title="mogptk.model.Model.get_parameters" href="#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.model.Model.plot" href="#mogptk.model.Model.plot">plot</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_prediction" href="#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.Model.predict" href="#mogptk.model.Model.predict">predict</a></code></li>
 <li><code><a title="mogptk.model.Model.print_parameters" href="#mogptk.model.Model.print_parameters">print_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.save" href="#mogptk.model.Model.save">save</a></code></li>

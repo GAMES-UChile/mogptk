@@ -25,14 +25,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/mosm.py#L0-L272" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/mosm.py#L0-L272" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+from .config import logger
 from .dataset import DataSet
-from .model import Model, Exact, logger
+from .model import Model, Exact
 from .kernels import MultiOutputSpectralKernel, MixtureKernel
 from .plot import plot_spectrum
 
@@ -190,9 +190,9 @@ class MOSM(Model):
                 axes[j,i].set_axis_off()
 
         legends = []
-        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Full (real)&#39;))
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Total (real)&#39;))
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;Mixture (real)&#39;))
-        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;silver&#39;, label=&#39;Full (imag)&#39;))
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;silver&#39;, label=&#39;Total (imag)&#39;))
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;silver&#39;, label=&#39;Mixture (imag)&#39;))
         fig.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
 
@@ -364,7 +364,7 @@ class MOSM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/mosm.py#L10-L273" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/mosm.py#L10-L273" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MOSM(Model):
     &#34;&#34;&#34;
@@ -520,9 +520,9 @@ class MOSM(Model):
                 axes[j,i].set_axis_off()
 
         legends = []
-        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Full (real)&#39;))
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Total (real)&#39;))
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;Mixture (real)&#39;))
-        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;silver&#39;, label=&#39;Full (imag)&#39;))
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;silver&#39;, label=&#39;Total (imag)&#39;))
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;silver&#39;, label=&#39;Mixture (imag)&#39;))
         fig.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
 
@@ -645,7 +645,7 @@ class MOSM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/mosm.py#L117-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/mosm.py#L117-L126" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def check(self):
     &#34;&#34;&#34;
@@ -683,7 +683,7 @@ class MOSM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/mosm.py#L57-L115" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/mosm.py#L57-L115" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
     &#34;&#34;&#34;
@@ -754,7 +754,7 @@ class MOSM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/mosm.py#L141-L170" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/mosm.py#L141-L170" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_cross_spectrum(self, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -779,9 +779,9 @@ class MOSM(Model):
             axes[j,i].set_axis_off()
 
     legends = []
-    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Full (real)&#39;))
+    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Total (real)&#39;))
     legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;Mixture (real)&#39;))
-    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;silver&#39;, label=&#39;Full (imag)&#39;))
+    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;silver&#39;, label=&#39;Total (imag)&#39;))
     legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;silver&#39;, label=&#39;Mixture (imag)&#39;))
     fig.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
 
@@ -796,7 +796,7 @@ class MOSM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/mosm.py#L128-L139" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/mosm.py#L128-L139" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, title=None):
     &#34;&#34;&#34;
@@ -819,6 +819,7 @@ class MOSM(Model):
 <ul class="hlist">
 <li><code><a title="mogptk.model.Model.get_parameters" href="model.html#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.plot" href="model.html#mogptk.model.Model.plot">plot</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_prediction" href="model.html#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.Model.predict" href="model.html#mogptk.model.Model.predict">predict</a></code></li>
 <li><code><a title="mogptk.model.Model.print_parameters" href="model.html#mogptk.model.Model.print_parameters">print_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.save" href="model.html#mogptk.model.Model.save">save</a></code></li>

@@ -25,11 +25,12 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L0-L133" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L0-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import torch.nn.functional as functional
-from . import device, dtype
+
+from .config import config
 
 class Transform:
     def forward(self, x):
@@ -98,15 +99,15 @@ class Parameter:
 
     def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
         if not isinstance(data, torch.Tensor):
-            data = torch.tensor(data, device=device, dtype=dtype)
+            data = torch.tensor(data, device=config.device, dtype=config.dtype)
         else:
-            data = data.to(device, dtype)
+            data = data.to(config.device, config.dtype)
         if lower is not None:
-            lower = torch.tensor(lower, device=device, dtype=dtype)
+            lower = torch.tensor(lower, device=config.device, dtype=config.dtype)
             if len(lower.shape) != 0 and lower.shape != data.shape:
                 raise ValueError(&#34;lower and data must match shapes: %s != %s&#34; % (lower.shape, data.shape))
         if upper is not None:
-            upper = torch.tensor(upper, device=device, dtype=dtype)
+            upper = torch.tensor(upper, device=config.device, dtype=config.dtype)
             if len(upper.shape) != 0 and upper.shape != data.shape:
                 raise ValueError(&#34;upper and data must match shapes: %s != %s&#34; % (upper.shape, data.shape))
         if data.requires_grad:
@@ -181,7 +182,7 @@ class Parameter:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L42-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L43-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Parameter:
     def __init__(self, data, name=None, lower=None, upper=None, prior=None, trainable=True):
@@ -213,15 +214,15 @@ class Parameter:
 
     def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
         if not isinstance(data, torch.Tensor):
-            data = torch.tensor(data, device=device, dtype=dtype)
+            data = torch.tensor(data, device=config.device, dtype=config.dtype)
         else:
-            data = data.to(device, dtype)
+            data = data.to(config.device, config.dtype)
         if lower is not None:
-            lower = torch.tensor(lower, device=device, dtype=dtype)
+            lower = torch.tensor(lower, device=config.device, dtype=config.dtype)
             if len(lower.shape) != 0 and lower.shape != data.shape:
                 raise ValueError(&#34;lower and data must match shapes: %s != %s&#34; % (lower.shape, data.shape))
         if upper is not None:
-            upper = torch.tensor(upper, device=device, dtype=dtype)
+            upper = torch.tensor(upper, device=config.device, dtype=config.dtype)
             if len(upper.shape) != 0 and upper.shape != data.shape:
                 raise ValueError(&#34;upper and data must match shapes: %s != %s&#34; % (upper.shape, data.shape))
         if data.requires_grad:
@@ -285,7 +286,7 @@ class Parameter:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L61-L65" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L62-L66" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def constrained(self):
@@ -305,19 +306,19 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L70-L129" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L71-L130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
     if not isinstance(data, torch.Tensor):
-        data = torch.tensor(data, device=device, dtype=dtype)
+        data = torch.tensor(data, device=config.device, dtype=config.dtype)
     else:
-        data = data.to(device, dtype)
+        data = data.to(config.device, config.dtype)
     if lower is not None:
-        lower = torch.tensor(lower, device=device, dtype=dtype)
+        lower = torch.tensor(lower, device=config.device, dtype=config.dtype)
         if len(lower.shape) != 0 and lower.shape != data.shape:
             raise ValueError(&#34;lower and data must match shapes: %s != %s&#34; % (lower.shape, data.shape))
     if upper is not None:
-        upper = torch.tensor(upper, device=device, dtype=dtype)
+        upper = torch.tensor(upper, device=config.device, dtype=config.dtype)
         if len(upper.shape) != 0 and upper.shape != data.shape:
             raise ValueError(&#34;upper and data must match shapes: %s != %s&#34; % (upper.shape, data.shape))
     if data.requires_grad:
@@ -377,7 +378,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L131-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L132-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     if self.prior is None:
@@ -393,7 +394,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L67-L68" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L68-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def numpy(self):
     return self.constrained.detach().numpy()</code></pre>
@@ -410,7 +411,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L28-L40" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L29-L41" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Sigmoid(Transform):
     def __init__(self, lower=0.0, upper=1.0):
@@ -440,7 +441,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L33-L34" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L34-L35" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     return self.lower + (self.upper-self.lower)*torch.sigmoid(x)</code></pre>
@@ -454,7 +455,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L36-L40" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L37-L41" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     if torch.any(y &lt; self.lower) or torch.any(self.upper &lt; y):
@@ -474,7 +475,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L14-L26" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L15-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Softplus(Transform):
     def __init__(self, lower=0.0, beta=0.1, threshold=20.0):
@@ -504,7 +505,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L20-L21" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L21-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     return self.lower + functional.softplus(x, beta=self.beta, threshold=self.threshold)</code></pre>
@@ -518,7 +519,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L23-L26" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L24-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     if torch.any(y &lt; self.lower):
@@ -536,7 +537,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L5-L12" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L6-L13" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Transform:
     def forward(self, x):
@@ -562,7 +563,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L6-L8" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L7-L9" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     # unconstrained to constrained space
@@ -577,7 +578,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/parameter.py#L10-L12" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/parameter.py#L11-L13" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     # constrained to unconstrained space

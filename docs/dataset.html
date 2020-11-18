@@ -25,9 +25,11 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L0-L655" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L0-L695" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">import numpy as np
+<pre><code class="python">import copy
+
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -547,7 +549,7 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;LBFGS&#39;, iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
         &#34;&#34;&#34;
         Peaks estimation using the Spectral Mixture kernel.
 
@@ -594,6 +596,44 @@ class DataSet:
         for channel in self.channels:
             channel.transform(transformer)
 
+    def filter(self, start, end):
+        &#34;&#34;&#34;
+        Filter the data range to be between start and end.
+
+        Args:
+            start (float, str): Start of interval.
+            end (float, str): End of interval.
+
+        Examples:
+            &gt;&gt;&gt; dataset.filter(3, 8)
+
+            &gt;&gt;&gt; dataset.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.filter(start, end)
+
+    def aggregate(self, duration, f=np.mean):
+        &#34;&#34;&#34;
+        Aggregate the data by duration and apply a function to obtain a reduced dataset.
+
+        For example, group daily data by week and take the mean.
+        The duration can be set as a number which defined the intervals on the X axis,
+        or by a string written in the duration format with:
+        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
+        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+
+        Args:
+            duration (float, str): Duration along the X axis or as a string in the duration format.
+            f (function, optional): Function to use to reduce data, by default uses np.mean.
+
+        Examples:
+            &gt;&gt;&gt; dataset.aggregate(5)
+
+            &gt;&gt;&gt; dataset.aggregate(&#39;2w&#39;, f=np.sum)
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.aggregate(duration, f)
+
     def copy(self):
         &#34;&#34;&#34;
         Make a deep copy of DataSet.
@@ -606,13 +646,13 @@ class DataSet:
         &#34;&#34;&#34;
         return copy.deepcopy(self)
 
-    def plot(self, title=None, pred=None, figsize=None, legend=True, transformed=False):
+    def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
         &#34;&#34;&#34;
         Plot each Data channel.
 
         Args:
+            pred (str, optional): Specify model name to draw.
             title (str, optional): Set the title of the plot.
-            pred (std, optional): Specify model name to draw.
             figsize (tuple, optional): Set the figure size.
             legend (boolean, optional): Disable legend.
             transformed (boolean, optional): Display transformed Y data as used for training.
@@ -636,7 +676,7 @@ class DataSet:
             legend = ax.get_legend()
             for text, handle in zip(legend.texts, legend.legendHandles):
                 if text.get_text() == &#34;Training Points&#34;:
-                    handle.set_marker(&#39;.&#39;)
+                    handle = plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;)
                 legends[text.get_text()] = handle
             legend.remove()
 
@@ -724,7 +764,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L7-L29" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L9-L31" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
     &#34;&#34;&#34;
@@ -780,7 +820,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L31-L95" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L33-L97" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadDataFrame(df, x_col=0, y_col=1, name=None):
     &#34;&#34;&#34;
@@ -893,7 +933,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L101-L656" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L103-L696" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class DataSet:
     &#34;&#34;&#34;
@@ -1315,7 +1355,7 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;LBFGS&#39;, iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
         &#34;&#34;&#34;
         Peaks estimation using the Spectral Mixture kernel.
 
@@ -1362,6 +1402,44 @@ class DataSet:
         for channel in self.channels:
             channel.transform(transformer)
 
+    def filter(self, start, end):
+        &#34;&#34;&#34;
+        Filter the data range to be between start and end.
+
+        Args:
+            start (float, str): Start of interval.
+            end (float, str): End of interval.
+
+        Examples:
+            &gt;&gt;&gt; dataset.filter(3, 8)
+
+            &gt;&gt;&gt; dataset.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.filter(start, end)
+
+    def aggregate(self, duration, f=np.mean):
+        &#34;&#34;&#34;
+        Aggregate the data by duration and apply a function to obtain a reduced dataset.
+
+        For example, group daily data by week and take the mean.
+        The duration can be set as a number which defined the intervals on the X axis,
+        or by a string written in the duration format with:
+        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
+        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+
+        Args:
+            duration (float, str): Duration along the X axis or as a string in the duration format.
+            f (function, optional): Function to use to reduce data, by default uses np.mean.
+
+        Examples:
+            &gt;&gt;&gt; dataset.aggregate(5)
+
+            &gt;&gt;&gt; dataset.aggregate(&#39;2w&#39;, f=np.sum)
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.aggregate(duration, f)
+
     def copy(self):
         &#34;&#34;&#34;
         Make a deep copy of DataSet.
@@ -1374,13 +1452,13 @@ class DataSet:
         &#34;&#34;&#34;
         return copy.deepcopy(self)
 
-    def plot(self, title=None, pred=None, figsize=None, legend=True, transformed=False):
+    def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
         &#34;&#34;&#34;
         Plot each Data channel.
 
         Args:
+            pred (str, optional): Specify model name to draw.
             title (str, optional): Set the title of the plot.
-            pred (std, optional): Specify model name to draw.
             figsize (tuple, optional): Set the figure size.
             legend (boolean, optional): Disable legend.
             transformed (boolean, optional): Display transformed Y data as used for training.
@@ -1404,7 +1482,7 @@ class DataSet:
             legend = ax.get_legend()
             for text, handle in zip(legend.texts, legend.legendHandles):
                 if text.get_text() == &#34;Training Points&#34;:
-                    handle.set_marker(&#39;.&#39;)
+                    handle = plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;)
                 legends[text.get_text()] = handle
             legend.remove()
 
@@ -1454,6 +1532,56 @@ class DataSet:
 </details>
 <h3>Methods</h3>
 <dl>
+<dt id="mogptk.dataset.DataSet.aggregate"><code class="name flex">
+<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=&lt;function mean&gt;)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
+<p>For example, group daily data by week and take the mean.
+The duration can be set as a number which defined the intervals on the X axis,
+or by a string written in the duration format with:
+y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
+For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>duration</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
+<dd>Duration along the X axis or as a string in the duration format.</dd>
+<dt><strong><code>f</code></strong> :&ensp;<code>function</code>, optional</dt>
+<dd>Function to use to reduce data, by default uses np.mean.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; dataset.aggregate(5)
+
+&gt;&gt;&gt; dataset.aggregate('2w', f=np.sum)
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L586-L606" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def aggregate(self, duration, f=np.mean):
+    &#34;&#34;&#34;
+    Aggregate the data by duration and apply a function to obtain a reduced dataset.
+
+    For example, group daily data by week and take the mean.
+    The duration can be set as a number which defined the intervals on the X axis,
+    or by a string written in the duration format with:
+    y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
+    For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+
+    Args:
+        duration (float, str): Duration along the X axis or as a string in the duration format.
+        f (function, optional): Function to use to reduce data, by default uses np.mean.
+
+    Examples:
+        &gt;&gt;&gt; dataset.aggregate(5)
+
+        &gt;&gt;&gt; dataset.aggregate(&#39;2w&#39;, f=np.sum)
+    &#34;&#34;&#34;
+    for channel in self.channels:
+        channel.aggregate(duration, f)</code></pre>
+</details>
+</dd>
 <dt id="mogptk.dataset.DataSet.append"><code class="name flex">
 <span>def <span class="ident">append</span></span>(<span>self, arg)</span>
 </code></dt>
@@ -1470,7 +1598,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L179-L203" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L181-L205" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def append(self, arg):
     &#34;&#34;&#34;
@@ -1507,7 +1635,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L450-L455" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L452-L457" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clear_predictions(self):
     &#34;&#34;&#34;
@@ -1533,7 +1661,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L568-L578" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L608-L618" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -1546,6 +1674,45 @@ class DataSet:
         &gt;&gt;&gt; other = dataset.copy()
     &#34;&#34;&#34;
     return copy.deepcopy(self)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.filter"><code class="name flex">
+<span>def <span class="ident">filter</span></span>(<span>self, start, end)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Filter the data range to be between start and end.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
+<dd>Start of interval.</dd>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
+<dd>End of interval.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; dataset.filter(3, 8)
+
+&gt;&gt;&gt; dataset.filter('2016-01-15', '2016-06-15')
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L570-L584" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def filter(self, start, end):
+    &#34;&#34;&#34;
+    Filter the data range to be between start and end.
+
+    Args:
+        start (float, str): Start of interval.
+        end (float, str): End of interval.
+
+    Examples:
+        &gt;&gt;&gt; dataset.filter(3, 8)
+
+        &gt;&gt;&gt; dataset.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
+    &#34;&#34;&#34;
+    for channel in self.channels:
+        channel.filter(start, end)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get"><code class="name flex">
@@ -1566,7 +1733,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L244-L264" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L246-L266" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get(self, index):
     &#34;&#34;&#34;
@@ -1618,7 +1785,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L495-L519" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L497-L521" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
     &#34;&#34;&#34;
@@ -1670,7 +1837,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L288-L302" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L290-L304" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -1710,7 +1877,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L266-L286" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L268-L288" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_index(self, index):
     &#34;&#34;&#34;
@@ -1752,7 +1919,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L205-L216" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L207-L218" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -1795,7 +1962,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L469-L493" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L471-L495" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
@@ -1841,7 +2008,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L231-L242" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L233-L244" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_names(self):
     &#34;&#34;&#34;
@@ -1873,7 +2040,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L457-L467" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L459-L469" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -1908,7 +2075,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L218-L229" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L220-L231" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_output_dims(self):
     &#34;&#34;&#34;
@@ -1955,7 +2122,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L355-L383" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L357-L385" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction(self, name, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -2009,7 +2176,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L337-L353" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L339-L355" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_x(self, transformed=False):
     &#34;&#34;&#34;
@@ -2031,7 +2198,7 @@ class DataSet:
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_sm_estimation"><code class="name flex">
-<span>def <span class="ident">get_sm_estimation</span></span>(<span>self, Q=1, method='BNSE', optimizer='LBFGS', iters=100, params={}, plot=False)</span>
+<span>def <span class="ident">get_sm_estimation</span></span>(<span>self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Peaks estimation using the Spectral Mixture kernel.</p>
@@ -2065,9 +2232,9 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L521-L549" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L523-L551" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;LBFGS&#39;, iters=100, params={}, plot=False):
+<pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
     &#34;&#34;&#34;
     Peaks estimation using the Spectral Mixture kernel.
 
@@ -2122,7 +2289,7 @@ removed points.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L320-L335" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L322-L337" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2165,7 +2332,7 @@ removed points.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L304-L318" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L306-L320" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2185,16 +2352,16 @@ removed points.</p>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>self, title=None, pred=None, figsize=None, legend=True, transformed=False)</span>
+<span>def <span class="ident">plot</span></span>(<span>self, pred=None, title=None, figsize=None, legend=True, transformed=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Plot each Data channel.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>pred</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Specify model name to draw.</dd>
 <dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Set the title of the plot.</dd>
-<dt><strong><code>pred</code></strong> :&ensp;<code>std</code>, optional</dt>
-<dd>Specify model name to draw.</dd>
 <dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
 <dd>Set the figure size.</dd>
 <dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code>, optional</dt>
@@ -2211,15 +2378,15 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L580-L619" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L620-L659" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot(self, title=None, pred=None, figsize=None, legend=True, transformed=False):
+<pre><code class="python">def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
     &#34;&#34;&#34;
     Plot each Data channel.
 
     Args:
+        pred (str, optional): Specify model name to draw.
         title (str, optional): Set the title of the plot.
-        pred (std, optional): Specify model name to draw.
         figsize (tuple, optional): Set the figure size.
         legend (boolean, optional): Disable legend.
         transformed (boolean, optional): Display transformed Y data as used for training.
@@ -2243,7 +2410,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
         legend = ax.get_legend()
         for text, handle in zip(legend.texts, legend.legendHandles):
             if text.get_text() == &#34;Training Points&#34;:
-                handle.set_marker(&#39;.&#39;)
+                handle = plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;)
             legends[text.get_text()] = handle
         legend.remove()
 
@@ -2284,7 +2451,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L621-L656" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L661-L696" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, title=None, method=&#39;lombscargle&#39;, per=None, maxfreq=None, figsize=None, transformed=False):
     &#34;&#34;&#34;
@@ -2347,7 +2514,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L409-L448" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L411-L450" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start, end, n=None, step=None):
     &#34;&#34;&#34;
@@ -2408,7 +2575,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L385-L407" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L387-L409" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_x(self, x):
     &#34;&#34;&#34;
@@ -2455,7 +2622,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/dataset.py#L551-L566" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L553-L568" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;
@@ -2502,9 +2669,11 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <li>
 <h4><code><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet">DataSet</a></code></h4>
 <ul class="">
+<li><code><a title="mogptk.dataset.DataSet.aggregate" href="#mogptk.dataset.DataSet.aggregate">aggregate</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.append" href="#mogptk.dataset.DataSet.append">append</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.clear_predictions" href="#mogptk.dataset.DataSet.clear_predictions">clear_predictions</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.copy" href="#mogptk.dataset.DataSet.copy">copy</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.filter" href="#mogptk.dataset.DataSet.filter">filter</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get" href="#mogptk.dataset.DataSet.get">get</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_bnse_estimation" href="#mogptk.dataset.DataSet.get_bnse_estimation">get_bnse_estimation</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_data" href="#mogptk.dataset.DataSet.get_data">get_data</a></code></li>

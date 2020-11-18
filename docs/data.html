@@ -25,12 +25,11 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L0-L1276" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L0-L1271" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import copy
 import inspect
-import logging
 import datetime
 
 import numpy as np
@@ -39,14 +38,13 @@ from scipy import signal
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from pandas.plotting import register_matplotlib_converters
 
 from .bnse import bse
-from .serie import Serie
+from .config import logger
+from .serie import Serie, TransformLinear
 
-from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
-
-logger = logging.getLogger(&#39;mogptk&#39;)
 
 def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
     &#34;&#34;&#34;
@@ -272,15 +270,14 @@ class Data:
         if isinstance(y_label, str):
             self.Y_label = y_label
 
-        # TODO: readd
         # rescale X axis to fit in 0 -- 1000
-        #for i in range(input_dims):
-        #    X = self.X[i].get_transformed()
-        #    xmin = np.min(X)
-        #    xmax = np.max(X)
-        #    t = TransformLinear(xmin, (xmax-xmin)/1000.0)
-        #    t.set_data(X)
-        #    self.X[i].apply(t)
+        for i in range(input_dims):
+            X = self.X[i].transformed
+            xmin = np.min(X)
+            xmax = np.max(X)
+            t = TransformLinear(xmin, (xmax-xmin)/1000.0)
+            t.set_data(X)
+            self.X[i].apply(t)
 
     def __str__(self):
         return self.__repr__()
@@ -372,9 +369,11 @@ class Data:
         t = transformer
         if isinstance(t, type):
             t = transformer()
+        else:
+            t = copy.deepcopy(t)
         t.set_data(self)
 
-        self.Y.apply(t, np.array([x for x in self.X]).T)
+        self.Y.apply(t, np.array([x.transformed for x in self.X]).T)
     
     def filter(self, start, end):
         &#34;&#34;&#34;
@@ -385,10 +384,8 @@ class Data:
             end (float, str): End of interval.
 
         Examples:
-            &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
             &gt;&gt;&gt; data.filter(3, 8)
         
-            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;)
             &gt;&gt;&gt; data.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
@@ -436,7 +433,7 @@ class Data:
             Y[i] = f(self.Y[ind])
 
         self.X = [Serie(X, self.X[0].transformers)]
-        self.Y = Serie(Y, self.Y.transformers, np.array([x for x in self.X]).T)
+        self.Y = Serie(Y, self.Y.transformers, np.array([x.transformed for x in self.X]).T)
         self.mask = np.array([True] * len(self.X[0]))
 
     ################################################################
@@ -495,7 +492,7 @@ class Data:
             &gt;&gt;&gt; x, y = data.get_data()
         &#34;&#34;&#34;
         if transformed:
-            return np.array([x.transformed() for x in self.X]).T, self.Y.transformed
+            return np.array([x.transformed for x in self.X]).T, self.Y.transformed
         return np.array([x for x in self.X]).T, np.array(self.Y)
 
     def get_train_data(self, transformed=False):
@@ -702,19 +699,19 @@ class Data:
         if name not in self.Y_mu_pred:
             raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
        
+        X = np.array([x for x in self.X_pred]).T
         mu = self.Y_mu_pred[name]
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
         if transformed:
-            X_pred = np.array([x.transformed for x in self.X_pred]).T
-            return X_pred, mu, lower, upper
+            return X, mu, lower, upper
 
-        X_pred = np.array([x for x in self.X_pred]).T
+        X_pred = np.array([x.transformed for x in self.X_pred]).T
         mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
         lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
         upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
-        return X_pred, mu, lower, upper
+        return X, mu, lower, upper
     
     def set_prediction_x(self, X):
         &#34;&#34;&#34;
@@ -929,7 +926,7 @@ class Data:
             C[:n,i] = variances
         return A, B, C
 
-    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;LBFGS&#39;, iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
         &#34;&#34;&#34;
         Peaks estimation using the Spectral Mixture kernel.
 
@@ -976,13 +973,13 @@ class Data:
             C[q,:] = sm.kernel[0][q].variance().detach().numpy()
         return A, B, C
 
-    def plot(self, title=None, pred=None, ax=None, legend=True, transformed=False):
+    def plot(self, pred=None, title=None, ax=None, legend=True, transformed=False):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
+            pred (str, optional): Specify model name to draw.
             title (str, optional): Set the title of the plot.
-            pred (std, optional): Specify model name to draw.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
             legend (boolean, optional): Display legend.
             transformed (boolean, optional): Display transformed Y data as used for training.
@@ -1038,21 +1035,19 @@ class Data:
             ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
             legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
 
-        Y = self.Y
-        if transformed:
-            Y = self.Y.get_transformed()
+        _, Y = self.get_data(transformed=transformed)
         idx = np.argsort(self.X[0])
         ax.plot(self.X[0][idx], Y[idx], &#39;k--&#39;, alpha=0.8)
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
 
-        x, y = self.get_train_data()
-        if transformed:
-            y = self.Y.transform(y, x)
+        x, _ = self.get_train_data()
+        _, y = self.get_train_data(transformed=transformed)
         if 1000 &lt; x.shape[0]:
             ax.plot(x[:,0], y, &#39;k-&#39;)
+            legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Training Points&#39;))
         else:
             ax.plot(x[:,0], y, &#39;k.&#39;, mew=1, ms=13, markeredgecolor=&#39;white&#39;)
-        legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;))
+            legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;))
 
         if self.has_test_data():
             for removed_range in self.removed_ranges[0]:
@@ -1125,7 +1120,7 @@ class Data:
         X = self.X[0].astype(np.float)
         Y = self.Y
         if transformed:
-            Y = self.Y.get_transformed()
+            Y = self.Y.transformed
 
         idx = np.argsort(X)
         X = X[idx] * X_scale
@@ -1348,7 +1343,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L22-L111" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L20-L109" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
     &#34;&#34;&#34;
@@ -1474,7 +1469,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L117-L1160" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L115-L1155" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Data:
     def __init__(self, X, Y, name=None, x_labels=None, y_label=None):
@@ -1605,15 +1600,14 @@ def _timedelta64_to_higher_unit(array):
         if isinstance(y_label, str):
             self.Y_label = y_label
 
-        # TODO: readd
         # rescale X axis to fit in 0 -- 1000
-        #for i in range(input_dims):
-        #    X = self.X[i].get_transformed()
-        #    xmin = np.min(X)
-        #    xmax = np.max(X)
-        #    t = TransformLinear(xmin, (xmax-xmin)/1000.0)
-        #    t.set_data(X)
-        #    self.X[i].apply(t)
+        for i in range(input_dims):
+            X = self.X[i].transformed
+            xmin = np.min(X)
+            xmax = np.max(X)
+            t = TransformLinear(xmin, (xmax-xmin)/1000.0)
+            t.set_data(X)
+            self.X[i].apply(t)
 
     def __str__(self):
         return self.__repr__()
@@ -1705,9 +1699,11 @@ def _timedelta64_to_higher_unit(array):
         t = transformer
         if isinstance(t, type):
             t = transformer()
+        else:
+            t = copy.deepcopy(t)
         t.set_data(self)
 
-        self.Y.apply(t, np.array([x for x in self.X]).T)
+        self.Y.apply(t, np.array([x.transformed for x in self.X]).T)
     
     def filter(self, start, end):
         &#34;&#34;&#34;
@@ -1718,10 +1714,8 @@ def _timedelta64_to_higher_unit(array):
             end (float, str): End of interval.
 
         Examples:
-            &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
             &gt;&gt;&gt; data.filter(3, 8)
         
-            &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;)
             &gt;&gt;&gt; data.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
@@ -1769,7 +1763,7 @@ def _timedelta64_to_higher_unit(array):
             Y[i] = f(self.Y[ind])
 
         self.X = [Serie(X, self.X[0].transformers)]
-        self.Y = Serie(Y, self.Y.transformers, np.array([x for x in self.X]).T)
+        self.Y = Serie(Y, self.Y.transformers, np.array([x.transformed for x in self.X]).T)
         self.mask = np.array([True] * len(self.X[0]))
 
     ################################################################
@@ -1828,7 +1822,7 @@ def _timedelta64_to_higher_unit(array):
             &gt;&gt;&gt; x, y = data.get_data()
         &#34;&#34;&#34;
         if transformed:
-            return np.array([x.transformed() for x in self.X]).T, self.Y.transformed
+            return np.array([x.transformed for x in self.X]).T, self.Y.transformed
         return np.array([x for x in self.X]).T, np.array(self.Y)
 
     def get_train_data(self, transformed=False):
@@ -2035,19 +2029,19 @@ def _timedelta64_to_higher_unit(array):
         if name not in self.Y_mu_pred:
             raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
        
+        X = np.array([x for x in self.X_pred]).T
         mu = self.Y_mu_pred[name]
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
         if transformed:
-            X_pred = np.array([x.transformed for x in self.X_pred]).T
-            return X_pred, mu, lower, upper
+            return X, mu, lower, upper
 
-        X_pred = np.array([x for x in self.X_pred]).T
+        X_pred = np.array([x.transformed for x in self.X_pred]).T
         mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
         lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
         upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
-        return X_pred, mu, lower, upper
+        return X, mu, lower, upper
     
     def set_prediction_x(self, X):
         &#34;&#34;&#34;
@@ -2262,7 +2256,7 @@ def _timedelta64_to_higher_unit(array):
             C[:n,i] = variances
         return A, B, C
 
-    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;LBFGS&#39;, iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
         &#34;&#34;&#34;
         Peaks estimation using the Spectral Mixture kernel.
 
@@ -2309,13 +2303,13 @@ def _timedelta64_to_higher_unit(array):
             C[q,:] = sm.kernel[0][q].variance().detach().numpy()
         return A, B, C
 
-    def plot(self, title=None, pred=None, ax=None, legend=True, transformed=False):
+    def plot(self, pred=None, title=None, ax=None, legend=True, transformed=False):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
+            pred (str, optional): Specify model name to draw.
             title (str, optional): Set the title of the plot.
-            pred (std, optional): Specify model name to draw.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
             legend (boolean, optional): Display legend.
             transformed (boolean, optional): Display transformed Y data as used for training.
@@ -2371,21 +2365,19 @@ def _timedelta64_to_higher_unit(array):
             ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
             legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
 
-        Y = self.Y
-        if transformed:
-            Y = self.Y.get_transformed()
+        _, Y = self.get_data(transformed=transformed)
         idx = np.argsort(self.X[0])
         ax.plot(self.X[0][idx], Y[idx], &#39;k--&#39;, alpha=0.8)
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
 
-        x, y = self.get_train_data()
-        if transformed:
-            y = self.Y.transform(y, x)
+        x, _ = self.get_train_data()
+        _, y = self.get_train_data(transformed=transformed)
         if 1000 &lt; x.shape[0]:
             ax.plot(x[:,0], y, &#39;k-&#39;)
+            legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Training Points&#39;))
         else:
             ax.plot(x[:,0], y, &#39;k.&#39;, mew=1, ms=13, markeredgecolor=&#39;white&#39;)
-        legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;))
+            legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;))
 
         if self.has_test_data():
             for removed_range in self.removed_ranges[0]:
@@ -2458,7 +2450,7 @@ def _timedelta64_to_higher_unit(array):
         X = self.X[0].astype(np.float)
         Y = self.Y
         if transformed:
-            Y = self.Y.get_transformed()
+            Y = self.Y.transformed
 
         idx = np.argsort(X)
         X = X[idx] * X_scale
@@ -2548,7 +2540,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L377-L411" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L374-L408" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def aggregate(self, duration, f=np.mean):
     &#34;&#34;&#34;
@@ -2583,7 +2575,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
         Y[i] = f(self.Y[ind])
 
     self.X = [Serie(X, self.X[0].transformers)]
-    self.Y = Serie(Y, self.Y.transformers, np.array([x for x in self.X]).T)
+    self.Y = Serie(Y, self.Y.transformers, np.array([x.transformed for x in self.X]).T)
     self.mask = np.array([True] * len(self.X[0]))</code></pre>
 </details>
 </dd>
@@ -2595,7 +2587,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L773-L778" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L770-L775" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clear_predictions(self):
     &#34;&#34;&#34;
@@ -2621,7 +2613,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L266-L276" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L263-L273" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -2649,16 +2641,14 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <dd>End of interval.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
-&gt;&gt;&gt; data.filter(3, 8)
+<pre><code>&gt;&gt;&gt; data.filter(3, 8)
 
-&gt;&gt;&gt; data = mogptk.LoadCSV('gold.csv', 'Date', 'Price')
 &gt;&gt;&gt; data.filter('2016-01-15', '2016-06-15')
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L350-L375" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L349-L372" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def filter(self, start, end):
     &#34;&#34;&#34;
@@ -2669,10 +2659,8 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
         end (float, str): End of interval.
 
     Examples:
-        &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
         &gt;&gt;&gt; data.filter(3, 8)
     
-        &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;)
         &gt;&gt;&gt; data.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
@@ -2710,7 +2698,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L855-L901" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L852-L898" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
     &#34;&#34;&#34;
@@ -2780,7 +2768,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L454-L470" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L451-L467" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2797,7 +2785,7 @@ numpy.ndarray: Y data of shape (n).</p>
         &gt;&gt;&gt; x, y = data.get_data()
     &#34;&#34;&#34;
     if transformed:
-        return np.array([x.transformed() for x in self.X]).T, self.Y.transformed
+        return np.array([x.transformed for x in self.X]).T, self.Y.transformed
     return np.array([x for x in self.X]).T, np.array(self.Y)</code></pre>
 </details>
 </dd>
@@ -2821,7 +2809,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L441-L452" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L438-L449" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -2859,7 +2847,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L802-L853" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L799-L850" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
@@ -2929,7 +2917,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L415-L426" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L412-L423" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_name(self):
     &#34;&#34;&#34;
@@ -2958,7 +2946,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L782-L800" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L779-L797" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -3006,7 +2994,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L655-L688" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L652-L685" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction(self, name, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -3029,19 +3017,19 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
     if name not in self.Y_mu_pred:
         raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
    
+    X = np.array([x for x in self.X_pred]).T
     mu = self.Y_mu_pred[name]
     lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
     upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
 
     if transformed:
-        X_pred = np.array([x.transformed for x in self.X_pred]).T
-        return X_pred, mu, lower, upper
+        return X, mu, lower, upper
 
-    X_pred = np.array([x for x in self.X_pred]).T
+    X_pred = np.array([x.transformed for x in self.X_pred]).T
     mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
     lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
     upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
-    return X_pred, mu, lower, upper</code></pre>
+    return X, mu, lower, upper</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_prediction_names"><code class="name flex">
@@ -3052,7 +3040,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L635-L636" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L632-L633" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_names(self):
     return self.Y_mu_pred.keys()</code></pre>
@@ -3076,7 +3064,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L638-L653" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L635-L650" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_x(self, transformed=False):
     &#34;&#34;&#34;
@@ -3097,7 +3085,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_sm_estimation"><code class="name flex">
-<span>def <span class="ident">get_sm_estimation</span></span>(<span>self, Q=1, method='BNSE', optimizer='LBFGS', iters=100, params={}, plot=False)</span>
+<span>def <span class="ident">get_sm_estimation</span></span>(<span>self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Peaks estimation using the Spectral Mixture kernel.</p>
@@ -3126,9 +3114,9 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L903-L948" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L900-L945" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;LBFGS&#39;, iters=100, params={}, plot=False):
+<pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
     &#34;&#34;&#34;
     Peaks estimation using the Spectral Mixture kernel.
 
@@ -3195,7 +3183,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L490-L506" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L487-L503" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3235,7 +3223,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L472-L488" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L469-L485" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3276,7 +3264,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L428-L439" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L425-L436" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def has_test_data(self):
     &#34;&#34;&#34;
@@ -3293,16 +3281,16 @@ numpy.ndarray: Y data of shape (n).</p>
 </details>
 </dd>
 <dt id="mogptk.data.Data.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>self, title=None, pred=None, ax=None, legend=True, transformed=False)</span>
+<span>def <span class="ident">plot</span></span>(<span>self, pred=None, title=None, ax=None, legend=True, transformed=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Plot the data including removed observations, latent function, and predictions.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>pred</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Specify model name to draw.</dd>
 <dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Set the title of the plot.</dd>
-<dt><strong><code>pred</code></strong> :&ensp;<code>std</code>, optional</dt>
-<dd>Specify model name to draw.</dd>
 <dt><strong><code>ax</code></strong> :&ensp;<code>matplotlib.axes.Axes</code>, optional</dt>
 <dd>Draw to this axes, otherwise draw to the current axes.</dd>
 <dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code>, optional</dt>
@@ -3321,15 +3309,15 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L950-L1052" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L947-L1047" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot(self, title=None, pred=None, ax=None, legend=True, transformed=False):
+<pre><code class="python">def plot(self, pred=None, title=None, ax=None, legend=True, transformed=False):
     &#34;&#34;&#34;
     Plot the data including removed observations, latent function, and predictions.
 
     Args:
+        pred (str, optional): Specify model name to draw.
         title (str, optional): Set the title of the plot.
-        pred (std, optional): Specify model name to draw.
         ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
         legend (boolean, optional): Display legend.
         transformed (boolean, optional): Display transformed Y data as used for training.
@@ -3385,21 +3373,19 @@ numpy.ndarray: Y data of shape (n).</p>
         ax.plot(x[:,0], y, &#39;r--&#39;, lw=1)
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
 
-    Y = self.Y
-    if transformed:
-        Y = self.Y.get_transformed()
+    _, Y = self.get_data(transformed=transformed)
     idx = np.argsort(self.X[0])
     ax.plot(self.X[0][idx], Y[idx], &#39;k--&#39;, alpha=0.8)
     legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
 
-    x, y = self.get_train_data()
-    if transformed:
-        y = self.Y.transform(y, x)
+    x, _ = self.get_train_data()
+    _, y = self.get_train_data(transformed=transformed)
     if 1000 &lt; x.shape[0]:
         ax.plot(x[:,0], y, &#39;k-&#39;)
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Training Points&#39;))
     else:
         ax.plot(x[:,0], y, &#39;k.&#39;, mew=1, ms=13, markeredgecolor=&#39;white&#39;)
-    legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;))
+        legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;))
 
     if self.has_test_data():
         for removed_range in self.removed_ranges[0]:
@@ -3459,7 +3445,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L1054-L1137" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L1049-L1132" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, title=None, method=&#39;lombscargle&#39;, ax=None, per=None, maxfreq=None, transformed=False):
     &#34;&#34;&#34;
@@ -3506,7 +3492,7 @@ numpy.ndarray: Y data of shape (n).</p>
     X = self.X[0].astype(np.float)
     Y = self.Y
     if transformed:
-        Y = self.Y.get_transformed()
+        Y = self.Y.transformed
 
     idx = np.argsort(X)
     X = X[idx] * X_scale
@@ -3557,7 +3543,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L619-L631" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L616-L628" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_index(self, index):
     &#34;&#34;&#34;
@@ -3594,7 +3580,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L586-L617" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L583-L614" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_random_ranges(self, n, duration):
     &#34;&#34;&#34;
@@ -3650,7 +3636,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L510-L530" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L507-L527" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_randomly(self, n=None, pct=None):
     &#34;&#34;&#34;
@@ -3697,7 +3683,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L532-L560" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L529-L557" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_range(self, start=None, end=None):
     &#34;&#34;&#34;
@@ -3745,7 +3731,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L562-L584" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L559-L581" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_relative_range(self, start=0.0, end=1.0):
     &#34;&#34;&#34;
@@ -3789,7 +3775,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L313-L326" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L310-L323" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_function(self, f):
     &#34;&#34;&#34;
@@ -3825,7 +3811,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L290-L311" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L287-L308" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_labels(self, x_labels, y_label):
     &#34;&#34;&#34;
@@ -3867,7 +3853,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L278-L288" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L275-L285" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_name(self, name):
     &#34;&#34;&#34;
@@ -3910,7 +3896,7 @@ given 'step' between the points.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L718-L771" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L715-L768" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start=None, end=None, n=None, step=None):
     &#34;&#34;&#34;
@@ -3984,7 +3970,7 @@ given 'step' between the points.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L690-L716" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L687-L713" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_x(self, X):
     &#34;&#34;&#34;
@@ -4035,7 +4021,7 @@ given 'step' between the points.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/data.py#L328-L348" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L325-L347" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;
@@ -4055,9 +4041,11 @@ given 'step' between the points.</p>
     t = transformer
     if isinstance(t, type):
         t = transformer()
+    else:
+        t = copy.deepcopy(t)
     t.set_data(self)
 
-    self.Y.apply(t, np.array([x for x in self.X]).T)</code></pre>
+    self.Y.apply(t, np.array([x.transformed for x in self.X]).T)</code></pre>
 </details>
 </dd>
 </dl>

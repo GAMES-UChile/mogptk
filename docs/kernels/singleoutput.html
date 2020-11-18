@@ -25,11 +25,11 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L0-L133" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L0-L133" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
-from . import Kernel, Parameter, positive_minimum
+from . import Kernel, Parameter, config
 
 class LinearKernel(Kernel):
     def __init__(self, input_dims=None, active_dims=None, name=&#34;Linear&#34;):
@@ -72,7 +72,7 @@ class PhiKernel(Kernel):
         variance = torch.ones(feature_dims)
 
         self.phi = phi
-        self.variance = Parameter(variance, lower=positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -91,8 +91,8 @@ class SquaredExponentialKernel(Kernel):
         l = torch.rand(input_dims)
         sigma = torch.rand(1)
 
-        self.l = Parameter(l, lower=positive_minimum)
-        self.sigma = Parameter(sigma, lower=positive_minimum)
+        self.l = Parameter(l, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -110,8 +110,8 @@ class RationalQuadraticKernel(Kernel):
         sigma = torch.rand(1)
 
         self.alpha = alpha
-        self.l = Parameter(l, lower=positive_minimum)
-        self.sigma = Parameter(sigma, lower=positive_minimum)
+        self.l = Parameter(l, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -129,9 +129,9 @@ class PeriodicKernel(Kernel):
         p = torch.rand(1)
         sigma = torch.rand(1)
 
-        self.l = Parameter(l, lower=positive_minimum)
-        self.p = Parameter(p, lower=positive_minimum)
-        self.sigma = Parameter(sigma, lower=positive_minimum)
+        self.l = Parameter(l, lower=config.positive_minimum)
+        self.p = Parameter(p, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -149,9 +149,9 @@ class SpectralKernel(Kernel):
         mean = torch.rand(input_dims)
         variance = torch.ones(input_dims)
 
-        self.weight = Parameter(weight, lower=positive_minimum)
-        self.mean = Parameter(mean, lower=positive_minimum)
-        self.variance = Parameter(variance, lower=positive_minimum)
+        self.weight = Parameter(weight, lower=config.positive_minimum)
+        self.mean = Parameter(mean, lower=config.positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -181,7 +181,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L5-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L5-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearKernel(Kernel):
     def __init__(self, input_dims=None, active_dims=None, name=&#34;Linear&#34;):
@@ -213,7 +213,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L13-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L13-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -235,7 +235,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L95-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L95-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PeriodicKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name=&#34;Periodic&#34;):
@@ -245,9 +245,9 @@ class SpectralKernel(Kernel):
         p = torch.rand(1)
         sigma = torch.rand(1)
 
-        self.l = Parameter(l, lower=positive_minimum)
-        self.p = Parameter(p, lower=positive_minimum)
-        self.sigma = Parameter(sigma, lower=positive_minimum)
+        self.l = Parameter(l, lower=config.positive_minimum)
+        self.p = Parameter(p, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -271,7 +271,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L107-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L107-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -293,7 +293,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L38-L56" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L38-L56" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PhiKernel(Kernel):
     def __init__(self, phi, input_dims, active_dims=None, name=&#34;Phi&#34;):
@@ -303,7 +303,7 @@ class SpectralKernel(Kernel):
         variance = torch.ones(feature_dims)
 
         self.phi = phi
-        self.variance = Parameter(variance, lower=positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -329,7 +329,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L48-L56" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L48-L56" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -353,7 +353,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L21-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L21-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PolynomialKernel(Kernel):
     def __init__(self, degree, input_dims=None, active_dims=None, name=&#34;Polynomial&#34;):
@@ -386,7 +386,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L30-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L30-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -408,7 +408,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L76-L93" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L76-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class RationalQuadraticKernel(Kernel):
     def __init__(self, alpha, input_dims, active_dims=None, name=&#34;RQ&#34;):
@@ -418,8 +418,8 @@ class SpectralKernel(Kernel):
         sigma = torch.rand(1)
 
         self.alpha = alpha
-        self.l = Parameter(l, lower=positive_minimum)
-        self.sigma = Parameter(sigma, lower=positive_minimum)
+        self.l = Parameter(l, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -443,7 +443,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L87-L93" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L87-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -465,7 +465,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L115-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L115-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name=&#34;SM&#34;):
@@ -475,9 +475,9 @@ class SpectralKernel(Kernel):
         mean = torch.rand(input_dims)
         variance = torch.ones(input_dims)
 
-        self.weight = Parameter(weight, lower=positive_minimum)
-        self.mean = Parameter(mean, lower=positive_minimum)
-        self.variance = Parameter(variance, lower=positive_minimum)
+        self.weight = Parameter(weight, lower=config.positive_minimum)
+        self.mean = Parameter(mean, lower=config.positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -502,7 +502,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L127-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L127-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -525,7 +525,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L58-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L58-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SquaredExponentialKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name=&#34;SE&#34;):
@@ -534,8 +534,8 @@ class SpectralKernel(Kernel):
         l = torch.rand(input_dims)
         sigma = torch.rand(1)
 
-        self.l = Parameter(l, lower=positive_minimum)
-        self.sigma = Parameter(sigma, lower=positive_minimum)
+        self.l = Parameter(l, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -559,7 +559,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/kernels/singleoutput.py#L68-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/singleoutput.py#L68-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)

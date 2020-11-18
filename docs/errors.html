@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/errors.py#L0-L137" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/errors.py#L0-L139" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import pandas as pd
@@ -98,7 +98,7 @@ def prediction_error(dataset, all_obs=False, disp=False):
     else:
         return errors
 
-def error(*models, X, Y, per_channel=False, disp=False):
+def error(*models, X=None, Y=None, per_channel=False, disp=False):
     &#34;&#34;&#34;
     Return test errors given a model and test set. The function assumes all models have been trained and all models share equal number of inputs and outputs (channels).
 
@@ -120,6 +120,8 @@ def error(*models, X, Y, per_channel=False, disp=False):
     &#34;&#34;&#34;
     if len(models) == 0:
         raise ValueError(&#34;must pass models&#34;)
+    elif len(models) == 1 and X is None and Y is None:
+        X, Y = models[0].dataset.get_test_data()
     output_dims = models[0].dataset.get_output_dims()
     if not isinstance(X, list):
         X = [X] * output_dims
@@ -174,7 +176,7 @@ def error(*models, X, Y, per_channel=False, disp=False):
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="mogptk.errors.error"><code class="name flex">
-<span>def <span class="ident">error</span></span>(<span>*models, X, Y, per_channel=False, disp=False)</span>
+<span>def <span class="ident">error</span></span>(<span>*models, X=None, Y=None, per_channel=False, disp=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Return test errors given a model and test set. The function assumes all models have been trained and all models share equal number of inputs and outputs (channels).</p>
@@ -201,9 +203,9 @@ def error(*models, X, Y, per_channel=False, disp=False):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/errors.py#L72-L137" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/errors.py#L72-L139" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def error(*models, X, Y, per_channel=False, disp=False):
+<pre><code class="python">def error(*models, X=None, Y=None, per_channel=False, disp=False):
     &#34;&#34;&#34;
     Return test errors given a model and test set. The function assumes all models have been trained and all models share equal number of inputs and outputs (channels).
 
@@ -225,6 +227,8 @@ def error(*models, X, Y, per_channel=False, disp=False):
     &#34;&#34;&#34;
     if len(models) == 0:
         raise ValueError(&#34;must pass models&#34;)
+    elif len(models) == 1 and X is None and Y is None:
+        X, Y = models[0].dataset.get_test_data()
     output_dims = models[0].dataset.get_output_dims()
     if not isinstance(X, list):
         X = [X] * output_dims
@@ -279,7 +283,7 @@ def error(*models, X, Y, per_channel=False, disp=False):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/errors.py#L5-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/errors.py#L5-L9" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean_absolute_percentage_error(y_true, y_pred):
     y_true, y_pred = np.array(y_true), np.array(y_pred)
@@ -310,7 +314,7 @@ def error(*models, X, Y, per_channel=False, disp=False):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/errors.py#L12-L70" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/errors.py#L12-L70" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def prediction_error(dataset, all_obs=False, disp=False):
     &#34;&#34;&#34;

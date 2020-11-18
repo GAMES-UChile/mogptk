@@ -25,12 +25,13 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/sm_lmc.py#L0-L127" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/sm_lmc.py#L0-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
+from .config import logger
 from .dataset import DataSet
-from .model import Model, Exact, logger
+from .model import Model, Exact
 from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
 
 class SM_LMC(Model):
@@ -222,7 +223,7 @@ class SM_LMC(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/sm_lmc.py#L7-L128" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/sm_lmc.py#L8-L129" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SM_LMC(Model):
     &#34;&#34;&#34;
@@ -384,7 +385,7 @@ of each channel.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/sm_lmc.py#L63-L128" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/sm_lmc.py#L64-L129" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
     &#34;&#34;&#34;
@@ -461,6 +462,7 @@ of each channel.</p>
 <ul class="hlist">
 <li><code><a title="mogptk.model.Model.get_parameters" href="model.html#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.plot" href="model.html#mogptk.model.Model.plot">plot</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_prediction" href="model.html#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.Model.predict" href="model.html#mogptk.model.Model.predict">predict</a></code></li>
 <li><code><a title="mogptk.model.Model.print_parameters" href="model.html#mogptk.model.Model.print_parameters">print_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.save" href="model.html#mogptk.model.Model.save">save</a></code></li>

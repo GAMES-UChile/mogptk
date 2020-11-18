@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/plot.py#L0-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/plot.py#L0-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import matplotlib.pyplot as plt
@@ -91,7 +91,7 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
     axes[output_dims-1,i].set_xlabel(&#39;Frequency&#39;)
 
     legends = []
-    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Full&#39;))
+    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Total&#39;))
     legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;Mixture&#39;))
     legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, lw=2, color=&#39;silver&#39;, label=&#39;Peak location&#39;))
     fig.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(h+0.4)/h), ncol=3)
@@ -118,7 +118,7 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/78bafe783f7fa50837056832b8d4498935d9a97a/mogptk/plot.py#L5-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/plot.py#L5-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None):
     &#34;&#34;&#34;
@@ -180,7 +180,7 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
     axes[output_dims-1,i].set_xlabel(&#39;Frequency&#39;)
 
     legends = []
-    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Full&#39;))
+    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Total&#39;))
     legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;Mixture&#39;))
     legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, lw=2, color=&#39;silver&#39;, label=&#39;Peak location&#39;))
     fig.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(h+0.4)/h), ncol=3)
