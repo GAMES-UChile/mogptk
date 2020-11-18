@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as functional
 import copy
-from . import Parameter, device, dtype, positive_minimum
+from . import Parameter, config
 
 class Kernel:
     def __init__(self, input_dims=None, active_dims=None, name=None):
@@ -75,7 +75,7 @@ class Kernel:
                 active_dims = [active_dims]
             if not all(isinstance(item, int) for item in active_dims):
                 raise ValueError("active dimensions must be a list of integers")
-            active_dims = torch.tensor(active_dims, device=device, dtype=torch.long)
+            active_dims = torch.tensor(active_dims, device=config.device, dtype=torch.long)
             if self.input_dims is not None and self.input_dims != active_dims.shape[0]:
                 raise ValueError("input dimensions must match the number of actived dimensions")
         self._active_dims = active_dims
@@ -140,7 +140,7 @@ class MultiOutputKernel(Kernel):
         noise = torch.ones(output_dims)
 
         self.output_dims = output_dims
-        self.noise = Parameter(noise, lower=positive_minimum)
+        self.noise = Parameter(noise, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,1+input_dims) where the first column is the channel ID
@@ -154,7 +154,7 @@ class MultiOutputKernel(Kernel):
 
         if X2 is None:
             r2 = [r1[i].reshape(1,-1) for i in range(self.output_dims)]
-            res = torch.empty(X1.shape[0], X1.shape[0], device=device, dtype=dtype)  # N1 x N1
+            res = torch.empty(X1.shape[0], X1.shape[0], device=config.device, dtype=config.dtype)  # N1 x N1
             # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
             for i in range(self.output_dims):
                 for j in range(i+1):
@@ -175,7 +175,7 @@ class MultiOutputKernel(Kernel):
             x2 = [X2[m2[j],1:] for j in range(self.output_dims)]  # I is broadcastable with last dimension in X
             r2 = [torch.nonzero(m2[j], as_tuple=False).reshape(1,-1) for j in range(self.output_dims)]  # as_tuple avoids warning
 
-            res = torch.empty(X1.shape[0], X2.shape[0], device=device, dtype=dtype)  # N1 x N2
+            res = torch.empty(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)  # N1 x N2
             for i in range(self.output_dims):
                 for j in range(self.output_dims):
                     # calculate sub kernel matrix and add to main kernel matrix

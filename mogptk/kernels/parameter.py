@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as functional
-from . import device, dtype
+
+from .config import config
 
 class Transform:
     def forward(self, x):
@@ -69,15 +70,15 @@ class Parameter:
 
     def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
         if not isinstance(data, torch.Tensor):
-            data = torch.tensor(data, device=device, dtype=dtype)
+            data = torch.tensor(data, device=config.device, dtype=config.dtype)
         else:
-            data = data.to(device, dtype)
+            data = data.to(config.device, config.dtype)
         if lower is not None:
-            lower = torch.tensor(lower, device=device, dtype=dtype)
+            lower = torch.tensor(lower, device=config.device, dtype=config.dtype)
             if len(lower.shape) != 0 and lower.shape != data.shape:
                 raise ValueError("lower and data must match shapes: %s != %s" % (lower.shape, data.shape))
         if upper is not None:
-            upper = torch.tensor(upper, device=device, dtype=dtype)
+            upper = torch.tensor(upper, device=config.device, dtype=config.dtype)
             if len(upper.shape) != 0 and upper.shape != data.shape:
                 raise ValueError("upper and data must match shapes: %s != %s" % (upper.shape, data.shape))
         if data.requires_grad:

@@ -1,9 +1,9 @@
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+from .config import logger
 from .dataset import DataSet
-from .model import Model, Exact, logger
+from .model import Model, Exact
 from .kernels import MultiOutputSpectralKernel, MixtureKernel
 from .plot import plot_spectrum
 

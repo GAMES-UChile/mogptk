@@ -1,10 +1,9 @@
 import numpy as np
-from scipy.stats import norm
-import matplotlib.pyplot as plt
 
+from .config import logger
 from .dataset import DataSet
-from .model import Model, Exact, logger
-from .kernels import SpectralKernel, IndependentMultiOutputKernel, MixtureKernel, positive_minimum
+from .model import Model, Exact
+from .kernels import SpectralKernel, IndependentMultiOutputKernel, MixtureKernel
 from .plot import plot_spectrum
 
 class SM(Model):

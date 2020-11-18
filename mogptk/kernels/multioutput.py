@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from . import MultiOutputKernel, Parameter, device, dtype, positive_minimum
+from . import MultiOutputKernel, Parameter, config
 
 class IndependentMultiOutputKernel(MultiOutputKernel):
     def __init__(self, *kernels, output_dims, name="IMO"):
@@ -17,7 +17,7 @@ class IndependentMultiOutputKernel(MultiOutputKernel):
         else:
             if X2 is None:
                 X2 = X1
-            return torch.zeros(X1.shape[0], X2.shape[0], device=device, dtype=dtype)
+            return torch.zeros(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)
 
 class MultiOutputSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, active_dims=None, name="MOSM"):
@@ -32,9 +32,9 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
         phase = torch.zeros(output_dims)
 
         self.input_dims = input_dims
-        self.magnitude = Parameter(magnitude, lower=positive_minimum)
-        self.mean = Parameter(mean, lower=positive_minimum)
-        self.variance = Parameter(variance, lower=positive_minimum)
+        self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
+        self.mean = Parameter(mean, lower=config.positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
         if 1 < output_dims:
             self.delay = Parameter(delay)
             self.phase = Parameter(phase)
@@ -77,9 +77,9 @@ class CrossSpectralKernel(MultiOutputKernel):
 
         self.input_dims = input_dims
         self.Rq = Rq
-        self.amplitude = Parameter(amplitude, lower=positive_minimum)
-        self.mean = Parameter(mean, lower=positive_minimum)
-        self.variance = Parameter(variance, lower=positive_minimum)
+        self.amplitude = Parameter(amplitude, lower=config.positive_minimum)
+        self.mean = Parameter(mean, lower=config.positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
         self.shift = Parameter(shift)
 
     def Ksub(self, i, j, X1, X2=None):
@@ -114,7 +114,7 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
         weight = torch.rand(output_dims, Q, Rq)
 
         self.kernels = kernels
-        self.weight = Parameter(weight, lower=positive_minimum)
+        self.weight = Parameter(weight, lower=config.positive_minimum)
 
     def __getitem__(self, key):
         return self.kernels[key]
@@ -134,9 +134,9 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         base_variance = torch.rand(input_dims)
 
         self.input_dims = input_dims
-        self.weight = Parameter(weight, lower=positive_minimum)
+        self.weight = Parameter(weight, lower=config.positive_minimum)
         self.variance = Parameter(variance, lower=0.0)
-        self.base_variance = Parameter(base_variance, lower=positive_minimum)
+        self.base_variance = Parameter(base_variance, lower=config.positive_minimum)
 
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)

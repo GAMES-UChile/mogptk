@@ -1,7 +1,8 @@
 import numpy as np
 
+from .config import logger
 from .dataset import DataSet
-from .model import Model, Exact, logger
+from .model import Model, Exact
 from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
 
 class SM_LMC(Model):

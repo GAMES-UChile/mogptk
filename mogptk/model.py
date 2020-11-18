@@ -3,18 +3,14 @@ import time
 import pickle
 import numpy as np
 import torch
+import matplotlib
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+from .config import logger
 from .serie import Serie
 from .dataset import DataSet
 from .kernels import GPR
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-import logging
-logger = logging.getLogger('mogptk')
-
-eps = 1e-20
 
 def LoadModel(filename):
     """
@@ -377,7 +373,7 @@ class Model:
             fig.suptitle(title, fontsize=18)
 
         color_range = np.abs(K_gram).max()
-        norm = mpl.colors.Normalize(vmin=-color_range, vmax=color_range)
+        norm = matplotlib.colors.Normalize(vmin=-color_range, vmax=color_range)
         im = ax.matshow(K_gram, cmap='coolwarm', norm=norm)
 
         divider = make_axes_locatable(ax)

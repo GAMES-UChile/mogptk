@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from IPython.display import display, HTML
-from . import Parameter, Kernel, MultiOutputKernel, device, dtype, positive_minimum
+from . import Parameter, Kernel, MultiOutputKernel, config
 
 class Mean:
     def __init__(self, name=None):
@@ -52,9 +52,9 @@ class Model:
 
     def _check_input(self, X, y=None):
         if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, device=device, dtype=dtype)
+            X = torch.tensor(X, device=config.device, dtype=config.dtype)
         else:
-            X = X.to(device, dtype)
+            X = X.to(config.device, config.dtype)
         if len(X.shape) == 1:
             X = X.reshape(-1,1)
         if len(X.shape) != 2:
@@ -64,9 +64,9 @@ class Model:
 
         if y is not None:
             if not isinstance(y, torch.Tensor):
-                y = torch.tensor(y, device=device, dtype=dtype)
+                y = torch.tensor(y, device=config.device, dtype=config.dtype)
             else:
-                y = y.to(device, dtype)
+                y = y.to(config.device, config.dtype)
             if len(y.shape) == 1:
                 y = y.reshape(-1,1)
             if len(y.shape) != 2 or y.shape[1] != 1:
@@ -181,7 +181,7 @@ class Model:
                 S = 1
 
             mu, var = self.predict(Z, full_var=True)  # MxD and MxMxD
-            u = torch.normal(torch.zeros(Z.shape[0], S, device=device, dtype=dtype), torch.tensor(1.0, device=device, dtype=dtype))  # MxS
+            u = torch.normal(torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype), torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
             L = torch.cholesky(var + 1e-6*torch.ones(Z.shape[0]).diagflat())  # MxM
             samples = mu + L.mm(u)  # MxS
             if num is None:
@@ -194,7 +194,7 @@ class GPR(Model):
 
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
 
-        self.noise = Parameter(noise, name="noise", lower=positive_minimum)
+        self.noise = Parameter(noise, name="noise", lower=config.positive_minimum)
         self._register_parameters(self.noise)
 
     def log_marginal_likelihood(self):

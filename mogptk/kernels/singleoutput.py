@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from . import Kernel, Parameter, positive_minimum
+from . import Kernel, Parameter, config
 
 class LinearKernel(Kernel):
     def __init__(self, input_dims=None, active_dims=None, name="Linear"):
@@ -43,7 +43,7 @@ class PhiKernel(Kernel):
         variance = torch.ones(feature_dims)
 
         self.phi = phi
-        self.variance = Parameter(variance, lower=positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -62,8 +62,8 @@ class SquaredExponentialKernel(Kernel):
         l = torch.rand(input_dims)
         sigma = torch.rand(1)
 
-        self.l = Parameter(l, lower=positive_minimum)
-        self.sigma = Parameter(sigma, lower=positive_minimum)
+        self.l = Parameter(l, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -81,8 +81,8 @@ class RationalQuadraticKernel(Kernel):
         sigma = torch.rand(1)
 
         self.alpha = alpha
-        self.l = Parameter(l, lower=positive_minimum)
-        self.sigma = Parameter(sigma, lower=positive_minimum)
+        self.l = Parameter(l, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -100,9 +100,9 @@ class PeriodicKernel(Kernel):
         p = torch.rand(1)
         sigma = torch.rand(1)
 
-        self.l = Parameter(l, lower=positive_minimum)
-        self.p = Parameter(p, lower=positive_minimum)
-        self.sigma = Parameter(sigma, lower=positive_minimum)
+        self.l = Parameter(l, lower=config.positive_minimum)
+        self.p = Parameter(p, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -120,9 +120,9 @@ class SpectralKernel(Kernel):
         mean = torch.rand(input_dims)
         variance = torch.ones(input_dims)
 
-        self.weight = Parameter(weight, lower=positive_minimum)
-        self.mean = Parameter(mean, lower=positive_minimum)
-        self.variance = Parameter(variance, lower=positive_minimum)
+        self.weight = Parameter(weight, lower=config.positive_minimum)
+        self.mean = Parameter(mean, lower=config.positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)

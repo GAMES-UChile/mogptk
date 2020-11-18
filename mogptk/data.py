@@ -1,7 +1,6 @@
 import re
 import copy
 import inspect
-import logging
 import datetime
 
 import numpy as np
@@ -10,14 +9,13 @@ from scipy import signal
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from pandas.plotting import register_matplotlib_converters
 
 from .bnse import bse
+from .config import logger
 from .serie import Serie, TransformLinear
 
-from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
-
-logger = logging.getLogger('mogptk')
 
 def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     """

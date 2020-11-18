@@ -1,6 +1,7 @@
 """
 .. include:: ./documentation.md
 """
+from .config import *
 from .serie import *
 from .data import *
 from .dataset import *
@@ -14,3 +15,5 @@ from .sm_lmc import *
 
 from .plot import *
 from .errors import *
+
+from .kernels.config import *
