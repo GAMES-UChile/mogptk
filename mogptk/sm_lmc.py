@@ -6,13 +6,13 @@ from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
 
 class SM_LMC(Model):
     """
-    Spectral Mixture Linear Model of Coregionalization kernel with Q components and Rq latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
+    Spectral Mixture Linear Model of Coregionalization kernel with `Q` components and `Rq` latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
 
     Args:
-        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
+        dataset (mogptk.DataSet): `DataSet` object of data for all channels.
         Q (int, optional): Number of components.
         Rq (int, optional): Number of subcomponents.
-        model: Gaussian Process model to use, such as mogptk.Exact.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         name (str, optional): Name of the model.
 
     Attributes:

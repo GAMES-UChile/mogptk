@@ -8,12 +8,12 @@ from .plot import plot_spectrum
 
 class MOSM(Model):
     """
-    Multi-Output Spectral Mixture kernel as proposed by [1]. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
+    Multi-Output Spectral Mixture kernel with `Q` components as proposed by [1]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
 
     Args:
-        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
+        dataset (mogptk.DataSet): `DataSet` object of data for all channels.
         Q (int, optional): Number of components.
-        model: Gaussian Process model to use, such as mogptk.Exact.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         name (str, optional): Name of the model.
 
     Atributes:
@@ -220,14 +220,12 @@ class MOSM(Model):
 
     def _get_cross_parameters(self):
         """
-        Obtain cross parameters from MOSM
+        Obtain cross parameters from MOSM.
 
         Returns:
-            cross_params(dict): Dictionary with the cross parameters, 'covariance', 'mean',
-            'magnitude', 'delay' and 'phase'. Each one a output_dim x output_dim x input_dim x Q
-            array with the cross parameters, with the exception of 'magnitude' and 'phase' where 
-            the cross parameters are a output_dim x output_dim x Q array.
-            NOTE: this assumes the same input dimension for all channels.
+            cross_params(dict): Dictionary with the cross parameters: covariance, mean, magnitude, delay and phase. Each one an array of shape (output_dim,output_dim,input_dim,Q) with the cross parameters, with the exception of magnitude and phase where the cross parameters are of shape (output_dim,output_dim,Q).
+
+        This assumes the same input dimension for all channels.
         """
         m = self.dataset.get_output_dims()
         d = self.dataset.get_input_dims()[0]

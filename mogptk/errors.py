@@ -18,19 +18,19 @@ def root_mean_squared_error(y_true, y_pred):
     Root Mean Squared Error (RMSE) between the true and the predicted values.
     """
     y_true, y_pred = _check_arrays(y_true, y_pred)
-    return np.sqrt(np.mean((y_true - y_pred)^2))
+    return np.sqrt(np.mean((y_true - y_pred)**2))
 
 def mean_absolute_percentage_error(y_true, y_pred):
     """
     Mean Absolute Percentage Error (MAPE) between the true and the predicted values.
     """
     y_true, y_pred = _check_arrays(y_true, y_pred)
-    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100.0
 
 # TODO: use relative error per channel
 def prediction_error(dataset, all_obs=False, disp=False):
     """
-    Return error metrics for the predictions on the dataset (MAE, RMSE, MAPE) by comparing the removed observations from the predicted means. The predicted values are interpolated linearly to match the X position of the removed observations. However, if a latent function is defined for the data then this will be used instead as the true values.
+    Return error metrics for the predictions on the data set (MAE, RMSE, MAPE) by comparing the removed observations from the predicted means. The predicted values are interpolated linearly to match the X position of the removed observations. However, if a latent function is defined for the data then this will be used instead as the true values.
 
     Args:
         dataset (mogptk.DataSet): Data set containing predictions to evaluate.
@@ -38,7 +38,7 @@ def prediction_error(dataset, all_obs=False, disp=False):
         disp (boolean, optional): Display errors instead of returning them.
     
     Returns:
-        errors (list): List of dictionaries per model, containing numpy.ndarrays for each error metric. The dictionary has the following keys: Name which contains the model name, MAE contains the mean absolute error, MAPE the mean absolute percentage error, and RMSE the root mean squared error.
+        errors (list): List of dictionaries per model, containing `numpy.ndarrays` for each error metric. The dictionary has the following keys: Name which contains the model name, MAE contains the mean absolute error, MAPE the mean absolute percentage error, and RMSE the root mean squared error.
 
     """
     if dataset.get_output_dims() == 0:
@@ -93,7 +93,7 @@ def error(*models, X=None, Y=None, per_channel=False, disp=False):
     Return test errors given a model and a test set. The function assumes all models have been trained and all models share equal numbers of inputs and outputs (channels). If X and Y are not passed and only one model is given, than the dataset's test data of the model is used.
 
     Args:
-        models (list of mogptk.model): Trained model to evaluate, can be more than one
+        models (list of mogptk.Model): Trained model to evaluate, can be more than one
         X (list): List of numpy arrays with the inputs of the test set. Length is the output dimension.
         Y (list): List of numpy arrays with the true ouputs of test set. Length is the output dimension.
         per_channel (boolean, optional): Return averages over channels instead of over models.

@@ -6,13 +6,13 @@ from .kernels import CrossSpectralKernel, MixtureKernel
 
 class CSM(Model):
     """
-    Cross Spectral Mixture kernel [1] with Q components and Rq latent functions. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
+    Cross Spectral Mixture kernel [1] with `Q` components and `Rq` latent functions. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
 
     Args:
-        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
+        dataset (mogptk.DataSet): `DataSet` object of data for all channels.
         Q (int, optional): Number of components.
         Rq (int, optional): Number of subcomponents.
-        model: Gaussian Process model to use, such as mogptk.Exact.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         name (str, optional): Name of the model.
 
     Attributes:

@@ -7,12 +7,12 @@ from .plot import plot_spectrum
 
 class SM(Model):
     """
-    Independent Spectral Mixture kernels per channel. The spectral mixture kernel is proposed by [1]. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
+    Independent Spectral Mixture kernels per channel. The spectral mixture kernel is proposed by [1]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
 
     Args:
-        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
+        dataset (mogptk.DataSet): `DataSet` object of data for all channels.
         Q (int, optional): Number of components.
-        model: Gaussian Process model to use, such as mogptk.Exact.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         name (str, optional): Name of the model.
 
     Attributes:
@@ -57,11 +57,11 @@ class SM(Model):
 
         - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak's position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
         - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
-        - IPS uses independent parameter sampling from the PhD thesis of Andrew Wilson 2014. It takes the inverse of the lengthscales drawn from a truncated Gaussian N(0, max_dist^2), the means drawn from a Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the y values divided by the number of mixtures.
+        - IPS uses independent parameter sampling from the PhD thesis of Andrew Wilson 2014. It takes the inverse of the lengthscales drawn from a truncated Gaussian Normal(0, max_dist^2), the means drawn from a Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the Y values divided by the number of mixtures.
 
         In all cases the noise is initialized with 1/30 of the variance of each channel.
 
-        Arguments:
+        Args:
             method (str, optional): Method of estimation, such as IPS, LS, or BNSE.
         """
 

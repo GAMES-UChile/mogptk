@@ -6,12 +6,12 @@ from .kernels import GaussianConvolutionProcessKernel, MixtureKernel
 
 class CONV(Model):
     """
-    CONV is the Convolutional Gaussian kernel with Q components [1]. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
+    CONV is the Convolutional Gaussian kernel with `Q` components [1]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
 
     Args:
-        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
+        dataset (mogptk.DataSet): `DataSet` object of data for all channels.
         Q (int, optional): Number of components.
-        model: Gaussian Process model to use, such as mogptk.Exact.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         name (str, optional): Name of the model.
 
     Attributes:

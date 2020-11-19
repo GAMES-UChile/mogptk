@@ -2,7 +2,7 @@ import numpy as np
 
 class TransformBase:
     """
-    TransformBase is a base class for transformations. Each derived class must at least implement the forward and backward functions.
+    TransformBase is a base class for transformations. Each derived class must at least implement the `forward()` and `backward()` functions.
 
     """
     def set_data(self, data):
@@ -16,10 +16,10 @@ class TransformBase:
 
 class TransformDetrend(TransformBase):
     """
-    TransformDetrend is a transformer that detrends the data. It uses numpy.polyfit to find a polynomial of given degree that best fits the data and thus removes the trend.
+    TransformDetrend is a transformer that detrends the data. It uses `numpy.polyfit` to find a polynomial of given degree that best fits the data and thus removes the trend.
 
     Args:
-        degree (int): Polynomial degree that will be fit, i.e. 2 will find a quadratic trend and remove it from the data.
+        degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
     """
     # TODO: add regression?
     def __init__(self, degree=1):
@@ -60,7 +60,7 @@ class TransformLinear(TransformBase):
 
 class TransformNormalize(TransformBase):
     """
-    TransformNormalize is a transformer that normalizes the data so that the y-axis is between -1 and 1.
+    TransformNormalize is a transformer that normalizes the data so that the Y axis is between -1 and 1.
     """
     def __init__(self):
         pass
@@ -77,7 +77,7 @@ class TransformNormalize(TransformBase):
 
 class TransformLog(TransformBase):
     """
-    TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the y-axis so that all values are greater than or equal to 1.
+    TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the Y axis so that all values are greater than or equal to 1.
     """
     def __init__(self):
         pass
@@ -118,7 +118,7 @@ class TransformWhiten(TransformBase):
 
 class Serie(np.ndarray):
     """
-    Serie is an extension to the numpy.ndarray data type and includes transformations for the array. That is, it maintains the original data array, but also keeps a transformed data array to improve training using e.g. Gaussian processes. By storing the chain of transformations, it is possible to detransform predictions done in the transformed space to the original space and thus allows analysis or plotting in the original domain. Automatic conversions is performed for numpy.datetime64 arrays to numpy.float arrays.
+    Serie is an extension to the `numpy.ndarray` data type and includes transformations for the array. That is, it maintains the original data array, but also keeps a transformed data array to improve training using e.g. Gaussian processes. By storing the chain of transformations, it is possible to detransform predictions done in the transformed space to the original space and thus allows analysis or plotting in the original domain. Automatic conversions is performed for `numpy.datetime64` arrays to `numpy.float` arrays.
     """
     def __new__(cls, array, transformers=[], x=None, transformed=None):
         array = np.asarray(array)

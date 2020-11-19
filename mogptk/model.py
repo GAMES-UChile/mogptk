@@ -19,29 +19,31 @@ def LoadModel(filename):
     Load model from a given file that was previously saved with `model.save()`.
 
     Args:
-        filename (str): Filename to load from.
+        filename (str): File name to load from.
 
     Examples:
-        >>> Load('filename')
+        >>> LoadModel('filename')
     """
     filename += ".npy" 
     with open(filename, 'rb') as r:
         return pickle.load(r)
 
 class Exact:
+    """
+    Exact inference for Gaussian process regression.
+    """
     def build(self, kernel, x, y, name=None):
         return GPR(kernel, x, y, name=name)
 
 class Model:
     def __init__(self, dataset, kernel, model=Exact(), name=None):
         """
-        ---
         Model is the base class for multi-output Gaussian process models.
 
         Args:
-            dataset (mogptk.dataset.DataSet, mogptk.data.Data): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+            dataset (mogptk.DataSet, mogptk.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
             kernel (mogptk.kernels.Kernel): The kernel class.
-            model: Gaussian Process model to use, such as mogptk.Exact.
+            model: Gaussian process model to use, such as `mogptk.Exact`.
             name (str): Name of the model.
         """
         
@@ -84,7 +86,10 @@ class Model:
 
     def get_parameters(self):
         """
-        Returns all parameters set for the kernel per component.
+        Returns all parameters of the kernel.
+
+        Returns:
+            list: mogptk.kernels.parameter.Parameter    
 
         Examples:
             >>> params = model.get_parameters()
@@ -93,10 +98,10 @@ class Model:
 
     def save(self, filename):
         """
-        Save model to a given file that can then be loaded with `Load()`.
+        Save the model to a given file that can then be loaded using `LoadModel()`.
 
         Args:
-            filename (str): Filename to save to, automatically appends '.model'.
+            filename (str): File name to save to, automatically appends '.npy'.
 
         Examples:
             >>> model.save('filename')
@@ -110,6 +115,15 @@ class Model:
             pickle.dump(self, w)
 
     def log_marginal_likelihood(self):
+        """
+        Returns the log marginal likelihood of the kernel and its data and parameters.
+
+        Returns:
+            float: The current log marginal likelihood.
+
+        Examples:
+            >>> model.log_marginal_likelihood()
+        """
         return self.model.log_marginal_likelihood().detach().item()
 
     def train(
@@ -119,16 +133,11 @@ class Model:
         verbose=False,
         **kwargs):
         """
-        Trains the model using the kernel and its parameters.
-
-        For different optimizers, see scipy.optimize.minimize.
-        It can be bounded by a maximum number of iterations, disp will output final
-        optimization information. When using the 'Adam' optimizer, a
-        learning_rate can be set.
+        Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.
 
         Args:
-            method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD. Defaults to Adam.
-            iters (int): Number of iterations, or maximum in case of LBFGS optimizer. Defaults to 500.
+            method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.
+            iters (int): Number of iterations, or maximum in case of LBFGS optimizer.
             verbose (bool): Print verbose output about the state of the optimizer.
             **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
 
@@ -137,7 +146,7 @@ class Model:
             
             >>> model.train(method='lbfgs', tolerance_grad=1e-10, tolerance_change=1e-12)
             
-            >>> model.train(method='adam', lr=1e-4)
+            >>> model.train(method='adam', lr=0.5)
         """
         if verbose:
             training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
@@ -196,7 +205,7 @@ class Model:
 
     def _to_kernel_format(self, X, Y=None):
         """
-        Return the data vectors in the format as used by the kernels.
+        Return the data vectors in the format used by the kernels.
 
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
@@ -257,14 +266,11 @@ class Model:
 
     def predict(self, X=None, sigma=2.0, transformed=False):
         """
-        Predict with model.
-
-        Will make a prediction using x as input. If no input value is passed, the prediction will 
-        be made with atribute self.X_pred that can be setted with other functions.
+        Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
             X (list, dict, optional): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
-            sigma (float, optional): The uncertainty interval's number of standard deviations.
+            sigma (float, optional): The confidence interval's number of standard deviations.
             transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
@@ -314,7 +320,7 @@ class Model:
 
     def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
         """
-        Plot each Data channel.
+        Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
         Args:
             title (str, optional): Set the title of the plot.
@@ -331,39 +337,50 @@ class Model:
         """
         return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
 
-    def get_gram_matrix(self, xmin=None, xmax=None, n_points=31):
-        if xmin is None:
-            xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
-        if xmax is None:
-            xmax = [np.array(data.X[0].transformed).max() for data in self.dataset]
+    def get_gram_matrix(self, start=None, end=None, n=31):
+        """
+        Returns the gram matrix evaluated between `start` and `end` with `n` number of points. If `start` and `end` are not set, the minimum and maximum X points of the data are used.
+
+        Args:
+            start (float, list, array): Interval minimum.
+            end (float, list, array): Interval maximum.
+            n (int): Number of points per channel.
+
+        Returns:
+            numpy.ndarray: Array of shape (n,n).
+
+        Examples:
+            >>> model.get_gram_matrix()
+        """
+        if start is None:
+            start = [np.array(data.X[0].transformed).min() for data in self.dataset]
+        if end is None:
+            end = [np.array(data.X[0].transformed).max() for data in self.dataset]
 
         M = len(self.dataset)
-        if not isinstance(xmin, (list, np.ndarray)):
-            xmin = [xmin] * M
-        if not isinstance(xmax, (list, np.ndarray)):
-            xmax = [xmax] * M
+        if not isinstance(start, (list, np.ndarray)):
+            start = [start] * M
+        if not isinstance(end, (list, np.ndarray)):
+            end = [end] * M
 
-        X = np.zeros((M*n_points, 2))
-        X[:,0] = np.repeat(np.arange(M), n_points)
+        X = np.zeros((M*n, 2))
+        X[:,0] = np.repeat(np.arange(M), n)
         for m in range(M):
-            if n_points == 1:
-                X[m*n_points:(m+1)*n_points,1] = np.array((xmin[m]+xmax[m])/2.0)
+            if n== 1:
+                X[m*n:(m+1)*n,1] = np.array((start[m]+end[m])/2.0)
             else:
-                X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+                X[m*n:(m+1)*n,1] = np.linspace(start[m], end[m], n)
 
-        return self.model.K(X)
+        return self.model.K(X).detach().numpy()
 
-    def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+    def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         """
         Plot the gram matrix of associated kernel.
 
-        The gram matrix is evaluated depending a equally spaced grid 
-        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
-
         Args:
-            xmin (float, list, array): Interval minimum.
-            xmax (float, list, array): Interval maximum.
-            n_points (int): Number of points per channel.
+            start (float, list, array): Interval minimum.
+            end (float, list, array): Interval maximum.
+            n (int): Number of points per channel.
             title (str): Figure title.
             figsize (tuple): Figure size.
 
@@ -371,7 +388,7 @@ class Model:
             fig: Matplotlib figure.
             ax: Matplotlib axis.
         """
-        K_gram = self.get_gram_matrix(xmin, xmax, n_points)
+        K_gram = self.get_gram_matrix(start, end, n)
             
         fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
         if title is not None:
