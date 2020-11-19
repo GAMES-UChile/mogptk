@@ -17,7 +17,7 @@ Each model has specialized methods for parameter estimation to improve training.
 - [6] F. Tobar, "Bayesian Nonparametric Spectral Estimation", Advances in Neural Information Processing Systems 32, 2018
 
 ## Installation
-Make sure you have Python 3.6 and `pip` installed, and run the following command:
+Make sure you have at least Python 3.6 and `pip` installed, and run the following command:
 
 ```
 pip install mogptk
@@ -40,17 +40,6 @@ The transformation classes allow transforming the dependent data (Y axis) to be 
 - **set_data(data)**: pass the Data class in case the transformer uses that data to calculate the transformation
 - **forward(y, x=None)** returns y: does a forward transformation where x has shape (n,input\_dims) and y has shape (n,)
 - **backward(y, x=None)** returns y: does a backward transformation (invert) where x has shape (n,input\_dims) and y has shape (n,)
-
-#### TransformDetrend
-#### TransformNormalize
-#### TransformLog
-
-## Models
-### MOSM
-### CSM
-### CONV
-### *-LMC
-### *-IGP
 
 ## Advice on training 
 

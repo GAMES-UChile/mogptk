@@ -2,6 +2,7 @@ import re
 import copy
 import inspect
 import datetime
+import logging
 
 import numpy as np
 import pandas as pd
@@ -12,28 +13,29 @@ import matplotlib.patches as patches
 from pandas.plotting import register_matplotlib_converters
 
 from .bnse import bse
-from .config import logger
 from .serie import Serie, TransformLinear
 
 register_matplotlib_converters()
 
+logger = logging.getLogger('mogptk')
+
 def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     """
-    LoadFunction loads a dataset from a given function y = f(x) + N(0,var). It will pick n data points between start and end for x, for which f is being evaluated. By default the n points are spread equally over the interval, with random=True they will be picked randomly.
+    LoadFunction loads a dataset from a given function y = f(x) + Normal(0,var). It will pick `n` data points between start and end for the X axis for which `f` is being evaluated. By default the `n` points are spread equally over the interval, with `random=True` they will be picked randomly.
 
-    The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.
+    The given function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
 
     Args:
-        f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
-        n (int): Number of data points to pick between start and end.
+        f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
         start (float, list): Define start of interval.
         end (float, list): Define end of interval.
+        n (int): Number of data points to pick between start and end.
         var (float, optional): Variance added to the output.
         name (str, optional): Name of data.
-        random (boolean): Select points randomly between start and end (defaults to False).
+        random (boolean, optional): Select points randomly between start and end.
 
     Returns:
-        mogptk.data.Data
+        mogptk.Data
 
     Examples:
         >>> LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -115,15 +117,15 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
 class Data:
     def __init__(self, X, Y, name=None, x_labels=None, y_label=None):
         """
-        Data class holds all the observations, latent functions and prediction data.
+        Data class that holds all observations, latent functions and predicted data.
 
-        This class takes the data raw, but you can load data also conveniently using LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model. Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
+        This class accepts the data directly, otherwise you can load data conveniently using `LoadFunction`, `LoadCSV`, `LoadDataFrame`, etc. The data class allows to modify the data before passing into the model. Examples are transforming data, such as detrending or taking the log, removing data ranges to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
 
-        It is possible to use the format given by numpy.meshgrid for X and its values in Y.
+        It is possible to use the format given by `numpy.meshgrid` for X and its values in Y.
 
         Args:
-            X (list, numpy.ndarray, dict): Independent variable data of shape (n) or (n,input_dims).
-            Y (list, numpy.ndarray): Dependent variable data of shape (n).
+            X (list, numpy.ndarray, dict): Independent variable data of shape (n,) or (n,input_dims).
+            Y (list, numpy.ndarray): Dependent variable data of shape (n,).
             name (str, optional): Name of data.
             x_labels (str, list of str, optional): Name or names of input dimensions.
             y_label (str, optional): Name of output dimension.
@@ -262,10 +264,10 @@ class Data:
 
     def copy(self):
         """
-        Make a deep copy of Data.
+        Make a deep copy of `Data`.
 
         Returns:
-            mogptk.data.Data
+            mogptk.Data
 
         Examples:
             >>> other = data.copy()
@@ -274,7 +276,7 @@ class Data:
 
     def set_name(self, name):
         """
-        Set name for data.
+        Set name for data channel.
 
         Args:
             name (str): Name of data.
@@ -286,7 +288,7 @@ class Data:
 
     def set_labels(self, x_labels, y_label):
         """
-        Set axes labels for plots.
+        Set axis labels for plots.
 
         Args:
             x_labels (str, list of str): X data names for each input dimension.
@@ -309,12 +311,12 @@ class Data:
 
     def set_function(self, f):
         """
-        Set a (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
+        Set the (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
     
-        The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.
+        The function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
 
         Args:
-            f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
+            f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
 
         Examples:
             >>> data.set_function(lambda x: np.sin(3*x[:,0])
@@ -324,7 +326,7 @@ class Data:
 
     def transform(self, transformer):
         """
-        Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
+        Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, etc.
 
         Args:
             transformer (obj): Transformer object derived from TransformBase.
@@ -348,7 +350,7 @@ class Data:
     
     def filter(self, start, end):
         """
-        Filter the data range to be between start and end.
+        Filter the data range to be between `start` and `end` in the X axis.
 
         Args:
             start (float, str): Start of interval.
@@ -375,20 +377,16 @@ class Data:
         """
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
-        For example, group daily data by week and take the mean.
-        The duration can be set as a number which defined the intervals on the X axis,
-        or by a string written in the duration format with:
-        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
-        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+        For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format in case the X axis has data type `numpy.datetime64`. The duration format uses: Y=year, M=month, W=week, D=day, h=hour, m=minute, and s=second. For example, 3W1D means three weeks and one day, ie. 22 days, or 6M to mean six months.
 
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
-            f (function, optional): Function to use to reduce data, by default uses np.mean.
+            f (function, optional): Function to use to reduce data.
 
         Examples:
             >>> data.aggregate(5)
 
-            >>> data.aggregate('2w', f=np.sum)
+            >>> data.aggregate('2W', f=np.sum)
         """
         if self.get_input_dims() != 1:
             raise ValueError("can only aggregate on one dimensional input data")
@@ -411,10 +409,10 @@ class Data:
 
     def get_name(self):
         """
-        Return the name.
+        Return the name of the channel.
 
         Returns:
-            str.
+            str
 
         Examples:
             >>> data.get_name()
@@ -424,7 +422,7 @@ class Data:
 
     def has_test_data(self):
         """
-        Returns True if observations have been removed using the remove_* methods.
+        Returns True if observations have been removed using the `remove_*` methods.
 
         Returns:
             boolean
@@ -440,7 +438,7 @@ class Data:
         Returns the number of input dimensions.
 
         Returns:
-            int: Input dimensions.
+            int: Number of input dimensions.
 
         Examples:
             >>> data.get_input_dims()
@@ -457,7 +455,7 @@ class Data:
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
+            numpy.ndarray: Y data of shape (n,).
 
         Examples:
             >>> x, y = data.get_data()
@@ -475,7 +473,7 @@ class Data:
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
+            numpy.ndarray: Y data of shape (n,).
 
         Examples:
             >>> x, y = data.get_train_data()
@@ -486,14 +484,14 @@ class Data:
 
     def get_test_data(self, transformed=False):
         """
-        Returns the observations used for testing.
+        Returns the observations used for testing which correspond to the removed points.
 
         Arguments:
             transformed (boolean, optional): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
+            numpy.ndarray: Y data of shape (n,).
 
         Examples:
             >>> x, y = data.get_test_data()
@@ -506,7 +504,7 @@ class Data:
     
     def remove_randomly(self, n=None, pct=None):
         """
-        Removes observations randomly on the whole range. Either 'n' observations are removed, or a percentage of the observations.
+        Removes observations randomly on the whole range. Either `n` observations are removed, or a percentage of the observations.
 
         Args:
             n (int, optional): Number of observations to remove randomly.
@@ -528,11 +526,11 @@ class Data:
     
     def remove_range(self, start=None, end=None):
         """
-        Removes observations in the interval [start,end].
+        Removes observations in the interval `[start,end]`.
         
         Args:
-            start (float, str, optional): Start of interval. Defaults to first value in observations.
-            end (float, str, optional): End of interval. Defaults to last value in observations.
+            start (float, str, optional): Start of interval. Defaults to the first value in observations.
+            end (float, str, optional): End of interval. Defaults to the last value in observations.
 
         Examples:
             >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -558,7 +556,7 @@ class Data:
     
     def remove_relative_range(self, start=0.0, end=1.0):
         """
-        Removes observations between start and end as a percentage of the number of observations. So '0' is the first observation, '0.5' is the middle observation, and '1' is the last observation.
+        Removes observations between `start` and `end` as a percentage of the number of observations. So `0` is the first observation, `0.5` is the middle observation, and `1` is the last observation.
 
         Args:
             start (float): Start percentage in interval [0,1].
@@ -618,7 +616,7 @@ class Data:
         Removes observations of given index
 
         Args:
-            index(array-like): Array of indexes of the data to remove.
+            index(list, numpy.ndarray): Array of indexes of the data to remove.
         """
         if isinstance(index, list):
             index = np.array(index)
@@ -630,6 +628,16 @@ class Data:
     ################################################################
     
     def get_prediction_names(self):
+        """
+        Returns the model names of the saved predictions.
+
+        Returns:
+            list: List of prediction names.
+
+        Examples:
+            >>> data.get_prediction_names()
+            ['MOSM', 'CSM', 'SM-LMC', 'CONV']
+        """
         return self.Y_mu_pred.keys()
     
     def get_prediction_x(self, transformed=False):
@@ -651,11 +659,11 @@ class Data:
     
     def get_prediction(self, name, sigma=2.0, transformed=False):
         """
-        Returns the prediction of a given name with a normal variance of sigma.
+        Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
 
         Args:
-            name (str): Name of the prediction, equals the name of the model that made the prediction.
-            sigma (float, optional): The uncertainty interval's number of standard deviations.
+            name (str): Name of the model of the prediction.
+            sigma (float, optional): The confidence interval's number of standard deviations.
             transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
@@ -686,10 +694,10 @@ class Data:
     
     def set_prediction_x(self, X):
         """
-        Set the prediction range directly.
+        Set the prediction range directly for saved predictions. This will clear old predictions.
 
         Args:
-            X (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+            X (list, numpy.ndarray): Array of shape (n,) or (n,input_dims) used for predictions.
 
         Examples:
             >>> data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
@@ -714,8 +722,7 @@ class Data:
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
         """
-        Sets the prediction range. The interval is set with [start,end], with either 'n' points or a
-        given 'step' between the points.
+        Sets the prediction range. The interval is set as `[start,end]`, with either `n` points or a given step between the points.
 
         Args:
             start (float, str, optional): Start of interval, defaults to the first observation.
@@ -723,7 +730,7 @@ class Data:
             n (int, optional): Number of points to generate in the interval.
             step (float, str, optional): Spacing between points in the interval.
 
-            If neither 'step' or 'n' is passed, default number of points is 100.
+            If neither step or n is passed, default number of points is 100.
 
         Examples:
             >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -778,7 +785,7 @@ class Data:
 
     def get_nyquist_estimation(self):
         """
-        Estimate nyquist frequency by taking 0.5/(minimum distance of points).
+        Estimate the Nyquist frequency by taking 0.5/(minimum distance of points).
 
         Returns:
             numpy.ndarray: Nyquist frequency array of shape (input_dims,).
@@ -798,11 +805,11 @@ class Data:
 
     def get_lombscargle_estimation(self, Q=1, n=10000):
         """
-        Peak estimation using Lomb Scargle.
+        Peak estimation of the spectrum using Lomb-Scargle.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points to use for Lomb Scargle, defaults to 10000.
+            Q (int): Number of peaks to find.
+            n (int): Number of points to use for Lomb-Scargle.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -851,11 +858,11 @@ class Data:
 
     def get_bnse_estimation(self, Q=1, n=1000):
         """
-        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+        Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation).
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
+            Q (int): Number of peaks to find.
+            n (int): Number of points of the grid to evaluate frequencies.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -890,23 +897,23 @@ class Data:
                 positions = positions[:Q]
                 variances = variances[:Q]
 
-            n = len(amplitudes)
+            num = len(amplitudes)
             # division by 100 makes it similar to other estimators (emperically found)
-            A[:n,i] = np.sqrt(amplitudes) / 100  
-            B[:n,i] = positions
-            C[:n,i] = variances
+            A[:num,i] = np.sqrt(amplitudes) / 100
+            B[:num,i] = positions
+            C[:num,i] = variances
         return A, B, C
 
     def get_sm_estimation(self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False):
         """
-        Peaks estimation using the Spectral Mixture kernel.
+        Peak estimation of the spectrum using the spectral mixture kernel.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
+            Q (int): Number of peaks to find.
             method (str, optional): Method of estimating SM kernels.
             optimizer (str, optional): Optimization method for SM kernels.
             iters (str, optional): Maximum iteration for SM kernels.
-            params (object, optional): Additional parameters for PyTorch optimizer.
+            params (object, optional): Additional parameters for the PyTorch optimizer.
             plot (bool, optional): Show the PSD of the kernel after fitting.
 
         Returns:
@@ -1046,13 +1053,13 @@ class Data:
             ax.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(3.0+0.7+0.3*legend_rows)/3.0), ncol=5)
         return ax
 
-    def plot_spectrum(self, title=None, method='lombscargle', ax=None, per=None, maxfreq=None, transformed=False):
+    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, transformed=False):
         """
         Plot the spectrum of the data.
 
         Args:
             title (str, optional): Set the title of the plot.
-            method (str, optional): Set the method to get the spectrum: lombscargle or bnse.
+            method (str, optional): Set the method to get the spectrum such as LS or BNSE.
             ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
             per (str, float, numpy.timedelta64, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.
             maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
@@ -1104,9 +1111,9 @@ class Data:
 
         X_freq = np.linspace(0.0, nyquist, 10001)[1:]
         Y_freq_err = []
-        if method == 'lombscargle':
+        if method.lower() == 'ls':
             Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq)
-        elif method == 'bnse':
+        elif method.lower() == 'bnse':
             bnse = bse(X, Y)
             bnse.set_freqspace(nyquist, 10001)
             bnse.train()
