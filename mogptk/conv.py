@@ -95,7 +95,7 @@ class CONV(Model):
         # input_dims must be the same for all channels (restriction of MOSM)
         constant = np.empty((output_dims, self.Q))
         for q in range(self.Q):
-            constant[:,q] = np.array([amplitude[q,:] for amplitude in amplitudes]).mean(axis=0)
+            constant[:,q] = np.array([amplitude[q,:] for amplitude in amplitudes]).mean(axis=1)
             self.model.kernel[q].variance.assign([variance[q,:] * 10.0 for variance in variances])
 
         for i, channel in enumerate(self.dataset):

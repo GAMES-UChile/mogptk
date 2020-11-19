@@ -2,6 +2,7 @@ import re
 import copy
 import inspect
 import datetime
+import logging
 
 import numpy as np
 import pandas as pd
@@ -12,10 +13,11 @@ import matplotlib.patches as patches
 from pandas.plotting import register_matplotlib_converters
 
 from .bnse import bse
-from .model import logger
 from .serie import Serie, TransformLinear
 
 register_matplotlib_converters()
+
+logger = logging.getLogger('mogptk')
 
 def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     """
@@ -895,11 +897,11 @@ class Data:
                 positions = positions[:Q]
                 variances = variances[:Q]
 
-            n = len(amplitudes)
+            num = len(amplitudes)
             # division by 100 makes it similar to other estimators (emperically found)
-            A[:n,i] = np.sqrt(amplitudes) / 100  
-            B[:n,i] = positions
-            C[:n,i] = variances
+            A[:num,i] = np.sqrt(amplitudes) / 100
+            B[:num,i] = positions
+            C[:num,i] = variances
         return A, B, C
 
     def get_sm_estimation(self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False):
