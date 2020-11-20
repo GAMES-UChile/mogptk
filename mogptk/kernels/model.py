@@ -3,6 +3,9 @@ import numpy as np
 from IPython.display import display, HTML
 from . import Parameter, Kernel, MultiOutputKernel, config
 
+class CholeskyException(Exception):
+    pass
+
 class Mean:
     def __init__(self, name=None):
         if name is None:
@@ -155,7 +158,7 @@ class Model:
                 print("Kernel matrix has infinities!")
             print("Parameters:")
             self.print_parameters()
-            raise
+            raise CholeskyException
 
     def log_marginal_likelihood(self):
         raise NotImplementedError()
@@ -209,7 +212,7 @@ class GPR(Model):
         p = -0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
         p -= L.diagonal().log().sum()
         p -= self.log_marginal_likelihood_constant
-        return p/self.X.shape[0]
+        return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
     def predict(self, Z):
         with torch.no_grad():

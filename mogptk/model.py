@@ -10,7 +10,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from .serie import Serie
 from .dataset import DataSet
-from .kernels import GPR
+from .kernels import GPR, CholeskyException
+from .errors import mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
 
 logger = logging.getLogger('mogptk')
 
@@ -126,11 +127,50 @@ class Model:
         """
         return self.model.log_marginal_likelihood().detach().item()
 
+    def loss(self):
+        """
+        Returns the loss of the kernel and its data and parameters.
+
+        Returns:
+            float: The current loss.
+
+        Examples:
+            >>> model.loss()
+        """
+        return self.model.loss().detach().item()
+
+    def error(self, method='MAE'):
+        """
+        Returns the error of the kernel prediction with the removed data points in the data set.
+
+        Args:
+            method (str): Error calculation method, such as MAE, MAPE, or RMSE.
+
+        Returns:
+            float: The current error.
+
+        Examples:
+            >>> model.error()
+        """
+        X, Y_true = self.dataset.get_test_data()
+        x, y_true = self._to_kernel_format(X, Y_true)
+        y_pred, _ = self.model.predict(x)
+        if method.lower() == 'mae':
+            return mean_absolute_error(y_true, y_pred)
+        elif method.lower() == 'mape':
+            return mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == 'rmse':
+            return root_mean_squared_error(y_true, y_pred)
+        else:
+            raise ValueError("valid error calculation methods are MAE, MAPE, and RMSE")
+
     def train(
         self,
         method='Adam',
         iters=500,
         verbose=False,
+        error=None,
+        plot=False,
         **kwargs):
         """
         Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.
@@ -139,6 +179,8 @@ class Model:
             method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.
             iters (int): Number of iterations, or maximum in case of LBFGS optimizer.
             verbose (bool): Print verbose output about the state of the optimizer.
+            error (str): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.
+            plot (bool): Plot the negative log likelihood.
             **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
 
         Examples:
@@ -148,6 +190,15 @@ class Model:
             
             >>> model.train(method='adam', lr=0.5)
         """
+        if method.lower() in ('l-bfgs', 'lbfgs', 'l-bfgs-b', 'lbfgsb'):
+            method = 'LBFGS'
+        elif method.lower() == 'adam':
+            method = 'Adam'
+        elif method.lower() == 'sgd':
+            method = 'SGD'
+        elif method.lower() == 'adagrad':
+            method = 'AdaGrad'
+
         if verbose:
             training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
             parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
@@ -158,44 +209,78 @@ class Model:
                 print('‣ Mixtures: {}'.format(self.Q))
             print('‣ Training points: {}'.format(training_points))
             print('‣ Parameters: {}'.format(parameters))
-            print('‣ Initial NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
+            print('‣ Initial loss: {:.3g}'.format(self.loss()))
+            if error is not None:
+                print('‣ Initial error: {:.3g}'.format(self.error(error)))
             inital_time = time.time()
 
+        losses = np.empty((iters+1,))
+        errors = np.empty((iters+1,))
         try:
-            if method.lower() in ('l-bfgs', 'lbfgs', 'l-bfgs-b', 'lbfgsb'):
+            if method == 'LBFGS':
                 if not 'max_iter' in kwargs:
                     kwargs['max_iter'] = iters
                     iters = 0
                 optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
                 optimizer.step(lambda: self.model.loss())
                 iters = optimizer.state_dict()['state'][0]['func_evals']
-            elif method.lower() == 'adam':
-                if not 'lr' in kwargs:
-                    kwargs['lr'] = 0.1
+            elif method == 'Adam':
                 optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
                 for i in range(iters):
-                    loss = self.model.loss()
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
                     optimizer.step()
-            elif method.lower() == 'sgd':
+            elif method == 'SGD':
                 optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
                 for i in range(iters):
-                    loss = self.model.loss()
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
                     optimizer.step()
-            elif method.lower() == 'adagrad':
+            elif method == 'AdaGrad':
                 optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
                 for i in range(iters):
-                    loss = self.model.loss()
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
                     optimizer.step()
             else:
                 print("Unknown optimizer:", method)
-        except Exception as e:
+            losses[iters] = self.loss()
+            if error is not None:
+                errors[iters] = self.error(error)
+        except CholeskyException:
             return
 
         if verbose:
             elapsed_time = time.time() - inital_time
             print('\nOptimization finished in {}'.format(_format_duration(elapsed_time)))
             print('‣ Function evaluations: {}'.format(iters))
-            print('‣ Final NLL: {:.3f}'.format(-self.model.log_marginal_likelihood().tolist()))
+            print('‣ Final loss: {:.3g}'.format(losses[-1]))
+            if error is not None:
+                print('‣ Final error: {:.3g}'.format(errors[-1]))
+
+        if plot:
+            fig, ax = plt.subplots(1, 1, figsize=(12,3), constrained_layout=True)
+            ax.plot(np.arange(0,iters+1), losses[:iters+1], c='k', ls='-')
+            ax.set_xlim(0, iters)
+            ax.set_xlabel('Iteration')
+            ax.set_ylabel('Loss')
+
+            legends = []
+            legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Loss'))
+            if error is not None:
+                ax2 = ax.twinx()
+                ax2.plot(np.arange(0,iters+1), errors[:iters+1], c='k', ls='-.')
+                ax2.set_ylabel('Error')
+                legends.append(plt.Line2D([0], [0], ls='-.', color='k', label='Error'))
+
+            ax.legend(handles=legends)
+
+        if error is not None:
+            return losses, errors
+        return losses
 
     ################################################################################
     # Predictions ##################################################################
@@ -309,14 +394,14 @@ class Model:
                 Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
 
             if transformed:
-                return X, Mu, Lower, Upper
+                return Mu, Lower, Upper
             else:
                 X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
                 for j in range(self.dataset.get_output_dims()):
                     Mu[j] = self.dataset[j].Y.detransform(Mu[j], X_pred[j])
                     Lower[j] = self.dataset[j].Y.detransform(Lower[j], X_pred[j])
                     Upper[j] = self.dataset[j].Y.detransform(Upper[j], X_pred[j])
-                return X, Mu, Lower, Upper
+                return Mu, Lower, Upper
 
     def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
         """

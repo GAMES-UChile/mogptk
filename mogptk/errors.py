@@ -13,19 +13,19 @@ def mean_absolute_error(y_true, y_pred):
     y_true, y_pred = _check_arrays(y_true, y_pred)
     return np.mean(np.abs(y_true - y_pred))
 
-def root_mean_squared_error(y_true, y_pred):
-    """
-    Root Mean Squared Error (RMSE) between the true and the predicted values.
-    """
-    y_true, y_pred = _check_arrays(y_true, y_pred)
-    return np.sqrt(np.mean((y_true - y_pred)**2))
-
 def mean_absolute_percentage_error(y_true, y_pred):
     """
     Mean Absolute Percentage Error (MAPE) between the true and the predicted values.
     """
     y_true, y_pred = _check_arrays(y_true, y_pred)
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100.0
+
+def root_mean_squared_error(y_true, y_pred):
+    """
+    Root Mean Squared Error (RMSE) between the true and the predicted values.
+    """
+    y_true, y_pred = _check_arrays(y_true, y_pred)
+    return np.sqrt(np.mean((y_true - y_pred)**2))
 
 # TODO: use relative error per channel
 def prediction_error(dataset, all_obs=False, disp=False):
@@ -124,10 +124,11 @@ def error(*models, X=None, Y=None, per_channel=False, disp=False):
     Y_true = Y
     errors = []
     for model in models:
-        _, Y_pred, _, _ = model.predict(X)
+        Y_pred, _, _ = model.predict(X)
         if per_channel:
             model_errors = []
             for i in range(model.dataset.get_output_dims()):
+                print(i, Y_true[i], Y_pred[i])
                 model_errors.append({
                     "Name": model.name + " channel " + str(i),
                     "MAE": mean_absolute_error(Y_true[i], Y_pred[i]),
