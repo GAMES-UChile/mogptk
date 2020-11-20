@@ -92,9 +92,9 @@ class TransformLog(TransformBase):
     def backward(self, y, x=None):
         return np.exp(y + self.mean) - self.shift
 
-class TransformWhiten(TransformBase):
+class TransformStandard(TransformBase):
     """
-    TransformWhiten is a transformer that whitens the data. That is, it transform the data so it has zero mean and unit variance.
+    TransformStandard is a transformer that whitens the data. That is, it transform the data so it has zero mean and unit variance.
     """
     def __init__(self):
         pass

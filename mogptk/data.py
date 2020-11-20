@@ -326,7 +326,7 @@ class Data:
 
     def transform(self, transformer):
         """
-        Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, etc.
+        Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformStandard`, etc.
 
         Args:
             transformer (obj): Transformer object derived from TransformBase.
@@ -336,7 +336,7 @@ class Data:
             >>> data.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
             >>> data.transform(mogptk.TransformLog)                      # log transform the data
             >>> data.transform(mogptk.TransformNormalize)                # transform to [-1,1]
-            >>> data.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
+            >>> data.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
         """
 
         t = transformer

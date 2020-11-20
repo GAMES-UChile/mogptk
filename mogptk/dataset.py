@@ -219,7 +219,7 @@ class DataSet:
 
     def transform(self, transformer):
         """
-        Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, etc.
+        Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformStandard`, etc.
 
         Args:
             transformer (obj): Transformer object derived from TransformBase.
@@ -229,7 +229,7 @@ class DataSet:
             >>> dataset.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
             >>> dataset.transform(mogptk.TransformLog)                      # log transform the data
             >>> dataset.transform(mogptk.TransformNormalize)                # transform to [-1,1]
-            >>> dataset.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
+            >>> dataset.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
         """
         for channel in self.channels:
             channel.transform(transformer)
