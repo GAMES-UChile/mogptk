@@ -1,6 +1,6 @@
 # Multi-Output Gaussian Process Toolkit
 
-**[Paper](https://arxiv.org/abs/2002.03471) - [API Documentation](https://games-uchile.github.io/mogptk/) - [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials)**
+**[Paper](https://doi.org/10.1016/j.neucom.2020.09.085) - [API Documentation](https://games-uchile.github.io/mogptk/) - [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials)**
 
 The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and interpreting Gaussian process models with multiple data channels. It builds upon [PyTorch](https://pytorch.org/) to provide an easy way to train multi-output models effectively on CPUs and GPUs. The main authors are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar as part of the Center for Mathematical Modelling at the University of Chile.
 
@@ -35,13 +35,13 @@ See [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials) to 
 ## Introduction
 This repository provides a toolkit to perform multi-output GP regression with kernels that are designed to utilize correlation information among channels in order to better model signals. The toolkit is mainly targeted to time-series, and includes plotting functions for the case of single input with multiple outputs (time series with several channels).
 
-The main kernel corresponds to Multi Output Spectral Mixture Kernel, which correlates every pair of data points (irrespective of their channel of origin) to model the signals. This kernel is specified in detail in the following publication: G. Parra, F. Tobar, Spectral Mixture Kernels for Multi-Output Gaussian Processes, Advances in Neural Information Processing Systems, 2017. Proceedings link: http://papers.nips.cc/paper/7245-spectral-mixture-kernels-for-multi-output-gaussian-processes
+The main kernel corresponds to Multi Output Spectral Mixture Kernel, which correlates every pair of data points (irrespective of their channel of origin) to model the signals. This kernel is specified in detail in the following publication: G. Parra, F. Tobar, Spectral Mixture Kernels for Multi-Output Gaussian Processes, Advances in Neural Information Processing Systems, 2017. Proceedings link: https://papers.nips.cc/paper/7245-spectral-mixture-kernels-for-multi-output-gaussian-processes
 
 The kernel learns the cross-channel correlations of the data, so it is particularly well-suited for the task of signal reconstruction in the event of sporadic data loss. All other included kernels can be derived from the Multi Output Spectral Mixture kernel by restricting some parameters or applying some transformations.
 
 One of the main advantages of the present toolkit is the GPU support, which enables the user to train models through PyTorch, speeding computations significantly. It also includes sparse-variational GP regression functionality to decrease computation time even further.
 
-See [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://arxiv.org/abs/2002.03471) for our publication on arXiv.
+See [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://doi.org/10.1016/j.neucom.2020.09.085) for our publication in Neurocomputing.
 
 ## Tutorials
 

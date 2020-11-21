@@ -14,7 +14,7 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
         filename (str): CSV filename.
         x_col (int, str, list of int or str): Names or indices of X column(s) in CSV.
         y_col (int, str, list of int or str): Names or indices of Y column(s) in CSV.
-        name (str, list, optional): Name or names of data channels.
+        name (str, list): Name or names of data channels.
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
@@ -39,7 +39,7 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
         df (pandas.DataFrame): The pandas DataFrame.
         x_col (int, str, list of int or str): Names or indices of X column(s) in DataFrame.
         y_col (int, str, list of int or str): Names or indices of Y column(s) in DataFrame.
-        name (str, list of str, optional): Name or names of data channels.
+        name (str, list of str): Name or names of data channels.
 
     Returns:
         mogptk.Data or mogptk.DataSet
@@ -258,7 +258,7 @@ class DataSet:
 
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
-            f (function, optional): Function to use to reduce data.
+            f (function): Function to use to reduce data.
 
         Examples:
             >>> dataset.aggregate(5)
@@ -356,7 +356,7 @@ class DataSet:
         Returns all observations, train and test.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -372,7 +372,7 @@ class DataSet:
         Returns observations used for training.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -388,7 +388,7 @@ class DataSet:
         Returns the observations used for testing which correspond to the removed points.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -399,22 +399,19 @@ class DataSet:
         """
         return [channel.get_test_data(transformed=transformed)[0] for channel in self.channels], [channel.get_test_data(transformed=transformed)[1] for channel in self.channels]
     
-    def get_prediction_x(self, transformed=False):
+    def get_prediction_x(self):
         """
         Returns the prediction X range for all channels.
-
-        Args:
-            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             list: X prediction of shape (n,input_dims) per channel.
 
         Examples:
-            >>> x = dataset.get_prediction()
+            >>> x = dataset.get_prediction_x()
         """
         x = []
         for channel in self.channels:
-            x.append(channel.get_prediction_x(transformed=transformed))
+            x.append(channel.get_prediction_x())
         return x
     
     def get_prediction(self, name, sigma=2.0, transformed=False):
@@ -423,8 +420,8 @@ class DataSet:
 
         Args:
             name (str): Name of the model of the prediction.
-            sigma (float, optional): The confidence interval's number of standard deviations.
-            transformed (boolean, optional): Return transformed data as used for training.
+            sigma (float): The confidence interval's number of standard deviations.
+            transformed (boolean): Return transformed data as used for training.
 
         Returns:
             list: X prediction of shape (n,input_dims) per channel.
@@ -478,8 +475,8 @@ class DataSet:
         Args:
             start (list, dict): Start values for prediction range per channel.
             end (list, dict): End values for prediction range per channel.
-            n (list, dict, optional): Number of points for prediction range per channel.
-            step (list, dict, optional): Step size for prediction range per channel.
+            n (list, dict): Number of points for prediction range per channel.
+            step (list, dict): Step size for prediction range per channel.
 
         Examples:
             >>> dataset.set_prediction_range([2, 3], [5, 6], [4, None], [None, 0.5])
@@ -589,11 +586,11 @@ class DataSet:
 
         Args:
             Q (int): Number of peaks to find.
-            method (str, optional): Method of estimating SM kernels.
-            optimizer (str, optional): Optimization method for SM kernels.
-            iters (str, optional): Maximum iteration for SM kernels.
-            params (object, optional): Additional parameters for PyTorch optimizer.
-            plot (bool, optional): Show the PSD of the kernel after fitting.
+            method (str): Method of estimating SM kernels.
+            optimizer (str): Optimization method for SM kernels.
+            iters (str): Maximum iteration for SM kernels.
+            params (object): Additional parameters for PyTorch optimizer.
+            plot (bool): Show the PSD of the kernel after fitting.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -618,11 +615,11 @@ class DataSet:
         Plot the data including removed observations, latent function, and predictions for each channel.
 
         Args:
-            pred (str, optional): Specify model name to draw.
-            title (str, optional): Set the title of the plot.
-            figsize (tuple, optional): Set the figure size.
-            legend (boolean, optional): Disable legend.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            pred (str): Specify model name to draw.
+            title (str): Set the title of the plot.
+            figsize (tuple): Set the figure size.
+            legend (boolean): Disable legend.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -659,12 +656,12 @@ class DataSet:
         Plot the spectrum for each channel.
 
         Args:
-            title (str, optional): Set the title of the plot.
-            method (list, str, optional): Set the method to get the spectrum such as LS or BNSE.
-            per (list, str, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.
-            maxfreq (list, float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-            figsize (tuple, optional): Set the figure size.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            title (str): Set the title of the plot.
+            method (list, str): Set the method to get the spectrum such as LS or BNSE.
+            per (list, str): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.
+            maxfreq (list, float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            figsize (tuple): Set the figure size.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.

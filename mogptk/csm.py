@@ -10,10 +10,10 @@ class CSM(Model):
 
     Args:
         dataset (mogptk.DataSet): `DataSet` object of data for all channels.
-        Q (int, optional): Number of components.
-        Rq (int, optional): Number of subcomponents.
+        Q (int): Number of components.
+        Rq (int): Number of subcomponents.
         model: Gaussian process model to use, such as `mogptk.Exact`.
-        name (str, optional): Name of the model.
+        name (str): Name of the model.
 
     Attributes:
         dataset: The associated mogptk.DataSet.
@@ -66,11 +66,11 @@ class CSM(Model):
         In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Args:
-            method (str, optional): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str, optional): Parameter initialization strategy for SM initialization.
-            sm_method (str, optional): Optimization method for SM initialization.
-            sm_iters (str, optional): Number of iterations for SM initialization.
-            sm_params (object, optional): Additional parameters for PyTorch optimizer.
+            method (str): Method of estimation, such as BNSE, LS, or SM.
+            sm_init (str): Parameter initialization strategy for SM initialization.
+            sm_method (str): Optimization method for SM initialization.
+            sm_iters (str): Number of iterations for SM initialization.
+            sm_params (object): Additional parameters for PyTorch optimizer.
             sm_plot (bool): Show the PSD of the kernel after fitting SM.
         """
 

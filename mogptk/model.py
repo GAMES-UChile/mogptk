@@ -70,7 +70,7 @@ class Model:
 
         X = [np.array([x[channel.mask] for x in channel.X]).T for channel in self.dataset.channels]
         Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset.channels]
-        x, y = self._to_kernel_format(X, Y)
+        x, y, _, _ = self._to_kernel_format(X, Y)
 
         self.model = model.build(kernel, x, y, name)
 
@@ -153,7 +153,7 @@ class Model:
             >>> model.error()
         """
         X, Y_true = self.dataset.get_test_data()
-        x, y_true = self._to_kernel_format(X, Y_true)
+        x, y_true, _, _  = self._to_kernel_format(X, Y_true)
         y_pred, _ = self.model.predict(x)
         if method.lower() == 'mae':
             return mean_absolute_error(y_true, y_pred)
@@ -182,6 +182,10 @@ class Model:
             error (str): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.
             plot (bool): Plot the negative log likelihood.
             **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
+
+        Returns:
+            numpy.ndarray: Losses for all iterations. Only if `error` is set.
+            numpy.ndarray: Errors for all iterations. Only if `error` is set.
 
         Examples:
             >>> model.train()
@@ -225,6 +229,8 @@ class Model:
                 optimizer.step(lambda: self.model.loss())
                 iters = optimizer.state_dict()['state'][0]['func_evals']
             elif method == 'Adam':
+                if 'lr' not in kwargs:
+                    kwargs['lr'] = 0.1
                 optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
                 for i in range(iters):
                     losses[i] = self.loss()
@@ -280,7 +286,6 @@ class Model:
 
         if error is not None:
             return losses, errors
-        return losses
 
     ################################################################################
     # Predictions ##################################################################
@@ -290,11 +295,13 @@ class Model:
 
     def _to_kernel_format(self, X, Y=None):
         """
-        Return the data vectors in the format used by the kernels.
+        Return the data vectors in the format used by the kernels. If Y is not passed, than only X data is returned.
 
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
             numpy.ndarray: Y data.
+            numpy.ndarray: Original but normalized X data.
+            numpy.ndarray: Original but normalized Y data.
         """
         if isinstance(X, dict):
             x_dict = X
@@ -328,7 +335,7 @@ class Model:
             x = np.concatenate(X, axis=0)
             x = np.concatenate([chan, x], axis=1)
         if Y is None:
-            return x
+            return x, X
 
         if isinstance(Y, np.ndarray):
             Y = list(Y)
@@ -347,16 +354,16 @@ class Model:
             y = np.array([])
         else:
             y = np.concatenate(Y, axis=0).reshape(-1, 1)
-        return x, y
+        return x, y, X, Y
 
     def predict(self, X=None, sigma=2.0, transformed=False):
         """
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
-            X (list, dict, optional): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
-            sigma (float, optional): The confidence interval's number of standard deviations.
-            transformed (boolean, optional): Return transformed data as used for training.
+            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+            sigma (float): The confidence interval's number of standard deviations.
+            transformed (boolean): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: Y mean prediction of shape (n,).
@@ -367,9 +374,11 @@ class Model:
             >>> model.predict(plot=True)
         """
         save = X is None
+        if save and transformed:
+            raise ValueError('must pass an X range explicitly in order to return transformed data')
         if save:
             X = self.dataset.get_prediction_x()
-        x = self._to_kernel_format(X)
+        x, X = self._to_kernel_format(X)
 
         mu, var = self.model.predict(x)
 
@@ -396,11 +405,10 @@ class Model:
             if transformed:
                 return Mu, Lower, Upper
             else:
-                X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
                 for j in range(self.dataset.get_output_dims()):
-                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X_pred[j])
-                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X_pred[j])
-                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X_pred[j])
+                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
+                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
+                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
                 return Mu, Lower, Upper
 
     def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
@@ -408,10 +416,10 @@ class Model:
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
         Args:
-            title (str, optional): Set the title of the plot.
-            figsize (tuple, optional): Set the figure size.
-            legend (boolean, optional): Disable legend.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            title (str): Set the title of the plot.
+            figsize (tuple): Set the figure size.
+            legend (boolean): Disable legend.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.

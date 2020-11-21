@@ -11,9 +11,9 @@ class SM(Model):
 
     Args:
         dataset (mogptk.DataSet): `DataSet` object of data for all channels.
-        Q (int, optional): Number of components.
+        Q (int): Number of components.
         model: Gaussian process model to use, such as `mogptk.Exact`.
-        name (str, optional): Name of the model.
+        name (str): Name of the model.
 
     Attributes:
         dataset: The associated mogptk.DataSet.
@@ -62,7 +62,7 @@ class SM(Model):
         In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Args:
-            method (str, optional): Method of estimation, such as IPS, LS, or BNSE.
+            method (str): Method of estimation, such as IPS, LS, or BNSE.
         """
 
         input_dims = self.dataset.get_input_dims()
@@ -74,7 +74,7 @@ class SM(Model):
         if method.lower() == 'ips':
             for j in range(output_dims):
                 nyquist = self.dataset[j].get_nyquist_estimation()
-                x, y = self.dataset[j].get_train_data(transformed=True)
+                x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
                 x_range = np.max(x, axis=0) - np.min(x, axis=0)
 
                 weights = [y.std()/self.Q] * self.Q

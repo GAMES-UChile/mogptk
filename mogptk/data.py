@@ -30,9 +30,9 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
         start (float, list): Define start of interval.
         end (float, list): Define end of interval.
         n (int): Number of data points to pick between start and end.
-        var (float, optional): Variance added to the output.
-        name (str, optional): Name of data.
-        random (boolean, optional): Select points randomly between start and end.
+        var (float): Variance added to the output.
+        name (str): Name of data.
+        random (boolean): Select points randomly between start and end.
 
     Returns:
         mogptk.Data
@@ -126,9 +126,9 @@ class Data:
         Args:
             X (list, numpy.ndarray, dict): Independent variable data of shape (n,) or (n,input_dims).
             Y (list, numpy.ndarray): Dependent variable data of shape (n,).
-            name (str, optional): Name of data.
-            x_labels (str, list of str, optional): Name or names of input dimensions.
-            y_label (str, optional): Name of output dimension.
+            name (str): Name of data.
+            x_labels (str, list of str): Name or names of input dimensions.
+            y_label (str): Name of output dimension.
 
         Examples:
             >>> channel = mogptk.Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -381,7 +381,7 @@ class Data:
 
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
-            f (function, optional): Function to use to reduce data.
+            f (function): Function to use to reduce data.
 
         Examples:
             >>> data.aggregate(5)
@@ -451,7 +451,7 @@ class Data:
         Returns all observations, train and test.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -461,7 +461,7 @@ class Data:
             >>> x, y = data.get_data()
         """
         if transformed:
-            return np.array([x.transformed for x in self.X]).T, self.Y.transformed
+            return np.array([x for x in self.X]).T, self.Y.transformed
         return np.array([x for x in self.X]).T, np.array(self.Y)
 
     def get_train_data(self, transformed=False):
@@ -469,7 +469,7 @@ class Data:
         Returns the observations used for training.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -479,7 +479,7 @@ class Data:
             >>> x, y = data.get_train_data()
         """
         if transformed:
-            return np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
+            return np.array([x[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
         return np.array([x[self.mask] for x in self.X]).T, np.array(self.Y[self.mask])
 
     def get_test_data(self, transformed=False):
@@ -487,7 +487,7 @@ class Data:
         Returns the observations used for testing which correspond to the removed points.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
@@ -497,7 +497,7 @@ class Data:
             >>> x, y = data.get_test_data()
         """
         if transformed:
-            return np.array([x.transformed[~self.mask] for x in self.X]).T, self.Y.transformed[~self.mask]
+            return np.array([x[~self.mask] for x in self.X]).T, self.Y.transformed[~self.mask]
         return np.array([x[~self.mask] for x in self.X]).T, np.array(self.Y[~self.mask])
 
     ################################################################
@@ -507,8 +507,8 @@ class Data:
         Removes observations randomly on the whole range. Either `n` observations are removed, or a percentage of the observations.
 
         Args:
-            n (int, optional): Number of observations to remove randomly.
-            pct (float, optional): Percentage in interval [0,1] of observations to remove randomly.
+            n (int): Number of observations to remove randomly.
+            pct (float): Percentage in interval [0,1] of observations to remove randomly.
 
         Examples:
             >>> data.remove_randomly(50) # remove 50 observations
@@ -529,8 +529,8 @@ class Data:
         Removes observations in the interval `[start,end]`.
         
         Args:
-            start (float, str, optional): Start of interval. Defaults to the first value in observations.
-            end (float, str, optional): End of interval. Defaults to the last value in observations.
+            start (float, str): Start of interval. Defaults to the first value in observations.
+            end (float, str): End of interval. Defaults to the last value in observations.
 
         Examples:
             >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -640,12 +640,9 @@ class Data:
         """
         return self.Y_mu_pred.keys()
     
-    def get_prediction_x(self, transformed=False):
+    def get_prediction_x(self):
         """
         Returns the prediction X range.
-
-        Args:
-            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: X prediction of shape (n,input_dims).
@@ -653,8 +650,6 @@ class Data:
         Examples:
             >>> x = data.get_prediction_x()
         """
-        if transformed:
-            return np.array([x.transformed for x in self.X_pred]).T
         return np.array([x for x in self.X_pred]).T
     
     def get_prediction(self, name, sigma=2.0, transformed=False):
@@ -663,8 +658,8 @@ class Data:
 
         Args:
             name (str): Name of the model of the prediction.
-            sigma (float, optional): The confidence interval's number of standard deviations.
-            transformed (boolean, optional): Return transformed data as used for training.
+            sigma (float): The confidence interval's number of standard deviations.
+            transformed (boolean): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: X prediction of shape (n,input_dims).
@@ -725,10 +720,10 @@ class Data:
         Sets the prediction range. The interval is set as `[start,end]`, with either `n` points or a given step between the points.
 
         Args:
-            start (float, str, optional): Start of interval, defaults to the first observation.
-            end (float, str, optional): End of interval, defaults to the last observation.
-            n (int, optional): Number of points to generate in the interval.
-            step (float, str, optional): Spacing between points in the interval.
+            start (float, str): Start of interval, defaults to the first observation.
+            end (float, str): End of interval, defaults to the last observation.
+            n (int): Number of points to generate in the interval.
+            step (float, str): Spacing between points in the interval.
 
             If neither step or n is passed, default number of points is 100.
 
@@ -829,7 +824,7 @@ class Data:
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x, y = self.get_train_data(transformed=True)
+            x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
             freq = np.linspace(0, nyquist[i], n+1)[1:]
             psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, freq)
 
@@ -882,7 +877,7 @@ class Data:
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x, y = self.get_train_data(transformed=True)
+            x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
             bnse = bse(x[:,i], y)
             bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
@@ -910,11 +905,11 @@ class Data:
 
         Args:
             Q (int): Number of peaks to find.
-            method (str, optional): Method of estimating SM kernels.
-            optimizer (str, optional): Optimization method for SM kernels.
-            iters (str, optional): Maximum iteration for SM kernels.
-            params (object, optional): Additional parameters for the PyTorch optimizer.
-            plot (bool, optional): Show the PSD of the kernel after fitting.
+            method (str): Method of estimating SM kernels.
+            optimizer (str): Optimization method for SM kernels.
+            iters (str): Maximum iteration for SM kernels.
+            params (object): Additional parameters for the PyTorch optimizer.
+            plot (bool): Show the PSD of the kernel after fitting.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -956,11 +951,11 @@ class Data:
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
-            pred (str, optional): Specify model name to draw.
-            title (str, optional): Set the title of the plot.
-            ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            legend (boolean, optional): Display legend.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            pred (str): Specify model name to draw.
+            title (str): Set the title of the plot.
+            ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
+            legend (boolean): Display legend.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.axes.Axes
@@ -1018,8 +1013,7 @@ class Data:
         ax.plot(self.X[0][idx], Y[idx], 'k--', alpha=0.8)
         legends.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
-        x, _ = self.get_train_data()
-        _, y = self.get_train_data(transformed=transformed)
+        x, y = self.get_train_data(transformed=transformed)
         if 1000 < x.shape[0]:
             ax.plot(x[:,0], y, 'k-')
             legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Training Points'))
@@ -1058,12 +1052,12 @@ class Data:
         Plot the spectrum of the data.
 
         Args:
-            title (str, optional): Set the title of the plot.
-            method (str, optional): Set the method to get the spectrum such as LS or BNSE.
-            ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            per (str, float, numpy.timedelta64, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.
-            maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            title (str): Set the title of the plot.
+            method (str): Set the method to get the spectrum such as LS or BNSE.
+            ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
+            per (str, float, numpy.timedelta64): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.
+            maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.axes.Axes
