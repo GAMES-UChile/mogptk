@@ -13,6 +13,7 @@ class SM(Model):
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.kernels.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
@@ -37,7 +38,7 @@ class SM(Model):
 
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
     """
-    def __init__(self, dataset, Q=1, model=Exact(), name="SM"):
+    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="SM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         dataset.rescale_x()
@@ -47,7 +48,7 @@ class SM(Model):
             output_dims=dataset.get_output_dims(),
         )
 
-        super(SM, self).__init__(dataset, kernel, model, name=name)
+        super(SM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
 
     def init_parameters(self, method='BNSE'):

@@ -13,6 +13,7 @@ class CSM(Model):
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.kernels.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
@@ -38,7 +39,7 @@ class CSM(Model):
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name="CSM"):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name="CSM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         dataset.rescale_x()
@@ -50,7 +51,7 @@ class CSM(Model):
         )
         kernel = MixtureKernel(spectral, Q)
 
-        super(CSM, self).__init__(dataset, kernel, model, name=name)
+        super(CSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
     

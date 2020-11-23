@@ -13,6 +13,7 @@ class SM_LMC(Model):
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.kernels.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
@@ -39,7 +40,7 @@ class SM_LMC(Model):
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name="SM-LMC"):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name="SM-LMC"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         dataset.rescale_x()
@@ -53,7 +54,7 @@ class SM_LMC(Model):
             Q=Q,
             Rq=Rq)
 
-        super(SM_LMC, self).__init__(dataset, kernel, model, name=name)
+        super(SM_LMC, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
         for q in range(Q):

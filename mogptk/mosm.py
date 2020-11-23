@@ -14,6 +14,7 @@ class MOSM(Model):
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.kernels.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Atributes:
@@ -38,7 +39,7 @@ class MOSM(Model):
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
-    def __init__(self, dataset, Q=1, model=Exact(), name="MOSM"):
+    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="MOSM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         dataset.rescale_x()
@@ -49,7 +50,7 @@ class MOSM(Model):
         )
         kernel = MixtureKernel(spectral, Q)
 
-        super(MOSM, self).__init__(dataset, kernel, model, name=name)
+        super(MOSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
 
     def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
