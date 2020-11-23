@@ -71,13 +71,17 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 
     Y_true = Y
     errors = []
-    for model in models:
+    for k, model in enumerate(models):
+        name = model.name
+        if name is None:
+            name = "Model " + str(k+1)
+
         Y_pred, _, _ = model.predict(X, transformed=transformed)
         if per_channel:
             model_errors = []
             for i in range(model.dataset.get_output_dims()):
                 model_errors.append({
-                    "Name": model.name + " channel " + str(i),
+                    "Name": name + " channel " + str(i+1),
                     "MAE": mean_absolute_error(Y_true[i], Y_pred[i]),
                     "MAPE": mean_absolute_percentage_error(Y_true[i], Y_pred[i]),
                     "RMSE": root_mean_squared_error(Y_true[i], Y_pred[i]),
@@ -87,7 +91,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
             Ys_true = np.array([item for sublist in Y_true for item in sublist])
             Ys_pred = np.array([item for sublist in Y_pred for item in sublist])
             errors.append({
-                "Name": model.name,
+                "Name": name,
                 "MAE": mean_absolute_error(Ys_true, Ys_pred),
                 "MAPE": mean_absolute_percentage_error(Ys_true, Ys_pred),
                 "RMSE": root_mean_squared_error(Ys_true, Ys_pred),

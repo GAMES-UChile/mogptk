@@ -37,7 +37,7 @@ class Exact:
         return GPR(kernel, x, y, mean=mean, name=name)
 
 class Model:
-    def __init__(self, dataset, kernel, model=Exact(), mean=None, name="Model"):
+    def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
         """
         Model is the base class for multi-output Gaussian process models.
 

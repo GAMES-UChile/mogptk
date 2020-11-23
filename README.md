@@ -57,7 +57,7 @@ See [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://doi.org/10.1016/
 
 **[05 - Error Metrics](https://github.com/GAMES-UChile/mogptk/blob/master/examples/05_Error_Metrics.ipynb)** Obtain different metrics in order to compare models.
 
-**[06 - Custom Kernels](https://github.com/GAMES-UChile/mogptk/blob/master/examples/06_Custom_Kernels.ipynb)** Use or create custom kernels as well as train mean functions.
+**[06 - Custom Kernels and Mean Functions](https://github.com/GAMES-UChile/mogptk/blob/master/examples/06_Custom_Kernels_and_Mean_Functions.ipynb)** Use or create custom kernels as well as training custom mean functions.
 
 ## Examples
 
