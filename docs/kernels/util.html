@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.7.4" />
-<title>mogptk.kernels API documentation</title>
+<title>mogptk.kernels.util API documentation</title>
 <meta name="description" content="" />
 <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
 <link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
@@ -19,59 +19,28 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>mogptk.kernels</code></h1>
+<h1 class="title">Module <code>mogptk.kernels.util</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/__init__.py#L0-L6" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/util.py#L0-L11" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">from .config import *
-from .parameter import *
-from .mean import *
-from .kernel import *
-from .singleoutput import *
-from .multioutput import *
-from .model import *</code></pre>
+<pre><code class="python">from . import Parameter, Mean, Kernel
+
+def _find_parameters(obj):
+    if isinstance(obj, Parameter):
+        yield obj
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            yield from _find_parameters(v)
+    elif issubclass(type(obj), Kernel) or issubclass(type(obj), Mean):
+        for v in obj.__dict__.values():
+            yield from _find_parameters(v)</code></pre>
 </details>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
-<dl>
-<dt><code class="name"><a title="mogptk.kernels.config" href="config.html">mogptk.kernels.config</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.kernels.kernel" href="kernel.html">mogptk.kernels.kernel</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.kernels.mean" href="mean.html">mogptk.kernels.mean</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.kernels.model" href="model.html">mogptk.kernels.model</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.kernels.multioutput" href="multioutput.html">mogptk.kernels.multioutput</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.kernels.parameter" href="parameter.html">mogptk.kernels.parameter</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.kernels.singleoutput" href="singleoutput.html">mogptk.kernels.singleoutput</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.kernels.util" href="util.html">mogptk.kernels.util</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-</dl>
 </section>
 <section>
 </section>
@@ -88,19 +57,7 @@ from .model import *</code></pre>
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="mogptk" href="../index.html">mogptk</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="mogptk.kernels.config" href="config.html">mogptk.kernels.config</a></code></li>
-<li><code><a title="mogptk.kernels.kernel" href="kernel.html">mogptk.kernels.kernel</a></code></li>
-<li><code><a title="mogptk.kernels.mean" href="mean.html">mogptk.kernels.mean</a></code></li>
-<li><code><a title="mogptk.kernels.model" href="model.html">mogptk.kernels.model</a></code></li>
-<li><code><a title="mogptk.kernels.multioutput" href="multioutput.html">mogptk.kernels.multioutput</a></code></li>
-<li><code><a title="mogptk.kernels.parameter" href="parameter.html">mogptk.kernels.parameter</a></code></li>
-<li><code><a title="mogptk.kernels.singleoutput" href="singleoutput.html">mogptk.kernels.singleoutput</a></code></li>
-<li><code><a title="mogptk.kernels.util" href="util.html">mogptk.kernels.util</a></code></li>
+<li><code><a title="mogptk.kernels" href="index.html">mogptk.kernels</a></code></li>
 </ul>
 </li>
 </ul>

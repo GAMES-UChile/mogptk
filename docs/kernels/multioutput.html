@@ -25,14 +25,16 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L0-L155" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L0-L157" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
 from . import MultiOutputKernel, Parameter, config
 
 class IndependentMultiOutputKernel(MultiOutputKernel):
-    def __init__(self, *kernels, output_dims, name=&#34;IMO&#34;):
+    def __init__(self, *kernels, output_dims=None, name=&#34;IMO&#34;):
+        if output_dims is None:
+            output_dims = len(kernels)
         super(IndependentMultiOutputKernel, self).__init__(output_dims, name=name)
         self.kernels = self._check_kernels(kernels, output_dims)
 
@@ -203,7 +205,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L69-L105" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L71-L107" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CrossSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, Rq=1, active_dims=None, name=&#34;CSM&#34;):
@@ -258,7 +260,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L85-L105" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L87-L107" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -294,7 +296,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L128-L156" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L130-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussianConvolutionProcessKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, active_dims=None, name=&#34;CONV&#34;):
@@ -341,7 +343,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L141-L156" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L143-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -365,17 +367,19 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </dd>
 <dt id="mogptk.kernels.multioutput.IndependentMultiOutputKernel"><code class="flex name class">
 <span>class <span class="ident">IndependentMultiOutputKernel</span></span>
-<span>(</span><span>*kernels, output_dims, name='IMO')</span>
+<span>(</span><span>*kernels, output_dims=None, name='IMO')</span>
 </code></dt>
 <dd>
 <section class="desc"></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L5-L20" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L5-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class IndependentMultiOutputKernel(MultiOutputKernel):
-    def __init__(self, *kernels, output_dims, name=&#34;IMO&#34;):
+    def __init__(self, *kernels, output_dims=None, name=&#34;IMO&#34;):
+        if output_dims is None:
+            output_dims = len(kernels)
         super(IndependentMultiOutputKernel, self).__init__(output_dims, name=name)
         self.kernels = self._check_kernels(kernels, output_dims)
 
@@ -406,7 +410,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L13-L20" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L15-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -429,7 +433,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L107-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L109-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
     def __init__(self, *kernels, output_dims, input_dims, Q=None, Rq=1, name=&#34;LMC&#34;):
@@ -467,7 +471,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L122-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L124-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -487,7 +491,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L22-L67" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L24-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, active_dims=None, name=&#34;MOSM&#34;):
@@ -551,7 +555,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/multioutput.py#L44-L67" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/multioutput.py#L46-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     # X has shape (data_points,input_dims)

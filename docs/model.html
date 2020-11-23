@@ -25,65 +25,74 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L0-L421" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L0-L539" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import time
 import pickle
 import numpy as np
 import torch
+import logging
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from .config import logger
 from .serie import Serie
 from .dataset import DataSet
-from .kernels import GPR
+from .kernels import GPR, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
+from .errors import mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
+
+logger = logging.getLogger(&#39;mogptk&#39;)
 
 def LoadModel(filename):
     &#34;&#34;&#34;
     Load model from a given file that was previously saved with `model.save()`.
 
     Args:
-        filename (str): Filename to load from.
+        filename (str): File name to load from.
 
     Examples:
-        &gt;&gt;&gt; Load(&#39;filename&#39;)
+        &gt;&gt;&gt; LoadModel(&#39;filename&#39;)
     &#34;&#34;&#34;
     filename += &#34;.npy&#34; 
     with open(filename, &#39;rb&#39;) as r:
         return pickle.load(r)
 
 class Exact:
-    def build(self, kernel, x, y, name=None):
-        return GPR(kernel, x, y, name=name)
+    &#34;&#34;&#34;
+    Exact inference for Gaussian process regression.
+    &#34;&#34;&#34;
+    def build(self, kernel, x, y, mean=None, name=None):
+        return GPR(kernel, x, y, mean=mean, name=name)
 
 class Model:
-    def __init__(self, dataset, kernel, model=Exact(), name=None):
+    def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
         &#34;&#34;&#34;
-        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+        Model is the base class for multi-output Gaussian process models.
 
         Args:
-            dataset (mogptk.dataset.DataSet, mogptk.data.Data): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+            dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
+            kernel (mogptk.kernels.kernel.Kernel): The kernel class.
+            model: Gaussian process model to use, such as `mogptk.model.Exact`.
+            mean (mogptk.kernels.mean.Mean): The mean class.
             name (str): Name of the model.
         &#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         if dataset.get_output_dims() == 0:
-            raise Exception(&#34;dataset must have at least one channel&#34;)
+            raise ValueError(&#34;dataset must have at least one channel&#34;)
         names = [name for name in dataset.get_names() if name is not None]
         if len(set(names)) != len(names):
-            raise Exception(&#34;all data channels must have unique names&#34;)
+            raise ValueError(&#34;all data channels must have unique names&#34;)
 
         for channel in dataset:
             for dim in range(channel.get_input_dims()):
                 xran = np.max(channel.X[dim].transformed) - np.min(channel.X[dim].transformed)
                 if xran &lt; 1e-3:
-                    logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X-axis&#34;)
+                    logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X axis&#34;)
                 elif 1e4 &lt; xran:
-                    logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X-axis&#34;)
+                    logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X axis&#34;)
 
         self.name = name
         self.dataset = dataset
@@ -93,7 +102,9 @@ class Model:
         Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset.channels]
         x, y = self._to_kernel_format(X, Y)
 
-        self.model = model.build(kernel, x, y, name)
+        self.model = model.build(kernel, x, y, mean, name)
+        if issubclass(type(kernel), MultiOutputKernel) and issubclass(type(model), Exact):
+            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
     ################################################################
 
@@ -108,7 +119,10 @@ class Model:
 
     def get_parameters(self):
         &#34;&#34;&#34;
-        Returns all parameters set for the kernel per component.
+        Returns all parameters of the kernel.
+
+        Returns:
+            list: mogptk.kernels.parameter.Parameter    
 
         Examples:
             &gt;&gt;&gt; params = model.get_parameters()
@@ -117,10 +131,10 @@ class Model:
 
     def save(self, filename):
         &#34;&#34;&#34;
-        Save model to a given file that can then be loaded with `Load()`.
+        Save the model to a given file that can then be loaded using `LoadModel()`.
 
         Args:
-            filename (str): Filename to save to, automatically appends &#39;.model&#39;.
+            filename (str): File name to save to, automatically appends &#39;.npy&#39;.
 
         Examples:
             &gt;&gt;&gt; model.save(&#39;filename&#39;)
@@ -134,35 +148,93 @@ class Model:
             pickle.dump(self, w)
 
     def log_marginal_likelihood(self):
+        &#34;&#34;&#34;
+        Returns the log marginal likelihood of the kernel and its data and parameters.
+
+        Returns:
+            float: The current log marginal likelihood.
+
+        Examples:
+            &gt;&gt;&gt; model.log_marginal_likelihood()
+        &#34;&#34;&#34;
         return self.model.log_marginal_likelihood().detach().item()
+
+    def loss(self):
+        &#34;&#34;&#34;
+        Returns the loss of the kernel and its data and parameters.
+
+        Returns:
+            float: The current loss.
+
+        Examples:
+            &gt;&gt;&gt; model.loss()
+        &#34;&#34;&#34;
+        return self.model.loss().detach().item()
+
+    def error(self, method=&#39;MAE&#39;):
+        &#34;&#34;&#34;
+        Returns the error of the kernel prediction with the removed data points in the data set.
+
+        Args:
+            method (str): Error calculation method, such as MAE, MAPE, or RMSE.
+
+        Returns:
+            float: The current error.
+
+        Examples:
+            &gt;&gt;&gt; model.error()
+        &#34;&#34;&#34;
+        X, Y_true = self.dataset.get_test_data()
+        x, y_true  = self._to_kernel_format(X, Y_true)
+        y_pred, _ = self.model.predict(x)
+        if method.lower() == &#39;mae&#39;:
+            return mean_absolute_error(y_true, y_pred)
+        elif method.lower() == &#39;mape&#39;:
+            return mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == &#39;rmse&#39;:
+            return root_mean_squared_error(y_true, y_pred)
+        else:
+            raise ValueError(&#34;valid error calculation methods are MAE, MAPE, and RMSE&#34;)
 
     def train(
         self,
         method=&#39;Adam&#39;,
         iters=500,
         verbose=False,
+        error=None,
+        plot=False,
         **kwargs):
         &#34;&#34;&#34;
-        Trains the model using the kernel and its parameters.
-
-        For different optimizers, see scipy.optimize.minimize.
-        It can be bounded by a maximum number of iterations, disp will output final
-        optimization information. When using the &#39;Adam&#39; optimizer, a
-        learning_rate can be set.
+        Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.
 
         Args:
-            method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD. Defaults to Adam.
-            iters (int): Number of iterations, or maximum in case of LBFGS optimizer. Defaults to 500.
+            method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.
+            iters (int): Number of iterations, or maximum in case of LBFGS optimizer.
             verbose (bool): Print verbose output about the state of the optimizer.
+            error (str): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.
+            plot (bool): Plot the negative log likelihood.
             **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
+
+        Returns:
+            numpy.ndarray: Losses for all iterations. Only if `error` is set.
+            numpy.ndarray: Errors for all iterations. Only if `error` is set.
 
         Examples:
             &gt;&gt;&gt; model.train()
             
             &gt;&gt;&gt; model.train(method=&#39;lbfgs&#39;, tolerance_grad=1e-10, tolerance_change=1e-12)
             
-            &gt;&gt;&gt; model.train(method=&#39;adam&#39;, lr=1e-4)
+            &gt;&gt;&gt; model.train(method=&#39;adam&#39;, lr=0.5)
         &#34;&#34;&#34;
+        if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
+            method = &#39;LBFGS&#39;
+        elif method.lower() == &#39;adam&#39;:
+            method = &#39;Adam&#39;
+        elif method.lower() == &#39;sgd&#39;:
+            method = &#39;SGD&#39;
+        elif method.lower() == &#39;adagrad&#39;:
+            method = &#39;AdaGrad&#39;
+
         if verbose:
             training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
             parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
@@ -173,44 +245,79 @@ class Model:
                 print(&#39;‣ Mixtures: {}&#39;.format(self.Q))
             print(&#39;‣ Training points: {}&#39;.format(training_points))
             print(&#39;‣ Parameters: {}&#39;.format(parameters))
-            print(&#39;‣ Initial NLL: {:.3f}&#39;.format(-self.model.log_marginal_likelihood().tolist()))
+            print(&#39;‣ Initial loss: {:.3g}&#39;.format(self.loss()))
+            if error is not None:
+                print(&#39;‣ Initial error: {:.3g}&#39;.format(self.error(error)))
             inital_time = time.time()
 
+        losses = np.empty((iters+1,))
+        errors = np.empty((iters+1,))
         try:
-            if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
+            if method == &#39;LBFGS&#39;:
                 if not &#39;max_iter&#39; in kwargs:
                     kwargs[&#39;max_iter&#39;] = iters
                     iters = 0
                 optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
                 optimizer.step(lambda: self.model.loss())
                 iters = optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;]
-            elif method.lower() == &#39;adam&#39;:
-                if not &#39;lr&#39; in kwargs:
+            elif method == &#39;Adam&#39;:
+                if &#39;lr&#39; not in kwargs:
                     kwargs[&#39;lr&#39;] = 0.1
                 optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
                 for i in range(iters):
-                    loss = self.model.loss()
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
                     optimizer.step()
-            elif method.lower() == &#39;sgd&#39;:
+            elif method == &#39;SGD&#39;:
                 optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
                 for i in range(iters):
-                    loss = self.model.loss()
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
                     optimizer.step()
-            elif method.lower() == &#39;adagrad&#39;:
+            elif method == &#39;AdaGrad&#39;:
                 optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
                 for i in range(iters):
-                    loss = self.model.loss()
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
                     optimizer.step()
             else:
                 print(&#34;Unknown optimizer:&#34;, method)
-        except Exception as e:
+            losses[iters] = self.loss()
+            if error is not None:
+                errors[iters] = self.error(error)
+        except CholeskyException:
             return
 
         if verbose:
             elapsed_time = time.time() - inital_time
             print(&#39;\nOptimization finished in {}&#39;.format(_format_duration(elapsed_time)))
             print(&#39;‣ Function evaluations: {}&#39;.format(iters))
-            print(&#39;‣ Final NLL: {:.3f}&#39;.format(-self.model.log_marginal_likelihood().tolist()))
+            print(&#39;‣ Final loss: {:.3g}&#39;.format(losses[-1]))
+            if error is not None:
+                print(&#39;‣ Final error: {:.3g}&#39;.format(errors[-1]))
+
+        if plot:
+            fig, ax = plt.subplots(1, 1, figsize=(12,3), constrained_layout=True)
+            ax.plot(np.arange(0,iters+1), losses[:iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
+            ax.set_xlim(0, iters)
+            ax.set_xlabel(&#39;Iteration&#39;)
+            ax.set_ylabel(&#39;Loss&#39;)
+
+            legends = []
+            legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
+            if error is not None:
+                ax2 = ax.twinx()
+                ax2.plot(np.arange(0,iters+1), errors[:iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
+                ax2.set_ylabel(&#39;Error&#39;)
+                legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
+
+            ax.legend(handles=legends)
+
+        if error is not None:
+            return losses, errors
 
     ################################################################################
     # Predictions ##################################################################
@@ -220,11 +327,12 @@ class Model:
 
     def _to_kernel_format(self, X, Y=None):
         &#34;&#34;&#34;
-        Return the data vectors in the format as used by the kernels.
+        Return the data vectors in the format used by the kernels. If Y is not passed, than only X data is returned.
 
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
             numpy.ndarray: Y data.
+            numpy.ndarray: Original but normalized X data. Only if no Y is passed.
         &#34;&#34;&#34;
         if isinstance(X, dict):
             x_dict = X
@@ -237,6 +345,7 @@ class Model:
             raise ValueError(&#34;X must be a list, dict or numpy.ndarray&#34;)
         if len(X) != len(self.dataset.channels):
             raise ValueError(&#34;X must be a list of shape (n,input_dims) for each channel&#34;)
+        X_orig = X
         X = X.copy()
         for j, channel_x in enumerate(X):
             input_dims = self.dataset.get_input_dims()[j]
@@ -258,7 +367,7 @@ class Model:
             x = np.concatenate(X, axis=0)
             x = np.concatenate([chan, x], axis=1)
         if Y is None:
-            return x
+            return x, X_orig
 
         if isinstance(Y, np.ndarray):
             Y = list(Y)
@@ -272,7 +381,7 @@ class Model:
                 raise ValueError(&#34;Y must be a list of shape (n,) for each channel&#34;)
             if channel_y.shape[0] != X[j].shape[0]:
                 raise ValueError(&#34;Y must have the same number of data points per channel as X&#34;)
-            Y[j] = self.dataset[j].Y.transform(channel_y, x=X[j])
+            Y[j] = self.dataset[j].Y.transform(channel_y, x=X_orig[j])
         if len(Y) == 0:
             y = np.array([])
         else:
@@ -281,15 +390,12 @@ class Model:
 
     def predict(self, X=None, sigma=2.0, transformed=False):
         &#34;&#34;&#34;
-        Predict with model.
-
-        Will make a prediction using x as input. If no input value is passed, the prediction will 
-        be made with atribute self.X_pred that can be setted with other functions.
+        Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
-            X (list, dict, optional): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
-            sigma (float, optional): The uncertainty interval&#39;s number of standard deviations.
-            transformed (boolean, optional): Return transformed data as used for training.
+            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+            sigma (float): The confidence interval&#39;s number of standard deviations.
+            transformed (boolean): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: Y mean prediction of shape (n,).
@@ -300,9 +406,11 @@ class Model:
             &gt;&gt;&gt; model.predict(plot=True)
         &#34;&#34;&#34;
         save = X is None
+        if save and transformed:
+            raise ValueError(&#39;must pass an X range explicitly in order to return transformed data&#39;)
         if save:
             X = self.dataset.get_prediction_x()
-        x = self._to_kernel_format(X)
+        x, X = self._to_kernel_format(X)
 
         mu, var = self.model.predict(x)
 
@@ -327,24 +435,23 @@ class Model:
                 Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
 
             if transformed:
-                return X, Mu, Lower, Upper
+                return Mu, Lower, Upper
             else:
-                X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
                 for j in range(self.dataset.get_output_dims()):
-                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X_pred[j])
-                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X_pred[j])
-                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X_pred[j])
-                return X, Mu, Lower, Upper
+                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
+                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
+                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+                return Mu, Lower, Upper
 
     def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
         &#34;&#34;&#34;
-        Plot each Data channel.
+        Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
         Args:
-            title (str, optional): Set the title of the plot.
-            figsize (tuple, optional): Set the figure size.
-            legend (boolean, optional): Disable legend.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            title (str): Set the title of the plot.
+            figsize (tuple): Set the figure size.
+            legend (boolean): Disable legend.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -355,47 +462,58 @@ class Model:
         &#34;&#34;&#34;
         return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
 
-    def get_gram_matrix(self, xmin=None, xmax=None, n_points=31):
-        if xmin is None:
-            xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
-        if xmax is None:
-            xmax = [np.array(data.X[0].transformed).max() for data in self.dataset]
+    def get_gram_matrix(self, start=None, end=None, n=31):
+        &#34;&#34;&#34;
+        Returns the gram matrix evaluated between `start` and `end` with `n` number of points. If `start` and `end` are not set, the minimum and maximum X points of the data are used.
+
+        Args:
+            start (float, list, array): Interval minimum.
+            end (float, list, array): Interval maximum.
+            n (int): Number of points per channel.
+
+        Returns:
+            numpy.ndarray: Array of shape (n,n).
+
+        Examples:
+            &gt;&gt;&gt; model.get_gram_matrix()
+        &#34;&#34;&#34;
+        if start is None:
+            start = [np.array(data.X[0].transformed).min() for data in self.dataset]
+        if end is None:
+            end = [np.array(data.X[0].transformed).max() for data in self.dataset]
 
         M = len(self.dataset)
-        if not isinstance(xmin, (list, np.ndarray)):
-            xmin = [xmin] * M
-        if not isinstance(xmax, (list, np.ndarray)):
-            xmax = [xmax] * M
+        if not isinstance(start, (list, np.ndarray)):
+            start = [start] * M
+        if not isinstance(end, (list, np.ndarray)):
+            end = [end] * M
 
-        X = np.zeros((M*n_points, 2))
-        X[:,0] = np.repeat(np.arange(M), n_points)
+        X = np.zeros((M*n, 2))
+        X[:,0] = np.repeat(np.arange(M), n)
         for m in range(M):
-            if n_points == 1:
-                X[m*n_points:(m+1)*n_points,1] = np.array((xmin[m]+xmax[m])/2.0)
+            if n== 1:
+                X[m*n:(m+1)*n,1] = np.array((start[m]+end[m])/2.0)
             else:
-                X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+                X[m*n:(m+1)*n,1] = np.linspace(start[m], end[m], n)
 
-        return self.model.K(X)
+        return self.model.K(X).detach().numpy()
 
-    def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+    def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         &#34;&#34;&#34;
         Plot the gram matrix of associated kernel.
 
-        The gram matrix is evaluated depending a equally spaced grid 
-        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
-
         Args:
-            xmin (float, list, array): Interval minimum.
-            xmax (float, list, array): Interval maximum.
-            n_points (int): Number of points per channel.
+            start (float, list, array): Interval minimum.
+            end (float, list, array): Interval maximum.
+            n (int): Number of points per channel.
             title (str): Figure title.
             figsize (tuple): Figure size.
 
         Returns:
-            fig: Matplotlib figure.
-            ax: Matplotlib axis.
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
         &#34;&#34;&#34;
-        K_gram = self.get_gram_matrix(xmin, xmax, n_points)
+        K_gram = self.get_gram_matrix(start, end, n)
             
         fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
         if title is not None:
@@ -466,25 +584,25 @@ def _format_duration(s):
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
-<dd>Filename to load from.</dd>
+<dd>File name to load from.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; Load('filename')
+<pre><code>&gt;&gt;&gt; LoadModel('filename')
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L15-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L18-L30" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
     Load model from a given file that was previously saved with `model.save()`.
 
     Args:
-        filename (str): Filename to load from.
+        filename (str): File name to load from.
 
     Examples:
-        &gt;&gt;&gt; Load(&#39;filename&#39;)
+        &gt;&gt;&gt; LoadModel(&#39;filename&#39;)
     &#34;&#34;&#34;
     filename += &#34;.npy&#34; 
     with open(filename, &#39;rb&#39;) as r:
@@ -500,77 +618,89 @@ def _format_duration(s):
 <span>class <span class="ident">Exact</span></span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Exact inference for Gaussian process regression.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L29-L31" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L32-L37" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
-    def build(self, kernel, x, y, name=None):
-        return GPR(kernel, x, y, name=name)</code></pre>
+    &#34;&#34;&#34;
+    Exact inference for Gaussian process regression.
+    &#34;&#34;&#34;
+    def build(self, kernel, x, y, mean=None, name=None):
+        return GPR(kernel, x, y, mean=mean, name=name)</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.model.Exact.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, name=None)</span>
+<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, mean=None, name=None)</span>
 </code></dt>
 <dd>
 <section class="desc"></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L30-L31" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L36-L37" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def build(self, kernel, x, y, name=None):
-    return GPR(kernel, x, y, name=name)</code></pre>
+<pre><code class="python">def build(self, kernel, x, y, mean=None, name=None):
+    return GPR(kernel, x, y, mean=mean, name=name)</code></pre>
 </details>
 </dd>
 </dl>
 </dd>
 <dt id="mogptk.model.Model"><code class="flex name class">
 <span>class <span class="ident">Model</span></span>
-<span>(</span><span>dataset, kernel, model=&lt;mogptk.model.Exact object&gt;, name=None)</span>
+<span>(</span><span>dataset, kernel, model=&lt;mogptk.model.Exact object&gt;, mean=None, name=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
+<section class="desc"><p>Model is the base class for multi-output Gaussian process models.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a>, <a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a></dt>
-<dd>DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</dd>
+<dd><code>DataSet</code> with <code>Data</code> objects for all the channels. When a (list or dict of) <code>Data</code> object is passed, it will automatically be converted to a <code>DataSet</code>.</dd>
+<dt><strong><code>kernel</code></strong> :&ensp;<a title="mogptk.kernels.kernel.Kernel" href="kernels/kernel.html#mogptk.kernels.kernel.Kernel"><code>Kernel</code></a></dt>
+<dd>The kernel class.</dd>
+<dt><strong><code>model</code></strong></dt>
+<dd>Gaussian process model to use, such as <a title="mogptk.model.Exact" href="#mogptk.model.Exact"><code>Exact</code></a>.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<a title="mogptk.kernels.mean.Mean" href="kernels/mean.html#mogptk.kernels.mean.Mean"><code>Mean</code></a></dt>
+<dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
 </dl></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L33-L394" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L39-L512" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
-    def __init__(self, dataset, kernel, model=Exact(), name=None):
+    def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
         &#34;&#34;&#34;
-        Base class for Multi-Output Gaussian process models. See subclasses for instantiation.
+        Model is the base class for multi-output Gaussian process models.
 
         Args:
-            dataset (mogptk.dataset.DataSet, mogptk.data.Data): DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.
+            dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
+            kernel (mogptk.kernels.kernel.Kernel): The kernel class.
+            model: Gaussian process model to use, such as `mogptk.model.Exact`.
+            mean (mogptk.kernels.mean.Mean): The mean class.
             name (str): Name of the model.
         &#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         if dataset.get_output_dims() == 0:
-            raise Exception(&#34;dataset must have at least one channel&#34;)
+            raise ValueError(&#34;dataset must have at least one channel&#34;)
         names = [name for name in dataset.get_names() if name is not None]
         if len(set(names)) != len(names):
-            raise Exception(&#34;all data channels must have unique names&#34;)
+            raise ValueError(&#34;all data channels must have unique names&#34;)
 
         for channel in dataset:
             for dim in range(channel.get_input_dims()):
                 xran = np.max(channel.X[dim].transformed) - np.min(channel.X[dim].transformed)
                 if xran &lt; 1e-3:
-                    logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X-axis&#34;)
+                    logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X axis&#34;)
                 elif 1e4 &lt; xran:
-                    logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X-axis&#34;)
+                    logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X axis&#34;)
 
         self.name = name
         self.dataset = dataset
@@ -580,7 +710,9 @@ def _format_duration(s):
         Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset.channels]
         x, y = self._to_kernel_format(X, Y)
 
-        self.model = model.build(kernel, x, y, name)
+        self.model = model.build(kernel, x, y, mean, name)
+        if issubclass(type(kernel), MultiOutputKernel) and issubclass(type(model), Exact):
+            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
     ################################################################
 
@@ -595,7 +727,10 @@ def _format_duration(s):
 
     def get_parameters(self):
         &#34;&#34;&#34;
-        Returns all parameters set for the kernel per component.
+        Returns all parameters of the kernel.
+
+        Returns:
+            list: mogptk.kernels.parameter.Parameter    
 
         Examples:
             &gt;&gt;&gt; params = model.get_parameters()
@@ -604,10 +739,10 @@ def _format_duration(s):
 
     def save(self, filename):
         &#34;&#34;&#34;
-        Save model to a given file that can then be loaded with `Load()`.
+        Save the model to a given file that can then be loaded using `LoadModel()`.
 
         Args:
-            filename (str): Filename to save to, automatically appends &#39;.model&#39;.
+            filename (str): File name to save to, automatically appends &#39;.npy&#39;.
 
         Examples:
             &gt;&gt;&gt; model.save(&#39;filename&#39;)
@@ -621,35 +756,93 @@ def _format_duration(s):
             pickle.dump(self, w)
 
     def log_marginal_likelihood(self):
+        &#34;&#34;&#34;
+        Returns the log marginal likelihood of the kernel and its data and parameters.
+
+        Returns:
+            float: The current log marginal likelihood.
+
+        Examples:
+            &gt;&gt;&gt; model.log_marginal_likelihood()
+        &#34;&#34;&#34;
         return self.model.log_marginal_likelihood().detach().item()
+
+    def loss(self):
+        &#34;&#34;&#34;
+        Returns the loss of the kernel and its data and parameters.
+
+        Returns:
+            float: The current loss.
+
+        Examples:
+            &gt;&gt;&gt; model.loss()
+        &#34;&#34;&#34;
+        return self.model.loss().detach().item()
+
+    def error(self, method=&#39;MAE&#39;):
+        &#34;&#34;&#34;
+        Returns the error of the kernel prediction with the removed data points in the data set.
+
+        Args:
+            method (str): Error calculation method, such as MAE, MAPE, or RMSE.
+
+        Returns:
+            float: The current error.
+
+        Examples:
+            &gt;&gt;&gt; model.error()
+        &#34;&#34;&#34;
+        X, Y_true = self.dataset.get_test_data()
+        x, y_true  = self._to_kernel_format(X, Y_true)
+        y_pred, _ = self.model.predict(x)
+        if method.lower() == &#39;mae&#39;:
+            return mean_absolute_error(y_true, y_pred)
+        elif method.lower() == &#39;mape&#39;:
+            return mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == &#39;rmse&#39;:
+            return root_mean_squared_error(y_true, y_pred)
+        else:
+            raise ValueError(&#34;valid error calculation methods are MAE, MAPE, and RMSE&#34;)
 
     def train(
         self,
         method=&#39;Adam&#39;,
         iters=500,
         verbose=False,
+        error=None,
+        plot=False,
         **kwargs):
         &#34;&#34;&#34;
-        Trains the model using the kernel and its parameters.
-
-        For different optimizers, see scipy.optimize.minimize.
-        It can be bounded by a maximum number of iterations, disp will output final
-        optimization information. When using the &#39;Adam&#39; optimizer, a
-        learning_rate can be set.
+        Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.
 
         Args:
-            method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD. Defaults to Adam.
-            iters (int): Number of iterations, or maximum in case of LBFGS optimizer. Defaults to 500.
+            method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.
+            iters (int): Number of iterations, or maximum in case of LBFGS optimizer.
             verbose (bool): Print verbose output about the state of the optimizer.
+            error (str): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.
+            plot (bool): Plot the negative log likelihood.
             **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
+
+        Returns:
+            numpy.ndarray: Losses for all iterations. Only if `error` is set.
+            numpy.ndarray: Errors for all iterations. Only if `error` is set.
 
         Examples:
             &gt;&gt;&gt; model.train()
             
             &gt;&gt;&gt; model.train(method=&#39;lbfgs&#39;, tolerance_grad=1e-10, tolerance_change=1e-12)
             
-            &gt;&gt;&gt; model.train(method=&#39;adam&#39;, lr=1e-4)
+            &gt;&gt;&gt; model.train(method=&#39;adam&#39;, lr=0.5)
         &#34;&#34;&#34;
+        if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
+            method = &#39;LBFGS&#39;
+        elif method.lower() == &#39;adam&#39;:
+            method = &#39;Adam&#39;
+        elif method.lower() == &#39;sgd&#39;:
+            method = &#39;SGD&#39;
+        elif method.lower() == &#39;adagrad&#39;:
+            method = &#39;AdaGrad&#39;
+
         if verbose:
             training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
             parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
@@ -660,44 +853,79 @@ def _format_duration(s):
                 print(&#39;‣ Mixtures: {}&#39;.format(self.Q))
             print(&#39;‣ Training points: {}&#39;.format(training_points))
             print(&#39;‣ Parameters: {}&#39;.format(parameters))
-            print(&#39;‣ Initial NLL: {:.3f}&#39;.format(-self.model.log_marginal_likelihood().tolist()))
+            print(&#39;‣ Initial loss: {:.3g}&#39;.format(self.loss()))
+            if error is not None:
+                print(&#39;‣ Initial error: {:.3g}&#39;.format(self.error(error)))
             inital_time = time.time()
 
+        losses = np.empty((iters+1,))
+        errors = np.empty((iters+1,))
         try:
-            if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
+            if method == &#39;LBFGS&#39;:
                 if not &#39;max_iter&#39; in kwargs:
                     kwargs[&#39;max_iter&#39;] = iters
                     iters = 0
                 optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
                 optimizer.step(lambda: self.model.loss())
                 iters = optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;]
-            elif method.lower() == &#39;adam&#39;:
-                if not &#39;lr&#39; in kwargs:
+            elif method == &#39;Adam&#39;:
+                if &#39;lr&#39; not in kwargs:
                     kwargs[&#39;lr&#39;] = 0.1
                 optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
                 for i in range(iters):
-                    loss = self.model.loss()
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
                     optimizer.step()
-            elif method.lower() == &#39;sgd&#39;:
+            elif method == &#39;SGD&#39;:
                 optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
                 for i in range(iters):
-                    loss = self.model.loss()
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
                     optimizer.step()
-            elif method.lower() == &#39;adagrad&#39;:
+            elif method == &#39;AdaGrad&#39;:
                 optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
                 for i in range(iters):
-                    loss = self.model.loss()
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
                     optimizer.step()
             else:
                 print(&#34;Unknown optimizer:&#34;, method)
-        except Exception as e:
+            losses[iters] = self.loss()
+            if error is not None:
+                errors[iters] = self.error(error)
+        except CholeskyException:
             return
 
         if verbose:
             elapsed_time = time.time() - inital_time
             print(&#39;\nOptimization finished in {}&#39;.format(_format_duration(elapsed_time)))
             print(&#39;‣ Function evaluations: {}&#39;.format(iters))
-            print(&#39;‣ Final NLL: {:.3f}&#39;.format(-self.model.log_marginal_likelihood().tolist()))
+            print(&#39;‣ Final loss: {:.3g}&#39;.format(losses[-1]))
+            if error is not None:
+                print(&#39;‣ Final error: {:.3g}&#39;.format(errors[-1]))
+
+        if plot:
+            fig, ax = plt.subplots(1, 1, figsize=(12,3), constrained_layout=True)
+            ax.plot(np.arange(0,iters+1), losses[:iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
+            ax.set_xlim(0, iters)
+            ax.set_xlabel(&#39;Iteration&#39;)
+            ax.set_ylabel(&#39;Loss&#39;)
+
+            legends = []
+            legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
+            if error is not None:
+                ax2 = ax.twinx()
+                ax2.plot(np.arange(0,iters+1), errors[:iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
+                ax2.set_ylabel(&#39;Error&#39;)
+                legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
+
+            ax.legend(handles=legends)
+
+        if error is not None:
+            return losses, errors
 
     ################################################################################
     # Predictions ##################################################################
@@ -707,11 +935,12 @@ def _format_duration(s):
 
     def _to_kernel_format(self, X, Y=None):
         &#34;&#34;&#34;
-        Return the data vectors in the format as used by the kernels.
+        Return the data vectors in the format used by the kernels. If Y is not passed, than only X data is returned.
 
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
             numpy.ndarray: Y data.
+            numpy.ndarray: Original but normalized X data. Only if no Y is passed.
         &#34;&#34;&#34;
         if isinstance(X, dict):
             x_dict = X
@@ -724,6 +953,7 @@ def _format_duration(s):
             raise ValueError(&#34;X must be a list, dict or numpy.ndarray&#34;)
         if len(X) != len(self.dataset.channels):
             raise ValueError(&#34;X must be a list of shape (n,input_dims) for each channel&#34;)
+        X_orig = X
         X = X.copy()
         for j, channel_x in enumerate(X):
             input_dims = self.dataset.get_input_dims()[j]
@@ -745,7 +975,7 @@ def _format_duration(s):
             x = np.concatenate(X, axis=0)
             x = np.concatenate([chan, x], axis=1)
         if Y is None:
-            return x
+            return x, X_orig
 
         if isinstance(Y, np.ndarray):
             Y = list(Y)
@@ -759,7 +989,7 @@ def _format_duration(s):
                 raise ValueError(&#34;Y must be a list of shape (n,) for each channel&#34;)
             if channel_y.shape[0] != X[j].shape[0]:
                 raise ValueError(&#34;Y must have the same number of data points per channel as X&#34;)
-            Y[j] = self.dataset[j].Y.transform(channel_y, x=X[j])
+            Y[j] = self.dataset[j].Y.transform(channel_y, x=X_orig[j])
         if len(Y) == 0:
             y = np.array([])
         else:
@@ -768,15 +998,12 @@ def _format_duration(s):
 
     def predict(self, X=None, sigma=2.0, transformed=False):
         &#34;&#34;&#34;
-        Predict with model.
-
-        Will make a prediction using x as input. If no input value is passed, the prediction will 
-        be made with atribute self.X_pred that can be setted with other functions.
+        Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
-            X (list, dict, optional): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
-            sigma (float, optional): The uncertainty interval&#39;s number of standard deviations.
-            transformed (boolean, optional): Return transformed data as used for training.
+            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+            sigma (float): The confidence interval&#39;s number of standard deviations.
+            transformed (boolean): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: Y mean prediction of shape (n,).
@@ -787,9 +1014,11 @@ def _format_duration(s):
             &gt;&gt;&gt; model.predict(plot=True)
         &#34;&#34;&#34;
         save = X is None
+        if save and transformed:
+            raise ValueError(&#39;must pass an X range explicitly in order to return transformed data&#39;)
         if save:
             X = self.dataset.get_prediction_x()
-        x = self._to_kernel_format(X)
+        x, X = self._to_kernel_format(X)
 
         mu, var = self.model.predict(x)
 
@@ -814,24 +1043,23 @@ def _format_duration(s):
                 Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
 
             if transformed:
-                return X, Mu, Lower, Upper
+                return Mu, Lower, Upper
             else:
-                X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
                 for j in range(self.dataset.get_output_dims()):
-                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X_pred[j])
-                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X_pred[j])
-                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X_pred[j])
-                return X, Mu, Lower, Upper
+                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
+                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
+                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+                return Mu, Lower, Upper
 
     def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
         &#34;&#34;&#34;
-        Plot each Data channel.
+        Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
         Args:
-            title (str, optional): Set the title of the plot.
-            figsize (tuple, optional): Set the figure size.
-            legend (boolean, optional): Disable legend.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            title (str): Set the title of the plot.
+            figsize (tuple): Set the figure size.
+            legend (boolean): Disable legend.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -842,47 +1070,58 @@ def _format_duration(s):
         &#34;&#34;&#34;
         return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
 
-    def get_gram_matrix(self, xmin=None, xmax=None, n_points=31):
-        if xmin is None:
-            xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
-        if xmax is None:
-            xmax = [np.array(data.X[0].transformed).max() for data in self.dataset]
+    def get_gram_matrix(self, start=None, end=None, n=31):
+        &#34;&#34;&#34;
+        Returns the gram matrix evaluated between `start` and `end` with `n` number of points. If `start` and `end` are not set, the minimum and maximum X points of the data are used.
+
+        Args:
+            start (float, list, array): Interval minimum.
+            end (float, list, array): Interval maximum.
+            n (int): Number of points per channel.
+
+        Returns:
+            numpy.ndarray: Array of shape (n,n).
+
+        Examples:
+            &gt;&gt;&gt; model.get_gram_matrix()
+        &#34;&#34;&#34;
+        if start is None:
+            start = [np.array(data.X[0].transformed).min() for data in self.dataset]
+        if end is None:
+            end = [np.array(data.X[0].transformed).max() for data in self.dataset]
 
         M = len(self.dataset)
-        if not isinstance(xmin, (list, np.ndarray)):
-            xmin = [xmin] * M
-        if not isinstance(xmax, (list, np.ndarray)):
-            xmax = [xmax] * M
+        if not isinstance(start, (list, np.ndarray)):
+            start = [start] * M
+        if not isinstance(end, (list, np.ndarray)):
+            end = [end] * M
 
-        X = np.zeros((M*n_points, 2))
-        X[:,0] = np.repeat(np.arange(M), n_points)
+        X = np.zeros((M*n, 2))
+        X[:,0] = np.repeat(np.arange(M), n)
         for m in range(M):
-            if n_points == 1:
-                X[m*n_points:(m+1)*n_points,1] = np.array((xmin[m]+xmax[m])/2.0)
+            if n== 1:
+                X[m*n:(m+1)*n,1] = np.array((start[m]+end[m])/2.0)
             else:
-                X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+                X[m*n:(m+1)*n,1] = np.linspace(start[m], end[m], n)
 
-        return self.model.K(X)
+        return self.model.K(X).detach().numpy()
 
-    def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+    def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         &#34;&#34;&#34;
         Plot the gram matrix of associated kernel.
 
-        The gram matrix is evaluated depending a equally spaced grid 
-        between [xmin_i, xmax_i] for i = 0, ..., n_channels.
-
         Args:
-            xmin (float, list, array): Interval minimum.
-            xmax (float, list, array): Interval maximum.
-            n_points (int): Number of points per channel.
+            start (float, list, array): Interval minimum.
+            end (float, list, array): Interval maximum.
+            n (int): Number of points per channel.
             title (str): Figure title.
             figsize (tuple): Figure size.
 
         Returns:
-            fig: Matplotlib figure.
-            ax: Matplotlib axis.
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
         &#34;&#34;&#34;
-        K_gram = self.get_gram_matrix(xmin, xmax, n_points)
+        K_gram = self.get_gram_matrix(start, end, n)
             
         fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
         if title is not None:
@@ -919,55 +1158,141 @@ def _format_duration(s):
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.model.Model.get_gram_matrix"><code class="name flex">
-<span>def <span class="ident">get_gram_matrix</span></span>(<span>self, xmin=None, xmax=None, n_points=31)</span>
+<dt id="mogptk.model.Model.error"><code class="name flex">
+<span>def <span class="ident">error</span></span>(<span>self, method='MAE')</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Returns the error of the kernel prediction with the removed data points in the data set.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
+<dd>Error calculation method, such as MAE, MAPE, or RMSE.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>float</code></strong></dt>
+<dd>The current error.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.error()
+</code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L329-L349" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L145-L168" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def get_gram_matrix(self, xmin=None, xmax=None, n_points=31):
-    if xmin is None:
-        xmin = [np.array(data.X[0].transformed).min() for data in self.dataset]
-    if xmax is None:
-        xmax = [np.array(data.X[0].transformed).max() for data in self.dataset]
+<pre><code class="python">def error(self, method=&#39;MAE&#39;):
+    &#34;&#34;&#34;
+    Returns the error of the kernel prediction with the removed data points in the data set.
+
+    Args:
+        method (str): Error calculation method, such as MAE, MAPE, or RMSE.
+
+    Returns:
+        float: The current error.
+
+    Examples:
+        &gt;&gt;&gt; model.error()
+    &#34;&#34;&#34;
+    X, Y_true = self.dataset.get_test_data()
+    x, y_true  = self._to_kernel_format(X, Y_true)
+    y_pred, _ = self.model.predict(x)
+    if method.lower() == &#39;mae&#39;:
+        return mean_absolute_error(y_true, y_pred)
+    elif method.lower() == &#39;mape&#39;:
+        return mean_absolute_percentage_error(y_true, y_pred)
+    elif method.lower() == &#39;rmse&#39;:
+        return root_mean_squared_error(y_true, y_pred)
+    else:
+        raise ValueError(&#34;valid error calculation methods are MAE, MAPE, and RMSE&#34;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.get_gram_matrix"><code class="name flex">
+<span>def <span class="ident">get_gram_matrix</span></span>(<span>self, start=None, end=None, n=31)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the gram matrix evaluated between <code>start</code> and <code>end</code> with <code>n</code> number of points. If <code>start</code> and <code>end</code> are not set, the minimum and maximum X points of the data are used.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>list</code>, <code>array</code></dt>
+<dd>Interval minimum.</dd>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>list</code>, <code>array</code></dt>
+<dd>Interval maximum.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of points per channel.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>numpy.ndarray: Array of shape (n,n).</p>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.get_gram_matrix()
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L436-L470" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def get_gram_matrix(self, start=None, end=None, n=31):
+    &#34;&#34;&#34;
+    Returns the gram matrix evaluated between `start` and `end` with `n` number of points. If `start` and `end` are not set, the minimum and maximum X points of the data are used.
+
+    Args:
+        start (float, list, array): Interval minimum.
+        end (float, list, array): Interval maximum.
+        n (int): Number of points per channel.
+
+    Returns:
+        numpy.ndarray: Array of shape (n,n).
+
+    Examples:
+        &gt;&gt;&gt; model.get_gram_matrix()
+    &#34;&#34;&#34;
+    if start is None:
+        start = [np.array(data.X[0].transformed).min() for data in self.dataset]
+    if end is None:
+        end = [np.array(data.X[0].transformed).max() for data in self.dataset]
 
     M = len(self.dataset)
-    if not isinstance(xmin, (list, np.ndarray)):
-        xmin = [xmin] * M
-    if not isinstance(xmax, (list, np.ndarray)):
-        xmax = [xmax] * M
+    if not isinstance(start, (list, np.ndarray)):
+        start = [start] * M
+    if not isinstance(end, (list, np.ndarray)):
+        end = [end] * M
 
-    X = np.zeros((M*n_points, 2))
-    X[:,0] = np.repeat(np.arange(M), n_points)
+    X = np.zeros((M*n, 2))
+    X[:,0] = np.repeat(np.arange(M), n)
     for m in range(M):
-        if n_points == 1:
-            X[m*n_points:(m+1)*n_points,1] = np.array((xmin[m]+xmax[m])/2.0)
+        if n== 1:
+            X[m*n:(m+1)*n,1] = np.array((start[m]+end[m])/2.0)
         else:
-            X[m*n_points:(m+1)*n_points,1] = np.linspace(xmin[m], xmax[m], n_points)
+            X[m*n:(m+1)*n,1] = np.linspace(start[m], end[m], n)
 
-    return self.model.K(X)</code></pre>
+    return self.model.K(X).detach().numpy()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.Model.get_parameters"><code class="name flex">
 <span>def <span class="ident">get_parameters</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns all parameters set for the kernel per component.</p>
+<section class="desc"><p>Returns all parameters of the kernel.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>list</code></strong></dt>
+<dd>mogptk.kernels.parameter.Parameter
+</dd>
+</dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; params = model.get_parameters()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L80-L87" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L91-L101" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
-    Returns all parameters set for the kernel per component.
+    Returns all parameters of the kernel.
+
+    Returns:
+        list: mogptk.kernels.parameter.Parameter    
 
     Examples:
         &gt;&gt;&gt; params = model.get_parameters()
@@ -979,30 +1304,76 @@ def _format_duration(s):
 <span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Returns the log marginal likelihood of the kernel and its data and parameters.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>float</code></strong></dt>
+<dd>The current log marginal likelihood.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.log_marginal_likelihood()
+</code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L107-L108" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L121-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
+    &#34;&#34;&#34;
+    Returns the log marginal likelihood of the kernel and its data and parameters.
+
+    Returns:
+        float: The current log marginal likelihood.
+
+    Examples:
+        &gt;&gt;&gt; model.log_marginal_likelihood()
+    &#34;&#34;&#34;
     return self.model.log_marginal_likelihood().detach().item()</code></pre>
 </details>
 </dd>
+<dt id="mogptk.model.Model.loss"><code class="name flex">
+<span>def <span class="ident">loss</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Returns the loss of the kernel and its data and parameters.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>float</code></strong></dt>
+<dd>The current loss.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; model.loss()
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L133-L143" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def loss(self):
+    &#34;&#34;&#34;
+    Returns the loss of the kernel and its data and parameters.
+
+    Returns:
+        float: The current loss.
+
+    Examples:
+        &gt;&gt;&gt; model.loss()
+    &#34;&#34;&#34;
+    return self.model.loss().detach().item()</code></pre>
+</details>
+</dd>
 <dt id="mogptk.model.Model.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12, 12))</span>
+<span>def <span class="ident">plot</span></span>(<span>self, start=None, end=None, n=31, title=None, figsize=(12, 12))</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Plot the gram matrix of associated kernel.</p>
-<p>The gram matrix is evaluated depending a equally spaced grid
-between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>xmin</code></strong> :&ensp;<code>float</code>, <code>list</code>, <code>array</code></dt>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>list</code>, <code>array</code></dt>
 <dd>Interval minimum.</dd>
-<dt><strong><code>xmax</code></strong> :&ensp;<code>float</code>, <code>list</code>, <code>array</code></dt>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>list</code>, <code>array</code></dt>
 <dd>Interval maximum.</dd>
-<dt><strong><code>n_points</code></strong> :&ensp;<code>int</code></dt>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of points per channel.</dd>
 <dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
 <dd>Figure title.</dd>
@@ -1011,35 +1382,32 @@ between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>fig</code></strong></dt>
+<dt><strong><code>figure</code></strong></dt>
 <dd>Matplotlib figure.</dd>
-<dt><strong><code>ax</code></strong></dt>
+<dt><strong><code>axis</code></strong></dt>
 <dd>Matplotlib axis.</dd>
 </dl></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L351-L394" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L472-L512" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot(self, xmin=None, xmax=None, n_points=31, title=None, figsize=(12,12)):
+<pre><code class="python">def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
     Plot the gram matrix of associated kernel.
 
-    The gram matrix is evaluated depending a equally spaced grid 
-    between [xmin_i, xmax_i] for i = 0, ..., n_channels.
-
     Args:
-        xmin (float, list, array): Interval minimum.
-        xmax (float, list, array): Interval maximum.
-        n_points (int): Number of points per channel.
+        start (float, list, array): Interval minimum.
+        end (float, list, array): Interval maximum.
+        n (int): Number of points per channel.
         title (str): Figure title.
         figsize (tuple): Figure size.
 
     Returns:
-        fig: Matplotlib figure.
-        ax: Matplotlib axis.
+        figure: Matplotlib figure.
+        axis: Matplotlib axis.
     &#34;&#34;&#34;
-    K_gram = self.get_gram_matrix(xmin, xmax, n_points)
+    K_gram = self.get_gram_matrix(start, end, n)
         
     fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
     if title is not None:
@@ -1071,16 +1439,16 @@ between [xmin_i, xmax_i] for i = 0, &hellip;, n_channels.</p>
 <span>def <span class="ident">plot_prediction</span></span>(<span>self, title=None, figsize=None, legend=True, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Plot each Data channel.</p>
+<section class="desc"><p>Plot the data including removed observations, latent function, and predictions of this model for each channel.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
 <dd>Set the title of the plot.</dd>
-<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code></dt>
 <dd>Set the figure size.</dd>
-<dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Disable legend.</dd>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Display transformed Y data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -1092,17 +1460,17 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L310-L327" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L417-L434" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
     &#34;&#34;&#34;
-    Plot each Data channel.
+    Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
     Args:
-        title (str, optional): Set the title of the plot.
-        figsize (tuple, optional): Set the figure size.
-        legend (boolean, optional): Disable legend.
-        transformed (boolean, optional): Display transformed Y data as used for training.
+        title (str): Set the title of the plot.
+        figsize (tuple): Set the figure size.
+        legend (boolean): Disable legend.
+        transformed (boolean): Display transformed Y data as used for training.
 
     Returns:
         matplotlib.figure.Figure: The figure.
@@ -1118,16 +1486,14 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <span>def <span class="ident">predict</span></span>(<span>self, X=None, sigma=2.0, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Predict with model.</p>
-<p>Will make a prediction using x as input. If no input value is passed, the prediction will
-be made with atribute self.X_pred that can be setted with other functions.</p>
+<section class="desc"><p>Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if <code>X</code> is passed, use that as the prediction range and return the prediction instead of saving it.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>X</code></strong> :&ensp;<code>list</code>, <code>dict</code>, optional</dt>
+<dt><strong><code>X</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
 <dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.</dd>
-<dt><strong><code>sigma</code></strong> :&ensp;<code>float</code>, optional</dt>
-<dd>The uncertainty interval's number of standard deviations.</dd>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
+<dd>The confidence interval's number of standard deviations.</dd>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -1140,19 +1506,16 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L253-L308" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L362-L415" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
-    Predict with model.
-
-    Will make a prediction using x as input. If no input value is passed, the prediction will 
-    be made with atribute self.X_pred that can be setted with other functions.
+    Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
     Args:
-        X (list, dict, optional): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
-        sigma (float, optional): The uncertainty interval&#39;s number of standard deviations.
-        transformed (boolean, optional): Return transformed data as used for training.
+        X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+        sigma (float): The confidence interval&#39;s number of standard deviations.
+        transformed (boolean): Return transformed data as used for training.
 
     Returns:
         numpy.ndarray: Y mean prediction of shape (n,).
@@ -1163,9 +1526,11 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
         &gt;&gt;&gt; model.predict(plot=True)
     &#34;&#34;&#34;
     save = X is None
+    if save and transformed:
+        raise ValueError(&#39;must pass an X range explicitly in order to return transformed data&#39;)
     if save:
         X = self.dataset.get_prediction_x()
-    x = self._to_kernel_format(X)
+    x, X = self._to_kernel_format(X)
 
     mu, var = self.model.predict(x)
 
@@ -1190,14 +1555,13 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
             Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
 
         if transformed:
-            return X, Mu, Lower, Upper
+            return Mu, Lower, Upper
         else:
-            X_pred = [np.array([self.dataset[j].X[i].transform(X[j][:,i]) for i in range(self.dataset[j].get_input_dims())]) for channel in range(self.dataset.get_output_dims())]
             for j in range(self.dataset.get_output_dims()):
-                Mu[j] = self.dataset[j].Y.detransform(Mu[j], X_pred[j])
-                Lower[j] = self.dataset[j].Y.detransform(Lower[j], X_pred[j])
-                Upper[j] = self.dataset[j].Y.detransform(Upper[j], X_pred[j])
-            return X, Mu, Lower, Upper</code></pre>
+                Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
+                Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
+                Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+            return Mu, Lower, Upper</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.Model.print_parameters"><code class="name flex">
@@ -1211,7 +1575,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L71-L78" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L82-L89" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -1227,11 +1591,11 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <span>def <span class="ident">save</span></span>(<span>self, filename)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Save model to a given file that can then be loaded with <code>Load()</code>.</p>
+<section class="desc"><p>Save the model to a given file that can then be loaded using <a title="mogptk.model.LoadModel" href="#mogptk.model.LoadModel"><code>LoadModel()</code></a>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
-<dd>Filename to save to, automatically appends '.model'.</dd>
+<dd>File name to save to, automatically appends '.npy'.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; model.save('filename')
@@ -1239,14 +1603,14 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L89-L105" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L103-L119" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
-    Save model to a given file that can then be loaded with `Load()`.
+    Save the model to a given file that can then be loaded using `LoadModel()`.
 
     Args:
-        filename (str): Filename to save to, automatically appends &#39;.model&#39;.
+        filename (str): File name to save to, automatically appends &#39;.npy&#39;.
 
     Examples:
         &gt;&gt;&gt; model.save(&#39;filename&#39;)
@@ -1261,64 +1625,79 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 </details>
 </dd>
 <dt id="mogptk.model.Model.train"><code class="name flex">
-<span>def <span class="ident">train</span></span>(<span>self, method='Adam', iters=500, verbose=False, **kwargs)</span>
+<span>def <span class="ident">train</span></span>(<span>self, method='Adam', iters=500, verbose=False, error=None, plot=False, **kwargs)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Trains the model using the kernel and its parameters.</p>
-<p>For different optimizers, see scipy.optimize.minimize.
-It can be bounded by a maximum number of iterations, disp will output final
-optimization information. When using the 'Adam' optimizer, a
-learning_rate can be set.</p>
+<section class="desc"><p>Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
-<dd>Optimizer to use such as LBFGS, Adam, Adagrad, or SGD. Defaults to Adam.</dd>
+<dd>Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.</dd>
 <dt><strong><code>iters</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of iterations, or maximum in case of LBFGS optimizer. Defaults to 500.</dd>
+<dd>Number of iterations, or maximum in case of LBFGS optimizer.</dd>
 <dt><strong><code>verbose</code></strong> :&ensp;<code>bool</code></dt>
 <dd>Print verbose output about the state of the optimizer.</dd>
+<dt><strong><code>error</code></strong> :&ensp;<code>str</code></dt>
+<dd>Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.</dd>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Plot the negative log likelihood.</dd>
 <dt><strong><code>**kwargs</code></strong> :&ensp;<code>dict</code></dt>
 <dd>Additional dictionary of parameters passed to the PyTorch optimizer. </dd>
 </dl>
+<h2 id="returns">Returns</h2>
+<p>numpy.ndarray: Losses for all iterations. Only if <code>error</code> is set.
+numpy.ndarray: Errors for all iterations. Only if <code>error</code> is set.</p>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; model.train()
 
 &gt;&gt;&gt; model.train(method='lbfgs', tolerance_grad=1e-10, tolerance_change=1e-12)
 
-&gt;&gt;&gt; model.train(method='adam', lr=1e-4)
+&gt;&gt;&gt; model.train(method='adam', lr=0.5)
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/model.py#L110-L184" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/model.py#L170-L291" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
     method=&#39;Adam&#39;,
     iters=500,
     verbose=False,
+    error=None,
+    plot=False,
     **kwargs):
     &#34;&#34;&#34;
-    Trains the model using the kernel and its parameters.
-
-    For different optimizers, see scipy.optimize.minimize.
-    It can be bounded by a maximum number of iterations, disp will output final
-    optimization information. When using the &#39;Adam&#39; optimizer, a
-    learning_rate can be set.
+    Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.
 
     Args:
-        method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD. Defaults to Adam.
-        iters (int): Number of iterations, or maximum in case of LBFGS optimizer. Defaults to 500.
+        method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.
+        iters (int): Number of iterations, or maximum in case of LBFGS optimizer.
         verbose (bool): Print verbose output about the state of the optimizer.
+        error (str): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.
+        plot (bool): Plot the negative log likelihood.
         **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
+
+    Returns:
+        numpy.ndarray: Losses for all iterations. Only if `error` is set.
+        numpy.ndarray: Errors for all iterations. Only if `error` is set.
 
     Examples:
         &gt;&gt;&gt; model.train()
         
         &gt;&gt;&gt; model.train(method=&#39;lbfgs&#39;, tolerance_grad=1e-10, tolerance_change=1e-12)
         
-        &gt;&gt;&gt; model.train(method=&#39;adam&#39;, lr=1e-4)
+        &gt;&gt;&gt; model.train(method=&#39;adam&#39;, lr=0.5)
     &#34;&#34;&#34;
+    if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
+        method = &#39;LBFGS&#39;
+    elif method.lower() == &#39;adam&#39;:
+        method = &#39;Adam&#39;
+    elif method.lower() == &#39;sgd&#39;:
+        method = &#39;SGD&#39;
+    elif method.lower() == &#39;adagrad&#39;:
+        method = &#39;AdaGrad&#39;
+
     if verbose:
         training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
         parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
@@ -1329,44 +1708,79 @@ learning_rate can be set.</p>
             print(&#39;‣ Mixtures: {}&#39;.format(self.Q))
         print(&#39;‣ Training points: {}&#39;.format(training_points))
         print(&#39;‣ Parameters: {}&#39;.format(parameters))
-        print(&#39;‣ Initial NLL: {:.3f}&#39;.format(-self.model.log_marginal_likelihood().tolist()))
+        print(&#39;‣ Initial loss: {:.3g}&#39;.format(self.loss()))
+        if error is not None:
+            print(&#39;‣ Initial error: {:.3g}&#39;.format(self.error(error)))
         inital_time = time.time()
 
+    losses = np.empty((iters+1,))
+    errors = np.empty((iters+1,))
     try:
-        if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
+        if method == &#39;LBFGS&#39;:
             if not &#39;max_iter&#39; in kwargs:
                 kwargs[&#39;max_iter&#39;] = iters
                 iters = 0
             optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
             optimizer.step(lambda: self.model.loss())
             iters = optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;]
-        elif method.lower() == &#39;adam&#39;:
-            if not &#39;lr&#39; in kwargs:
+        elif method == &#39;Adam&#39;:
+            if &#39;lr&#39; not in kwargs:
                 kwargs[&#39;lr&#39;] = 0.1
             optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
             for i in range(iters):
-                loss = self.model.loss()
+                losses[i] = self.loss()
+                if error is not None:
+                    errors[i] = self.error(error)
                 optimizer.step()
-        elif method.lower() == &#39;sgd&#39;:
+        elif method == &#39;SGD&#39;:
             optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
             for i in range(iters):
-                loss = self.model.loss()
+                losses[i] = self.loss()
+                if error is not None:
+                    errors[i] = self.error(error)
                 optimizer.step()
-        elif method.lower() == &#39;adagrad&#39;:
+        elif method == &#39;AdaGrad&#39;:
             optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
             for i in range(iters):
-                loss = self.model.loss()
+                losses[i] = self.loss()
+                if error is not None:
+                    errors[i] = self.error(error)
                 optimizer.step()
         else:
             print(&#34;Unknown optimizer:&#34;, method)
-    except Exception as e:
+        losses[iters] = self.loss()
+        if error is not None:
+            errors[iters] = self.error(error)
+    except CholeskyException:
         return
 
     if verbose:
         elapsed_time = time.time() - inital_time
         print(&#39;\nOptimization finished in {}&#39;.format(_format_duration(elapsed_time)))
         print(&#39;‣ Function evaluations: {}&#39;.format(iters))
-        print(&#39;‣ Final NLL: {:.3f}&#39;.format(-self.model.log_marginal_likelihood().tolist()))</code></pre>
+        print(&#39;‣ Final loss: {:.3g}&#39;.format(losses[-1]))
+        if error is not None:
+            print(&#39;‣ Final error: {:.3g}&#39;.format(errors[-1]))
+
+    if plot:
+        fig, ax = plt.subplots(1, 1, figsize=(12,3), constrained_layout=True)
+        ax.plot(np.arange(0,iters+1), losses[:iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
+        ax.set_xlim(0, iters)
+        ax.set_xlabel(&#39;Iteration&#39;)
+        ax.set_ylabel(&#39;Loss&#39;)
+
+        legends = []
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
+        if error is not None:
+            ax2 = ax.twinx()
+            ax2.plot(np.arange(0,iters+1), errors[:iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
+            ax2.set_ylabel(&#39;Error&#39;)
+            legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
+
+        ax.legend(handles=legends)
+
+    if error is not None:
+        return losses, errors</code></pre>
 </details>
 </dd>
 </dl>
@@ -1401,9 +1815,11 @@ learning_rate can be set.</p>
 <li>
 <h4><code><a title="mogptk.model.Model" href="#mogptk.model.Model">Model</a></code></h4>
 <ul class="">
+<li><code><a title="mogptk.model.Model.error" href="#mogptk.model.Model.error">error</a></code></li>
 <li><code><a title="mogptk.model.Model.get_gram_matrix" href="#mogptk.model.Model.get_gram_matrix">get_gram_matrix</a></code></li>
 <li><code><a title="mogptk.model.Model.get_parameters" href="#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
+<li><code><a title="mogptk.model.Model.loss" href="#mogptk.model.Model.loss">loss</a></code></li>
 <li><code><a title="mogptk.model.Model.plot" href="#mogptk.model.Model.plot">plot</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_prediction" href="#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.Model.predict" href="#mogptk.model.Model.predict">predict</a></code></li>

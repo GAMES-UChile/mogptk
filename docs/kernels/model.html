@@ -25,39 +25,27 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L0-L233" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L0-L221" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
 from IPython.display import display, HTML
-from . import Parameter, Kernel, MultiOutputKernel, config
+from . import Parameter, Mean, Kernel, config
 
-class Mean:
-    def __init__(self, name=None):
-        if name is None:
-            name = self.__class__.__name__
-            if name.endswith(&#39;Mean&#39;):
-                name = name[:-4]
-        self.name = name
-
-    def __call__(self, X):
-        raise NotImplementedError()
-
-    def __setattr__(self, name, val):
-        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
-            raise AttributeError(&#34;parameter is read-only, use Parameter.assign()&#34;)
-        if isinstance(val, Parameter) and val.name is None:
-            val.name = name
-        super(Mean,self).__setattr__(name, val)        
+class CholeskyException(Exception):
+    pass
 
 class Model:
     def __init__(self, kernel, X, y, mean=None, name=None):
+        if not issubclass(type(kernel), Kernel):
+            raise ValueError(&#34;kernel must derive from mogptk.kernels.Kernel&#34;)
         X, y = self._check_input(X, y)
-
         if mean is not None:
+            if not issubclass(type(mean), Mean):
+                raise ValueError(&#34;mean must derive from mogptk.kernels.Mean&#34;)
             mu = mean(X).reshape(-1,1)
             if mu.shape != y.shape:
-                raise ValueError(&#34;mean and y must match shapes: %s != %s&#34; % (mu.shape, y.shape))
+                raise ValueError(&#34;mean and y data must match shapes: %s != %s&#34; % (mu.shape, y.shape))
 
         self.kernel = kernel
         self.X = X
@@ -184,7 +172,7 @@ class Model:
                 print(&#34;Kernel matrix has infinities!&#34;)
             print(&#34;Parameters:&#34;)
             self.print_parameters()
-            raise
+            raise CholeskyException
 
     def log_marginal_likelihood(self):
         raise NotImplementedError()
@@ -231,14 +219,14 @@ class GPR(Model):
         L = self._cholesky(K)  # NxN
 
         if self.mean is not None:
-            y = self.y - self.mean(X).reshape(-1,1)  # Nx1
+            y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
         else:
             y = self.y  # Nx1
 
         p = -0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
         p -= L.diagonal().log().sum()
         p -= self.log_marginal_likelihood_constant
-        return p/self.X.shape[0]
+        return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
     def predict(self, Z):
         with torch.no_grad():
@@ -252,7 +240,7 @@ class GPR(Model):
             v = torch.triangular_solve(Ks,L,upper=False)[0]  # NxM
 
             if self.mean is not None:
-                y = self.y - self.mean(X).reshape(-1,1)  # Nx1
+                y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
                 mu = Ks.T.mm(torch.cholesky_solve(y,L))  # Mx1
                 mu += self.mean(Z).reshape(-1,1)         # Mx1
             else:
@@ -272,6 +260,26 @@ class GPR(Model):
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="mogptk.kernels.model.CholeskyException"><code class="flex name class">
+<span>class <span class="ident">CholeskyException</span></span>
+<span>(</span><span>...)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Common base class for all non-exit exceptions.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L6-L7" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class CholeskyException(Exception):
+    pass</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.Exception</li>
+<li>builtins.BaseException</li>
+</ul>
+</dd>
 <dt id="mogptk.kernels.model.GPR"><code class="flex name class">
 <span>class <span class="ident">GPR</span></span>
 <span>(</span><span>kernel, X, y, noise=1.0, mean=None, name='GPR')</span>
@@ -281,7 +289,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L191-L234" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L179-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GPR(Model):
     def __init__(self, kernel, X, y, noise=1.0, mean=None, name=&#34;GPR&#34;):
@@ -297,14 +305,14 @@ class GPR(Model):
         L = self._cholesky(K)  # NxN
 
         if self.mean is not None:
-            y = self.y - self.mean(X).reshape(-1,1)  # Nx1
+            y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
         else:
             y = self.y  # Nx1
 
         p = -0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
         p -= L.diagonal().log().sum()
         p -= self.log_marginal_likelihood_constant
-        return p/self.X.shape[0]
+        return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
     def predict(self, Z):
         with torch.no_grad():
@@ -318,7 +326,7 @@ class GPR(Model):
             v = torch.triangular_solve(Ks,L,upper=False)[0]  # NxM
 
             if self.mean is not None:
-                y = self.y - self.mean(X).reshape(-1,1)  # Nx1
+                y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
                 mu = Ks.T.mm(torch.cholesky_solve(y,L))  # Mx1
                 mu += self.mean(Z).reshape(-1,1)         # Mx1
             else:
@@ -342,21 +350,21 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L200-L212" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L188-L200" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)  # NxN
     L = self._cholesky(K)  # NxN
 
     if self.mean is not None:
-        y = self.y - self.mean(X).reshape(-1,1)  # Nx1
+        y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
     else:
         y = self.y  # Nx1
 
     p = -0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
     p -= L.diagonal().log().sum()
     p -= self.log_marginal_likelihood_constant
-    return p/self.X.shape[0]</code></pre>
+    return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate</code></pre>
 </details>
 </dd>
 <dt id="mogptk.kernels.model.GPR.predict"><code class="name flex">
@@ -367,7 +375,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L214-L234" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L202-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Z):
     with torch.no_grad():
@@ -381,7 +389,7 @@ class GPR(Model):
         v = torch.triangular_solve(Ks,L,upper=False)[0]  # NxM
 
         if self.mean is not None:
-            y = self.y - self.mean(X).reshape(-1,1)  # Nx1
+            y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
             mu = Ks.T.mm(torch.cholesky_solve(y,L))  # Mx1
             mu += self.mean(Z).reshape(-1,1)         # Mx1
         else:
@@ -394,36 +402,6 @@ class GPR(Model):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.model.Mean"><code class="flex name class">
-<span>class <span class="ident">Mean</span></span>
-<span>(</span><span>name=None)</span>
-</code></dt>
-<dd>
-<section class="desc"></section>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L6-L22" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">class Mean:
-    def __init__(self, name=None):
-        if name is None:
-            name = self.__class__.__name__
-            if name.endswith(&#39;Mean&#39;):
-                name = name[:-4]
-        self.name = name
-
-    def __call__(self, X):
-        raise NotImplementedError()
-
-    def __setattr__(self, name, val):
-        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
-            raise AttributeError(&#34;parameter is read-only, use Parameter.assign()&#34;)
-        if isinstance(val, Parameter) and val.name is None:
-            val.name = name
-        super(Mean,self).__setattr__(name, val)        </code></pre>
-</details>
-</dd>
 <dt id="mogptk.kernels.model.Model"><code class="flex name class">
 <span>class <span class="ident">Model</span></span>
 <span>(</span><span>kernel, X, y, mean=None, name=None)</span>
@@ -433,16 +411,19 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L24-L189" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L9-L177" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, kernel, X, y, mean=None, name=None):
+        if not issubclass(type(kernel), Kernel):
+            raise ValueError(&#34;kernel must derive from mogptk.kernels.Kernel&#34;)
         X, y = self._check_input(X, y)
-
         if mean is not None:
+            if not issubclass(type(mean), Mean):
+                raise ValueError(&#34;mean must derive from mogptk.kernels.Mean&#34;)
             mu = mean(X).reshape(-1,1)
             if mu.shape != y.shape:
-                raise ValueError(&#34;mean and y must match shapes: %s != %s&#34; % (mu.shape, y.shape))
+                raise ValueError(&#34;mean and y data must match shapes: %s != %s&#34; % (mu.shape, y.shape))
 
         self.kernel = kernel
         self.X = X
@@ -569,7 +550,7 @@ class GPR(Model):
                 print(&#34;Kernel matrix has infinities!&#34;)
             print(&#34;Parameters:&#34;)
             self.print_parameters()
-            raise
+            raise CholeskyException
 
     def log_marginal_likelihood(self):
         raise NotImplementedError()
@@ -616,7 +597,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L172-L175" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L160-L163" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, Z):
     with torch.no_grad():
@@ -632,7 +613,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L160-L161" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L148-L149" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     raise NotImplementedError()</code></pre>
@@ -646,7 +627,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L163-L164" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L151-L152" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     return sum([p.log_prior() for p in self._params])</code></pre>
@@ -660,7 +641,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L166-L170" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L154-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     self.zero_grad()
@@ -677,7 +658,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L111-L114" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L99-L102" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def parameters(self):
     for p in self._params:
@@ -693,7 +674,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L116-L143" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L104-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     def param_range(lower, upper, trainable=True):
@@ -733,7 +714,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L177-L189" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L165-L177" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, Z, n=None):
     with torch.no_grad():
@@ -758,7 +739,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/model.py#L101-L109" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/model.py#L89-L97" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def zero_grad(self):
     for p in self._params:
@@ -790,14 +771,14 @@ class GPR(Model):
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="mogptk.kernels.model.CholeskyException" href="#mogptk.kernels.model.CholeskyException">CholeskyException</a></code></h4>
+</li>
+<li>
 <h4><code><a title="mogptk.kernels.model.GPR" href="#mogptk.kernels.model.GPR">GPR</a></code></h4>
 <ul class="">
 <li><code><a title="mogptk.kernels.model.GPR.log_marginal_likelihood" href="#mogptk.kernels.model.GPR.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.kernels.model.GPR.predict" href="#mogptk.kernels.model.GPR.predict">predict</a></code></li>
 </ul>
-</li>
-<li>
-<h4><code><a title="mogptk.kernels.model.Mean" href="#mogptk.kernels.model.Mean">Mean</a></code></h4>
 </li>
 <li>
 <h4><code><a title="mogptk.kernels.model.Model" href="#mogptk.kernels.model.Model">Model</a></code></h4>

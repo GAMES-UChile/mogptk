@@ -40,7 +40,7 @@
 <li>[6] F. Tobar, "Bayesian Nonparametric Spectral Estimation", Advances in Neural Information Processing Systems 32, 2018</li>
 </ul>
 <h2 id="installation">Installation</h2>
-<p>Make sure you have Python 3.6 and <code>pip</code> installed, and run the following command:</p>
+<p>Make sure you have at least Python 3.6 and <code>pip</code> installed, and run the following command:</p>
 <pre><code>pip install mogptk
 </code></pre>
 <h2 id="glossary">Glossary</h2>
@@ -62,26 +62,16 @@
 <li><strong>forward(y, x=None)</strong> returns y: does a forward transformation where x has shape (n,input_dims) and y has shape (n,)</li>
 <li><strong>backward(y, x=None)</strong> returns y: does a backward transformation (invert) where x has shape (n,input_dims) and y has shape (n,)</li>
 </ul>
-<h4 id="transformdetrend">TransformDetrend</h4>
-<h4 id="transformnormalize">TransformNormalize</h4>
-<h4 id="transformlog">TransformLog</h4>
-<h2 id="models">Models</h2>
-<h3 id="mosm">MOSM</h3>
-<h3 id="csm">CSM</h3>
-<h3 id="conv">CONV</h3>
-<h3 id="-lmc">*-LMC</h3>
-<h3 id="-igp">*-IGP</h3>
 <h2 id="advice-on-training">Advice on training</h2>
 <h2 id="visualization-and-interpretation">Visualization and interpretation</h2>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/__init__.py#L0-L18" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/__init__.py#L0-L17" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
 .. include:: ./documentation.md
 &#34;&#34;&#34;
-from .config import *
 from .serie import *
 from .data import *
 from .dataset import *
@@ -103,10 +93,6 @@ from .kernels.config import *</code></pre>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
 <dt><code class="name"><a title="mogptk.bnse" href="bnse.html">mogptk.bnse</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.config" href="config.html">mogptk.config</a></code></dt>
 <dd>
 <section class="desc"></section>
 </dd>
@@ -174,20 +160,7 @@ from .kernels.config import *</code></pre>
 <li><a href="#installation">Installation</a></li>
 <li><a href="#glossary">Glossary</a></li>
 <li><a href="#data-handling">Data handling</a><ul>
-<li><a href="#transformations">Transformations</a><ul>
-<li><a href="#transformdetrend">TransformDetrend</a></li>
-<li><a href="#transformnormalize">TransformNormalize</a></li>
-<li><a href="#transformlog">TransformLog</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a href="#models">Models</a><ul>
-<li><a href="#mosm">MOSM</a></li>
-<li><a href="#csm">CSM</a></li>
-<li><a href="#conv">CONV</a></li>
-<li><a href="#-lmc">*-LMC</a></li>
-<li><a href="#-igp">*-IGP</a></li>
+<li><a href="#transformations">Transformations</a></li>
 </ul>
 </li>
 <li><a href="#advice-on-training">Advice on training</a></li>
@@ -198,7 +171,6 @@ from .kernels.config import *</code></pre>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="mogptk.bnse" href="bnse.html">mogptk.bnse</a></code></li>
-<li><code><a title="mogptk.config" href="config.html">mogptk.config</a></code></li>
 <li><code><a title="mogptk.conv" href="conv.html">mogptk.conv</a></code></li>
 <li><code><a title="mogptk.csm" href="csm.html">mogptk.csm</a></code></li>
 <li><code><a title="mogptk.data" href="data.html">mogptk.data</a></code></li>

@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L0-L695" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L0-L701" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import copy
 
@@ -37,12 +37,13 @@ from .data import Data
 
 def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
     &#34;&#34;&#34;
-    LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+    LoadCSV loads a dataset from a given CSV file. It loads in `x_col` as the names of the input dimension columns, and `y_col` as the names of the output columns.
+
     Args:
         filename (str): CSV filename.
         x_col (int, str, list of int or str): Names or indices of X column(s) in CSV.
         y_col (int, str, list of int or str): Names or indices of Y column(s) in CSV.
-        name (str, list, optional): Name or names of data channels.
+        name (str, list): Name or names of data channels.
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
@@ -61,13 +62,13 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
 
 def LoadDataFrame(df, x_col=0, y_col=1, name=None):
     &#34;&#34;&#34;
-    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns.
+    LoadDataFrame loads a DataFrame from pandas. It loads in `x_col` as the names of the input dimension columns, and `y_col` the names of the output columns.
 
     Args:
-        df (pandas.DataFrame): The Pandas DataFrame.
+        df (pandas.DataFrame): The pandas DataFrame.
         x_col (int, str, list of int or str): Names or indices of X column(s) in DataFrame.
         y_col (int, str, list of int or str): Names or indices of Y column(s) in DataFrame.
-        name (str, list of str, optional): Name or names of data channels.
+        name (str, list of str): Name or names of data channels.
 
     Returns:
         mogptk.data.Data or mogptk.dataset.DataSet
@@ -131,13 +132,13 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
 
 class DataSet:
     &#34;&#34;&#34;
-    DataSet is a class that holds multiple Data objects as channels.
+    DataSet is a class that holds multiple Data objects as channels. It is the complete representation of the data used for fitting multi-output Gaussian processes.
 
     Args:
-        *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict, np.ndarray): Accepts multiple arguments, each of which should be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added. It is also possible to pass x and y data array directly by either passing two np.ndarrays or two lists of np.ndarrays for x and y data.
+        *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict, numpy.ndarray): Accepts multiple arguments, each of which should be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed its channels will be added. It is also possible to pass X and Y data array directly by either passing two `numpy.ndarrays` or two lists of `numpy.ndarrays` for X and Y data.
 
     Examples:
-        Three different ways to use DataSet:
+        Different ways to initiate a DataSet:
         &gt;&gt;&gt; wind_velocity = mogptk.LoadDataFrame(df, x_col=&#39;Date&#39;, y_col=&#39;Wind Velocity&#39;, name=&#39;wind&#39;)
         &gt;&gt;&gt; tidal_height = mogptk.LoadDataFrame(df, x_col=&#39;Date&#39;, y_col=&#39;Tidal Height&#39;, name=&#39;tidal&#39;)
         &gt;&gt;&gt; dataset = mogptk.DataSet(wind_velocity, tidal_height)
@@ -196,7 +197,7 @@ class DataSet:
         elif isinstance(arg, DataSet) and len(arg) == 1:
             self.channels[key] = arg[0]
         else:
-            raise Exception(&#34;must set a data type of Data or a DataSet with a single channel&#34;)
+            raise ValueError(&#34;must set a data type of Data or a DataSet with a single channel&#34;)
 
     def __str__(self):
         return self.__repr__()
@@ -209,10 +210,10 @@ class DataSet:
 
     def append(self, arg):
         &#34;&#34;&#34;
-        Append channel(s) to DataSet.
+        Append channel(s) to the DataSet.
         
         Args:
-            arg (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Argument can be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+            arg (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Argument can be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed, its channels will be added.
 
         Examples:
             &gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name=&#39;A&#39;))
@@ -230,15 +231,91 @@ class DataSet:
                 val.name = key
                 self.channels.append(val)
         else:
-            raise Exception(&#34;unknown data type %s in append to DataSet&#34; % (type(arg)))
+            raise ValueError(&#34;unknown data type %s in append to DataSet&#34; % (type(arg)))
         return self
+
+    def copy(self):
+        &#34;&#34;&#34;
+        Make a deep copy of `DataSet`.
+
+        Returns:
+            mogptk.dataset.DataSet
+
+        Examples:
+            &gt;&gt;&gt; other = dataset.copy()
+        &#34;&#34;&#34;
+        return copy.deepcopy(self)
+
+    def rescale_x(self, upper=1000.0):
+        &#34;&#34;&#34;
+        Rescale the X axis so that it is in the interval [0.0,upper] for each channel. This helps training most kernels.
+
+        Args:
+            upper (float): Upper end of the interval.
+
+        Examples:
+            &gt;&gt;&gt; dataset.rescale_x()
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.rescale_x(upper)
+
+    def transform(self, transformer):
+        &#34;&#34;&#34;
+        Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformStandard`, etc.
+
+        Args:
+            transformer (obj): Transformer object derived from TransformBase.
+
+        Examples:
+            &gt;&gt;&gt; dataset.transform(mogptk.TransformDetrend(degree=2))        # remove polynomial trend
+            &gt;&gt;&gt; dataset.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
+            &gt;&gt;&gt; dataset.transform(mogptk.TransformLog)                      # log transform the data
+            &gt;&gt;&gt; dataset.transform(mogptk.TransformNormalize)                # transform to [-1,1]
+            &gt;&gt;&gt; dataset.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.transform(transformer)
+
+    def filter(self, start, end):
+        &#34;&#34;&#34;
+        Filter the data range to be between `start` and `end` in the X axis.
+
+        Args:
+            start (float, str): Start of interval.
+            end (float, str): End of interval.
+
+        Examples:
+            &gt;&gt;&gt; dataset.filter(3, 8)
+
+            &gt;&gt;&gt; dataset.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.filter(start, end)
+
+    def aggregate(self, duration, f=np.mean):
+        &#34;&#34;&#34;
+        Aggregate the data by duration and apply a function to obtain a reduced dataset.
+
+        For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format in case the X axis has data type `numpy.datetime64`. The duration format uses: Y=year, M=month, W=week, D=day, h=hour, m=minute, and s=second. For example, 3W1D means three weeks and one day, ie. 22 days, or 6M to mean six months.
+
+        Args:
+            duration (float, str): Duration along the X axis or as a string in the duration format.
+            f (function): Function to use to reduce data.
+
+        Examples:
+            &gt;&gt;&gt; dataset.aggregate(5)
+
+            &gt;&gt;&gt; dataset.aggregate(&#39;2W&#39;, f=np.sum)
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.aggregate(duration, f)
 
     def get_input_dims(self):
         &#34;&#34;&#34;
         Return the input dimensions per channel.
 
         Returns:
-            list: List of input dimensions per channel.
+            list: List of the number of input dimensions per channel.
 
         Examples:
             &gt;&gt;&gt; dataset.get_input_dims()
@@ -251,7 +328,7 @@ class DataSet:
         Return the output dimensions of the dataset, i.e. the number of channels.
 
         Returns:
-            int: Output dimensions.
+            int: Number of output dimensions.
 
         Examples:
             &gt;&gt;&gt; dataset.get_output_dims()
@@ -264,7 +341,7 @@ class DataSet:
         Return the names of the channels.
 
         Returns:
-            list: List of names.
+            list: List of channel names.
 
         Examples:
             &gt;&gt;&gt; dataset.get_names()
@@ -296,7 +373,7 @@ class DataSet:
     
     def get_index(self, index):
         &#34;&#34;&#34;
-        Return channel numeric index given a channel index or name.
+        Return channel&#39;s numeric index given its name.
 
         Args:
             index (int, str): Index or name of the channel.
@@ -321,7 +398,7 @@ class DataSet:
         Returns all observations, train and test.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -337,7 +414,7 @@ class DataSet:
         Returns observations used for training.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -350,11 +427,10 @@ class DataSet:
 
     def get_test_data(self, transformed=False):
         &#34;&#34;&#34;
-        Returns the observations used for testing which correspond to the 
-        removed points.
+        Returns the observations used for testing which correspond to the removed points.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -365,32 +441,29 @@ class DataSet:
         &#34;&#34;&#34;
         return [channel.get_test_data(transformed=transformed)[0] for channel in self.channels], [channel.get_test_data(transformed=transformed)[1] for channel in self.channels]
     
-    def get_prediction_x(self, transformed=False):
+    def get_prediction_x(self):
         &#34;&#34;&#34;
         Returns the prediction X range for all channels.
-
-        Args:
-            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             list: X prediction of shape (n,input_dims) per channel.
 
         Examples:
-            &gt;&gt;&gt; x = dataset.get_prediction()
+            &gt;&gt;&gt; x = dataset.get_prediction_x()
         &#34;&#34;&#34;
         x = []
         for channel in self.channels:
-            x.append(channel.get_prediction_x(transformed=transformed))
+            x.append(channel.get_prediction_x())
         return x
     
     def get_prediction(self, name, sigma=2.0, transformed=False):
         &#34;&#34;&#34;
-        Returns the prediction of a given name with a normal variance of sigma for all channels.
+        Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
 
         Args:
-            name (str): Name of the prediction, equals the name of the model that made the prediction.
-            sigma (float, optional): The uncertainty interval&#39;s number of standard deviations.
-            transformed (boolean, optional): Return transformed data as used for training.
+            name (str): Name of the model of the prediction.
+            sigma (float): The confidence interval&#39;s number of standard deviations.
+            transformed (boolean): Return transformed data as used for training.
 
         Returns:
             list: X prediction of shape (n,input_dims) per channel.
@@ -415,7 +488,7 @@ class DataSet:
 
     def set_prediction_x(self, x):
         &#34;&#34;&#34;
-        Set the prediction range per channel.
+        Set the prediction range directly for saved predictions per channel. This will clear old predictions.
 
         Args:
             x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
@@ -444,8 +517,8 @@ class DataSet:
         Args:
             start (list, dict): Start values for prediction range per channel.
             end (list, dict): End values for prediction range per channel.
-            n (list, dict, optional): Number of points for prediction range per channel.
-            step (list, dict, optional): Step size for prediction range per channel.
+            n (list, dict): Number of points for prediction range per channel.
+            step (list, dict): Step size for prediction range per channel.
 
         Examples:
             &gt;&gt;&gt; dataset.set_prediction_range([2, 3], [5, 6], [4, None], [None, 0.5])
@@ -487,7 +560,7 @@ class DataSet:
     
     def get_nyquist_estimation(self):
         &#34;&#34;&#34;
-        Estimate nyquist frequency by taking 0.5/(minimum distance of points).
+        Estimate the Nyquist frequency by taking 0.5/(minimum distance of points) per channel.
 
         Returns:
             list: Nyquist frequency array of shape (input_dims) per channel.
@@ -499,11 +572,11 @@ class DataSet:
     
     def get_lombscargle_estimation(self, Q=1, n=10000):
         &#34;&#34;&#34;
-        Peaks estimation using Lomb Scargle.
+        Peak estimation of the spectrum using Lomb-Scargle per channel.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 10000.
+            Q (int): Number of peaks to find.
+            n (int): Number of points of the grid to evaluate frequencies.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -525,11 +598,11 @@ class DataSet:
     
     def get_bnse_estimation(self, Q=1, n=1000):
         &#34;&#34;&#34;
-        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+        Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
+            Q (int): Number of peaks to find.
+            n (int): Number of points of the grid to evaluate frequencies.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -551,15 +624,15 @@ class DataSet:
     
     def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
         &#34;&#34;&#34;
-        Peaks estimation using the Spectral Mixture kernel.
+        Peak estimation of the spectrum using the spectral mixture kernel per channel.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            method (str, optional): Method of estimating SM kernels.
-            optimizer (str, optional): Optimization method for SM kernels.
-            iters (str, optional): Maximum iteration for SM kernels.
-            params (object, optional): Additional parameters for PyTorch optimizer.
-            plot (bool, optional): Show the PSD of the kernel after fitting.
+            Q (int): Number of peaks to find.
+            method (str): Method of estimating SM kernels.
+            optimizer (str): Optimization method for SM kernels.
+            iters (str): Maximum iteration for SM kernels.
+            params (object): Additional parameters for PyTorch optimizer.
+            plot (bool): Show the PSD of the kernel after fitting.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -579,83 +652,16 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
 
-    def transform(self, transformer):
-        &#34;&#34;&#34;
-        Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
-
-        Args:
-            transformer (obj): Transformer object derived from TransformBase.
-
-        Examples:
-            &gt;&gt;&gt; dataset.transform(mogptk.TransformDetrend(degree=2))        # remove polynomial trend
-            &gt;&gt;&gt; dataset.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
-            &gt;&gt;&gt; dataset.transform(mogptk.TransformLog)                      # log transform the data
-            &gt;&gt;&gt; dataset.transform(mogptk.TransformNormalize)                # transform to [-1,1]
-            &gt;&gt;&gt; dataset.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
-        &#34;&#34;&#34;
-        for channel in self.channels:
-            channel.transform(transformer)
-
-    def filter(self, start, end):
-        &#34;&#34;&#34;
-        Filter the data range to be between start and end.
-
-        Args:
-            start (float, str): Start of interval.
-            end (float, str): End of interval.
-
-        Examples:
-            &gt;&gt;&gt; dataset.filter(3, 8)
-
-            &gt;&gt;&gt; dataset.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
-        &#34;&#34;&#34;
-        for channel in self.channels:
-            channel.filter(start, end)
-
-    def aggregate(self, duration, f=np.mean):
-        &#34;&#34;&#34;
-        Aggregate the data by duration and apply a function to obtain a reduced dataset.
-
-        For example, group daily data by week and take the mean.
-        The duration can be set as a number which defined the intervals on the X axis,
-        or by a string written in the duration format with:
-        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
-        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
-
-        Args:
-            duration (float, str): Duration along the X axis or as a string in the duration format.
-            f (function, optional): Function to use to reduce data, by default uses np.mean.
-
-        Examples:
-            &gt;&gt;&gt; dataset.aggregate(5)
-
-            &gt;&gt;&gt; dataset.aggregate(&#39;2w&#39;, f=np.sum)
-        &#34;&#34;&#34;
-        for channel in self.channels:
-            channel.aggregate(duration, f)
-
-    def copy(self):
-        &#34;&#34;&#34;
-        Make a deep copy of DataSet.
-
-        Returns:
-            mogptk.dataset.DataSet
-
-        Examples:
-            &gt;&gt;&gt; other = dataset.copy()
-        &#34;&#34;&#34;
-        return copy.deepcopy(self)
-
     def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
         &#34;&#34;&#34;
-        Plot each Data channel.
+        Plot the data including removed observations, latent function, and predictions for each channel.
 
         Args:
-            pred (str, optional): Specify model name to draw.
-            title (str, optional): Set the title of the plot.
-            figsize (tuple, optional): Set the figure size.
-            legend (boolean, optional): Disable legend.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            pred (str): Specify model name to draw.
+            title (str): Set the title of the plot.
+            figsize (tuple): Set the figure size.
+            legend (boolean): Disable legend.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -687,17 +693,17 @@ class DataSet:
         fig.legend(handles=legends.values(), loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(h-0.3+0.5*legend_rows)/h), ncol=5)
         return fig, axes
 
-    def plot_spectrum(self, title=None, method=&#39;lombscargle&#39;, per=None, maxfreq=None, figsize=None, transformed=False):
+    def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, transformed=False):
         &#34;&#34;&#34;
-        Plot each Data channel spectrum.
+        Plot the spectrum for each channel.
 
         Args:
-            title (str, optional): Set the title of the plot.
-            method (list, str, optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
-            per (list, str, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3d&#39;.
-            maxfreq (list, float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-            figsize (tuple, optional): Set the figure size.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            title (str): Set the title of the plot.
+            method (list, str): Set the method to get the spectrum such as LS or BNSE.
+            per (list, str): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3D&#39;.
+            maxfreq (list, float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            figsize (tuple): Set the figure size.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -736,7 +742,7 @@ class DataSet:
 <span>def <span class="ident">LoadCSV</span></span>(<span>filename, x_col=0, y_col=1, name=None, **kwargs)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.</p>
+<section class="desc"><p>LoadCSV loads a dataset from a given CSV file. It loads in <code>x_col</code> as the names of the input dimension columns, and <code>y_col</code> as the names of the output columns.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
@@ -745,7 +751,7 @@ class DataSet:
 <dd>Names or indices of X column(s) in CSV.</dd>
 <dt><strong><code>y_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code> of <code>int</code> or <code>str</code></dt>
 <dd>Names or indices of Y column(s) in CSV.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, <code>list</code>, optional</dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, <code>list</code></dt>
 <dd>Name or names of data channels.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments for csv.DictReader.</dd>
@@ -764,16 +770,17 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L9-L31" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L9-L32" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
     &#34;&#34;&#34;
-    LoadCSV loads a dataset from a given CSV file. It loads in x_cols as the names of the input dimension columns, and y_cols the name of the output columns. A filter can be set to filter out data from the CSV, such as ensuring that another column has a certain value.
+    LoadCSV loads a dataset from a given CSV file. It loads in `x_col` as the names of the input dimension columns, and `y_col` as the names of the output columns.
+
     Args:
         filename (str): CSV filename.
         x_col (int, str, list of int or str): Names or indices of X column(s) in CSV.
         y_col (int, str, list of int or str): Names or indices of Y column(s) in CSV.
-        name (str, list, optional): Name or names of data channels.
+        name (str, list): Name or names of data channels.
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
@@ -795,16 +802,16 @@ class DataSet:
 <span>def <span class="ident">LoadDataFrame</span></span>(<span>df, x_col=0, y_col=1, name=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns.</p>
+<section class="desc"><p>LoadDataFrame loads a DataFrame from pandas. It loads in <code>x_col</code> as the names of the input dimension columns, and <code>y_col</code> the names of the output columns.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>df</code></strong> :&ensp;<code>pandas.DataFrame</code></dt>
-<dd>The Pandas DataFrame.</dd>
+<dd>The pandas DataFrame.</dd>
 <dt><strong><code>x_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code> of <code>int</code> or <code>str</code></dt>
 <dd>Names or indices of X column(s) in DataFrame.</dd>
 <dt><strong><code>y_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code> of <code>int</code> or <code>str</code></dt>
 <dd>Names or indices of Y column(s) in DataFrame.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, <code>list</code> of <code>str</code>, optional</dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, <code>list</code> of <code>str</code></dt>
 <dd>Name or names of data channels.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -820,17 +827,17 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L33-L97" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L34-L98" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadDataFrame(df, x_col=0, y_col=1, name=None):
     &#34;&#34;&#34;
-    LoadDataFrame loads a DataFrame from Pandas. It loads in x_cols as the names of the input dimension columns, and y_cols the names of the output columns.
+    LoadDataFrame loads a DataFrame from pandas. It loads in `x_col` as the names of the input dimension columns, and `y_col` the names of the output columns.
 
     Args:
-        df (pandas.DataFrame): The Pandas DataFrame.
+        df (pandas.DataFrame): The pandas DataFrame.
         x_col (int, str, list of int or str): Names or indices of X column(s) in DataFrame.
         y_col (int, str, list of int or str): Names or indices of Y column(s) in DataFrame.
-        name (str, list of str, optional): Name or names of data channels.
+        name (str, list of str): Name or names of data channels.
 
     Returns:
         mogptk.data.Data or mogptk.dataset.DataSet
@@ -899,14 +906,14 @@ class DataSet:
 <span>(</span><span>*args, names=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>DataSet is a class that holds multiple Data objects as channels.</p>
+<section class="desc"><p>DataSet is a class that holds multiple Data objects as channels. It is the complete representation of the data used for fitting multi-output Gaussian processes.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>*args</code></strong> :&ensp;<a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a>, <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>, <code>list</code>, <code>dict</code>, <code>np.ndarray</code></dt>
-<dd>Accepts multiple arguments, each of which should be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added. It is also possible to pass x and y data array directly by either passing two np.ndarrays or two lists of np.ndarrays for x and y data.</dd>
+<dt><strong><code>*args</code></strong> :&ensp;<a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a>, <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>, <code>list</code>, <code>dict</code>, <code>numpy.ndarray</code></dt>
+<dd>Accepts multiple arguments, each of which should be either a <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a> or <code>Data</code> object, a list of <code>Data</code> objects or a dictionary of <code>Data</code> objects. Each <code>Data</code> object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a> is passed its channels will be added. It is also possible to pass X and Y data array directly by either passing two <code>numpy.ndarrays</code> or two lists of <code>numpy.ndarrays</code> for X and Y data.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<p>Three different ways to use DataSet:</p>
+<p>Different ways to initiate a DataSet:</p>
 <pre><code>&gt;&gt;&gt; wind_velocity = mogptk.LoadDataFrame(df, x_col='Date', y_col='Wind Velocity', name='wind')
 &gt;&gt;&gt; tidal_height = mogptk.LoadDataFrame(df, x_col='Date', y_col='Tidal Height', name='tidal')
 &gt;&gt;&gt; dataset = mogptk.DataSet(wind_velocity, tidal_height)
@@ -933,17 +940,17 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L103-L696" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L104-L702" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class DataSet:
     &#34;&#34;&#34;
-    DataSet is a class that holds multiple Data objects as channels.
+    DataSet is a class that holds multiple Data objects as channels. It is the complete representation of the data used for fitting multi-output Gaussian processes.
 
     Args:
-        *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict, np.ndarray): Accepts multiple arguments, each of which should be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added. It is also possible to pass x and y data array directly by either passing two np.ndarrays or two lists of np.ndarrays for x and y data.
+        *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict, numpy.ndarray): Accepts multiple arguments, each of which should be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed its channels will be added. It is also possible to pass X and Y data array directly by either passing two `numpy.ndarrays` or two lists of `numpy.ndarrays` for X and Y data.
 
     Examples:
-        Three different ways to use DataSet:
+        Different ways to initiate a DataSet:
         &gt;&gt;&gt; wind_velocity = mogptk.LoadDataFrame(df, x_col=&#39;Date&#39;, y_col=&#39;Wind Velocity&#39;, name=&#39;wind&#39;)
         &gt;&gt;&gt; tidal_height = mogptk.LoadDataFrame(df, x_col=&#39;Date&#39;, y_col=&#39;Tidal Height&#39;, name=&#39;tidal&#39;)
         &gt;&gt;&gt; dataset = mogptk.DataSet(wind_velocity, tidal_height)
@@ -1002,7 +1009,7 @@ class DataSet:
         elif isinstance(arg, DataSet) and len(arg) == 1:
             self.channels[key] = arg[0]
         else:
-            raise Exception(&#34;must set a data type of Data or a DataSet with a single channel&#34;)
+            raise ValueError(&#34;must set a data type of Data or a DataSet with a single channel&#34;)
 
     def __str__(self):
         return self.__repr__()
@@ -1015,10 +1022,10 @@ class DataSet:
 
     def append(self, arg):
         &#34;&#34;&#34;
-        Append channel(s) to DataSet.
+        Append channel(s) to the DataSet.
         
         Args:
-            arg (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Argument can be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+            arg (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Argument can be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed, its channels will be added.
 
         Examples:
             &gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name=&#39;A&#39;))
@@ -1036,15 +1043,91 @@ class DataSet:
                 val.name = key
                 self.channels.append(val)
         else:
-            raise Exception(&#34;unknown data type %s in append to DataSet&#34; % (type(arg)))
+            raise ValueError(&#34;unknown data type %s in append to DataSet&#34; % (type(arg)))
         return self
+
+    def copy(self):
+        &#34;&#34;&#34;
+        Make a deep copy of `DataSet`.
+
+        Returns:
+            mogptk.dataset.DataSet
+
+        Examples:
+            &gt;&gt;&gt; other = dataset.copy()
+        &#34;&#34;&#34;
+        return copy.deepcopy(self)
+
+    def rescale_x(self, upper=1000.0):
+        &#34;&#34;&#34;
+        Rescale the X axis so that it is in the interval [0.0,upper] for each channel. This helps training most kernels.
+
+        Args:
+            upper (float): Upper end of the interval.
+
+        Examples:
+            &gt;&gt;&gt; dataset.rescale_x()
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.rescale_x(upper)
+
+    def transform(self, transformer):
+        &#34;&#34;&#34;
+        Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformStandard`, etc.
+
+        Args:
+            transformer (obj): Transformer object derived from TransformBase.
+
+        Examples:
+            &gt;&gt;&gt; dataset.transform(mogptk.TransformDetrend(degree=2))        # remove polynomial trend
+            &gt;&gt;&gt; dataset.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
+            &gt;&gt;&gt; dataset.transform(mogptk.TransformLog)                      # log transform the data
+            &gt;&gt;&gt; dataset.transform(mogptk.TransformNormalize)                # transform to [-1,1]
+            &gt;&gt;&gt; dataset.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.transform(transformer)
+
+    def filter(self, start, end):
+        &#34;&#34;&#34;
+        Filter the data range to be between `start` and `end` in the X axis.
+
+        Args:
+            start (float, str): Start of interval.
+            end (float, str): End of interval.
+
+        Examples:
+            &gt;&gt;&gt; dataset.filter(3, 8)
+
+            &gt;&gt;&gt; dataset.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.filter(start, end)
+
+    def aggregate(self, duration, f=np.mean):
+        &#34;&#34;&#34;
+        Aggregate the data by duration and apply a function to obtain a reduced dataset.
+
+        For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format in case the X axis has data type `numpy.datetime64`. The duration format uses: Y=year, M=month, W=week, D=day, h=hour, m=minute, and s=second. For example, 3W1D means three weeks and one day, ie. 22 days, or 6M to mean six months.
+
+        Args:
+            duration (float, str): Duration along the X axis or as a string in the duration format.
+            f (function): Function to use to reduce data.
+
+        Examples:
+            &gt;&gt;&gt; dataset.aggregate(5)
+
+            &gt;&gt;&gt; dataset.aggregate(&#39;2W&#39;, f=np.sum)
+        &#34;&#34;&#34;
+        for channel in self.channels:
+            channel.aggregate(duration, f)
 
     def get_input_dims(self):
         &#34;&#34;&#34;
         Return the input dimensions per channel.
 
         Returns:
-            list: List of input dimensions per channel.
+            list: List of the number of input dimensions per channel.
 
         Examples:
             &gt;&gt;&gt; dataset.get_input_dims()
@@ -1057,7 +1140,7 @@ class DataSet:
         Return the output dimensions of the dataset, i.e. the number of channels.
 
         Returns:
-            int: Output dimensions.
+            int: Number of output dimensions.
 
         Examples:
             &gt;&gt;&gt; dataset.get_output_dims()
@@ -1070,7 +1153,7 @@ class DataSet:
         Return the names of the channels.
 
         Returns:
-            list: List of names.
+            list: List of channel names.
 
         Examples:
             &gt;&gt;&gt; dataset.get_names()
@@ -1102,7 +1185,7 @@ class DataSet:
     
     def get_index(self, index):
         &#34;&#34;&#34;
-        Return channel numeric index given a channel index or name.
+        Return channel&#39;s numeric index given its name.
 
         Args:
             index (int, str): Index or name of the channel.
@@ -1127,7 +1210,7 @@ class DataSet:
         Returns all observations, train and test.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -1143,7 +1226,7 @@ class DataSet:
         Returns observations used for training.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -1156,11 +1239,10 @@ class DataSet:
 
     def get_test_data(self, transformed=False):
         &#34;&#34;&#34;
-        Returns the observations used for testing which correspond to the 
-        removed points.
+        Returns the observations used for testing which correspond to the removed points.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             list: X data of shape (n,input_dims) per channel.
@@ -1171,32 +1253,29 @@ class DataSet:
         &#34;&#34;&#34;
         return [channel.get_test_data(transformed=transformed)[0] for channel in self.channels], [channel.get_test_data(transformed=transformed)[1] for channel in self.channels]
     
-    def get_prediction_x(self, transformed=False):
+    def get_prediction_x(self):
         &#34;&#34;&#34;
         Returns the prediction X range for all channels.
-
-        Args:
-            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             list: X prediction of shape (n,input_dims) per channel.
 
         Examples:
-            &gt;&gt;&gt; x = dataset.get_prediction()
+            &gt;&gt;&gt; x = dataset.get_prediction_x()
         &#34;&#34;&#34;
         x = []
         for channel in self.channels:
-            x.append(channel.get_prediction_x(transformed=transformed))
+            x.append(channel.get_prediction_x())
         return x
     
     def get_prediction(self, name, sigma=2.0, transformed=False):
         &#34;&#34;&#34;
-        Returns the prediction of a given name with a normal variance of sigma for all channels.
+        Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
 
         Args:
-            name (str): Name of the prediction, equals the name of the model that made the prediction.
-            sigma (float, optional): The uncertainty interval&#39;s number of standard deviations.
-            transformed (boolean, optional): Return transformed data as used for training.
+            name (str): Name of the model of the prediction.
+            sigma (float): The confidence interval&#39;s number of standard deviations.
+            transformed (boolean): Return transformed data as used for training.
 
         Returns:
             list: X prediction of shape (n,input_dims) per channel.
@@ -1221,7 +1300,7 @@ class DataSet:
 
     def set_prediction_x(self, x):
         &#34;&#34;&#34;
-        Set the prediction range per channel.
+        Set the prediction range directly for saved predictions per channel. This will clear old predictions.
 
         Args:
             x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
@@ -1250,8 +1329,8 @@ class DataSet:
         Args:
             start (list, dict): Start values for prediction range per channel.
             end (list, dict): End values for prediction range per channel.
-            n (list, dict, optional): Number of points for prediction range per channel.
-            step (list, dict, optional): Step size for prediction range per channel.
+            n (list, dict): Number of points for prediction range per channel.
+            step (list, dict): Step size for prediction range per channel.
 
         Examples:
             &gt;&gt;&gt; dataset.set_prediction_range([2, 3], [5, 6], [4, None], [None, 0.5])
@@ -1293,7 +1372,7 @@ class DataSet:
     
     def get_nyquist_estimation(self):
         &#34;&#34;&#34;
-        Estimate nyquist frequency by taking 0.5/(minimum distance of points).
+        Estimate the Nyquist frequency by taking 0.5/(minimum distance of points) per channel.
 
         Returns:
             list: Nyquist frequency array of shape (input_dims) per channel.
@@ -1305,11 +1384,11 @@ class DataSet:
     
     def get_lombscargle_estimation(self, Q=1, n=10000):
         &#34;&#34;&#34;
-        Peaks estimation using Lomb Scargle.
+        Peak estimation of the spectrum using Lomb-Scargle per channel.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 10000.
+            Q (int): Number of peaks to find.
+            n (int): Number of points of the grid to evaluate frequencies.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -1331,11 +1410,11 @@ class DataSet:
     
     def get_bnse_estimation(self, Q=1, n=1000):
         &#34;&#34;&#34;
-        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+        Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
+            Q (int): Number of peaks to find.
+            n (int): Number of points of the grid to evaluate frequencies.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -1357,15 +1436,15 @@ class DataSet:
     
     def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
         &#34;&#34;&#34;
-        Peaks estimation using the Spectral Mixture kernel.
+        Peak estimation of the spectrum using the spectral mixture kernel per channel.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            method (str, optional): Method of estimating SM kernels.
-            optimizer (str, optional): Optimization method for SM kernels.
-            iters (str, optional): Maximum iteration for SM kernels.
-            params (object, optional): Additional parameters for PyTorch optimizer.
-            plot (bool, optional): Show the PSD of the kernel after fitting.
+            Q (int): Number of peaks to find.
+            method (str): Method of estimating SM kernels.
+            optimizer (str): Optimization method for SM kernels.
+            iters (str): Maximum iteration for SM kernels.
+            params (object): Additional parameters for PyTorch optimizer.
+            plot (bool): Show the PSD of the kernel after fitting.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -1385,83 +1464,16 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
 
-    def transform(self, transformer):
-        &#34;&#34;&#34;
-        Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
-
-        Args:
-            transformer (obj): Transformer object derived from TransformBase.
-
-        Examples:
-            &gt;&gt;&gt; dataset.transform(mogptk.TransformDetrend(degree=2))        # remove polynomial trend
-            &gt;&gt;&gt; dataset.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
-            &gt;&gt;&gt; dataset.transform(mogptk.TransformLog)                      # log transform the data
-            &gt;&gt;&gt; dataset.transform(mogptk.TransformNormalize)                # transform to [-1,1]
-            &gt;&gt;&gt; dataset.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
-        &#34;&#34;&#34;
-        for channel in self.channels:
-            channel.transform(transformer)
-
-    def filter(self, start, end):
-        &#34;&#34;&#34;
-        Filter the data range to be between start and end.
-
-        Args:
-            start (float, str): Start of interval.
-            end (float, str): End of interval.
-
-        Examples:
-            &gt;&gt;&gt; dataset.filter(3, 8)
-
-            &gt;&gt;&gt; dataset.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
-        &#34;&#34;&#34;
-        for channel in self.channels:
-            channel.filter(start, end)
-
-    def aggregate(self, duration, f=np.mean):
-        &#34;&#34;&#34;
-        Aggregate the data by duration and apply a function to obtain a reduced dataset.
-
-        For example, group daily data by week and take the mean.
-        The duration can be set as a number which defined the intervals on the X axis,
-        or by a string written in the duration format with:
-        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
-        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
-
-        Args:
-            duration (float, str): Duration along the X axis or as a string in the duration format.
-            f (function, optional): Function to use to reduce data, by default uses np.mean.
-
-        Examples:
-            &gt;&gt;&gt; dataset.aggregate(5)
-
-            &gt;&gt;&gt; dataset.aggregate(&#39;2w&#39;, f=np.sum)
-        &#34;&#34;&#34;
-        for channel in self.channels:
-            channel.aggregate(duration, f)
-
-    def copy(self):
-        &#34;&#34;&#34;
-        Make a deep copy of DataSet.
-
-        Returns:
-            mogptk.dataset.DataSet
-
-        Examples:
-            &gt;&gt;&gt; other = dataset.copy()
-        &#34;&#34;&#34;
-        return copy.deepcopy(self)
-
     def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
         &#34;&#34;&#34;
-        Plot each Data channel.
+        Plot the data including removed observations, latent function, and predictions for each channel.
 
         Args:
-            pred (str, optional): Specify model name to draw.
-            title (str, optional): Set the title of the plot.
-            figsize (tuple, optional): Set the figure size.
-            legend (boolean, optional): Disable legend.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            pred (str): Specify model name to draw.
+            title (str): Set the title of the plot.
+            figsize (tuple): Set the figure size.
+            legend (boolean): Disable legend.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -1493,17 +1505,17 @@ class DataSet:
         fig.legend(handles=legends.values(), loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(h-0.3+0.5*legend_rows)/h), ncol=5)
         return fig, axes
 
-    def plot_spectrum(self, title=None, method=&#39;lombscargle&#39;, per=None, maxfreq=None, figsize=None, transformed=False):
+    def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, transformed=False):
         &#34;&#34;&#34;
-        Plot each Data channel spectrum.
+        Plot the spectrum for each channel.
 
         Args:
-            title (str, optional): Set the title of the plot.
-            method (list, str, optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
-            per (list, str, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3d&#39;.
-            maxfreq (list, float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-            figsize (tuple, optional): Set the figure size.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            title (str): Set the title of the plot.
+            method (list, str): Set the method to get the spectrum such as LS or BNSE.
+            per (list, str): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3D&#39;.
+            maxfreq (list, float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            figsize (tuple): Set the figure size.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -1537,46 +1549,38 @@ class DataSet:
 </code></dt>
 <dd>
 <section class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
-<p>For example, group daily data by week and take the mean.
-The duration can be set as a number which defined the intervals on the X axis,
-or by a string written in the duration format with:
-y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
-For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.</p>
+<p>For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format in case the X axis has data type <code>numpy.datetime64</code>. The duration format uses: Y=year, M=month, W=week, D=day, h=hour, m=minute, and s=second. For example, 3W1D means three weeks and one day, ie. 22 days, or 6M to mean six months.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>duration</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
 <dd>Duration along the X axis or as a string in the duration format.</dd>
-<dt><strong><code>f</code></strong> :&ensp;<code>function</code>, optional</dt>
-<dd>Function to use to reduce data, by default uses np.mean.</dd>
+<dt><strong><code>f</code></strong> :&ensp;<code>function</code></dt>
+<dd>Function to use to reduce data.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; dataset.aggregate(5)
 
-&gt;&gt;&gt; dataset.aggregate('2w', f=np.sum)
+&gt;&gt;&gt; dataset.aggregate('2W', f=np.sum)
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L586-L606" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L266-L282" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def aggregate(self, duration, f=np.mean):
     &#34;&#34;&#34;
     Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
-    For example, group daily data by week and take the mean.
-    The duration can be set as a number which defined the intervals on the X axis,
-    or by a string written in the duration format with:
-    y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
-    For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+    For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format in case the X axis has data type `numpy.datetime64`. The duration format uses: Y=year, M=month, W=week, D=day, h=hour, m=minute, and s=second. For example, 3W1D means three weeks and one day, ie. 22 days, or 6M to mean six months.
 
     Args:
         duration (float, str): Duration along the X axis or as a string in the duration format.
-        f (function, optional): Function to use to reduce data, by default uses np.mean.
+        f (function): Function to use to reduce data.
 
     Examples:
         &gt;&gt;&gt; dataset.aggregate(5)
 
-        &gt;&gt;&gt; dataset.aggregate(&#39;2w&#39;, f=np.sum)
+        &gt;&gt;&gt; dataset.aggregate(&#39;2W&#39;, f=np.sum)
     &#34;&#34;&#34;
     for channel in self.channels:
         channel.aggregate(duration, f)</code></pre>
@@ -1586,11 +1590,11 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">append</span></span>(<span>self, arg)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Append channel(s) to DataSet.</p>
+<section class="desc"><p>Append channel(s) to the DataSet.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>arg</code></strong> :&ensp;<a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a>, <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>, <code>list</code>, <code>dict</code></dt>
-<dd>Argument can be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.</dd>
+<dd>Argument can be either a <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a> or <code>Data</code> object, a list of <code>Data</code> objects or a dictionary of <code>Data</code> objects. Each <code>Data</code> object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a> is passed, its channels will be added.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='A'))
@@ -1598,14 +1602,14 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L181-L205" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L182-L206" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def append(self, arg):
     &#34;&#34;&#34;
-    Append channel(s) to DataSet.
+    Append channel(s) to the DataSet.
     
     Args:
-        arg (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Argument can be either a DataSet or Data object, a list of Data objects or a dictionary of Data objects. Each Data object will be added to the list of channels. In case of a dictionary, the key will set the name of the Data object. If a DataSet is passed, its channels will be added.
+        arg (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Argument can be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed, its channels will be added.
 
     Examples:
         &gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name=&#39;A&#39;))
@@ -1623,7 +1627,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
             val.name = key
             self.channels.append(val)
     else:
-        raise Exception(&#34;unknown data type %s in append to DataSet&#34; % (type(arg)))
+        raise ValueError(&#34;unknown data type %s in append to DataSet&#34; % (type(arg)))
     return self</code></pre>
 </details>
 </dd>
@@ -1635,7 +1639,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L452-L457" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L525-L530" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clear_predictions(self):
     &#34;&#34;&#34;
@@ -1649,7 +1653,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">copy</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Make a deep copy of DataSet.</p>
+<section class="desc"><p>Make a deep copy of <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
@@ -1661,11 +1665,11 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L608-L618" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L208-L218" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
-    Make a deep copy of DataSet.
+    Make a deep copy of `DataSet`.
 
     Returns:
         mogptk.dataset.DataSet
@@ -1680,7 +1684,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">filter</span></span>(<span>self, start, end)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Filter the data range to be between start and end.</p>
+<section class="desc"><p>Filter the data range to be between <code>start</code> and <code>end</code> in the X axis.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
@@ -1696,11 +1700,11 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L570-L584" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L250-L264" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def filter(self, start, end):
     &#34;&#34;&#34;
-    Filter the data range to be between start and end.
+    Filter the data range to be between `start` and `end` in the X axis.
 
     Args:
         start (float, str): Start of interval.
@@ -1733,7 +1737,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L246-L266" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L323-L343" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get(self, index):
     &#34;&#34;&#34;
@@ -1762,13 +1766,13 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q=1, n=1000)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).</p>
+<section class="desc"><p>Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of peaks to find, defaults to 1.</dd>
+<dd>Number of peaks to find.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of points of the grid to evaluate frequencies, defaults to 1000.</dd>
+<dd>Number of points of the grid to evaluate frequencies.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1785,15 +1789,15 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L497-L521" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L570-L594" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
     &#34;&#34;&#34;
-    Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+    Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.
 
     Args:
-        Q (int): Number of peaks to find, defaults to 1.
-        n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
+        Q (int): Number of peaks to find.
+        n (int): Number of points of the grid to evaluate frequencies.
 
     Returns:
         list: Amplitude array of shape (Q,input_dims) per channel.
@@ -1821,7 +1825,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <section class="desc"><p>Returns all observations, train and test.</p>
 <h2 id="arguments">Arguments</h2>
 <dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -1837,14 +1841,14 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L290-L304" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L367-L381" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
     Returns all observations, train and test.
 
     Arguments:
-        transformed (boolean, optional): Return transformed data.
+        transformed (boolean): Return transformed data.
 
     Returns:
         list: X data of shape (n,input_dims) per channel.
@@ -1860,7 +1864,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">get_index</span></span>(<span>self, index)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Return channel numeric index given a channel index or name.</p>
+<section class="desc"><p>Return channel's numeric index given its name.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>index</code></strong> :&ensp;<code>int</code>, <code>str</code></dt>
@@ -1877,11 +1881,11 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L268-L288" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L345-L365" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_index(self, index):
     &#34;&#34;&#34;
-    Return channel numeric index given a channel index or name.
+    Return channel&#39;s numeric index given its name.
 
     Args:
         index (int, str): Index or name of the channel.
@@ -1910,7 +1914,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>list</code></strong></dt>
-<dd>List of input dimensions per channel.</dd>
+<dd>List of the number of input dimensions per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; dataset.get_input_dims()
@@ -1919,14 +1923,14 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L207-L218" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L284-L295" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
     Return the input dimensions per channel.
 
     Returns:
-        list: List of input dimensions per channel.
+        list: List of the number of input dimensions per channel.
 
     Examples:
         &gt;&gt;&gt; dataset.get_input_dims()
@@ -1939,13 +1943,13 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">get_lombscargle_estimation</span></span>(<span>self, Q=1, n=10000)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Peaks estimation using Lomb Scargle.</p>
+<section class="desc"><p>Peak estimation of the spectrum using Lomb-Scargle per channel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of peaks to find, defaults to 1.</dd>
+<dd>Number of peaks to find.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of points of the grid to evaluate frequencies, defaults to 10000.</dd>
+<dd>Number of points of the grid to evaluate frequencies.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1962,15 +1966,15 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L471-L495" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L544-L568" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
-    Peaks estimation using Lomb Scargle.
+    Peak estimation of the spectrum using Lomb-Scargle per channel.
 
     Args:
-        Q (int): Number of peaks to find, defaults to 1.
-        n (int): Number of points of the grid to evaluate frequencies, defaults to 10000.
+        Q (int): Number of peaks to find.
+        n (int): Number of points of the grid to evaluate frequencies.
 
     Returns:
         list: Amplitude array of shape (Q,input_dims) per channel.
@@ -1999,7 +2003,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>list</code></strong></dt>
-<dd>List of names.</dd>
+<dd>List of channel names.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; dataset.get_names()
@@ -2008,14 +2012,14 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L233-L244" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L310-L321" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_names(self):
     &#34;&#34;&#34;
     Return the names of the channels.
 
     Returns:
-        list: List of names.
+        list: List of channel names.
 
     Examples:
         &gt;&gt;&gt; dataset.get_names()
@@ -2028,7 +2032,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">get_nyquist_estimation</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Estimate nyquist frequency by taking 0.5/(minimum distance of points).</p>
+<section class="desc"><p>Estimate the Nyquist frequency by taking 0.5/(minimum distance of points) per channel.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>list</code></strong></dt>
@@ -2040,11 +2044,11 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L459-L469" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L532-L542" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
-    Estimate nyquist frequency by taking 0.5/(minimum distance of points).
+    Estimate the Nyquist frequency by taking 0.5/(minimum distance of points) per channel.
 
     Returns:
         list: Nyquist frequency array of shape (input_dims) per channel.
@@ -2063,7 +2067,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>int</code></strong></dt>
-<dd>Output dimensions.</dd>
+<dd>Number of output dimensions.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; dataset.get_output_dims()
@@ -2075,14 +2079,14 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L220-L231" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L297-L308" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_output_dims(self):
     &#34;&#34;&#34;
     Return the output dimensions of the dataset, i.e. the number of channels.
 
     Returns:
-        int: Output dimensions.
+        int: Number of output dimensions.
 
     Examples:
         &gt;&gt;&gt; dataset.get_output_dims()
@@ -2095,14 +2099,14 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">get_prediction</span></span>(<span>self, name, sigma=2.0, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the prediction of a given name with a normal variance of sigma for all channels.</p>
+<section class="desc"><p>Returns the prediction of a given name with a confidence interval of <code>sigma</code> times the standard deviation.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
-<dd>Name of the prediction, equals the name of the model that made the prediction.</dd>
-<dt><strong><code>sigma</code></strong> :&ensp;<code>float</code>, optional</dt>
-<dd>The uncertainty interval's number of standard deviations.</dd>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dd>Name of the model of the prediction.</dd>
+<dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
+<dd>The confidence interval's number of standard deviations.</dd>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2122,16 +2126,16 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L357-L385" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L430-L458" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction(self, name, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
-    Returns the prediction of a given name with a normal variance of sigma for all channels.
+    Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
 
     Args:
-        name (str): Name of the prediction, equals the name of the model that made the prediction.
-        sigma (float, optional): The uncertainty interval&#39;s number of standard deviations.
-        transformed (boolean, optional): Return transformed data as used for training.
+        name (str): Name of the model of the prediction.
+        sigma (float): The confidence interval&#39;s number of standard deviations.
+        transformed (boolean): Return transformed data as used for training.
 
     Returns:
         list: X prediction of shape (n,input_dims) per channel.
@@ -2156,44 +2160,36 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_prediction_x"><code class="name flex">
-<span>def <span class="ident">get_prediction_x</span></span>(<span>self, transformed=False)</span>
+<span>def <span class="ident">get_prediction_x</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Returns the prediction X range for all channels.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
-<dd>Return transformed data as used for training.</dd>
-</dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>list</code></strong></dt>
 <dd>X prediction of shape (n,input_dims) per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; x = dataset.get_prediction()
+<pre><code>&gt;&gt;&gt; x = dataset.get_prediction_x()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L339-L355" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L415-L428" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def get_prediction_x(self, transformed=False):
+<pre><code class="python">def get_prediction_x(self):
     &#34;&#34;&#34;
     Returns the prediction X range for all channels.
-
-    Args:
-        transformed (boolean, optional): Return transformed data as used for training.
 
     Returns:
         list: X prediction of shape (n,input_dims) per channel.
 
     Examples:
-        &gt;&gt;&gt; x = dataset.get_prediction()
+        &gt;&gt;&gt; x = dataset.get_prediction_x()
     &#34;&#34;&#34;
     x = []
     for channel in self.channels:
-        x.append(channel.get_prediction_x(transformed=transformed))
+        x.append(channel.get_prediction_x())
     return x</code></pre>
 </details>
 </dd>
@@ -2201,20 +2197,20 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">get_sm_estimation</span></span>(<span>self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Peaks estimation using the Spectral Mixture kernel.</p>
+<section class="desc"><p>Peak estimation of the spectrum using the spectral mixture kernel per channel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of peaks to find, defaults to 1.</dd>
-<dt><strong><code>method</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Number of peaks to find.</dd>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
 <dd>Method of estimating SM kernels.</dd>
-<dt><strong><code>optimizer</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>optimizer</code></strong> :&ensp;<code>str</code></dt>
 <dd>Optimization method for SM kernels.</dd>
-<dt><strong><code>iters</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>iters</code></strong> :&ensp;<code>str</code></dt>
 <dd>Maximum iteration for SM kernels.</dd>
-<dt><strong><code>params</code></strong> :&ensp;<code>object</code>, optional</dt>
+<dt><strong><code>params</code></strong> :&ensp;<code>object</code></dt>
 <dd>Additional parameters for PyTorch optimizer.</dd>
-<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code></dt>
 <dd>Show the PSD of the kernel after fitting.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2232,19 +2228,19 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L523-L551" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L596-L624" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
     &#34;&#34;&#34;
-    Peaks estimation using the Spectral Mixture kernel.
+    Peak estimation of the spectrum using the spectral mixture kernel per channel.
 
     Args:
-        Q (int): Number of peaks to find, defaults to 1.
-        method (str, optional): Method of estimating SM kernels.
-        optimizer (str, optional): Optimization method for SM kernels.
-        iters (str, optional): Maximum iteration for SM kernels.
-        params (object, optional): Additional parameters for PyTorch optimizer.
-        plot (bool, optional): Show the PSD of the kernel after fitting.
+        Q (int): Number of peaks to find.
+        method (str): Method of estimating SM kernels.
+        optimizer (str): Optimization method for SM kernels.
+        iters (str): Maximum iteration for SM kernels.
+        params (object): Additional parameters for PyTorch optimizer.
+        plot (bool): Show the PSD of the kernel after fitting.
 
     Returns:
         list: Amplitude array of shape (Q,input_dims) per channel.
@@ -2269,11 +2265,10 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">get_test_data</span></span>(<span>self, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the observations used for testing which correspond to the
-removed points.</p>
+<section class="desc"><p>Returns the observations used for testing which correspond to the removed points.</p>
 <h2 id="arguments">Arguments</h2>
 <dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2289,15 +2284,14 @@ removed points.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L322-L337" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L399-L413" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
-    Returns the observations used for testing which correspond to the 
-    removed points.
+    Returns the observations used for testing which correspond to the removed points.
 
     Arguments:
-        transformed (boolean, optional): Return transformed data.
+        transformed (boolean): Return transformed data.
 
     Returns:
         list: X data of shape (n,input_dims) per channel.
@@ -2316,7 +2310,7 @@ removed points.</p>
 <section class="desc"><p>Returns observations used for training.</p>
 <h2 id="arguments">Arguments</h2>
 <dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2332,14 +2326,14 @@ removed points.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L306-L320" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L383-L397" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
     Returns observations used for training.
 
     Arguments:
-        transformed (boolean, optional): Return transformed data.
+        transformed (boolean): Return transformed data.
 
     Returns:
         list: X data of shape (n,input_dims) per channel.
@@ -2355,18 +2349,18 @@ removed points.</p>
 <span>def <span class="ident">plot</span></span>(<span>self, pred=None, title=None, figsize=None, legend=True, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Plot each Data channel.</p>
+<section class="desc"><p>Plot the data including removed observations, latent function, and predictions for each channel.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>pred</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>pred</code></strong> :&ensp;<code>str</code></dt>
 <dd>Specify model name to draw.</dd>
-<dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
 <dd>Set the title of the plot.</dd>
-<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code></dt>
 <dd>Set the figure size.</dd>
-<dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Disable legend.</dd>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Display transformed Y data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2378,18 +2372,18 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L620-L659" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L626-L665" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
     &#34;&#34;&#34;
-    Plot each Data channel.
+    Plot the data including removed observations, latent function, and predictions for each channel.
 
     Args:
-        pred (str, optional): Specify model name to draw.
-        title (str, optional): Set the title of the plot.
-        figsize (tuple, optional): Set the figure size.
-        legend (boolean, optional): Disable legend.
-        transformed (boolean, optional): Display transformed Y data as used for training.
+        pred (str): Specify model name to draw.
+        title (str): Set the title of the plot.
+        figsize (tuple): Set the figure size.
+        legend (boolean): Disable legend.
+        transformed (boolean): Display transformed Y data as used for training.
 
     Returns:
         matplotlib.figure.Figure: The figure.
@@ -2423,23 +2417,23 @@ list of matplotlib.axes.Axes: List of axes.</p>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.plot_spectrum"><code class="name flex">
-<span>def <span class="ident">plot_spectrum</span></span>(<span>self, title=None, method='lombscargle', per=None, maxfreq=None, figsize=None, transformed=False)</span>
+<span>def <span class="ident">plot_spectrum</span></span>(<span>self, title=None, method='ls', per=None, maxfreq=None, figsize=None, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Plot each Data channel spectrum.</p>
+<section class="desc"><p>Plot the spectrum for each channel.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
 <dd>Set the title of the plot.</dd>
-<dt><strong><code>method</code></strong> :&ensp;<code>list</code>, <code>str</code>, optional</dt>
-<dd>Set the method to get the spectrum such as 'lombscargle'.</dd>
-<dt><strong><code>per</code></strong> :&ensp;<code>list</code>, <code>str</code>, optional</dt>
-<dd>Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3d'.</dd>
-<dt><strong><code>maxfreq</code></strong> :&ensp;<code>list</code>, <code>float</code>, optional</dt>
+<dt><strong><code>method</code></strong> :&ensp;<code>list</code>, <code>str</code></dt>
+<dd>Set the method to get the spectrum such as LS or BNSE.</dd>
+<dt><strong><code>per</code></strong> :&ensp;<code>list</code>, <code>str</code></dt>
+<dd>Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.</dd>
+<dt><strong><code>maxfreq</code></strong> :&ensp;<code>list</code>, <code>float</code></dt>
 <dd>Maximum frequency to plot, otherwise the Nyquist frequency is used.</dd>
-<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code></dt>
 <dd>Set the figure size.</dd>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Display transformed Y data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2451,19 +2445,19 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L661-L696" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L667-L702" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_spectrum(self, title=None, method=&#39;lombscargle&#39;, per=None, maxfreq=None, figsize=None, transformed=False):
+<pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, transformed=False):
     &#34;&#34;&#34;
-    Plot each Data channel spectrum.
+    Plot the spectrum for each channel.
 
     Args:
-        title (str, optional): Set the title of the plot.
-        method (list, str, optional): Set the method to get the spectrum such as &#39;lombscargle&#39;.
-        per (list, str, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3d&#39;.
-        maxfreq (list, float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-        figsize (tuple, optional): Set the figure size.
-        transformed (boolean, optional): Display transformed Y data as used for training.
+        title (str): Set the title of the plot.
+        method (list, str): Set the method to get the spectrum such as LS or BNSE.
+        per (list, str): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3D&#39;.
+        maxfreq (list, float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+        figsize (tuple): Set the figure size.
+        transformed (boolean): Display transformed Y data as used for training.
 
     Returns:
         matplotlib.figure.Figure: The figure.
@@ -2491,6 +2485,38 @@ list of matplotlib.axes.Axes: List of axes.</p>
     return fig, axes</code></pre>
 </details>
 </dd>
+<dt id="mogptk.dataset.DataSet.rescale_x"><code class="name flex">
+<span>def <span class="ident">rescale_x</span></span>(<span>self, upper=1000.0)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Rescale the X axis so that it is in the interval [0.0,upper] for each channel. This helps training most kernels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>upper</code></strong> :&ensp;<code>float</code></dt>
+<dd>Upper end of the interval.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; dataset.rescale_x()
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L220-L231" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def rescale_x(self, upper=1000.0):
+    &#34;&#34;&#34;
+    Rescale the X axis so that it is in the interval [0.0,upper] for each channel. This helps training most kernels.
+
+    Args:
+        upper (float): Upper end of the interval.
+
+    Examples:
+        &gt;&gt;&gt; dataset.rescale_x()
+    &#34;&#34;&#34;
+    for channel in self.channels:
+        channel.rescale_x(upper)</code></pre>
+</details>
+</dd>
 <dt id="mogptk.dataset.DataSet.set_prediction_range"><code class="name flex">
 <span>def <span class="ident">set_prediction_range</span></span>(<span>self, start, end, n=None, step=None)</span>
 </code></dt>
@@ -2502,9 +2528,9 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <dd>Start values for prediction range per channel.</dd>
 <dt><strong><code>end</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
 <dd>End values for prediction range per channel.</dd>
-<dt><strong><code>n</code></strong> :&ensp;<code>list</code>, <code>dict</code>, optional</dt>
+<dt><strong><code>n</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
 <dd>Number of points for prediction range per channel.</dd>
-<dt><strong><code>step</code></strong> :&ensp;<code>list</code>, <code>dict</code>, optional</dt>
+<dt><strong><code>step</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
 <dd>Step size for prediction range per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
@@ -2514,7 +2540,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L411-L450" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L484-L523" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start, end, n=None, step=None):
     &#34;&#34;&#34;
@@ -2523,8 +2549,8 @@ list of matplotlib.axes.Axes: List of axes.</p>
     Args:
         start (list, dict): Start values for prediction range per channel.
         end (list, dict): End values for prediction range per channel.
-        n (list, dict, optional): Number of points for prediction range per channel.
-        step (list, dict, optional): Step size for prediction range per channel.
+        n (list, dict): Number of points for prediction range per channel.
+        step (list, dict): Step size for prediction range per channel.
 
     Examples:
         &gt;&gt;&gt; dataset.set_prediction_range([2, 3], [5, 6], [4, None], [None, 0.5])
@@ -2562,7 +2588,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <span>def <span class="ident">set_prediction_x</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Set the prediction range per channel.</p>
+<section class="desc"><p>Set the prediction range directly for saved predictions per channel. This will clear old predictions.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
@@ -2575,11 +2601,11 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L387-L409" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L460-L482" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_x(self, x):
     &#34;&#34;&#34;
-    Set the prediction range per channel.
+    Set the prediction range directly for saved predictions per channel. This will clear old predictions.
 
     Args:
         x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
@@ -2606,7 +2632,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <span>def <span class="ident">transform</span></span>(<span>self, transformer)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Transform each channel by using one of the provided transformers, such as <code>TransformDetrend</code>, <code>TransformLinear</code>, <code>TransformLog</code>, <code>TransformNormalize</code>, <code>TransformWhiten</code>, &hellip;</p>
+<section class="desc"><p>Transform each channel by using one of the provided transformers, such as <code>TransformDetrend</code>, <code>TransformLinear</code>, <code>TransformLog</code>, <code>TransformNormalize</code>, <code>TransformStandard</code>, etc.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>transformer</code></strong> :&ensp;<code>obj</code></dt>
@@ -2617,16 +2643,16 @@ list of matplotlib.axes.Axes: List of axes.</p>
 &gt;&gt;&gt; dataset.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
 &gt;&gt;&gt; dataset.transform(mogptk.TransformLog)                      # log transform the data
 &gt;&gt;&gt; dataset.transform(mogptk.TransformNormalize)                # transform to [-1,1]
-&gt;&gt;&gt; dataset.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
+&gt;&gt;&gt; dataset.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/dataset.py#L553-L568" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/dataset.py#L233-L248" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;
-    Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
+    Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformStandard`, etc.
 
     Args:
         transformer (obj): Transformer object derived from TransformBase.
@@ -2636,7 +2662,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
         &gt;&gt;&gt; dataset.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
         &gt;&gt;&gt; dataset.transform(mogptk.TransformLog)                      # log transform the data
         &gt;&gt;&gt; dataset.transform(mogptk.TransformNormalize)                # transform to [-1,1]
-        &gt;&gt;&gt; dataset.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
+        &gt;&gt;&gt; dataset.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
     &#34;&#34;&#34;
     for channel in self.channels:
         channel.transform(transformer)</code></pre>
@@ -2690,6 +2716,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <li><code><a title="mogptk.dataset.DataSet.get_train_data" href="#mogptk.dataset.DataSet.get_train_data">get_train_data</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.plot" href="#mogptk.dataset.DataSet.plot">plot</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.plot_spectrum" href="#mogptk.dataset.DataSet.plot_spectrum">plot_spectrum</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.rescale_x" href="#mogptk.dataset.DataSet.rescale_x">rescale_x</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.set_prediction_range" href="#mogptk.dataset.DataSet.set_prediction_range">set_prediction_range</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.set_prediction_x" href="#mogptk.dataset.DataSet.set_prediction_x">set_prediction_x</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.transform" href="#mogptk.dataset.DataSet.transform">transform</a></code></li>

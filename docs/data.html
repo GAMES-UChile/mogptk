@@ -25,12 +25,13 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L0-L1271" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L0-L1291" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import copy
 import inspect
 import datetime
+import logging
 
 import numpy as np
 import pandas as pd
@@ -41,25 +42,26 @@ import matplotlib.patches as patches
 from pandas.plotting import register_matplotlib_converters
 
 from .bnse import bse
-from .config import logger
 from .serie import Serie, TransformLinear
 
 register_matplotlib_converters()
 
+logger = logging.getLogger(&#39;mogptk&#39;)
+
 def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
     &#34;&#34;&#34;
-    LoadFunction loads a dataset from a given function y = f(x) + N(0,var). It will pick n data points between start and end for x, for which f is being evaluated. By default the n points are spread equally over the interval, with random=True they will be picked randomly.
+    LoadFunction loads a dataset from a given function y = f(x) + Normal(0,var). It will pick `n` data points between start and end for the X axis for which `f` is being evaluated. By default the `n` points are spread equally over the interval, with `random=True` they will be picked randomly.
 
-    The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.
+    The given function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
 
     Args:
-        f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
-        n (int): Number of data points to pick between start and end.
+        f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
         start (float, list): Define start of interval.
         end (float, list): Define end of interval.
-        var (float, optional): Variance added to the output.
-        name (str, optional): Name of data.
-        random (boolean): Select points randomly between start and end (defaults to False).
+        n (int): Number of data points to pick between start and end.
+        var (float): Variance added to the output.
+        name (str): Name of data.
+        random (boolean): Select points randomly between start and end.
 
     Returns:
         mogptk.data.Data
@@ -144,18 +146,18 @@ def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
 class Data:
     def __init__(self, X, Y, name=None, x_labels=None, y_label=None):
         &#34;&#34;&#34;
-        Data class holds all the observations, latent functions and prediction data.
+        Data class that holds all observations, latent functions and predicted data.
 
-        This class takes the data raw, but you can load data also conveniently using LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model. Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
+        This class accepts the data directly, otherwise you can load data conveniently using `LoadFunction`, `LoadCSV`, `LoadDataFrame`, etc. The data class allows to modify the data before passing into the model. Examples are transforming data, such as detrending or taking the log, removing data ranges to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
 
-        It is possible to use the format given by numpy.meshgrid for X and its values in Y.
+        It is possible to use the format given by `numpy.meshgrid` for X and its values in Y.
 
         Args:
-            X (list, numpy.ndarray, dict): Independent variable data of shape (n) or (n,input_dims).
-            Y (list, numpy.ndarray): Dependent variable data of shape (n).
-            name (str, optional): Name of data.
-            x_labels (str, list of str, optional): Name or names of input dimensions.
-            y_label (str, optional): Name of output dimension.
+            X (list, numpy.ndarray, dict): Independent variable data of shape (n,) or (n,input_dims).
+            Y (list, numpy.ndarray): Dependent variable data of shape (n,).
+            name (str): Name of data.
+            x_labels (str, list of str): Name or names of input dimensions.
+            y_label (str): Name of output dimension.
 
         Examples:
             &gt;&gt;&gt; channel = mogptk.Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -270,15 +272,6 @@ class Data:
         if isinstance(y_label, str):
             self.Y_label = y_label
 
-        # rescale X axis to fit in 0 -- 1000
-        for i in range(input_dims):
-            X = self.X[i].transformed
-            xmin = np.min(X)
-            xmax = np.max(X)
-            t = TransformLinear(xmin, (xmax-xmin)/1000.0)
-            t.set_data(X)
-            self.X[i].apply(t)
-
     def __str__(self):
         return self.__repr__()
 
@@ -291,7 +284,7 @@ class Data:
 
     def copy(self):
         &#34;&#34;&#34;
-        Make a deep copy of Data.
+        Make a deep copy of `Data`.
 
         Returns:
             mogptk.data.Data
@@ -303,7 +296,7 @@ class Data:
 
     def set_name(self, name):
         &#34;&#34;&#34;
-        Set name for data.
+        Set name for data channel.
 
         Args:
             name (str): Name of data.
@@ -315,7 +308,7 @@ class Data:
 
     def set_labels(self, x_labels, y_label):
         &#34;&#34;&#34;
-        Set axes labels for plots.
+        Set axis labels for plots.
 
         Args:
             x_labels (str, list of str): X data names for each input dimension.
@@ -338,12 +331,12 @@ class Data:
 
     def set_function(self, f):
         &#34;&#34;&#34;
-        Set a (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
+        Set the (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
     
-        The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.
+        The function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
 
         Args:
-            f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
+            f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
 
         Examples:
             &gt;&gt;&gt; data.set_function(lambda x: np.sin(3*x[:,0])
@@ -351,9 +344,28 @@ class Data:
         _check_function(f, self.get_input_dims(), self.X[0].is_datetime64())
         self.F = f
 
+    def rescale_x(self, upper=1000.0):
+        &#34;&#34;&#34;
+        Rescale the X axis so that it is in the interval [0.0,upper]. This helps training most kernels.
+
+        Args:
+            upper (float): Upper end of the interval.
+
+        Examples:
+            &gt;&gt;&gt; data.rescale_x()
+        &#34;&#34;&#34;
+
+        for i in range(self.get_input_dims()):
+            X = self.X[i].transformed
+            xmin = np.min(X)
+            xmax = np.max(X)
+            t = TransformLinear(xmin, (xmax-xmin)/upper)
+            t.set_data(X)
+            self.X[i].apply(t)
+
     def transform(self, transformer):
         &#34;&#34;&#34;
-        Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
+        Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformStandard`, etc.
 
         Args:
             transformer (obj): Transformer object derived from TransformBase.
@@ -363,7 +375,7 @@ class Data:
             &gt;&gt;&gt; data.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
             &gt;&gt;&gt; data.transform(mogptk.TransformLog)                      # log transform the data
             &gt;&gt;&gt; data.transform(mogptk.TransformNormalize)                # transform to [-1,1]
-            &gt;&gt;&gt; data.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
+            &gt;&gt;&gt; data.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
         &#34;&#34;&#34;
 
         t = transformer
@@ -373,11 +385,11 @@ class Data:
             t = copy.deepcopy(t)
         t.set_data(self)
 
-        self.Y.apply(t, np.array([x.transformed for x in self.X]).T)
+        self.Y.apply(t, np.array([x for x in self.X]).T)
     
     def filter(self, start, end):
         &#34;&#34;&#34;
-        Filter the data range to be between start and end.
+        Filter the data range to be between `start` and `end` in the X axis.
 
         Args:
             start (float, str): Start of interval.
@@ -404,20 +416,16 @@ class Data:
         &#34;&#34;&#34;
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
-        For example, group daily data by week and take the mean.
-        The duration can be set as a number which defined the intervals on the X axis,
-        or by a string written in the duration format with:
-        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
-        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+        For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format in case the X axis has data type `numpy.datetime64`. The duration format uses: Y=year, M=month, W=week, D=day, h=hour, m=minute, and s=second. For example, 3W1D means three weeks and one day, ie. 22 days, or 6M to mean six months.
 
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
-            f (function, optional): Function to use to reduce data, by default uses np.mean.
+            f (function): Function to use to reduce data.
 
         Examples:
             &gt;&gt;&gt; data.aggregate(5)
 
-            &gt;&gt;&gt; data.aggregate(&#39;2w&#39;, f=np.sum)
+            &gt;&gt;&gt; data.aggregate(&#39;2W&#39;, f=np.sum)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
             raise ValueError(&#34;can only aggregate on one dimensional input data&#34;)
@@ -433,17 +441,17 @@ class Data:
             Y[i] = f(self.Y[ind])
 
         self.X = [Serie(X, self.X[0].transformers)]
-        self.Y = Serie(Y, self.Y.transformers, np.array([x.transformed for x in self.X]).T)
+        self.Y = Serie(Y, self.Y.transformers, np.array([x for x in self.X]).T)
         self.mask = np.array([True] * len(self.X[0]))
 
     ################################################################
 
     def get_name(self):
         &#34;&#34;&#34;
-        Return the name.
+        Return the name of the channel.
 
         Returns:
-            str.
+            str
 
         Examples:
             &gt;&gt;&gt; data.get_name()
@@ -453,7 +461,7 @@ class Data:
 
     def has_test_data(self):
         &#34;&#34;&#34;
-        Returns True if observations have been removed using the remove_* methods.
+        Returns True if observations have been removed using the `remove_*` methods.
 
         Returns:
             boolean
@@ -469,7 +477,7 @@ class Data:
         Returns the number of input dimensions.
 
         Returns:
-            int: Input dimensions.
+            int: Number of input dimensions.
 
         Examples:
             &gt;&gt;&gt; data.get_input_dims()
@@ -482,17 +490,17 @@ class Data:
         Returns all observations, train and test.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
+            numpy.ndarray: Y data of shape (n,).
 
         Examples:
             &gt;&gt;&gt; x, y = data.get_data()
         &#34;&#34;&#34;
         if transformed:
-            return np.array([x.transformed for x in self.X]).T, self.Y.transformed
+            return np.array([x for x in self.X]).T, self.Y.transformed
         return np.array([x for x in self.X]).T, np.array(self.Y)
 
     def get_train_data(self, transformed=False):
@@ -500,46 +508,54 @@ class Data:
         Returns the observations used for training.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
+            numpy.ndarray: Y data of shape (n,).
 
         Examples:
             &gt;&gt;&gt; x, y = data.get_train_data()
         &#34;&#34;&#34;
         if transformed:
-            return np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
+            return np.array([x[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
         return np.array([x[self.mask] for x in self.X]).T, np.array(self.Y[self.mask])
 
     def get_test_data(self, transformed=False):
         &#34;&#34;&#34;
-        Returns the observations used for testing.
+        Returns the observations used for testing which correspond to the removed points.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
+            numpy.ndarray: Y data of shape (n,).
 
         Examples:
             &gt;&gt;&gt; x, y = data.get_test_data()
         &#34;&#34;&#34;
+        X = np.array([x[~self.mask] for x in self.X]).T
+        if self.F is not None:
+            if X.shape[0] == 0:
+                X, _ = self.get_data()
+            Y = self.F(X)
+            if transformed:
+                Y = self.Y.transform(Y, X)
+            return X, Y
         if transformed:
-            return np.array([x.transformed[~self.mask] for x in self.X]).T, self.Y.transformed[~self.mask]
-        return np.array([x[~self.mask] for x in self.X]).T, np.array(self.Y[~self.mask])
+            return X, self.Y.transformed[~self.mask]
+        return X, np.array(self.Y[~self.mask])
 
     ################################################################
     
     def remove_randomly(self, n=None, pct=None):
         &#34;&#34;&#34;
-        Removes observations randomly on the whole range. Either &#39;n&#39; observations are removed, or a percentage of the observations.
+        Removes observations randomly on the whole range. Either `n` observations are removed, or a percentage of the observations.
 
         Args:
-            n (int, optional): Number of observations to remove randomly.
-            pct (float, optional): Percentage in interval [0,1] of observations to remove randomly.
+            n (int): Number of observations to remove randomly.
+            pct (float): Percentage in interval [0,1] of observations to remove randomly.
 
         Examples:
             &gt;&gt;&gt; data.remove_randomly(50) # remove 50 observations
@@ -557,11 +573,11 @@ class Data:
     
     def remove_range(self, start=None, end=None):
         &#34;&#34;&#34;
-        Removes observations in the interval [start,end].
+        Removes observations in the interval `[start,end]`.
         
         Args:
-            start (float, str, optional): Start of interval. Defaults to first value in observations.
-            end (float, str, optional): End of interval. Defaults to last value in observations.
+            start (float, str): Start of interval. Defaults to the first value in observations.
+            end (float, str): End of interval. Defaults to the last value in observations.
 
         Examples:
             &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
@@ -571,7 +587,7 @@ class Data:
             &gt;&gt;&gt; data.remove_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
-            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+            raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
 
         if start is None:
             start = np.min(self.X[0])
@@ -587,14 +603,14 @@ class Data:
     
     def remove_relative_range(self, start=0.0, end=1.0):
         &#34;&#34;&#34;
-        Removes observations between start and end as a percentage of the number of observations. So &#39;0&#39; is the first observation, &#39;0.5&#39; is the middle observation, and &#39;1&#39; is the last observation.
+        Removes observations between `start` and `end` as a percentage of the number of observations. So `0` is the first observation, `0.5` is the middle observation, and `1` is the last observation.
 
         Args:
             start (float): Start percentage in interval [0,1].
             end (float): End percentage in interval [0,1].
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
-            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+            raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
 
         start = self._normalize_val(start)
         end = self._normalize_val(end)
@@ -623,14 +639,14 @@ class Data:
             &gt;&gt;&gt; data.remove_random_ranges(3, &#39;1d&#39;) # remove three ranges that are 1 day wide
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
-            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+            raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
         if n &lt; 1:
             return
 
         delta = _parse_delta(duration)
         m = (np.max(self.X[0])-np.min(self.X[0])) - n*delta
         if m &lt;= 0:
-            raise Exception(&#34;no data left after removing ranges&#34;)
+            raise ValueError(&#34;no data left after removing ranges&#34;)
 
         locs = self.X[0] &lt;= (np.max(self.X[0])-delta)
         locs[sum(locs)] = True # make sure the last data point can be deleted
@@ -647,7 +663,7 @@ class Data:
         Removes observations of given index
 
         Args:
-            index(array-like): Array of indexes of the data to remove.
+            index(list, numpy.ndarray): Array of indexes of the data to remove.
         &#34;&#34;&#34;
         if isinstance(index, list):
             index = np.array(index)
@@ -659,14 +675,21 @@ class Data:
     ################################################################
     
     def get_prediction_names(self):
+        &#34;&#34;&#34;
+        Returns the model names of the saved predictions.
+
+        Returns:
+            list: List of prediction names.
+
+        Examples:
+            &gt;&gt;&gt; data.get_prediction_names()
+            [&#39;MOSM&#39;, &#39;CSM&#39;, &#39;SM-LMC&#39;, &#39;CONV&#39;]
+        &#34;&#34;&#34;
         return self.Y_mu_pred.keys()
     
-    def get_prediction_x(self, transformed=False):
+    def get_prediction_x(self):
         &#34;&#34;&#34;
         Returns the prediction X range.
-
-        Args:
-            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: X prediction of shape (n,input_dims).
@@ -674,18 +697,16 @@ class Data:
         Examples:
             &gt;&gt;&gt; x = data.get_prediction_x()
         &#34;&#34;&#34;
-        if transformed:
-            return np.array([x.transformed for x in self.X_pred]).T
         return np.array([x for x in self.X_pred]).T
     
     def get_prediction(self, name, sigma=2.0, transformed=False):
         &#34;&#34;&#34;
-        Returns the prediction of a given name with a normal variance of sigma.
+        Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
 
         Args:
-            name (str): Name of the prediction, equals the name of the model that made the prediction.
-            sigma (float, optional): The uncertainty interval&#39;s number of standard deviations.
-            transformed (boolean, optional): Return transformed data as used for training.
+            name (str): Name of the model of the prediction.
+            sigma (float): The confidence interval&#39;s number of standard deviations.
+            transformed (boolean): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: X prediction of shape (n,input_dims).
@@ -697,7 +718,7 @@ class Data:
             &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction(&#39;MOSM&#39;, sigma=1)
         &#34;&#34;&#34;
         if name not in self.Y_mu_pred:
-            raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
+            raise ValueError(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
        
         X = np.array([x for x in self.X_pred]).T
         mu = self.Y_mu_pred[name]
@@ -707,18 +728,17 @@ class Data:
         if transformed:
             return X, mu, lower, upper
 
-        X_pred = np.array([x.transformed for x in self.X_pred]).T
-        mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
-        lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
-        upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
+        mu = Serie(self.Y.detransform(mu, X), self.Y.transformers, transformed=mu)
+        lower = Serie(self.Y.detransform(lower, X), self.Y.transformers, transformed=lower)
+        upper = Serie(self.Y.detransform(upper, X), self.Y.transformers, transformed=upper)
         return X, mu, lower, upper
     
     def set_prediction_x(self, X):
         &#34;&#34;&#34;
-        Set the prediction range directly.
+        Set the prediction range directly for saved predictions. This will clear old predictions.
 
         Args:
-            X (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+            X (list, numpy.ndarray): Array of shape (n,) or (n,input_dims) used for predictions.
 
         Examples:
             &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
@@ -743,16 +763,15 @@ class Data:
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
-        Sets the prediction range. The interval is set with [start,end], with either &#39;n&#39; points or a
-        given &#39;step&#39; between the points.
+        Sets the prediction range. The interval is set as `[start,end]`, with either `n` points or a given step between the points.
 
         Args:
-            start (float, str, optional): Start of interval, defaults to the first observation.
-            end (float, str, optional): End of interval, defaults to the last observation.
-            n (int, optional): Number of points to generate in the interval.
-            step (float, str, optional): Spacing between points in the interval.
+            start (float, str): Start of interval, defaults to the first observation.
+            end (float, str): End of interval, defaults to the last observation.
+            n (int): Number of points to generate in the interval.
+            step (float, str): Spacing between points in the interval.
 
-            If neither &#39;step&#39; or &#39;n&#39; is passed, default number of points is 100.
+            If neither step or n is passed, default number of points is 100.
 
         Examples:
             &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
@@ -763,7 +782,7 @@ class Data:
         &#34;&#34;&#34;
         # TODO: accept multiple input dims and make sure dtype equals X
         if self.get_input_dims() != 1:
-            raise Exception(&#34;can only set prediction range on one dimensional input data&#34;)
+            raise ValueError(&#34;can only set prediction range on one dimensional input data&#34;)
 
         if start is None:
             start = [x[0] for x in self.X]
@@ -807,7 +826,7 @@ class Data:
 
     def get_nyquist_estimation(self):
         &#34;&#34;&#34;
-        Estimate nyquist frequency by taking 0.5/(minimum distance of points).
+        Estimate the Nyquist frequency by taking 0.5/(minimum distance of points).
 
         Returns:
             numpy.ndarray: Nyquist frequency array of shape (input_dims,).
@@ -827,11 +846,11 @@ class Data:
 
     def get_lombscargle_estimation(self, Q=1, n=10000):
         &#34;&#34;&#34;
-        Peak estimation using Lomb Scargle.
+        Peak estimation of the spectrum using Lomb-Scargle.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points to use for Lomb Scargle, defaults to 10000.
+            Q (int): Number of peaks to find.
+            n (int): Number of points to use for Lomb-Scargle.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -851,7 +870,7 @@ class Data:
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x, y = self.get_train_data(transformed=True)
+            x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
             freq = np.linspace(0, nyquist[i], n+1)[1:]
             psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, freq)
 
@@ -880,11 +899,11 @@ class Data:
 
     def get_bnse_estimation(self, Q=1, n=1000):
         &#34;&#34;&#34;
-        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+        Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation).
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
+            Q (int): Number of peaks to find.
+            n (int): Number of points of the grid to evaluate frequencies.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -904,7 +923,7 @@ class Data:
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x, y = self.get_train_data(transformed=True)
+            x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
             bnse = bse(x[:,i], y)
             bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
@@ -919,24 +938,24 @@ class Data:
                 positions = positions[:Q]
                 variances = variances[:Q]
 
-            n = len(amplitudes)
+            num = len(amplitudes)
             # division by 100 makes it similar to other estimators (emperically found)
-            A[:n,i] = np.sqrt(amplitudes) / 100  
-            B[:n,i] = positions
-            C[:n,i] = variances
+            A[:num,i] = np.sqrt(amplitudes) / 100
+            B[:num,i] = positions
+            C[:num,i] = variances
         return A, B, C
 
     def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
         &#34;&#34;&#34;
-        Peaks estimation using the Spectral Mixture kernel.
+        Peak estimation of the spectrum using the spectral mixture kernel.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            method (str, optional): Method of estimating SM kernels.
-            optimizer (str, optional): Optimization method for SM kernels.
-            iters (str, optional): Maximum iteration for SM kernels.
-            params (object, optional): Additional parameters for PyTorch optimizer.
-            plot (bool, optional): Show the PSD of the kernel after fitting.
+            Q (int): Number of peaks to find.
+            method (str): Method of estimating SM kernels.
+            optimizer (str): Optimization method for SM kernels.
+            iters (str): Maximum iteration for SM kernels.
+            params (object): Additional parameters for the PyTorch optimizer.
+            plot (bool): Show the PSD of the kernel after fitting.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -978,11 +997,11 @@ class Data:
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
-            pred (str, optional): Specify model name to draw.
-            title (str, optional): Set the title of the plot.
-            ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            legend (boolean, optional): Display legend.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            pred (str): Specify model name to draw.
+            title (str): Set the title of the plot.
+            ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
+            legend (boolean): Display legend.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.axes.Axes
@@ -992,9 +1011,9 @@ class Data:
         &#34;&#34;&#34;
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() &gt; 2:
-            raise Exception(&#34;cannot plot more than two input dimensions&#34;)
+            raise ValueError(&#34;cannot plot more than two input dimensions&#34;)
         if self.get_input_dims() == 2:
-            raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
+            raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
@@ -1011,7 +1030,9 @@ class Data:
                 #ax.plot(X_pred[:,0][idx], lower[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
                 #ax.plot(X_pred[:,0][idx], upper[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
 
-                label = &#39;Prediction &#39; + name
+                label = &#39;Prediction&#39;
+                if name is not None:
+                    label += &#39; &#39; + name
                 legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=label))
 
         if self.F is not None:
@@ -1040,8 +1061,7 @@ class Data:
         ax.plot(self.X[0][idx], Y[idx], &#39;k--&#39;, alpha=0.8)
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
 
-        x, _ = self.get_train_data()
-        _, y = self.get_train_data(transformed=transformed)
+        x, y = self.get_train_data(transformed=transformed)
         if 1000 &lt; x.shape[0]:
             ax.plot(x[:,0], y, &#39;k-&#39;)
             legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Training Points&#39;))
@@ -1075,17 +1095,17 @@ class Data:
             ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.7+0.3*legend_rows)/3.0), ncol=5)
         return ax
 
-    def plot_spectrum(self, title=None, method=&#39;lombscargle&#39;, ax=None, per=None, maxfreq=None, transformed=False):
+    def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=False):
         &#34;&#34;&#34;
         Plot the spectrum of the data.
 
         Args:
-            title (str, optional): Set the title of the plot.
-            method (str, optional): Set the method to get the spectrum: lombscargle or bnse.
-            ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            per (str, float, numpy.timedelta64, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3D&#39;.
-            maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            title (str): Set the title of the plot.
+            method (str): Set the method to get the spectrum such as LS or BNSE.
+            ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
+            per (str, float, numpy.timedelta64): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3D&#39;.
+            maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.axes.Axes
@@ -1095,9 +1115,9 @@ class Data:
         &#34;&#34;&#34;
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() &gt; 2:
-            raise Exception(&#34;cannot plot more than two input dimensions&#34;)
+            raise ValueError(&#34;cannot plot more than two input dimensions&#34;)
         if self.get_input_dims() == 2:
-            raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
+            raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
@@ -1133,9 +1153,9 @@ class Data:
 
         X_freq = np.linspace(0.0, nyquist, 10001)[1:]
         Y_freq_err = []
-        if method == &#39;lombscargle&#39;:
+        if method.lower() == &#39;ls&#39;:
             Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq)
-        elif method == &#39;bnse&#39;:
+        elif method.lower() == &#39;bnse&#39;:
             bnse = bse(X, Y)
             bnse.set_freqspace(nyquist, 10001)
             bnse.train()
@@ -1312,24 +1332,24 @@ def _timedelta64_to_higher_unit(array):
 <span>def <span class="ident">LoadFunction</span></span>(<span>f, start, end, n, var=0.0, name='', random=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>LoadFunction loads a dataset from a given function y = f(x) + N(0,var). It will pick n data points between start and end for x, for which f is being evaluated. By default the n points are spread equally over the interval, with random=True they will be picked randomly.</p>
-<p>The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.</p>
+<section class="desc"><p>LoadFunction loads a dataset from a given function y = f(x) + Normal(0,var). It will pick <code>n</code> data points between start and end for the X axis for which <code>f</code> is being evaluated. By default the <code>n</code> points are spread equally over the interval, with <code>random=True</code> they will be picked randomly.</p>
+<p>The given function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong> :&ensp;<code>function</code></dt>
-<dd>Function taking x with shape (n,input_dims) and returning shape (n) as y.</dd>
-<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of data points to pick between start and end.</dd>
+<dd>Function taking X with shape (n,input_dims) and returning shape (n,) as Y.</dd>
 <dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>list</code></dt>
 <dd>Define start of interval.</dd>
 <dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>list</code></dt>
 <dd>Define end of interval.</dd>
-<dt><strong><code>var</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of data points to pick between start and end.</dd>
+<dt><strong><code>var</code></strong> :&ensp;<code>float</code></dt>
 <dd>Variance added to the output.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of data.</dd>
 <dt><strong><code>random</code></strong> :&ensp;<code>boolean</code></dt>
-<dd>Select points randomly between start and end (defaults to False).</dd>
+<dd>Select points randomly between start and end.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1343,22 +1363,22 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L20-L109" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L22-L111" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
     &#34;&#34;&#34;
-    LoadFunction loads a dataset from a given function y = f(x) + N(0,var). It will pick n data points between start and end for x, for which f is being evaluated. By default the n points are spread equally over the interval, with random=True they will be picked randomly.
+    LoadFunction loads a dataset from a given function y = f(x) + Normal(0,var). It will pick `n` data points between start and end for the X axis for which `f` is being evaluated. By default the `n` points are spread equally over the interval, with `random=True` they will be picked randomly.
 
-    The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.
+    The given function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
 
     Args:
-        f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
-        n (int): Number of data points to pick between start and end.
+        f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
         start (float, list): Define start of interval.
         end (float, list): Define end of interval.
-        var (float, optional): Variance added to the output.
-        name (str, optional): Name of data.
-        random (boolean): Select points randomly between start and end (defaults to False).
+        n (int): Number of data points to pick between start and end.
+        var (float): Variance added to the output.
+        name (str): Name of data.
+        random (boolean): Select points randomly between start and end.
 
     Returns:
         mogptk.data.Data
@@ -1447,20 +1467,20 @@ def _timedelta64_to_higher_unit(array):
 <span>(</span><span>X, Y, name=None, x_labels=None, y_label=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Data class holds all the observations, latent functions and prediction data.</p>
-<p>This class takes the data raw, but you can load data also conveniently using LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model. Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.</p>
-<p>It is possible to use the format given by numpy.meshgrid for X and its values in Y.</p>
+<section class="desc"><p>Data class that holds all observations, latent functions and predicted data.</p>
+<p>This class accepts the data directly, otherwise you can load data conveniently using <a title="mogptk.data.LoadFunction" href="#mogptk.data.LoadFunction"><code>LoadFunction()</code></a>, <code>LoadCSV</code>, <code>LoadDataFrame</code>, etc. The data class allows to modify the data before passing into the model. Examples are transforming data, such as detrending or taking the log, removing data ranges to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.</p>
+<p>It is possible to use the format given by <code>numpy.meshgrid</code> for X and its values in Y.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>X</code></strong> :&ensp;<code>list</code>, <code>numpy.ndarray</code>, <code>dict</code></dt>
-<dd>Independent variable data of shape (n) or (n,input_dims).</dd>
+<dd>Independent variable data of shape (n,) or (n,input_dims).</dd>
 <dt><strong><code>Y</code></strong> :&ensp;<code>list</code>, <code>numpy.ndarray</code></dt>
-<dd>Dependent variable data of shape (n).</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Dependent variable data of shape (n,).</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of data.</dd>
-<dt><strong><code>x_labels</code></strong> :&ensp;<code>str</code>, <code>list</code> of <code>str</code>, optional</dt>
+<dt><strong><code>x_labels</code></strong> :&ensp;<code>str</code>, <code>list</code> of <code>str</code></dt>
 <dd>Name or names of input dimensions.</dd>
-<dt><strong><code>y_label</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>y_label</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of output dimension.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
@@ -1469,23 +1489,23 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L115-L1155" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L117-L1175" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Data:
     def __init__(self, X, Y, name=None, x_labels=None, y_label=None):
         &#34;&#34;&#34;
-        Data class holds all the observations, latent functions and prediction data.
+        Data class that holds all observations, latent functions and predicted data.
 
-        This class takes the data raw, but you can load data also conveniently using LoadFunction, LoadCSV, LoadDataFrame, etc. This class allows to modify the data before being passed into the model. Examples are transforming data, such as detrending or taking the log, removing data range to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
+        This class accepts the data directly, otherwise you can load data conveniently using `LoadFunction`, `LoadCSV`, `LoadDataFrame`, etc. The data class allows to modify the data before passing into the model. Examples are transforming data, such as detrending or taking the log, removing data ranges to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
 
-        It is possible to use the format given by numpy.meshgrid for X and its values in Y.
+        It is possible to use the format given by `numpy.meshgrid` for X and its values in Y.
 
         Args:
-            X (list, numpy.ndarray, dict): Independent variable data of shape (n) or (n,input_dims).
-            Y (list, numpy.ndarray): Dependent variable data of shape (n).
-            name (str, optional): Name of data.
-            x_labels (str, list of str, optional): Name or names of input dimensions.
-            y_label (str, optional): Name of output dimension.
+            X (list, numpy.ndarray, dict): Independent variable data of shape (n,) or (n,input_dims).
+            Y (list, numpy.ndarray): Dependent variable data of shape (n,).
+            name (str): Name of data.
+            x_labels (str, list of str): Name or names of input dimensions.
+            y_label (str): Name of output dimension.
 
         Examples:
             &gt;&gt;&gt; channel = mogptk.Data([0, 1, 2, 3], [4, 3, 5, 6])
@@ -1600,15 +1620,6 @@ def _timedelta64_to_higher_unit(array):
         if isinstance(y_label, str):
             self.Y_label = y_label
 
-        # rescale X axis to fit in 0 -- 1000
-        for i in range(input_dims):
-            X = self.X[i].transformed
-            xmin = np.min(X)
-            xmax = np.max(X)
-            t = TransformLinear(xmin, (xmax-xmin)/1000.0)
-            t.set_data(X)
-            self.X[i].apply(t)
-
     def __str__(self):
         return self.__repr__()
 
@@ -1621,7 +1632,7 @@ def _timedelta64_to_higher_unit(array):
 
     def copy(self):
         &#34;&#34;&#34;
-        Make a deep copy of Data.
+        Make a deep copy of `Data`.
 
         Returns:
             mogptk.data.Data
@@ -1633,7 +1644,7 @@ def _timedelta64_to_higher_unit(array):
 
     def set_name(self, name):
         &#34;&#34;&#34;
-        Set name for data.
+        Set name for data channel.
 
         Args:
             name (str): Name of data.
@@ -1645,7 +1656,7 @@ def _timedelta64_to_higher_unit(array):
 
     def set_labels(self, x_labels, y_label):
         &#34;&#34;&#34;
-        Set axes labels for plots.
+        Set axis labels for plots.
 
         Args:
             x_labels (str, list of str): X data names for each input dimension.
@@ -1668,12 +1679,12 @@ def _timedelta64_to_higher_unit(array):
 
     def set_function(self, f):
         &#34;&#34;&#34;
-        Set a (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
+        Set the (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
     
-        The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.
+        The function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
 
         Args:
-            f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
+            f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
 
         Examples:
             &gt;&gt;&gt; data.set_function(lambda x: np.sin(3*x[:,0])
@@ -1681,9 +1692,28 @@ def _timedelta64_to_higher_unit(array):
         _check_function(f, self.get_input_dims(), self.X[0].is_datetime64())
         self.F = f
 
+    def rescale_x(self, upper=1000.0):
+        &#34;&#34;&#34;
+        Rescale the X axis so that it is in the interval [0.0,upper]. This helps training most kernels.
+
+        Args:
+            upper (float): Upper end of the interval.
+
+        Examples:
+            &gt;&gt;&gt; data.rescale_x()
+        &#34;&#34;&#34;
+
+        for i in range(self.get_input_dims()):
+            X = self.X[i].transformed
+            xmin = np.min(X)
+            xmax = np.max(X)
+            t = TransformLinear(xmin, (xmax-xmin)/upper)
+            t.set_data(X)
+            self.X[i].apply(t)
+
     def transform(self, transformer):
         &#34;&#34;&#34;
-        Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
+        Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformStandard`, etc.
 
         Args:
             transformer (obj): Transformer object derived from TransformBase.
@@ -1693,7 +1723,7 @@ def _timedelta64_to_higher_unit(array):
             &gt;&gt;&gt; data.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
             &gt;&gt;&gt; data.transform(mogptk.TransformLog)                      # log transform the data
             &gt;&gt;&gt; data.transform(mogptk.TransformNormalize)                # transform to [-1,1]
-            &gt;&gt;&gt; data.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
+            &gt;&gt;&gt; data.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
         &#34;&#34;&#34;
 
         t = transformer
@@ -1703,11 +1733,11 @@ def _timedelta64_to_higher_unit(array):
             t = copy.deepcopy(t)
         t.set_data(self)
 
-        self.Y.apply(t, np.array([x.transformed for x in self.X]).T)
+        self.Y.apply(t, np.array([x for x in self.X]).T)
     
     def filter(self, start, end):
         &#34;&#34;&#34;
-        Filter the data range to be between start and end.
+        Filter the data range to be between `start` and `end` in the X axis.
 
         Args:
             start (float, str): Start of interval.
@@ -1734,20 +1764,16 @@ def _timedelta64_to_higher_unit(array):
         &#34;&#34;&#34;
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
-        For example, group daily data by week and take the mean.
-        The duration can be set as a number which defined the intervals on the X axis,
-        or by a string written in the duration format with:
-        y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
-        For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+        For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format in case the X axis has data type `numpy.datetime64`. The duration format uses: Y=year, M=month, W=week, D=day, h=hour, m=minute, and s=second. For example, 3W1D means three weeks and one day, ie. 22 days, or 6M to mean six months.
 
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
-            f (function, optional): Function to use to reduce data, by default uses np.mean.
+            f (function): Function to use to reduce data.
 
         Examples:
             &gt;&gt;&gt; data.aggregate(5)
 
-            &gt;&gt;&gt; data.aggregate(&#39;2w&#39;, f=np.sum)
+            &gt;&gt;&gt; data.aggregate(&#39;2W&#39;, f=np.sum)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
             raise ValueError(&#34;can only aggregate on one dimensional input data&#34;)
@@ -1763,17 +1789,17 @@ def _timedelta64_to_higher_unit(array):
             Y[i] = f(self.Y[ind])
 
         self.X = [Serie(X, self.X[0].transformers)]
-        self.Y = Serie(Y, self.Y.transformers, np.array([x.transformed for x in self.X]).T)
+        self.Y = Serie(Y, self.Y.transformers, np.array([x for x in self.X]).T)
         self.mask = np.array([True] * len(self.X[0]))
 
     ################################################################
 
     def get_name(self):
         &#34;&#34;&#34;
-        Return the name.
+        Return the name of the channel.
 
         Returns:
-            str.
+            str
 
         Examples:
             &gt;&gt;&gt; data.get_name()
@@ -1783,7 +1809,7 @@ def _timedelta64_to_higher_unit(array):
 
     def has_test_data(self):
         &#34;&#34;&#34;
-        Returns True if observations have been removed using the remove_* methods.
+        Returns True if observations have been removed using the `remove_*` methods.
 
         Returns:
             boolean
@@ -1799,7 +1825,7 @@ def _timedelta64_to_higher_unit(array):
         Returns the number of input dimensions.
 
         Returns:
-            int: Input dimensions.
+            int: Number of input dimensions.
 
         Examples:
             &gt;&gt;&gt; data.get_input_dims()
@@ -1812,17 +1838,17 @@ def _timedelta64_to_higher_unit(array):
         Returns all observations, train and test.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
+            numpy.ndarray: Y data of shape (n,).
 
         Examples:
             &gt;&gt;&gt; x, y = data.get_data()
         &#34;&#34;&#34;
         if transformed:
-            return np.array([x.transformed for x in self.X]).T, self.Y.transformed
+            return np.array([x for x in self.X]).T, self.Y.transformed
         return np.array([x for x in self.X]).T, np.array(self.Y)
 
     def get_train_data(self, transformed=False):
@@ -1830,46 +1856,54 @@ def _timedelta64_to_higher_unit(array):
         Returns the observations used for training.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
+            numpy.ndarray: Y data of shape (n,).
 
         Examples:
             &gt;&gt;&gt; x, y = data.get_train_data()
         &#34;&#34;&#34;
         if transformed:
-            return np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
+            return np.array([x[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
         return np.array([x[self.mask] for x in self.X]).T, np.array(self.Y[self.mask])
 
     def get_test_data(self, transformed=False):
         &#34;&#34;&#34;
-        Returns the observations used for testing.
+        Returns the observations used for testing which correspond to the removed points.
 
         Arguments:
-            transformed (boolean, optional): Return transformed data.
+            transformed (boolean): Return transformed data.
 
         Returns:
             numpy.ndarray: X data of shape (n,input_dims).
-            numpy.ndarray: Y data of shape (n).
+            numpy.ndarray: Y data of shape (n,).
 
         Examples:
             &gt;&gt;&gt; x, y = data.get_test_data()
         &#34;&#34;&#34;
+        X = np.array([x[~self.mask] for x in self.X]).T
+        if self.F is not None:
+            if X.shape[0] == 0:
+                X, _ = self.get_data()
+            Y = self.F(X)
+            if transformed:
+                Y = self.Y.transform(Y, X)
+            return X, Y
         if transformed:
-            return np.array([x.transformed[~self.mask] for x in self.X]).T, self.Y.transformed[~self.mask]
-        return np.array([x[~self.mask] for x in self.X]).T, np.array(self.Y[~self.mask])
+            return X, self.Y.transformed[~self.mask]
+        return X, np.array(self.Y[~self.mask])
 
     ################################################################
     
     def remove_randomly(self, n=None, pct=None):
         &#34;&#34;&#34;
-        Removes observations randomly on the whole range. Either &#39;n&#39; observations are removed, or a percentage of the observations.
+        Removes observations randomly on the whole range. Either `n` observations are removed, or a percentage of the observations.
 
         Args:
-            n (int, optional): Number of observations to remove randomly.
-            pct (float, optional): Percentage in interval [0,1] of observations to remove randomly.
+            n (int): Number of observations to remove randomly.
+            pct (float): Percentage in interval [0,1] of observations to remove randomly.
 
         Examples:
             &gt;&gt;&gt; data.remove_randomly(50) # remove 50 observations
@@ -1887,11 +1921,11 @@ def _timedelta64_to_higher_unit(array):
     
     def remove_range(self, start=None, end=None):
         &#34;&#34;&#34;
-        Removes observations in the interval [start,end].
+        Removes observations in the interval `[start,end]`.
         
         Args:
-            start (float, str, optional): Start of interval. Defaults to first value in observations.
-            end (float, str, optional): End of interval. Defaults to last value in observations.
+            start (float, str): Start of interval. Defaults to the first value in observations.
+            end (float, str): End of interval. Defaults to the last value in observations.
 
         Examples:
             &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
@@ -1901,7 +1935,7 @@ def _timedelta64_to_higher_unit(array):
             &gt;&gt;&gt; data.remove_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
-            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+            raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
 
         if start is None:
             start = np.min(self.X[0])
@@ -1917,14 +1951,14 @@ def _timedelta64_to_higher_unit(array):
     
     def remove_relative_range(self, start=0.0, end=1.0):
         &#34;&#34;&#34;
-        Removes observations between start and end as a percentage of the number of observations. So &#39;0&#39; is the first observation, &#39;0.5&#39; is the middle observation, and &#39;1&#39; is the last observation.
+        Removes observations between `start` and `end` as a percentage of the number of observations. So `0` is the first observation, `0.5` is the middle observation, and `1` is the last observation.
 
         Args:
             start (float): Start percentage in interval [0,1].
             end (float): End percentage in interval [0,1].
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
-            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+            raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
 
         start = self._normalize_val(start)
         end = self._normalize_val(end)
@@ -1953,14 +1987,14 @@ def _timedelta64_to_higher_unit(array):
             &gt;&gt;&gt; data.remove_random_ranges(3, &#39;1d&#39;) # remove three ranges that are 1 day wide
         &#34;&#34;&#34;
         if self.get_input_dims() != 1:
-            raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+            raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
         if n &lt; 1:
             return
 
         delta = _parse_delta(duration)
         m = (np.max(self.X[0])-np.min(self.X[0])) - n*delta
         if m &lt;= 0:
-            raise Exception(&#34;no data left after removing ranges&#34;)
+            raise ValueError(&#34;no data left after removing ranges&#34;)
 
         locs = self.X[0] &lt;= (np.max(self.X[0])-delta)
         locs[sum(locs)] = True # make sure the last data point can be deleted
@@ -1977,7 +2011,7 @@ def _timedelta64_to_higher_unit(array):
         Removes observations of given index
 
         Args:
-            index(array-like): Array of indexes of the data to remove.
+            index(list, numpy.ndarray): Array of indexes of the data to remove.
         &#34;&#34;&#34;
         if isinstance(index, list):
             index = np.array(index)
@@ -1989,14 +2023,21 @@ def _timedelta64_to_higher_unit(array):
     ################################################################
     
     def get_prediction_names(self):
+        &#34;&#34;&#34;
+        Returns the model names of the saved predictions.
+
+        Returns:
+            list: List of prediction names.
+
+        Examples:
+            &gt;&gt;&gt; data.get_prediction_names()
+            [&#39;MOSM&#39;, &#39;CSM&#39;, &#39;SM-LMC&#39;, &#39;CONV&#39;]
+        &#34;&#34;&#34;
         return self.Y_mu_pred.keys()
     
-    def get_prediction_x(self, transformed=False):
+    def get_prediction_x(self):
         &#34;&#34;&#34;
         Returns the prediction X range.
-
-        Args:
-            transformed (boolean, optional): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: X prediction of shape (n,input_dims).
@@ -2004,18 +2045,16 @@ def _timedelta64_to_higher_unit(array):
         Examples:
             &gt;&gt;&gt; x = data.get_prediction_x()
         &#34;&#34;&#34;
-        if transformed:
-            return np.array([x.transformed for x in self.X_pred]).T
         return np.array([x for x in self.X_pred]).T
     
     def get_prediction(self, name, sigma=2.0, transformed=False):
         &#34;&#34;&#34;
-        Returns the prediction of a given name with a normal variance of sigma.
+        Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
 
         Args:
-            name (str): Name of the prediction, equals the name of the model that made the prediction.
-            sigma (float, optional): The uncertainty interval&#39;s number of standard deviations.
-            transformed (boolean, optional): Return transformed data as used for training.
+            name (str): Name of the model of the prediction.
+            sigma (float): The confidence interval&#39;s number of standard deviations.
+            transformed (boolean): Return transformed data as used for training.
 
         Returns:
             numpy.ndarray: X prediction of shape (n,input_dims).
@@ -2027,7 +2066,7 @@ def _timedelta64_to_higher_unit(array):
             &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction(&#39;MOSM&#39;, sigma=1)
         &#34;&#34;&#34;
         if name not in self.Y_mu_pred:
-            raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
+            raise ValueError(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
        
         X = np.array([x for x in self.X_pred]).T
         mu = self.Y_mu_pred[name]
@@ -2037,18 +2076,17 @@ def _timedelta64_to_higher_unit(array):
         if transformed:
             return X, mu, lower, upper
 
-        X_pred = np.array([x.transformed for x in self.X_pred]).T
-        mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
-        lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
-        upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
+        mu = Serie(self.Y.detransform(mu, X), self.Y.transformers, transformed=mu)
+        lower = Serie(self.Y.detransform(lower, X), self.Y.transformers, transformed=lower)
+        upper = Serie(self.Y.detransform(upper, X), self.Y.transformers, transformed=upper)
         return X, mu, lower, upper
     
     def set_prediction_x(self, X):
         &#34;&#34;&#34;
-        Set the prediction range directly.
+        Set the prediction range directly for saved predictions. This will clear old predictions.
 
         Args:
-            X (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+            X (list, numpy.ndarray): Array of shape (n,) or (n,input_dims) used for predictions.
 
         Examples:
             &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
@@ -2073,16 +2111,15 @@ def _timedelta64_to_higher_unit(array):
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
-        Sets the prediction range. The interval is set with [start,end], with either &#39;n&#39; points or a
-        given &#39;step&#39; between the points.
+        Sets the prediction range. The interval is set as `[start,end]`, with either `n` points or a given step between the points.
 
         Args:
-            start (float, str, optional): Start of interval, defaults to the first observation.
-            end (float, str, optional): End of interval, defaults to the last observation.
-            n (int, optional): Number of points to generate in the interval.
-            step (float, str, optional): Spacing between points in the interval.
+            start (float, str): Start of interval, defaults to the first observation.
+            end (float, str): End of interval, defaults to the last observation.
+            n (int): Number of points to generate in the interval.
+            step (float, str): Spacing between points in the interval.
 
-            If neither &#39;step&#39; or &#39;n&#39; is passed, default number of points is 100.
+            If neither step or n is passed, default number of points is 100.
 
         Examples:
             &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
@@ -2093,7 +2130,7 @@ def _timedelta64_to_higher_unit(array):
         &#34;&#34;&#34;
         # TODO: accept multiple input dims and make sure dtype equals X
         if self.get_input_dims() != 1:
-            raise Exception(&#34;can only set prediction range on one dimensional input data&#34;)
+            raise ValueError(&#34;can only set prediction range on one dimensional input data&#34;)
 
         if start is None:
             start = [x[0] for x in self.X]
@@ -2137,7 +2174,7 @@ def _timedelta64_to_higher_unit(array):
 
     def get_nyquist_estimation(self):
         &#34;&#34;&#34;
-        Estimate nyquist frequency by taking 0.5/(minimum distance of points).
+        Estimate the Nyquist frequency by taking 0.5/(minimum distance of points).
 
         Returns:
             numpy.ndarray: Nyquist frequency array of shape (input_dims,).
@@ -2157,11 +2194,11 @@ def _timedelta64_to_higher_unit(array):
 
     def get_lombscargle_estimation(self, Q=1, n=10000):
         &#34;&#34;&#34;
-        Peak estimation using Lomb Scargle.
+        Peak estimation of the spectrum using Lomb-Scargle.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points to use for Lomb Scargle, defaults to 10000.
+            Q (int): Number of peaks to find.
+            n (int): Number of points to use for Lomb-Scargle.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -2181,7 +2218,7 @@ def _timedelta64_to_higher_unit(array):
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x, y = self.get_train_data(transformed=True)
+            x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
             freq = np.linspace(0, nyquist[i], n+1)[1:]
             psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, freq)
 
@@ -2210,11 +2247,11 @@ def _timedelta64_to_higher_unit(array):
 
     def get_bnse_estimation(self, Q=1, n=1000):
         &#34;&#34;&#34;
-        Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+        Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation).
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
+            Q (int): Number of peaks to find.
+            n (int): Number of points of the grid to evaluate frequencies.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -2234,7 +2271,7 @@ def _timedelta64_to_higher_unit(array):
 
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
-            x, y = self.get_train_data(transformed=True)
+            x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
             bnse = bse(x[:,i], y)
             bnse.set_freqspace(nyquist[i], dimension=n)
             bnse.train()
@@ -2249,24 +2286,24 @@ def _timedelta64_to_higher_unit(array):
                 positions = positions[:Q]
                 variances = variances[:Q]
 
-            n = len(amplitudes)
+            num = len(amplitudes)
             # division by 100 makes it similar to other estimators (emperically found)
-            A[:n,i] = np.sqrt(amplitudes) / 100  
-            B[:n,i] = positions
-            C[:n,i] = variances
+            A[:num,i] = np.sqrt(amplitudes) / 100
+            B[:num,i] = positions
+            C[:num,i] = variances
         return A, B, C
 
     def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
         &#34;&#34;&#34;
-        Peaks estimation using the Spectral Mixture kernel.
+        Peak estimation of the spectrum using the spectral mixture kernel.
 
         Args:
-            Q (int): Number of peaks to find, defaults to 1.
-            method (str, optional): Method of estimating SM kernels.
-            optimizer (str, optional): Optimization method for SM kernels.
-            iters (str, optional): Maximum iteration for SM kernels.
-            params (object, optional): Additional parameters for PyTorch optimizer.
-            plot (bool, optional): Show the PSD of the kernel after fitting.
+            Q (int): Number of peaks to find.
+            method (str): Method of estimating SM kernels.
+            optimizer (str): Optimization method for SM kernels.
+            iters (str): Maximum iteration for SM kernels.
+            params (object): Additional parameters for the PyTorch optimizer.
+            plot (bool): Show the PSD of the kernel after fitting.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -2308,11 +2345,11 @@ def _timedelta64_to_higher_unit(array):
         Plot the data including removed observations, latent function, and predictions.
 
         Args:
-            pred (str, optional): Specify model name to draw.
-            title (str, optional): Set the title of the plot.
-            ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            legend (boolean, optional): Display legend.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            pred (str): Specify model name to draw.
+            title (str): Set the title of the plot.
+            ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
+            legend (boolean): Display legend.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.axes.Axes
@@ -2322,9 +2359,9 @@ def _timedelta64_to_higher_unit(array):
         &#34;&#34;&#34;
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() &gt; 2:
-            raise Exception(&#34;cannot plot more than two input dimensions&#34;)
+            raise ValueError(&#34;cannot plot more than two input dimensions&#34;)
         if self.get_input_dims() == 2:
-            raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
+            raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
@@ -2341,7 +2378,9 @@ def _timedelta64_to_higher_unit(array):
                 #ax.plot(X_pred[:,0][idx], lower[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
                 #ax.plot(X_pred[:,0][idx], upper[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
 
-                label = &#39;Prediction &#39; + name
+                label = &#39;Prediction&#39;
+                if name is not None:
+                    label += &#39; &#39; + name
                 legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=label))
 
         if self.F is not None:
@@ -2370,8 +2409,7 @@ def _timedelta64_to_higher_unit(array):
         ax.plot(self.X[0][idx], Y[idx], &#39;k--&#39;, alpha=0.8)
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
 
-        x, _ = self.get_train_data()
-        _, y = self.get_train_data(transformed=transformed)
+        x, y = self.get_train_data(transformed=transformed)
         if 1000 &lt; x.shape[0]:
             ax.plot(x[:,0], y, &#39;k-&#39;)
             legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Training Points&#39;))
@@ -2405,17 +2443,17 @@ def _timedelta64_to_higher_unit(array):
             ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.7+0.3*legend_rows)/3.0), ncol=5)
         return ax
 
-    def plot_spectrum(self, title=None, method=&#39;lombscargle&#39;, ax=None, per=None, maxfreq=None, transformed=False):
+    def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=False):
         &#34;&#34;&#34;
         Plot the spectrum of the data.
 
         Args:
-            title (str, optional): Set the title of the plot.
-            method (str, optional): Set the method to get the spectrum: lombscargle or bnse.
-            ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-            per (str, float, numpy.timedelta64, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3D&#39;.
-            maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-            transformed (boolean, optional): Display transformed Y data as used for training.
+            title (str): Set the title of the plot.
+            method (str): Set the method to get the spectrum such as LS or BNSE.
+            ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
+            per (str, float, numpy.timedelta64): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3D&#39;.
+            maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.axes.Axes
@@ -2425,9 +2463,9 @@ def _timedelta64_to_higher_unit(array):
         &#34;&#34;&#34;
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() &gt; 2:
-            raise Exception(&#34;cannot plot more than two input dimensions&#34;)
+            raise ValueError(&#34;cannot plot more than two input dimensions&#34;)
         if self.get_input_dims() == 2:
-            raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
+            raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
@@ -2463,9 +2501,9 @@ def _timedelta64_to_higher_unit(array):
 
         X_freq = np.linspace(0.0, nyquist, 10001)[1:]
         Y_freq_err = []
-        if method == &#39;lombscargle&#39;:
+        if method.lower() == &#39;ls&#39;:
             Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq)
-        elif method == &#39;bnse&#39;:
+        elif method.lower() == &#39;bnse&#39;:
             bnse = bse(X, Y)
             bnse.set_freqspace(nyquist, 10001)
             bnse.train()
@@ -2520,46 +2558,38 @@ def _timedelta64_to_higher_unit(array):
 </code></dt>
 <dd>
 <section class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
-<p>For example, group daily data by week and take the mean.
-The duration can be set as a number which defined the intervals on the X axis,
-or by a string written in the duration format with:
-y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
-For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.</p>
+<p>For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format in case the X axis has data type <code>numpy.datetime64</code>. The duration format uses: Y=year, M=month, W=week, D=day, h=hour, m=minute, and s=second. For example, 3W1D means three weeks and one day, ie. 22 days, or 6M to mean six months.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>duration</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
 <dd>Duration along the X axis or as a string in the duration format.</dd>
-<dt><strong><code>f</code></strong> :&ensp;<code>function</code>, optional</dt>
-<dd>Function to use to reduce data, by default uses np.mean.</dd>
+<dt><strong><code>f</code></strong> :&ensp;<code>function</code></dt>
+<dd>Function to use to reduce data.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data.aggregate(5)
 
-&gt;&gt;&gt; data.aggregate('2w', f=np.sum)
+&gt;&gt;&gt; data.aggregate('2W', f=np.sum)
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L374-L408" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L386-L416" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def aggregate(self, duration, f=np.mean):
     &#34;&#34;&#34;
     Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
-    For example, group daily data by week and take the mean.
-    The duration can be set as a number which defined the intervals on the X axis,
-    or by a string written in the duration format with:
-    y=year, M=month, w=week, d=day, h=hour, m=minute, and s=second.
-    For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six months.
+    For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format in case the X axis has data type `numpy.datetime64`. The duration format uses: Y=year, M=month, W=week, D=day, h=hour, m=minute, and s=second. For example, 3W1D means three weeks and one day, ie. 22 days, or 6M to mean six months.
 
     Args:
         duration (float, str): Duration along the X axis or as a string in the duration format.
-        f (function, optional): Function to use to reduce data, by default uses np.mean.
+        f (function): Function to use to reduce data.
 
     Examples:
         &gt;&gt;&gt; data.aggregate(5)
 
-        &gt;&gt;&gt; data.aggregate(&#39;2w&#39;, f=np.sum)
+        &gt;&gt;&gt; data.aggregate(&#39;2W&#39;, f=np.sum)
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
         raise ValueError(&#34;can only aggregate on one dimensional input data&#34;)
@@ -2575,7 +2605,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
         Y[i] = f(self.Y[ind])
 
     self.X = [Serie(X, self.X[0].transformers)]
-    self.Y = Serie(Y, self.Y.transformers, np.array([x.transformed for x in self.X]).T)
+    self.Y = Serie(Y, self.Y.transformers, np.array([x for x in self.X]).T)
     self.mask = np.array([True] * len(self.X[0]))</code></pre>
 </details>
 </dd>
@@ -2587,7 +2617,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L770-L775" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L789-L794" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clear_predictions(self):
     &#34;&#34;&#34;
@@ -2601,7 +2631,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">copy</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Make a deep copy of Data.</p>
+<section class="desc"><p>Make a deep copy of <a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a>.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><a title="mogptk.data.Data" href="#mogptk.data.Data"><code>Data</code></a></dt>
@@ -2613,11 +2643,11 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L263-L273" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L256-L266" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
-    Make a deep copy of Data.
+    Make a deep copy of `Data`.
 
     Returns:
         mogptk.data.Data
@@ -2632,7 +2662,7 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">filter</span></span>(<span>self, start, end)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Filter the data range to be between start and end.</p>
+<section class="desc"><p>Filter the data range to be between <code>start</code> and <code>end</code> in the X axis.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
@@ -2648,11 +2678,11 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L349-L372" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L361-L384" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def filter(self, start, end):
     &#34;&#34;&#34;
-    Filter the data range to be between start and end.
+    Filter the data range to be between `start` and `end` in the X axis.
 
     Args:
         start (float, str): Start of interval.
@@ -2680,13 +2710,13 @@ For example, 3w1d means three weeks and one day, ie. 22 days, or 6M to mean six 
 <span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q=1, n=1000)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).</p>
+<section class="desc"><p>Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation).</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of peaks to find, defaults to 1.</dd>
+<dd>Number of peaks to find.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of points of the grid to evaluate frequencies, defaults to 1000.</dd>
+<dd>Number of points of the grid to evaluate frequencies.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -2698,15 +2728,15 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L852-L898" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L871-L917" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
     &#34;&#34;&#34;
-    Peaks estimation using BNSE (Bayesian Non-parametric Spectral Estimation).
+    Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation).
 
     Args:
-        Q (int): Number of peaks to find, defaults to 1.
-        n (int): Number of points of the grid to evaluate frequencies, defaults to 1000.
+        Q (int): Number of peaks to find.
+        n (int): Number of points of the grid to evaluate frequencies.
 
     Returns:
         numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -2726,7 +2756,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 
     nyquist = self.get_nyquist_estimation()
     for i in range(input_dims):
-        x, y = self.get_train_data(transformed=True)
+        x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
         bnse = bse(x[:,i], y)
         bnse.set_freqspace(nyquist[i], dimension=n)
         bnse.train()
@@ -2741,11 +2771,11 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
             positions = positions[:Q]
             variances = variances[:Q]
 
-        n = len(amplitudes)
+        num = len(amplitudes)
         # division by 100 makes it similar to other estimators (emperically found)
-        A[:n,i] = np.sqrt(amplitudes) / 100  
-        B[:n,i] = positions
-        C[:n,i] = variances
+        A[:num,i] = np.sqrt(amplitudes) / 100
+        B[:num,i] = positions
+        C[:num,i] = variances
     return A, B, C</code></pre>
 </details>
 </dd>
@@ -2756,36 +2786,36 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <section class="desc"><p>Returns all observations, train and test.</p>
 <h2 id="arguments">Arguments</h2>
 <dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: X data of shape (n,input_dims).
-numpy.ndarray: Y data of shape (n).</p>
+numpy.ndarray: Y data of shape (n,).</p>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; x, y = data.get_data()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L451-L467" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L459-L475" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
     Returns all observations, train and test.
 
     Arguments:
-        transformed (boolean, optional): Return transformed data.
+        transformed (boolean): Return transformed data.
 
     Returns:
         numpy.ndarray: X data of shape (n,input_dims).
-        numpy.ndarray: Y data of shape (n).
+        numpy.ndarray: Y data of shape (n,).
 
     Examples:
         &gt;&gt;&gt; x, y = data.get_data()
     &#34;&#34;&#34;
     if transformed:
-        return np.array([x.transformed for x in self.X]).T, self.Y.transformed
+        return np.array([x for x in self.X]).T, self.Y.transformed
     return np.array([x for x in self.X]).T, np.array(self.Y)</code></pre>
 </details>
 </dd>
@@ -2797,7 +2827,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>int</code></strong></dt>
-<dd>Input dimensions.</dd>
+<dd>Number of input dimensions.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data.get_input_dims()
@@ -2809,14 +2839,14 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L438-L449" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L446-L457" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
     Returns the number of input dimensions.
 
     Returns:
-        int: Input dimensions.
+        int: Number of input dimensions.
 
     Examples:
         &gt;&gt;&gt; data.get_input_dims()
@@ -2829,13 +2859,13 @@ numpy.ndarray: Y data of shape (n).</p>
 <span>def <span class="ident">get_lombscargle_estimation</span></span>(<span>self, Q=1, n=10000)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Peak estimation using Lomb Scargle.</p>
+<section class="desc"><p>Peak estimation of the spectrum using Lomb-Scargle.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of peaks to find, defaults to 1.</dd>
+<dd>Number of peaks to find.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of points to use for Lomb Scargle, defaults to 10000.</dd>
+<dd>Number of points to use for Lomb-Scargle.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -2847,15 +2877,15 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L799-L850" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L818-L869" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
-    Peak estimation using Lomb Scargle.
+    Peak estimation of the spectrum using Lomb-Scargle.
 
     Args:
-        Q (int): Number of peaks to find, defaults to 1.
-        n (int): Number of points to use for Lomb Scargle, defaults to 10000.
+        Q (int): Number of peaks to find.
+        n (int): Number of points to use for Lomb-Scargle.
 
     Returns:
         numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -2875,7 +2905,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 
     nyquist = self.get_nyquist_estimation()
     for i in range(input_dims):
-        x, y = self.get_train_data(transformed=True)
+        x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
         freq = np.linspace(0, nyquist[i], n+1)[1:]
         psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, freq)
 
@@ -2907,9 +2937,12 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <span>def <span class="ident">get_name</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Return the name.</p>
+<section class="desc"><p>Return the name of the channel.</p>
 <h2 id="returns">Returns</h2>
-<p>str.</p>
+<dl>
+<dt><code>str</code></dt>
+<dd>&nbsp;</dd>
+</dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data.get_name()
 'A'
@@ -2917,14 +2950,14 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L412-L423" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L420-L431" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_name(self):
     &#34;&#34;&#34;
-    Return the name.
+    Return the name of the channel.
 
     Returns:
-        str.
+        str
 
     Examples:
         &gt;&gt;&gt; data.get_name()
@@ -2937,7 +2970,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <span>def <span class="ident">get_nyquist_estimation</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Estimate nyquist frequency by taking 0.5/(minimum distance of points).</p>
+<section class="desc"><p>Estimate the Nyquist frequency by taking 0.5/(minimum distance of points).</p>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: Nyquist frequency array of shape (input_dims,).</p>
 <h2 id="examples">Examples</h2>
@@ -2946,11 +2979,11 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L779-L797" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L798-L816" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
-    Estimate nyquist frequency by taking 0.5/(minimum distance of points).
+    Estimate the Nyquist frequency by taking 0.5/(minimum distance of points).
 
     Returns:
         numpy.ndarray: Nyquist frequency array of shape (input_dims,).
@@ -2973,14 +3006,14 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <span>def <span class="ident">get_prediction</span></span>(<span>self, name, sigma=2.0, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the prediction of a given name with a normal variance of sigma.</p>
+<section class="desc"><p>Returns the prediction of a given name with a confidence interval of <code>sigma</code> times the standard deviation.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
-<dd>Name of the prediction, equals the name of the model that made the prediction.</dd>
-<dt><strong><code>sigma</code></strong> :&ensp;<code>float</code>, optional</dt>
-<dd>The uncertainty interval's number of standard deviations.</dd>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dd>Name of the model of the prediction.</dd>
+<dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
+<dd>The confidence interval's number of standard deviations.</dd>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -2994,16 +3027,16 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L652-L685" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L673-L705" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction(self, name, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
-    Returns the prediction of a given name with a normal variance of sigma.
+    Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
 
     Args:
-        name (str): Name of the prediction, equals the name of the model that made the prediction.
-        sigma (float, optional): The uncertainty interval&#39;s number of standard deviations.
-        transformed (boolean, optional): Return transformed data as used for training.
+        name (str): Name of the model of the prediction.
+        sigma (float): The confidence interval&#39;s number of standard deviations.
+        transformed (boolean): Return transformed data as used for training.
 
     Returns:
         numpy.ndarray: X prediction of shape (n,input_dims).
@@ -3015,7 +3048,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
         &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction(&#39;MOSM&#39;, sigma=1)
     &#34;&#34;&#34;
     if name not in self.Y_mu_pred:
-        raise Exception(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
+        raise ValueError(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
    
     X = np.array([x for x in self.X_pred]).T
     mu = self.Y_mu_pred[name]
@@ -3025,10 +3058,9 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
     if transformed:
         return X, mu, lower, upper
 
-    X_pred = np.array([x.transformed for x in self.X_pred]).T
-    mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
-    lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
-    upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
+    mu = Serie(self.Y.detransform(mu, X), self.Y.transformers, transformed=mu)
+    lower = Serie(self.Y.detransform(lower, X), self.Y.transformers, transformed=lower)
+    upper = Serie(self.Y.detransform(upper, X), self.Y.transformers, transformed=upper)
     return X, mu, lower, upper</code></pre>
 </details>
 </dd>
@@ -3036,26 +3068,40 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <span>def <span class="ident">get_prediction_names</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<section class="desc"><p>Returns the model names of the saved predictions.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>list</code></strong></dt>
+<dd>List of prediction names.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; data.get_prediction_names()
+['MOSM', 'CSM', 'SM-LMC', 'CONV']
+</code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L632-L633" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L648-L659" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_names(self):
+    &#34;&#34;&#34;
+    Returns the model names of the saved predictions.
+
+    Returns:
+        list: List of prediction names.
+
+    Examples:
+        &gt;&gt;&gt; data.get_prediction_names()
+        [&#39;MOSM&#39;, &#39;CSM&#39;, &#39;SM-LMC&#39;, &#39;CONV&#39;]
+    &#34;&#34;&#34;
     return self.Y_mu_pred.keys()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_prediction_x"><code class="name flex">
-<span>def <span class="ident">get_prediction_x</span></span>(<span>self, transformed=False)</span>
+<span>def <span class="ident">get_prediction_x</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Returns the prediction X range.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
-<dd>Return transformed data as used for training.</dd>
-</dl>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: X prediction of shape (n,input_dims).</p>
 <h2 id="examples">Examples</h2>
@@ -3064,14 +3110,11 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L635-L650" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L661-L671" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def get_prediction_x(self, transformed=False):
+<pre><code class="python">def get_prediction_x(self):
     &#34;&#34;&#34;
     Returns the prediction X range.
-
-    Args:
-        transformed (boolean, optional): Return transformed data as used for training.
 
     Returns:
         numpy.ndarray: X prediction of shape (n,input_dims).
@@ -3079,8 +3122,6 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
     Examples:
         &gt;&gt;&gt; x = data.get_prediction_x()
     &#34;&#34;&#34;
-    if transformed:
-        return np.array([x.transformed for x in self.X_pred]).T
     return np.array([x for x in self.X_pred]).T</code></pre>
 </details>
 </dd>
@@ -3088,20 +3129,20 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <span>def <span class="ident">get_sm_estimation</span></span>(<span>self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Peaks estimation using the Spectral Mixture kernel.</p>
+<section class="desc"><p>Peak estimation of the spectrum using the spectral mixture kernel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of peaks to find, defaults to 1.</dd>
-<dt><strong><code>method</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Number of peaks to find.</dd>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
 <dd>Method of estimating SM kernels.</dd>
-<dt><strong><code>optimizer</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>optimizer</code></strong> :&ensp;<code>str</code></dt>
 <dd>Optimization method for SM kernels.</dd>
-<dt><strong><code>iters</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>iters</code></strong> :&ensp;<code>str</code></dt>
 <dd>Maximum iteration for SM kernels.</dd>
-<dt><strong><code>params</code></strong> :&ensp;<code>object</code>, optional</dt>
-<dd>Additional parameters for PyTorch optimizer.</dd>
-<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dt><strong><code>params</code></strong> :&ensp;<code>object</code></dt>
+<dd>Additional parameters for the PyTorch optimizer.</dd>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code></dt>
 <dd>Show the PSD of the kernel after fitting.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -3114,19 +3155,19 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L900-L945" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L919-L964" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
     &#34;&#34;&#34;
-    Peaks estimation using the Spectral Mixture kernel.
+    Peak estimation of the spectrum using the spectral mixture kernel.
 
     Args:
-        Q (int): Number of peaks to find, defaults to 1.
-        method (str, optional): Method of estimating SM kernels.
-        optimizer (str, optional): Optimization method for SM kernels.
-        iters (str, optional): Maximum iteration for SM kernels.
-        params (object, optional): Additional parameters for PyTorch optimizer.
-        plot (bool, optional): Show the PSD of the kernel after fitting.
+        Q (int): Number of peaks to find.
+        method (str): Method of estimating SM kernels.
+        optimizer (str): Optimization method for SM kernels.
+        iters (str): Maximum iteration for SM kernels.
+        params (object): Additional parameters for the PyTorch optimizer.
+        plot (bool): Show the PSD of the kernel after fitting.
 
     Returns:
         numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -3168,40 +3209,48 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <span>def <span class="ident">get_test_data</span></span>(<span>self, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the observations used for testing.</p>
+<section class="desc"><p>Returns the observations used for testing which correspond to the removed points.</p>
 <h2 id="arguments">Arguments</h2>
 <dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: X data of shape (n,input_dims).
-numpy.ndarray: Y data of shape (n).</p>
+numpy.ndarray: Y data of shape (n,).</p>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; x, y = data.get_test_data()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L487-L503" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L495-L519" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
-    Returns the observations used for testing.
+    Returns the observations used for testing which correspond to the removed points.
 
     Arguments:
-        transformed (boolean, optional): Return transformed data.
+        transformed (boolean): Return transformed data.
 
     Returns:
         numpy.ndarray: X data of shape (n,input_dims).
-        numpy.ndarray: Y data of shape (n).
+        numpy.ndarray: Y data of shape (n,).
 
     Examples:
         &gt;&gt;&gt; x, y = data.get_test_data()
     &#34;&#34;&#34;
+    X = np.array([x[~self.mask] for x in self.X]).T
+    if self.F is not None:
+        if X.shape[0] == 0:
+            X, _ = self.get_data()
+        Y = self.F(X)
+        if transformed:
+            Y = self.Y.transform(Y, X)
+        return X, Y
     if transformed:
-        return np.array([x.transformed[~self.mask] for x in self.X]).T, self.Y.transformed[~self.mask]
-    return np.array([x[~self.mask] for x in self.X]).T, np.array(self.Y[~self.mask])</code></pre>
+        return X, self.Y.transformed[~self.mask]
+    return X, np.array(self.Y[~self.mask])</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_train_data"><code class="name flex">
@@ -3211,36 +3260,36 @@ numpy.ndarray: Y data of shape (n).</p>
 <section class="desc"><p>Returns the observations used for training.</p>
 <h2 id="arguments">Arguments</h2>
 <dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>numpy.ndarray: X data of shape (n,input_dims).
-numpy.ndarray: Y data of shape (n).</p>
+numpy.ndarray: Y data of shape (n,).</p>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; x, y = data.get_train_data()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L469-L485" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L477-L493" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
     Returns the observations used for training.
 
     Arguments:
-        transformed (boolean, optional): Return transformed data.
+        transformed (boolean): Return transformed data.
 
     Returns:
         numpy.ndarray: X data of shape (n,input_dims).
-        numpy.ndarray: Y data of shape (n).
+        numpy.ndarray: Y data of shape (n,).
 
     Examples:
         &gt;&gt;&gt; x, y = data.get_train_data()
     &#34;&#34;&#34;
     if transformed:
-        return np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
+        return np.array([x[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
     return np.array([x[self.mask] for x in self.X]).T, np.array(self.Y[self.mask])</code></pre>
 </details>
 </dd>
@@ -3248,7 +3297,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <span>def <span class="ident">has_test_data</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns True if observations have been removed using the remove_* methods.</p>
+<section class="desc"><p>Returns True if observations have been removed using the <code>remove_*</code> methods.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>boolean</code></dt>
@@ -3264,11 +3313,11 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L425-L436" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L433-L444" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def has_test_data(self):
     &#34;&#34;&#34;
-    Returns True if observations have been removed using the remove_* methods.
+    Returns True if observations have been removed using the `remove_*` methods.
 
     Returns:
         boolean
@@ -3287,15 +3336,15 @@ numpy.ndarray: Y data of shape (n).</p>
 <section class="desc"><p>Plot the data including removed observations, latent function, and predictions.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>pred</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>pred</code></strong> :&ensp;<code>str</code></dt>
 <dd>Specify model name to draw.</dd>
-<dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
 <dd>Set the title of the plot.</dd>
-<dt><strong><code>ax</code></strong> :&ensp;<code>matplotlib.axes.Axes</code>, optional</dt>
+<dt><strong><code>ax</code></strong> :&ensp;<code>matplotlib.axes.Axes</code></dt>
 <dd>Draw to this axes, otherwise draw to the current axes.</dd>
-<dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Display legend.</dd>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Display transformed Y data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -3309,18 +3358,18 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L947-L1047" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L966-L1067" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, pred=None, title=None, ax=None, legend=True, transformed=False):
     &#34;&#34;&#34;
     Plot the data including removed observations, latent function, and predictions.
 
     Args:
-        pred (str, optional): Specify model name to draw.
-        title (str, optional): Set the title of the plot.
-        ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-        legend (boolean, optional): Display legend.
-        transformed (boolean, optional): Display transformed Y data as used for training.
+        pred (str): Specify model name to draw.
+        title (str): Set the title of the plot.
+        ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
+        legend (boolean): Display legend.
+        transformed (boolean): Display transformed Y data as used for training.
 
     Returns:
         matplotlib.axes.Axes
@@ -3330,9 +3379,9 @@ numpy.ndarray: Y data of shape (n).</p>
     &#34;&#34;&#34;
     # TODO: ability to plot conditional or marginal distribution to reduce input dims
     if self.get_input_dims() &gt; 2:
-        raise Exception(&#34;cannot plot more than two input dimensions&#34;)
+        raise ValueError(&#34;cannot plot more than two input dimensions&#34;)
     if self.get_input_dims() == 2:
-        raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
+        raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
     if ax is None:
         _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
@@ -3349,7 +3398,9 @@ numpy.ndarray: Y data of shape (n).</p>
             #ax.plot(X_pred[:,0][idx], lower[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
             #ax.plot(X_pred[:,0][idx], upper[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
 
-            label = &#39;Prediction &#39; + name
+            label = &#39;Prediction&#39;
+            if name is not None:
+                label += &#39; &#39; + name
             legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=label))
 
     if self.F is not None:
@@ -3378,8 +3429,7 @@ numpy.ndarray: Y data of shape (n).</p>
     ax.plot(self.X[0][idx], Y[idx], &#39;k--&#39;, alpha=0.8)
     legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
 
-    x, _ = self.get_train_data()
-    _, y = self.get_train_data(transformed=transformed)
+    x, y = self.get_train_data(transformed=transformed)
     if 1000 &lt; x.shape[0]:
         ax.plot(x[:,0], y, &#39;k-&#39;)
         legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Training Points&#39;))
@@ -3415,23 +3465,23 @@ numpy.ndarray: Y data of shape (n).</p>
 </details>
 </dd>
 <dt id="mogptk.data.Data.plot_spectrum"><code class="name flex">
-<span>def <span class="ident">plot_spectrum</span></span>(<span>self, title=None, method='lombscargle', ax=None, per=None, maxfreq=None, transformed=False)</span>
+<span>def <span class="ident">plot_spectrum</span></span>(<span>self, title=None, method='ls', ax=None, per=None, maxfreq=None, transformed=False)</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Plot the spectrum of the data.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
 <dd>Set the title of the plot.</dd>
-<dt><strong><code>method</code></strong> :&ensp;<code>str</code>, optional</dt>
-<dd>Set the method to get the spectrum: lombscargle or bnse.</dd>
-<dt><strong><code>ax</code></strong> :&ensp;<code>matplotlib.axes.Axes</code>, optional</dt>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
+<dd>Set the method to get the spectrum such as LS or BNSE.</dd>
+<dt><strong><code>ax</code></strong> :&ensp;<code>matplotlib.axes.Axes</code></dt>
 <dd>Draw to this axes, otherwise draw to the current axes.</dd>
-<dt><strong><code>per</code></strong> :&ensp;<code>str</code>, <code>float</code>, <code>numpy.timedelta64</code>, optional</dt>
+<dt><strong><code>per</code></strong> :&ensp;<code>str</code>, <code>float</code>, <code>numpy.timedelta64</code></dt>
 <dd>Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.</dd>
-<dt><strong><code>maxfreq</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dt><strong><code>maxfreq</code></strong> :&ensp;<code>float</code></dt>
 <dd>Maximum frequency to plot, otherwise the Nyquist frequency is used.</dd>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code>, optional</dt>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Display transformed Y data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -3445,19 +3495,19 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L1049-L1132" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L1069-L1152" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_spectrum(self, title=None, method=&#39;lombscargle&#39;, ax=None, per=None, maxfreq=None, transformed=False):
+<pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=False):
     &#34;&#34;&#34;
     Plot the spectrum of the data.
 
     Args:
-        title (str, optional): Set the title of the plot.
-        method (str, optional): Set the method to get the spectrum: lombscargle or bnse.
-        ax (matplotlib.axes.Axes, optional): Draw to this axes, otherwise draw to the current axes.
-        per (str, float, numpy.timedelta64, optional): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3D&#39;.
-        maxfreq (float, optional): Maximum frequency to plot, otherwise the Nyquist frequency is used.
-        transformed (boolean, optional): Display transformed Y data as used for training.
+        title (str): Set the title of the plot.
+        method (str): Set the method to get the spectrum such as LS or BNSE.
+        ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
+        per (str, float, numpy.timedelta64): Set the scale of the X axis depending on the formatter used, eg. per=5, per=&#39;day&#39;, or per=&#39;3D&#39;.
+        maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+        transformed (boolean): Display transformed Y data as used for training.
 
     Returns:
         matplotlib.axes.Axes
@@ -3467,9 +3517,9 @@ numpy.ndarray: Y data of shape (n).</p>
     &#34;&#34;&#34;
     # TODO: ability to plot conditional or marginal distribution to reduce input dims
     if self.get_input_dims() &gt; 2:
-        raise Exception(&#34;cannot plot more than two input dimensions&#34;)
+        raise ValueError(&#34;cannot plot more than two input dimensions&#34;)
     if self.get_input_dims() == 2:
-        raise Exception(&#34;two dimensional input data not yet implemented&#34;) # TODO
+        raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
     if ax is None:
         _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
@@ -3505,9 +3555,9 @@ numpy.ndarray: Y data of shape (n).</p>
 
     X_freq = np.linspace(0.0, nyquist, 10001)[1:]
     Y_freq_err = []
-    if method == &#39;lombscargle&#39;:
+    if method.lower() == &#39;ls&#39;:
         Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq)
-    elif method == &#39;bnse&#39;:
+    elif method.lower() == &#39;bnse&#39;:
         bnse = bse(X, Y)
         bnse.set_freqspace(nyquist, 10001)
         bnse.train()
@@ -3539,18 +3589,18 @@ numpy.ndarray: Y data of shape (n).</p>
 <dd>
 <section class="desc"><p>Removes observations of given index</p>
 <h2 id="args">Args</h2>
-<p>index(array-like): Array of indexes of the data to remove.</p></section>
+<p>index(list, numpy.ndarray): Array of indexes of the data to remove.</p></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L616-L628" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L632-L644" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_index(self, index):
     &#34;&#34;&#34;
     Removes observations of given index
 
     Args:
-        index(array-like): Array of indexes of the data to remove.
+        index(list, numpy.ndarray): Array of indexes of the data to remove.
     &#34;&#34;&#34;
     if isinstance(index, list):
         index = np.array(index)
@@ -3580,7 +3630,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L583-L614" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L599-L630" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_random_ranges(self, n, duration):
     &#34;&#34;&#34;
@@ -3596,14 +3646,14 @@ numpy.ndarray: Y data of shape (n).</p>
         &gt;&gt;&gt; data.remove_random_ranges(3, &#39;1d&#39;) # remove three ranges that are 1 day wide
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
-        raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+        raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
     if n &lt; 1:
         return
 
     delta = _parse_delta(duration)
     m = (np.max(self.X[0])-np.min(self.X[0])) - n*delta
     if m &lt;= 0:
-        raise Exception(&#34;no data left after removing ranges&#34;)
+        raise ValueError(&#34;no data left after removing ranges&#34;)
 
     locs = self.X[0] &lt;= (np.max(self.X[0])-delta)
     locs[sum(locs)] = True # make sure the last data point can be deleted
@@ -3620,12 +3670,12 @@ numpy.ndarray: Y data of shape (n).</p>
 <span>def <span class="ident">remove_randomly</span></span>(<span>self, n=None, pct=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Removes observations randomly on the whole range. Either 'n' observations are removed, or a percentage of the observations.</p>
+<section class="desc"><p>Removes observations randomly on the whole range. Either <code>n</code> observations are removed, or a percentage of the observations.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>n</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of observations to remove randomly.</dd>
-<dt><strong><code>pct</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dt><strong><code>pct</code></strong> :&ensp;<code>float</code></dt>
 <dd>Percentage in interval [0,1] of observations to remove randomly.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
@@ -3636,15 +3686,15 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L507-L527" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L523-L543" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_randomly(self, n=None, pct=None):
     &#34;&#34;&#34;
-    Removes observations randomly on the whole range. Either &#39;n&#39; observations are removed, or a percentage of the observations.
+    Removes observations randomly on the whole range. Either `n` observations are removed, or a percentage of the observations.
 
     Args:
-        n (int, optional): Number of observations to remove randomly.
-        pct (float, optional): Percentage in interval [0,1] of observations to remove randomly.
+        n (int): Number of observations to remove randomly.
+        pct (float): Percentage in interval [0,1] of observations to remove randomly.
 
     Examples:
         &gt;&gt;&gt; data.remove_randomly(50) # remove 50 observations
@@ -3665,13 +3715,13 @@ numpy.ndarray: Y data of shape (n).</p>
 <span>def <span class="ident">remove_range</span></span>(<span>self, start=None, end=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Removes observations in the interval [start,end].</p>
+<section class="desc"><p>Removes observations in the interval <code>[start,end]</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code>, optional</dt>
-<dd>Start of interval. Defaults to first value in observations.</dd>
-<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>str</code>, optional</dt>
-<dd>End of interval. Defaults to last value in observations.</dd>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
+<dd>Start of interval. Defaults to the first value in observations.</dd>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
+<dd>End of interval. Defaults to the last value in observations.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -3683,15 +3733,15 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L529-L557" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L545-L573" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_range(self, start=None, end=None):
     &#34;&#34;&#34;
-    Removes observations in the interval [start,end].
+    Removes observations in the interval `[start,end]`.
     
     Args:
-        start (float, str, optional): Start of interval. Defaults to first value in observations.
-        end (float, str, optional): End of interval. Defaults to last value in observations.
+        start (float, str): Start of interval. Defaults to the first value in observations.
+        end (float, str): End of interval. Defaults to the last value in observations.
 
     Examples:
         &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
@@ -3701,7 +3751,7 @@ numpy.ndarray: Y data of shape (n).</p>
         &gt;&gt;&gt; data.remove_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
-        raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+        raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
 
     if start is None:
         start = np.min(self.X[0])
@@ -3720,7 +3770,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <span>def <span class="ident">remove_relative_range</span></span>(<span>self, start=0.0, end=1.0)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Removes observations between start and end as a percentage of the number of observations. So '0' is the first observation, '0.5' is the middle observation, and '1' is the last observation.</p>
+<section class="desc"><p>Removes observations between <code>start</code> and <code>end</code> as a percentage of the number of observations. So <code>0</code> is the first observation, <code>0.5</code> is the middle observation, and <code>1</code> is the last observation.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>start</code></strong> :&ensp;<code>float</code></dt>
@@ -3731,18 +3781,18 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L559-L581" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L575-L597" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_relative_range(self, start=0.0, end=1.0):
     &#34;&#34;&#34;
-    Removes observations between start and end as a percentage of the number of observations. So &#39;0&#39; is the first observation, &#39;0.5&#39; is the middle observation, and &#39;1&#39; is the last observation.
+    Removes observations between `start` and `end` as a percentage of the number of observations. So `0` is the first observation, `0.5` is the middle observation, and `1` is the last observation.
 
     Args:
         start (float): Start percentage in interval [0,1].
         end (float): End percentage in interval [0,1].
     &#34;&#34;&#34;
     if self.get_input_dims() != 1:
-        raise Exception(&#34;can only remove ranges on one dimensional input data&#34;)
+        raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
 
     start = self._normalize_val(start)
     end = self._normalize_val(end)
@@ -3758,16 +3808,54 @@ numpy.ndarray: Y data of shape (n).</p>
     self.removed_ranges[0].append([start[0], end[0]])</code></pre>
 </details>
 </dd>
+<dt id="mogptk.data.Data.rescale_x"><code class="name flex">
+<span>def <span class="ident">rescale_x</span></span>(<span>self, upper=1000.0)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Rescale the X axis so that it is in the interval [0.0,upper]. This helps training most kernels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>upper</code></strong> :&ensp;<code>float</code></dt>
+<dd>Upper end of the interval.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code>&gt;&gt;&gt; data.rescale_x()
+</code></pre></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L318-L335" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def rescale_x(self, upper=1000.0):
+    &#34;&#34;&#34;
+    Rescale the X axis so that it is in the interval [0.0,upper]. This helps training most kernels.
+
+    Args:
+        upper (float): Upper end of the interval.
+
+    Examples:
+        &gt;&gt;&gt; data.rescale_x()
+    &#34;&#34;&#34;
+
+    for i in range(self.get_input_dims()):
+        X = self.X[i].transformed
+        xmin = np.min(X)
+        xmax = np.max(X)
+        t = TransformLinear(xmin, (xmax-xmin)/upper)
+        t.set_data(X)
+        self.X[i].apply(t)</code></pre>
+</details>
+</dd>
 <dt id="mogptk.data.Data.set_function"><code class="name flex">
 <span>def <span class="ident">set_function</span></span>(<span>self, f)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Set a (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.</p>
-<p>The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.</p>
+<section class="desc"><p>Set the (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.</p>
+<p>The function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong> :&ensp;<code>function</code></dt>
-<dd>Function taking x with shape (n,input_dims) and returning shape (n) as y.</dd>
+<dd>Function taking X with shape (n,input_dims) and returning shape (n,) as Y.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data.set_function(lambda x: np.sin(3*x[:,0])
@@ -3775,16 +3863,16 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L310-L323" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L303-L316" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_function(self, f):
     &#34;&#34;&#34;
-    Set a (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
+    Set the (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
 
-    The function should take one argument x with shape (n,input_dims) and return y with shape (n). If your data has only one input dimension, you can use x[:,0] to select only the first (and only) input dimension.
+    The function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
 
     Args:
-        f (function): Function taking x with shape (n,input_dims) and returning shape (n) as y.
+        f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
 
     Examples:
         &gt;&gt;&gt; data.set_function(lambda x: np.sin(3*x[:,0])
@@ -3797,7 +3885,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <span>def <span class="ident">set_labels</span></span>(<span>self, x_labels, y_label)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Set axes labels for plots.</p>
+<section class="desc"><p>Set axis labels for plots.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x_labels</code></strong> :&ensp;<code>str</code>, <code>list</code> of <code>str</code></dt>
@@ -3811,11 +3899,11 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L287-L308" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L280-L301" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_labels(self, x_labels, y_label):
     &#34;&#34;&#34;
-    Set axes labels for plots.
+    Set axis labels for plots.
 
     Args:
         x_labels (str, list of str): X data names for each input dimension.
@@ -3841,7 +3929,7 @@ numpy.ndarray: Y data of shape (n).</p>
 <span>def <span class="ident">set_name</span></span>(<span>self, name)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Set name for data.</p>
+<section class="desc"><p>Set name for data channel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -3853,11 +3941,11 @@ numpy.ndarray: Y data of shape (n).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L275-L285" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L268-L278" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_name(self, name):
     &#34;&#34;&#34;
-    Set name for data.
+    Set name for data channel.
 
     Args:
         name (str): Name of data.
@@ -3872,20 +3960,19 @@ numpy.ndarray: Y data of shape (n).</p>
 <span>def <span class="ident">set_prediction_range</span></span>(<span>self, start=None, end=None, n=None, step=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Sets the prediction range. The interval is set with [start,end], with either 'n' points or a
-given 'step' between the points.</p>
+<section class="desc"><p>Sets the prediction range. The interval is set as <code>[start,end]</code>, with either <code>n</code> points or a given step between the points.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code>, optional</dt>
+<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
 <dd>Start of interval, defaults to the first observation.</dd>
-<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>str</code>, optional</dt>
+<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
 <dd>End of interval, defaults to the last observation.</dd>
-<dt><strong><code>n</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of points to generate in the interval.</dd>
-<dt><strong><code>step</code></strong> :&ensp;<code>float</code>, <code>str</code>, optional</dt>
+<dt><strong><code>step</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
 <dd>Spacing between points in the interval.</dd>
 </dl>
-<p>If neither 'step' or 'n' is passed, default number of points is 100.</p>
+<p>If neither step or n is passed, default number of points is 100.</p>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
 &gt;&gt;&gt; data.set_prediction_range(3, 8, 200)
@@ -3896,20 +3983,19 @@ given 'step' between the points.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L715-L768" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L735-L787" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start=None, end=None, n=None, step=None):
     &#34;&#34;&#34;
-    Sets the prediction range. The interval is set with [start,end], with either &#39;n&#39; points or a
-    given &#39;step&#39; between the points.
+    Sets the prediction range. The interval is set as `[start,end]`, with either `n` points or a given step between the points.
 
     Args:
-        start (float, str, optional): Start of interval, defaults to the first observation.
-        end (float, str, optional): End of interval, defaults to the last observation.
-        n (int, optional): Number of points to generate in the interval.
-        step (float, str, optional): Spacing between points in the interval.
+        start (float, str): Start of interval, defaults to the first observation.
+        end (float, str): End of interval, defaults to the last observation.
+        n (int): Number of points to generate in the interval.
+        step (float, str): Spacing between points in the interval.
 
-        If neither &#39;step&#39; or &#39;n&#39; is passed, default number of points is 100.
+        If neither step or n is passed, default number of points is 100.
 
     Examples:
         &gt;&gt;&gt; data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
@@ -3920,7 +4006,7 @@ given 'step' between the points.</p>
     &#34;&#34;&#34;
     # TODO: accept multiple input dims and make sure dtype equals X
     if self.get_input_dims() != 1:
-        raise Exception(&#34;can only set prediction range on one dimensional input data&#34;)
+        raise ValueError(&#34;can only set prediction range on one dimensional input data&#34;)
 
     if start is None:
         start = [x[0] for x in self.X]
@@ -3958,11 +4044,11 @@ given 'step' between the points.</p>
 <span>def <span class="ident">set_prediction_x</span></span>(<span>self, X)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Set the prediction range directly.</p>
+<section class="desc"><p>Set the prediction range directly for saved predictions. This will clear old predictions.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>X</code></strong> :&ensp;<code>list</code>, <code>numpy.ndarray</code></dt>
-<dd>Array of shape (n) or (n,input_dims) with input values to predict at.</dd>
+<dd>Array of shape (n,) or (n,input_dims) used for predictions.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
@@ -3970,14 +4056,14 @@ given 'step' between the points.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L687-L713" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L707-L733" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_x(self, X):
     &#34;&#34;&#34;
-    Set the prediction range directly.
+    Set the prediction range directly for saved predictions. This will clear old predictions.
 
     Args:
-        X (list, numpy.ndarray): Array of shape (n) or (n,input_dims) with input values to predict at.
+        X (list, numpy.ndarray): Array of shape (n,) or (n,input_dims) used for predictions.
 
     Examples:
         &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
@@ -4005,7 +4091,7 @@ given 'step' between the points.</p>
 <span>def <span class="ident">transform</span></span>(<span>self, transformer)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Transform the Y axis data by using one of the provided transformers, such as <code>TransformDetrend</code>, <code>TransformLinear</code>, <code>TransformLog</code>, <code>TransformNormalize</code>, <code>TransformWhiten</code>, &hellip;</p>
+<section class="desc"><p>Transform the Y axis data by using one of the provided transformers, such as <code>TransformDetrend</code>, <code>TransformLinear</code>, <code>TransformLog</code>, <code>TransformNormalize</code>, <code>TransformStandard</code>, etc.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>transformer</code></strong> :&ensp;<code>obj</code></dt>
@@ -4016,16 +4102,16 @@ given 'step' between the points.</p>
 &gt;&gt;&gt; data.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
 &gt;&gt;&gt; data.transform(mogptk.TransformLog)                      # log transform the data
 &gt;&gt;&gt; data.transform(mogptk.TransformNormalize)                # transform to [-1,1]
-&gt;&gt;&gt; data.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
+&gt;&gt;&gt; data.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/data.py#L325-L347" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/data.py#L337-L359" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;
-    Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformWhiten`, ...
+    Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformStandard`, etc.
 
     Args:
         transformer (obj): Transformer object derived from TransformBase.
@@ -4035,7 +4121,7 @@ given 'step' between the points.</p>
         &gt;&gt;&gt; data.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
         &gt;&gt;&gt; data.transform(mogptk.TransformLog)                      # log transform the data
         &gt;&gt;&gt; data.transform(mogptk.TransformNormalize)                # transform to [-1,1]
-        &gt;&gt;&gt; data.transform(mogptk.TransformWhiten)                   # transform to mean=0, var=1
+        &gt;&gt;&gt; data.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
     &#34;&#34;&#34;
 
     t = transformer
@@ -4045,7 +4131,7 @@ given 'step' between the points.</p>
         t = copy.deepcopy(t)
     t.set_data(self)
 
-    self.Y.apply(t, np.array([x.transformed for x in self.X]).T)</code></pre>
+    self.Y.apply(t, np.array([x for x in self.X]).T)</code></pre>
 </details>
 </dd>
 </dl>
@@ -4098,6 +4184,7 @@ given 'step' between the points.</p>
 <li><code><a title="mogptk.data.Data.remove_randomly" href="#mogptk.data.Data.remove_randomly">remove_randomly</a></code></li>
 <li><code><a title="mogptk.data.Data.remove_range" href="#mogptk.data.Data.remove_range">remove_range</a></code></li>
 <li><code><a title="mogptk.data.Data.remove_relative_range" href="#mogptk.data.Data.remove_relative_range">remove_relative_range</a></code></li>
+<li><code><a title="mogptk.data.Data.rescale_x" href="#mogptk.data.Data.rescale_x">rescale_x</a></code></li>
 <li><code><a title="mogptk.data.Data.set_function" href="#mogptk.data.Data.set_function">set_function</a></code></li>
 <li><code><a title="mogptk.data.Data.set_labels" href="#mogptk.data.Data.set_labels">set_labels</a></code></li>
 <li><code><a title="mogptk.data.Data.set_name" href="#mogptk.data.Data.set_name">set_name</a></code></li>

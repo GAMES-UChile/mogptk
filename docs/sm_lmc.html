@@ -25,30 +25,29 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/sm_lmc.py#L0-L128" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/sm_lmc.py#L0-L122" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
-from .config import logger
 from .dataset import DataSet
-from .model import Model, Exact
+from .model import Model, Exact, logger
 from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
 
 class SM_LMC(Model):
     &#34;&#34;&#34;
-    Spectral Mixture Linear Model of Coregionalization kernel with Q components and Rq latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
+    Spectral Mixture Linear Model of Coregionalization kernel with `Q` components and `Rq` latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
 
     Args:
-        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
-        Q (int, optional): Number of components.
-        Rq (int, optional): Number of subcomponents.
-        model: Gaussian Process model to use, such as mogptk.Exact.
-        name (str, optional): Name of the model.
+        dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
+        Q (int): Number of components.
+        Rq (int): Number of subcomponents.
+        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        name (str): Name of the model.
 
     Attributes:
-        dataset: The associated mogptk.DataSet.
-        model: The mogptk.kernels.Model.
-        kernel: The mogptk.kernels.Kernel.
+        dataset: The associated mogptk.dataset.DataSet.
+        model: The mogptk.kernels.model.Model.
+        kernel: The mogptk.kernels.kernel.Kernel.
 
     Examples:
 
@@ -72,6 +71,7 @@ class SM_LMC(Model):
     def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name=&#34;SM-LMC&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
+        dataset.rescale_x()
 
         spectral = SpectralKernel(dataset.get_input_dims()[0])
         spectral.weight.trainable = False
@@ -82,34 +82,28 @@ class SM_LMC(Model):
             Q=Q,
             Rq=Rq)
 
-        super(SM_LMC, self).__init__(dataset, kernel, model, name)
+        super(SM_LMC, self).__init__(dataset, kernel, model, name=name)
         self.Q = Q
         self.Rq = Rq
-        if issubclass(type(model), Exact):
-            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
         for q in range(Q):
             self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
     
     def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
         &#34;&#34;&#34;
-        Initialize kernel parameters.
+        Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
-        The initialization can be done in two ways, the first by estimating the PSD via 
-        BNSE (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum,
-        the peaks position, magnitude and width initialize the mean, magnitude and variance
-        of the kernel respectively.
-        The second way is by fitting independent Gaussian process for each channel, each one
-        with SM kernel, using the fitted parameters for initial values of the multioutput kernel.
+        - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak&#39;s position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
+        - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
+        - SM fits independent Gaussian processes for each channel, each one with a spectral mixture kernel, and uses the fitted parameters as initial values for the multi-output kernel.
 
-        In all cases the noise is initialized with 1/30 of the variance 
-        of each channel.
+        In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Args:
-            method (str, optional): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str, optional): Parameter initialization strategy for SM initialization.
-            sm_method (str, optional): Optimization method for SM initialization.
-            sm_iters (str, optional): Number of iterations for SM initialization.
-            sm_params (object, optional): Additional parameters for PyTorch optimizer.
+            method (str): Method of estimation, such as BNSE, LS, or SM.
+            sm_init (str): Parameter initialization strategy for SM initialization.
+            sm_method (str): Optimization method for SM initialization.
+            sm_iters (str): Number of iterations for SM initialization.
+            sm_params (object): Additional parameters for PyTorch optimizer.
             sm_plot (bool): Show the PSD of the kernel after fitting SM.
         &#34;&#34;&#34;
         
@@ -172,28 +166,28 @@ class SM_LMC(Model):
 <span>(</span><span>dataset, Q=1, Rq=1, model=&lt;mogptk.model.Exact object&gt;, name='SM-LMC')</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Spectral Mixture Linear Model of Coregionalization kernel with Q components and Rq latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.</p>
+<section class="desc"><p>Spectral Mixture Linear Model of Coregionalization kernel with <code>Q</code> components and <code>Rq</code> latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
-<dd>DataSet object of data for all channels.</dd>
-<dt><strong><code>Q</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd><code>DataSet</code> object of data for all channels.</dd>
+<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of components.</dd>
-<dt><strong><code>Rq</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dt><strong><code>Rq</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of subcomponents.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>Gaussian Process model to use, such as mogptk.Exact.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Gaussian process model to use, such as <a title="mogptk.model.Exact" href="model.html#mogptk.model.Exact"><code>Exact</code></a>.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
 </dl>
 <h2 id="attributes">Attributes</h2>
 <dl>
 <dt><strong><code>dataset</code></strong></dt>
-<dd>The associated mogptk.DataSet.</dd>
+<dd>The associated mogptk.dataset.DataSet.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>The mogptk.kernels.Model.</dd>
+<dd>The mogptk.kernels.model.Model.</dd>
 <dt><strong><code>kernel</code></strong></dt>
-<dd>The mogptk.kernels.Kernel.</dd>
+<dd>The mogptk.kernels.kernel.Kernel.</dd>
 </dl>
 <p>Examples:</p>
 <pre><code>&gt;&gt;&gt; import numpy as np
@@ -212,34 +206,40 @@ class SM_LMC(Model):
 </code></pre>
 <p>[1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
 [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997</p>
-<p>Base class for Multi-Output Gaussian process models. See subclasses for instantiation.</p>
+<p>Model is the base class for multi-output Gaussian process models.</p>
 <h2 id="args_1">Args</h2>
 <dl>
 <dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a>, <a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a></dt>
-<dd>DataSet with Data objects for all the channels. When a (list or dict of) Data object is passed, it will automatically be converted to a DataSet.</dd>
+<dd><code>DataSet</code> with <code>Data</code> objects for all the channels. When a (list or dict of) <code>Data</code> object is passed, it will automatically be converted to a <code>DataSet</code>.</dd>
+<dt><strong><code>kernel</code></strong> :&ensp;<a title="mogptk.kernels.kernel.Kernel" href="kernels/kernel.html#mogptk.kernels.kernel.Kernel"><code>Kernel</code></a></dt>
+<dd>The kernel class.</dd>
+<dt><strong><code>model</code></strong></dt>
+<dd>Gaussian process model to use, such as <a title="mogptk.model.Exact" href="model.html#mogptk.model.Exact"><code>Exact</code></a>.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<a title="mogptk.kernels.mean.Mean" href="kernels/mean.html#mogptk.kernels.mean.Mean"><code>Mean</code></a></dt>
+<dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
 </dl></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/sm_lmc.py#L8-L129" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/sm_lmc.py#L7-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SM_LMC(Model):
     &#34;&#34;&#34;
-    Spectral Mixture Linear Model of Coregionalization kernel with Q components and Rq latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use init_parameters() to initialize the parameters to reasonable values for the current dataset.
+    Spectral Mixture Linear Model of Coregionalization kernel with `Q` components and `Rq` latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
 
     Args:
-        dataset (mogptk.dataset.DataSet): DataSet object of data for all channels.
-        Q (int, optional): Number of components.
-        Rq (int, optional): Number of subcomponents.
-        model: Gaussian Process model to use, such as mogptk.Exact.
-        name (str, optional): Name of the model.
+        dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
+        Q (int): Number of components.
+        Rq (int): Number of subcomponents.
+        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        name (str): Name of the model.
 
     Attributes:
-        dataset: The associated mogptk.DataSet.
-        model: The mogptk.kernels.Model.
-        kernel: The mogptk.kernels.Kernel.
+        dataset: The associated mogptk.dataset.DataSet.
+        model: The mogptk.kernels.model.Model.
+        kernel: The mogptk.kernels.kernel.Kernel.
 
     Examples:
 
@@ -263,6 +263,7 @@ class SM_LMC(Model):
     def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name=&#34;SM-LMC&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
+        dataset.rescale_x()
 
         spectral = SpectralKernel(dataset.get_input_dims()[0])
         spectral.weight.trainable = False
@@ -273,34 +274,28 @@ class SM_LMC(Model):
             Q=Q,
             Rq=Rq)
 
-        super(SM_LMC, self).__init__(dataset, kernel, model, name)
+        super(SM_LMC, self).__init__(dataset, kernel, model, name=name)
         self.Q = Q
         self.Rq = Rq
-        if issubclass(type(model), Exact):
-            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
         for q in range(Q):
             self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
     
     def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
         &#34;&#34;&#34;
-        Initialize kernel parameters.
+        Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
-        The initialization can be done in two ways, the first by estimating the PSD via 
-        BNSE (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum,
-        the peaks position, magnitude and width initialize the mean, magnitude and variance
-        of the kernel respectively.
-        The second way is by fitting independent Gaussian process for each channel, each one
-        with SM kernel, using the fitted parameters for initial values of the multioutput kernel.
+        - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak&#39;s position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
+        - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
+        - SM fits independent Gaussian processes for each channel, each one with a spectral mixture kernel, and uses the fitted parameters as initial values for the multi-output kernel.
 
-        In all cases the noise is initialized with 1/30 of the variance 
-        of each channel.
+        In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Args:
-            method (str, optional): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str, optional): Parameter initialization strategy for SM initialization.
-            sm_method (str, optional): Optimization method for SM initialization.
-            sm_iters (str, optional): Number of iterations for SM initialization.
-            sm_params (object, optional): Additional parameters for PyTorch optimizer.
+            method (str): Method of estimation, such as BNSE, LS, or SM.
+            sm_init (str): Parameter initialization strategy for SM initialization.
+            sm_method (str): Optimization method for SM initialization.
+            sm_iters (str): Number of iterations for SM initialization.
+            sm_params (object): Additional parameters for PyTorch optimizer.
             sm_plot (bool): Show the PSD of the kernel after fitting SM.
         &#34;&#34;&#34;
         
@@ -358,26 +353,24 @@ class SM_LMC(Model):
 <span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Initialize kernel parameters.</p>
-<p>The initialization can be done in two ways, the first by estimating the PSD via
-BNSE (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum,
-the peaks position, magnitude and width initialize the mean, magnitude and variance
-of the kernel respectively.
-The second way is by fitting independent Gaussian process for each channel, each one
-with SM kernel, using the fitted parameters for initial values of the multioutput kernel.</p>
-<p>In all cases the noise is initialized with 1/30 of the variance
-of each channel.</p>
+<section class="desc"><p>Estimate kernel parameters from the data set. The initialization can be done using three methods:</p>
+<ul>
+<li>BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak's position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.</li>
+<li>LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.</li>
+<li>SM fits independent Gaussian processes for each channel, each one with a spectral mixture kernel, and uses the fitted parameters as initial values for the multi-output kernel.</li>
+</ul>
+<p>In all cases the noise is initialized with 1/30 of the variance of each channel.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>method</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
 <dd>Method of estimation, such as BNSE, LS, or SM.</dd>
-<dt><strong><code>sm_init</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>sm_init</code></strong> :&ensp;<code>str</code></dt>
 <dd>Parameter initialization strategy for SM initialization.</dd>
-<dt><strong><code>sm_method</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>sm_method</code></strong> :&ensp;<code>str</code></dt>
 <dd>Optimization method for SM initialization.</dd>
-<dt><strong><code>sm_iters</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>sm_iters</code></strong> :&ensp;<code>str</code></dt>
 <dd>Number of iterations for SM initialization.</dd>
-<dt><strong><code>sm_params</code></strong> :&ensp;<code>object</code>, optional</dt>
+<dt><strong><code>sm_params</code></strong> :&ensp;<code>object</code></dt>
 <dd>Additional parameters for PyTorch optimizer.</dd>
 <dt><strong><code>sm_plot</code></strong> :&ensp;<code>bool</code></dt>
 <dd>Show the PSD of the kernel after fitting SM.</dd>
@@ -385,28 +378,24 @@ of each channel.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/sm_lmc.py#L64-L129" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/sm_lmc.py#L62-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
     &#34;&#34;&#34;
-    Initialize kernel parameters.
+    Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
-    The initialization can be done in two ways, the first by estimating the PSD via 
-    BNSE (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum,
-    the peaks position, magnitude and width initialize the mean, magnitude and variance
-    of the kernel respectively.
-    The second way is by fitting independent Gaussian process for each channel, each one
-    with SM kernel, using the fitted parameters for initial values of the multioutput kernel.
+    - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak&#39;s position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
+    - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
+    - SM fits independent Gaussian processes for each channel, each one with a spectral mixture kernel, and uses the fitted parameters as initial values for the multi-output kernel.
 
-    In all cases the noise is initialized with 1/30 of the variance 
-    of each channel.
+    In all cases the noise is initialized with 1/30 of the variance of each channel.
 
     Args:
-        method (str, optional): Method of estimation, such as BNSE, LS, or SM.
-        sm_init (str, optional): Parameter initialization strategy for SM initialization.
-        sm_method (str, optional): Optimization method for SM initialization.
-        sm_iters (str, optional): Number of iterations for SM initialization.
-        sm_params (object, optional): Additional parameters for PyTorch optimizer.
+        method (str): Method of estimation, such as BNSE, LS, or SM.
+        sm_init (str): Parameter initialization strategy for SM initialization.
+        sm_method (str): Optimization method for SM initialization.
+        sm_iters (str): Number of iterations for SM initialization.
+        sm_params (object): Additional parameters for PyTorch optimizer.
         sm_plot (bool): Show the PSD of the kernel after fitting SM.
     &#34;&#34;&#34;
     
@@ -460,7 +449,11 @@ of each channel.</p>
 <ul class="hlist">
 <li><code><b><a title="mogptk.model.Model" href="model.html#mogptk.model.Model">Model</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.model.Model.error" href="model.html#mogptk.model.Model.error">error</a></code></li>
+<li><code><a title="mogptk.model.Model.get_gram_matrix" href="model.html#mogptk.model.Model.get_gram_matrix">get_gram_matrix</a></code></li>
 <li><code><a title="mogptk.model.Model.get_parameters" href="model.html#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="model.html#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
+<li><code><a title="mogptk.model.Model.loss" href="model.html#mogptk.model.Model.loss">loss</a></code></li>
 <li><code><a title="mogptk.model.Model.plot" href="model.html#mogptk.model.Model.plot">plot</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_prediction" href="model.html#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.Model.predict" href="model.html#mogptk.model.Model.predict">predict</a></code></li>

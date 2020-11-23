@@ -25,13 +25,16 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/config.py#L0-L43" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/config.py#L0-L46" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 
 class Config:
     dtype = torch.float64
-    device = torch.device(&#39;cpu&#39;)
+    if torch.cuda.is_available():
+        device = torch.device(&#39;cuda&#39;, torch.cuda.current_device())
+    else:
+        device = torch.device(&#39;cpu&#39;)
     positive_minimum = 1e-8
 config = Config()
 
@@ -53,7 +56,7 @@ def use_gpu(n=None):
     elif n is not None and (not isinstance(n, int) or n &lt; 0 or torch.cuda.device_count() &lt;= n):
         logger.error(&#34;CUDA GPU &#39;%s&#39; is not available&#34; % (n,))
     elif n is None:
-        config.device = torch.device(&#39;cuda&#39;)
+        config.device = torch.device(&#39;cuda&#39;, torch.cuda.current_device())
     else:
         config.device = torch.device(&#39;cuda&#39;, n)
 
@@ -88,7 +91,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/config.py#L31-L41" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/config.py#L34-L44" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_gpu_information():
     if not torch.cuda.is_available():
@@ -111,7 +114,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/config.py#L43-L44" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/config.py#L46-L47" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_positive_minimum(val):
     config.positive_minimum = val</code></pre>
@@ -125,7 +128,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/config.py#L15-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/config.py#L18-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_cpu(n=None):
     if n is None:
@@ -142,7 +145,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/config.py#L12-L13" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/config.py#L15-L16" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_double_precision():
     config.dtype = torch.float64</code></pre>
@@ -156,7 +159,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/config.py#L21-L29" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/config.py#L24-L32" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_gpu(n=None):
     if not torch.cuda.is_available():
@@ -164,7 +167,7 @@ def set_positive_minimum(val):
     elif n is not None and (not isinstance(n, int) or n &lt; 0 or torch.cuda.device_count() &lt;= n):
         logger.error(&#34;CUDA GPU &#39;%s&#39; is not available&#34; % (n,))
     elif n is None:
-        config.device = torch.device(&#39;cuda&#39;)
+        config.device = torch.device(&#39;cuda&#39;, torch.cuda.current_device())
     else:
         config.device = torch.device(&#39;cuda&#39;, n)</code></pre>
 </details>
@@ -177,7 +180,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/config.py#L9-L10" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/config.py#L12-L13" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_single_precision():
     config.dtype = torch.float32</code></pre>
@@ -196,11 +199,14 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/4ec4e1d0101f080ee9a7bdd1da730d3eced16737/mogptk/kernels/config.py#L3-L6" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/config.py#L3-L9" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
     dtype = torch.float64
-    device = torch.device(&#39;cpu&#39;)
+    if torch.cuda.is_available():
+        device = torch.device(&#39;cuda&#39;, torch.cuda.current_device())
+    else:
+        device = torch.device(&#39;cpu&#39;)
     positive_minimum = 1e-8</code></pre>
 </details>
 <h3>Class variables</h3>
