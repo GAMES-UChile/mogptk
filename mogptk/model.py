@@ -42,10 +42,10 @@ class Model:
         Model is the base class for multi-output Gaussian process models.
 
         Args:
-            dataset (mogptk.DataSet, mogptk.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
-            kernel (mogptk.kernels.Kernel): The kernel class.
-            model: Gaussian process model to use, such as `mogptk.Exact`.
-            mean (mogptk.kernels.Mean): The mean class.
+            dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
+            kernel (mogptk.kernels.kernel.Kernel): The kernel class.
+            model: Gaussian process model to use, such as `mogptk.model.Exact`.
+            mean (mogptk.kernels.mean.Mean): The mean class.
             name (str): Name of the model.
         """
         
@@ -481,8 +481,8 @@ class Model:
             figsize (tuple): Figure size.
 
         Returns:
-            fig: Matplotlib figure.
-            ax: Matplotlib axis.
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
         """
         K_gram = self.get_gram_matrix(start, end, n)
             

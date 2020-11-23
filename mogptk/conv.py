@@ -9,15 +9,15 @@ class CONV(Model):
     CONV is the Convolutional Gaussian kernel with `Q` components [1]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
 
     Args:
-        dataset (mogptk.DataSet): `DataSet` object of data for all channels.
+        dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.Exact`.
+        model: Gaussian process model to use, such as `mogptk.model.Exact`.
         name (str): Name of the model.
 
     Attributes:
-        dataset: The associated mogptk.DataSet.
-        model: The mogptk.kernels.Model.
-        kernel: The mogptk.kernels.Kernel.
+        dataset: The associated mogptk.dataset.DataSet.
+        model: The mogptk.kernels.model.Model.
+        kernel: The mogptk.kernels.kernel.Kernel.
 
     Examples:
 

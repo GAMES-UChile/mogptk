@@ -18,7 +18,7 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
         **kwargs: Additional keyword arguments for csv.DictReader.
 
     Returns:
-        mogptk.Data or mogptk.DataSet
+        mogptk.data.Data or mogptk.dataset.DataSet
 
     Examples:
         >>> LoadCSV('gold.csv', 'Date', 'Price', name='Gold')
@@ -42,7 +42,7 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
         name (str, list of str): Name or names of data channels.
 
     Returns:
-        mogptk.Data or mogptk.DataSet
+        mogptk.data.Data or mogptk.dataset.DataSet
 
     Examples:
         >>> df = pd.DataFrame(...)
@@ -106,7 +106,7 @@ class DataSet:
     DataSet is a class that holds multiple Data objects as channels. It is the complete representation of the data used for fitting multi-output Gaussian processes.
 
     Args:
-        *args (mogptk.Data, mogptk.DataSet, list, dict, numpy.ndarray): Accepts multiple arguments, each of which should be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed its channels will be added. It is also possible to pass X and Y data array directly by either passing two `numpy.ndarrays` or two lists of `numpy.ndarrays` for X and Y data.
+        *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict, numpy.ndarray): Accepts multiple arguments, each of which should be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed its channels will be added. It is also possible to pass X and Y data array directly by either passing two `numpy.ndarrays` or two lists of `numpy.ndarrays` for X and Y data.
 
     Examples:
         Different ways to initiate a DataSet:
@@ -184,7 +184,7 @@ class DataSet:
         Append channel(s) to the DataSet.
         
         Args:
-            arg (mogptk.Data, mogptk.DataSet, list, dict): Argument can be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed, its channels will be added.
+            arg (mogptk.data.Data, mogptk.dataset.DataSet, list, dict): Argument can be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed, its channels will be added.
 
         Examples:
             >>> dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='A'))
@@ -210,7 +210,7 @@ class DataSet:
         Make a deep copy of `DataSet`.
 
         Returns:
-            mogptk.DataSet
+            mogptk.dataset.DataSet
 
         Examples:
             >>> other = dataset.copy()
@@ -328,7 +328,7 @@ class DataSet:
             index (int, str): Index or name of the channel.
 
         Returns:
-            mogptk.Data: Channel data.
+            mogptk.data.Data: Channel data.
 
         Examples:
             >>> channel = dataset.get('A')

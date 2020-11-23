@@ -35,7 +35,7 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
         random (boolean): Select points randomly between start and end.
 
     Returns:
-        mogptk.Data
+        mogptk.data.Data
 
     Examples:
         >>> LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -258,7 +258,7 @@ class Data:
         Make a deep copy of `Data`.
 
         Returns:
-            mogptk.Data
+            mogptk.data.Data
 
         Examples:
             >>> other = data.copy()

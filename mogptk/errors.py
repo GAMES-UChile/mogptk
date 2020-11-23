@@ -30,7 +30,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
     Return test errors given a model and a test set. The function assumes all models have been trained and all models share equal numbers of inputs and outputs (channels). If X and Y are not passed than the dataset's test data are used.
 
     Args:
-        models (list of mogptk.Model): Trained model to evaluate, can be more than one
+        models (list of mogptk.model.Model): Trained model to evaluate, can be more than one
         X (list): List of numpy arrays with the inputs of the test set. Length is the output dimension.
         Y (list): List of numpy arrays with the true ouputs of test set. Length is the output dimension.
         per_channel (boolean): Return averages over channels instead of over models.
