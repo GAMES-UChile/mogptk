@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/csm.py#L0-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/csm.py#L0-L121" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
@@ -42,6 +42,7 @@ class CSM(Model):
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.kernels.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
@@ -67,7 +68,7 @@ class CSM(Model):
 
     [1] K.R. Ulrich et al, &#34;GP Kernels for Cross-Spectrum Analysis&#34;, Advances in Neural Information Processing Systems 28, 2015
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name=&#34;CSM&#34;):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;CSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         dataset.rescale_x()
@@ -79,7 +80,7 @@ class CSM(Model):
         )
         kernel = MixtureKernel(spectral, Q)
 
-        super(CSM, self).__init__(dataset, kernel, model, name=name)
+        super(CSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
     
@@ -161,7 +162,7 @@ class CSM(Model):
 <dl>
 <dt id="mogptk.csm.CSM"><code class="flex name class">
 <span>class <span class="ident">CSM</span></span>
-<span>(</span><span>dataset, Q=1, Rq=1, model=&lt;mogptk.model.Exact object&gt;, name='CSM')</span>
+<span>(</span><span>dataset, Q=1, Rq=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='CSM')</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Cross Spectral Mixture kernel [1] with <code>Q</code> components and <code>Rq</code> latent functions. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
@@ -175,6 +176,8 @@ class CSM(Model):
 <dd>Number of subcomponents.</dd>
 <dt><strong><code>model</code></strong></dt>
 <dd>Gaussian process model to use, such as <a title="mogptk.model.Exact" href="model.html#mogptk.model.Exact"><code>Exact</code></a>.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<a title="mogptk.kernels.mean.Mean" href="kernels/mean.html#mogptk.kernels.mean.Mean"><code>Mean</code></a></dt>
+<dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
 </dl>
@@ -220,7 +223,7 @@ class CSM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/csm.py#L7-L121" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/csm.py#L7-L122" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CSM(Model):
     &#34;&#34;&#34;
@@ -231,6 +234,7 @@ class CSM(Model):
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.kernels.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
@@ -256,7 +260,7 @@ class CSM(Model):
 
     [1] K.R. Ulrich et al, &#34;GP Kernels for Cross-Spectrum Analysis&#34;, Advances in Neural Information Processing Systems 28, 2015
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name=&#34;CSM&#34;):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;CSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         dataset.rescale_x()
@@ -268,7 +272,7 @@ class CSM(Model):
         )
         kernel = MixtureKernel(spectral, Q)
 
-        super(CSM, self).__init__(dataset, kernel, model, name=name)
+        super(CSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
     
@@ -373,7 +377,7 @@ class CSM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/csm.py#L57-L121" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/csm.py#L58-L122" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
     &#34;&#34;&#34;

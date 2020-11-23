@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/sm_lmc.py#L0-L122" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/sm_lmc.py#L0-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
@@ -42,6 +42,7 @@ class SM_LMC(Model):
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.kernels.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
@@ -68,7 +69,7 @@ class SM_LMC(Model):
     [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, &#34;Geostatistics for Natural Resource Evaluation&#34;, Oxford University Press, 1997
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name=&#34;SM-LMC&#34;):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;SM-LMC&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         dataset.rescale_x()
@@ -82,7 +83,7 @@ class SM_LMC(Model):
             Q=Q,
             Rq=Rq)
 
-        super(SM_LMC, self).__init__(dataset, kernel, model, name=name)
+        super(SM_LMC, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
         for q in range(Q):
@@ -163,7 +164,7 @@ class SM_LMC(Model):
 <dl>
 <dt id="mogptk.sm_lmc.SM_LMC"><code class="flex name class">
 <span>class <span class="ident">SM_LMC</span></span>
-<span>(</span><span>dataset, Q=1, Rq=1, model=&lt;mogptk.model.Exact object&gt;, name='SM-LMC')</span>
+<span>(</span><span>dataset, Q=1, Rq=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='SM-LMC')</span>
 </code></dt>
 <dd>
 <section class="desc"><p>Spectral Mixture Linear Model of Coregionalization kernel with <code>Q</code> components and <code>Rq</code> latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
@@ -177,6 +178,8 @@ class SM_LMC(Model):
 <dd>Number of subcomponents.</dd>
 <dt><strong><code>model</code></strong></dt>
 <dd>Gaussian process model to use, such as <a title="mogptk.model.Exact" href="model.html#mogptk.model.Exact"><code>Exact</code></a>.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<a title="mogptk.kernels.mean.Mean" href="kernels/mean.html#mogptk.kernels.mean.Mean"><code>Mean</code></a></dt>
+<dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
 </dl>
@@ -223,7 +226,7 @@ class SM_LMC(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/sm_lmc.py#L7-L123" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/sm_lmc.py#L7-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SM_LMC(Model):
     &#34;&#34;&#34;
@@ -234,6 +237,7 @@ class SM_LMC(Model):
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.kernels.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
@@ -260,7 +264,7 @@ class SM_LMC(Model):
     [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, &#34;Geostatistics for Natural Resource Evaluation&#34;, Oxford University Press, 1997
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name=&#34;SM-LMC&#34;):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;SM-LMC&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         dataset.rescale_x()
@@ -274,7 +278,7 @@ class SM_LMC(Model):
             Q=Q,
             Rq=Rq)
 
-        super(SM_LMC, self).__init__(dataset, kernel, model, name=name)
+        super(SM_LMC, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
         for q in range(Q):
@@ -378,7 +382,7 @@ class SM_LMC(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/sm_lmc.py#L62-L123" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/sm_lmc.py#L63-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
     &#34;&#34;&#34;

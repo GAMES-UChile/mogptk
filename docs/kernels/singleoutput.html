@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L0-L133" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L0-L133" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -181,7 +181,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L5-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L5-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearKernel(Kernel):
     def __init__(self, input_dims=None, active_dims=None, name=&#34;Linear&#34;):
@@ -213,7 +213,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L13-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L13-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -235,7 +235,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L95-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L95-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PeriodicKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name=&#34;Periodic&#34;):
@@ -271,7 +271,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L107-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L107-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -293,7 +293,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L38-L56" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L38-L56" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PhiKernel(Kernel):
     def __init__(self, phi, input_dims, active_dims=None, name=&#34;Phi&#34;):
@@ -329,7 +329,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L48-L56" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L48-L56" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -353,7 +353,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L21-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L21-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PolynomialKernel(Kernel):
     def __init__(self, degree, input_dims=None, active_dims=None, name=&#34;Polynomial&#34;):
@@ -386,7 +386,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L30-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L30-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -408,7 +408,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L76-L93" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L76-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class RationalQuadraticKernel(Kernel):
     def __init__(self, alpha, input_dims, active_dims=None, name=&#34;RQ&#34;):
@@ -443,7 +443,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L87-L93" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L87-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -465,7 +465,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L115-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L115-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name=&#34;SM&#34;):
@@ -502,7 +502,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L127-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L127-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -525,7 +525,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L58-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L58-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SquaredExponentialKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name=&#34;SE&#34;):
@@ -559,7 +559,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/095a4702213b03b1994bd6c5fbe12a7f307ace7e/mogptk/kernels/singleoutput.py#L68-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L68-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
