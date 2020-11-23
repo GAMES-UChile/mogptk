@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as functional
 import copy
 from . import Parameter, config
 
@@ -7,7 +6,7 @@ class Kernel:
     def __init__(self, input_dims=None, active_dims=None, name=None):
         if name is None:
             name = self.__class__.__name__
-            if name.endswith('Kernel'):
+            if name.endswith('Kernel') and name != 'Kernel':
                 name = name[:-6]
 
         self.input_dims = input_dims
@@ -18,6 +17,11 @@ class Kernel:
         return self.K(X1,X2)
 
     def __setattr__(self, name, val):
+        if name == 'trainable':
+            from .util import _find_parameters
+            for p in _find_parameters(self):
+                p.trainable = val
+            return
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
         if isinstance(val, Parameter) and val.name is None:

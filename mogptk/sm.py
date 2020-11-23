@@ -40,13 +40,14 @@ class SM(Model):
     def __init__(self, dataset, Q=1, model=Exact(), name="SM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
+        dataset.rescale_x()
 
         kernel = IndependentMultiOutputKernel(
             [MixtureKernel(SpectralKernel(dataset[i].get_input_dims()), Q) for i in range(dataset.get_output_dims())],
             output_dims=dataset.get_output_dims(),
         )
 
-        super(SM, self).__init__(dataset, kernel, model, name)
+        super(SM, self).__init__(dataset, kernel, model, name=name)
         self.Q = Q
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel

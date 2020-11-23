@@ -168,7 +168,7 @@ class DataSet:
         elif isinstance(arg, DataSet) and len(arg) == 1:
             self.channels[key] = arg[0]
         else:
-            raise Exception("must set a data type of Data or a DataSet with a single channel")
+            raise ValueError("must set a data type of Data or a DataSet with a single channel")
 
     def __str__(self):
         return self.__repr__()
@@ -202,7 +202,7 @@ class DataSet:
                 val.name = key
                 self.channels.append(val)
         else:
-            raise Exception("unknown data type %s in append to DataSet" % (type(arg)))
+            raise ValueError("unknown data type %s in append to DataSet" % (type(arg)))
         return self
 
     def copy(self):
@@ -216,6 +216,19 @@ class DataSet:
             >>> other = dataset.copy()
         """
         return copy.deepcopy(self)
+
+    def rescale_x(self, upper=1000.0):
+        """
+        Rescale the X axis so that it is in the interval [0.0,upper] for each channel. This helps training most kernels.
+
+        Args:
+            upper (float): Upper end of the interval.
+
+        Examples:
+            >>> dataset.rescale_x()
+        """
+        for channel in self.channels:
+            channel.rescale_x(upper)
 
     def transform(self, transformer):
         """

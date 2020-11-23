@@ -1,30 +1,27 @@
 import numpy as np
 import pandas as pd
 
-def _check_arrays(y_true, y_pred):
-    y_true, y_pred = np.array(y_true), np.array(y_pred)
-    idx = np.nonzero(y_true)
-    return y_true[idx], y_pred[idx]
-
 def mean_absolute_error(y_true, y_pred):
     """
     Mean Absolute Error (MAE) between the true and the predicted values.
     """
-    y_true, y_pred = _check_arrays(y_true, y_pred)
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
     return np.mean(np.abs(y_true - y_pred))
 
 def mean_absolute_percentage_error(y_true, y_pred):
     """
     Mean Absolute Percentage Error (MAPE) between the true and the predicted values.
     """
-    y_true, y_pred = _check_arrays(y_true, y_pred)
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    idx = 1e-6 < y_true
+    y_true, y_pred = y_true[idx], y_pred[idx]
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100.0
 
 def root_mean_squared_error(y_true, y_pred):
     """
     Root Mean Squared Error (RMSE) between the true and the predicted values.
     """
-    y_true, y_pred = _check_arrays(y_true, y_pred)
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
     return np.sqrt(np.mean((y_true - y_pred)**2))
 
 # TODO: use relative error per channel
@@ -55,6 +52,9 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
             X2, Y2 = model.dataset.get_test_data(transformed=transformed)
             if len(X) != len(X2) or not all(np.array_equal(X[j],X2[j]) for j in range(len(X))) or not all(np.array_equal(Y[j],Y2[j]) for j in range(len(X))):
                 raise ValueError("all models must have the same data set for testing, otherwise explicitly provide X and Y")
+        if sum(x.shape[0] for x in X) == 0:
+            raise ValueError("models have no test data")
+
     elif X is None and Y is not None or X is not None and Y is None:
         raise ValueError("X and Y must both be set or omitted")
 

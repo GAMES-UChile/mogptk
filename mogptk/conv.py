@@ -40,6 +40,7 @@ class CONV(Model):
     def __init__(self, dataset, Q=1, model=Exact(), name="CONV"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
+        dataset.rescale_x()
 
         input_dims = dataset.get_input_dims()
         for input_dim in input_dims[1:]:
@@ -52,7 +53,7 @@ class CONV(Model):
         )
         kernel = MixtureKernel(conv, Q)
 
-        super(CONV, self).__init__(dataset, kernel, model, name)
+        super(CONV, self).__init__(dataset, kernel, model, name=name)
         self.Q = Q
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel

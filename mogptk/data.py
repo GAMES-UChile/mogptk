@@ -243,15 +243,6 @@ class Data:
         if isinstance(y_label, str):
             self.Y_label = y_label
 
-        # rescale X axis to fit in 0 -- 1000
-        for i in range(input_dims):
-            X = self.X[i].transformed
-            xmin = np.min(X)
-            xmax = np.max(X)
-            t = TransformLinear(xmin, (xmax-xmin)/1000.0)
-            t.set_data(X)
-            self.X[i].apply(t)
-
     def __str__(self):
         return self.__repr__()
 
@@ -324,6 +315,25 @@ class Data:
         _check_function(f, self.get_input_dims(), self.X[0].is_datetime64())
         self.F = f
 
+    def rescale_x(self, upper=1000.0):
+        """
+        Rescale the X axis so that it is in the interval [0.0,upper]. This helps training most kernels.
+
+        Args:
+            upper (float): Upper end of the interval.
+
+        Examples:
+            >>> data.rescale_x()
+        """
+
+        for i in range(self.get_input_dims()):
+            X = self.X[i].transformed
+            xmin = np.min(X)
+            xmax = np.max(X)
+            t = TransformLinear(xmin, (xmax-xmin)/upper)
+            t.set_data(X)
+            self.X[i].apply(t)
+
     def transform(self, transformer):
         """
         Transform the Y axis data by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformStandard`, etc.
@@ -346,7 +356,7 @@ class Data:
             t = copy.deepcopy(t)
         t.set_data(self)
 
-        self.Y.apply(t, np.array([x.transformed for x in self.X]).T)
+        self.Y.apply(t, np.array([x for x in self.X]).T)
     
     def filter(self, start, end):
         """
@@ -402,7 +412,7 @@ class Data:
             Y[i] = f(self.Y[ind])
 
         self.X = [Serie(X, self.X[0].transformers)]
-        self.Y = Serie(Y, self.Y.transformers, np.array([x.transformed for x in self.X]).T)
+        self.Y = Serie(Y, self.Y.transformers, np.array([x for x in self.X]).T)
         self.mask = np.array([True] * len(self.X[0]))
 
     ################################################################
@@ -496,9 +506,17 @@ class Data:
         Examples:
             >>> x, y = data.get_test_data()
         """
+        X = np.array([x[~self.mask] for x in self.X]).T
+        if self.F is not None:
+            if X.shape[0] == 0:
+                X, _ = self.get_data()
+            Y = self.F(X)
+            if transformed:
+                Y = self.Y.transform(Y, X)
+            return X, Y
         if transformed:
-            return np.array([x[~self.mask] for x in self.X]).T, self.Y.transformed[~self.mask]
-        return np.array([x[~self.mask] for x in self.X]).T, np.array(self.Y[~self.mask])
+            return X, self.Y.transformed[~self.mask]
+        return X, np.array(self.Y[~self.mask])
 
     ################################################################
     
@@ -540,7 +558,7 @@ class Data:
             >>> data.remove_range('2016-01-15', '2016-06-15')
         """
         if self.get_input_dims() != 1:
-            raise Exception("can only remove ranges on one dimensional input data")
+            raise ValueError("can only remove ranges on one dimensional input data")
 
         if start is None:
             start = np.min(self.X[0])
@@ -563,7 +581,7 @@ class Data:
             end (float): End percentage in interval [0,1].
         """
         if self.get_input_dims() != 1:
-            raise Exception("can only remove ranges on one dimensional input data")
+            raise ValueError("can only remove ranges on one dimensional input data")
 
         start = self._normalize_val(start)
         end = self._normalize_val(end)
@@ -592,14 +610,14 @@ class Data:
             >>> data.remove_random_ranges(3, '1d') # remove three ranges that are 1 day wide
         """
         if self.get_input_dims() != 1:
-            raise Exception("can only remove ranges on one dimensional input data")
+            raise ValueError("can only remove ranges on one dimensional input data")
         if n < 1:
             return
 
         delta = _parse_delta(duration)
         m = (np.max(self.X[0])-np.min(self.X[0])) - n*delta
         if m <= 0:
-            raise Exception("no data left after removing ranges")
+            raise ValueError("no data left after removing ranges")
 
         locs = self.X[0] <= (np.max(self.X[0])-delta)
         locs[sum(locs)] = True # make sure the last data point can be deleted
@@ -671,7 +689,7 @@ class Data:
             >>> x, y_mean, y_var_lower, y_var_upper = data.get_prediction('MOSM', sigma=1)
         """
         if name not in self.Y_mu_pred:
-            raise Exception("prediction name '%s' does not exist" % (name))
+            raise ValueError("prediction name '%s' does not exist" % (name))
        
         X = np.array([x for x in self.X_pred]).T
         mu = self.Y_mu_pred[name]
@@ -681,10 +699,9 @@ class Data:
         if transformed:
             return X, mu, lower, upper
 
-        X_pred = np.array([x.transformed for x in self.X_pred]).T
-        mu = Serie(self.Y.detransform(mu, X_pred), self.Y.transformers, transformed=mu)
-        lower = Serie(self.Y.detransform(lower, X_pred), self.Y.transformers, transformed=lower)
-        upper = Serie(self.Y.detransform(upper, X_pred), self.Y.transformers, transformed=upper)
+        mu = Serie(self.Y.detransform(mu, X), self.Y.transformers, transformed=mu)
+        lower = Serie(self.Y.detransform(lower, X), self.Y.transformers, transformed=lower)
+        upper = Serie(self.Y.detransform(upper, X), self.Y.transformers, transformed=upper)
         return X, mu, lower, upper
     
     def set_prediction_x(self, X):
@@ -736,7 +753,7 @@ class Data:
         """
         # TODO: accept multiple input dims and make sure dtype equals X
         if self.get_input_dims() != 1:
-            raise Exception("can only set prediction range on one dimensional input data")
+            raise ValueError("can only set prediction range on one dimensional input data")
 
         if start is None:
             start = [x[0] for x in self.X]
@@ -965,9 +982,9 @@ class Data:
         """
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() > 2:
-            raise Exception("cannot plot more than two input dimensions")
+            raise ValueError("cannot plot more than two input dimensions")
         if self.get_input_dims() == 2:
-            raise Exception("two dimensional input data not yet implemented") # TODO
+            raise NotImplementedError("two dimensional input data not yet implemented") # TODO
 
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
@@ -984,7 +1001,9 @@ class Data:
                 #ax.plot(X_pred[:,0][idx], lower[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
                 #ax.plot(X_pred[:,0][idx], upper[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
 
-                label = 'Prediction ' + name
+                label = 'Prediction'
+                if name is not None:
+                    label += ' ' + name
                 legends.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
 
         if self.F is not None:
@@ -1067,9 +1086,9 @@ class Data:
         """
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if self.get_input_dims() > 2:
-            raise Exception("cannot plot more than two input dimensions")
+            raise ValueError("cannot plot more than two input dimensions")
         if self.get_input_dims() == 2:
-            raise Exception("two dimensional input data not yet implemented") # TODO
+            raise NotImplementedError("two dimensional input data not yet implemented") # TODO
 
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)

@@ -10,7 +10,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from .serie import Serie
 from .dataset import DataSet
-from .kernels import GPR, CholeskyException
+from .kernels import GPR, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
 from .errors import mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
 
 logger = logging.getLogger('mogptk')
@@ -33,11 +33,11 @@ class Exact:
     """
     Exact inference for Gaussian process regression.
     """
-    def build(self, kernel, x, y, name=None):
-        return GPR(kernel, x, y, name=name)
+    def build(self, kernel, x, y, mean=None, name=None):
+        return GPR(kernel, x, y, mean=mean, name=name)
 
 class Model:
-    def __init__(self, dataset, kernel, model=Exact(), name=None):
+    def __init__(self, dataset, kernel, model=Exact(), mean=None, name="Model"):
         """
         Model is the base class for multi-output Gaussian process models.
 
@@ -45,16 +45,24 @@ class Model:
             dataset (mogptk.DataSet, mogptk.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
             kernel (mogptk.kernels.Kernel): The kernel class.
             model: Gaussian process model to use, such as `mogptk.Exact`.
+            mean (mogptk.kernels.Mean): The mean class.
             name (str): Name of the model.
         """
         
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         if dataset.get_output_dims() == 0:
-            raise Exception("dataset must have at least one channel")
+            raise ValueError("dataset must have at least one channel")
         names = [name for name in dataset.get_names() if name is not None]
         if len(set(names)) != len(names):
-            raise Exception("all data channels must have unique names")
+            raise ValueError("all data channels must have unique names")
+
+        if issubclass(type(kernel), MultiOutputKernel):
+            pass
+        elif issubclass(type(kernel), Kernel):
+            kernel = IndependentMultiOutputKernel(kernel, output_dims=dataset.get_output_dims())
+        else:
+            raise ValueError("kernel must derive from mogptk.kernels.Kernel")
 
         for channel in dataset:
             for dim in range(channel.get_input_dims()):
@@ -70,9 +78,9 @@ class Model:
 
         X = [np.array([x[channel.mask] for x in channel.X]).T for channel in self.dataset.channels]
         Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset.channels]
-        x, y, _, _ = self._to_kernel_format(X, Y)
+        x, y = self._to_kernel_format(X, Y)
 
-        self.model = model.build(kernel, x, y, name)
+        self.model = model.build(kernel, x, y, mean, name)
 
     ################################################################
 
@@ -153,7 +161,7 @@ class Model:
             >>> model.error()
         """
         X, Y_true = self.dataset.get_test_data()
-        x, y_true, _, _  = self._to_kernel_format(X, Y_true)
+        x, y_true  = self._to_kernel_format(X, Y_true)
         y_pred, _ = self.model.predict(x)
         if method.lower() == 'mae':
             return mean_absolute_error(y_true, y_pred)
@@ -300,8 +308,7 @@ class Model:
         Returns:
             numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
             numpy.ndarray: Y data.
-            numpy.ndarray: Original but normalized X data.
-            numpy.ndarray: Original but normalized Y data.
+            numpy.ndarray: Original but normalized X data. Only if no Y is passed.
         """
         if isinstance(X, dict):
             x_dict = X
@@ -314,6 +321,7 @@ class Model:
             raise ValueError("X must be a list, dict or numpy.ndarray")
         if len(X) != len(self.dataset.channels):
             raise ValueError("X must be a list of shape (n,input_dims) for each channel")
+        X_orig = X
         X = X.copy()
         for j, channel_x in enumerate(X):
             input_dims = self.dataset.get_input_dims()[j]
@@ -335,7 +343,7 @@ class Model:
             x = np.concatenate(X, axis=0)
             x = np.concatenate([chan, x], axis=1)
         if Y is None:
-            return x, X
+            return x, X_orig
 
         if isinstance(Y, np.ndarray):
             Y = list(Y)
@@ -349,12 +357,12 @@ class Model:
                 raise ValueError("Y must be a list of shape (n,) for each channel")
             if channel_y.shape[0] != X[j].shape[0]:
                 raise ValueError("Y must have the same number of data points per channel as X")
-            Y[j] = self.dataset[j].Y.transform(channel_y, x=X[j])
+            Y[j] = self.dataset[j].Y.transform(channel_y, x=X_orig[j])
         if len(Y) == 0:
             y = np.array([])
         else:
             y = np.concatenate(Y, axis=0).reshape(-1, 1)
-        return x, y, X, Y
+        return x, y
 
     def predict(self, X=None, sigma=2.0, transformed=False):
         """

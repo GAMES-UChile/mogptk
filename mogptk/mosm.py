@@ -41,6 +41,7 @@ class MOSM(Model):
     def __init__(self, dataset, Q=1, model=Exact(), name="MOSM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
+        dataset.rescale_x()
 
         spectral = MultiOutputSpectralKernel(
             output_dims=dataset.get_output_dims(),
@@ -48,7 +49,7 @@ class MOSM(Model):
         )
         kernel = MixtureKernel(spectral, Q)
 
-        super(MOSM, self).__init__(dataset, kernel, model, name)
+        super(MOSM, self).__init__(dataset, kernel, model, name=name)
         self.Q = Q
         if issubclass(type(model), Exact):
             self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel

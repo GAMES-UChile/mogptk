@@ -41,6 +41,7 @@ class CSM(Model):
     def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name="CSM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
+        dataset.rescale_x()
 
         spectral = CrossSpectralKernel(
             output_dims=dataset.get_output_dims(),
@@ -49,7 +50,7 @@ class CSM(Model):
         )
         kernel = MixtureKernel(spectral, Q)
 
-        super(CSM, self).__init__(dataset, kernel, model, name)
+        super(CSM, self).__init__(dataset, kernel, model, name=name)
         self.Q = Q
         self.Rq = Rq
         if issubclass(type(model), Exact):

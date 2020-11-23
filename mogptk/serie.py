@@ -27,18 +27,21 @@ class TransformDetrend(TransformBase):
 
     def set_data(self, data):
         if data.get_input_dims() != 1:
-            raise Exception("can only remove ranges on one dimensional input data")
+            raise ValueError("can only remove ranges on one dimensional input data")
 
-        self.coef = np.polyfit(data.X[0].transformed[data.mask], data.Y.transformed[data.mask], self.degree)
+        x = np.array(data.X[0][data.mask]).astype(np.float64)
+        self.coef = np.polyfit(x, data.Y.transformed[data.mask], self.degree)
 
     def forward(self, y, x):
         if x is None:
             raise ValueError("must set X for transformation")
+        x = x.astype(np.float64)
         return y - np.polyval(self.coef, x[:, 0])
     
     def backward(self, y, x):
         if x is None:
             raise ValueError("must set X for transformation")
+        x = x.astype(np.float64)
         return y + np.polyval(self.coef, x[:, 0])
 
 class TransformLinear(TransformBase):

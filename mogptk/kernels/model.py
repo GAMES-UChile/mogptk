@@ -1,37 +1,22 @@
 import torch
 import numpy as np
 from IPython.display import display, HTML
-from . import Parameter, Kernel, MultiOutputKernel, config
+from . import Parameter, Mean, Kernel, config
 
 class CholeskyException(Exception):
     pass
 
-class Mean:
-    def __init__(self, name=None):
-        if name is None:
-            name = self.__class__.__name__
-            if name.endswith('Mean'):
-                name = name[:-4]
-        self.name = name
-
-    def __call__(self, X):
-        raise NotImplementedError()
-
-    def __setattr__(self, name, val):
-        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
-            raise AttributeError("parameter is read-only, use Parameter.assign()")
-        if isinstance(val, Parameter) and val.name is None:
-            val.name = name
-        super(Mean,self).__setattr__(name, val)        
-
 class Model:
     def __init__(self, kernel, X, y, mean=None, name=None):
+        if not issubclass(type(kernel), Kernel):
+            raise ValueError("kernel must derive from mogptk.kernels.Kernel")
         X, y = self._check_input(X, y)
-
         if mean is not None:
+            if not issubclass(type(mean), Mean):
+                raise ValueError("mean must derive from mogptk.kernels.Mean")
             mu = mean(X).reshape(-1,1)
             if mu.shape != y.shape:
-                raise ValueError("mean and y must match shapes: %s != %s" % (mu.shape, y.shape))
+                raise ValueError("mean and y data must match shapes: %s != %s" % (mu.shape, y.shape))
 
         self.kernel = kernel
         self.X = X
@@ -205,7 +190,7 @@ class GPR(Model):
         L = self._cholesky(K)  # NxN
 
         if self.mean is not None:
-            y = self.y - self.mean(X).reshape(-1,1)  # Nx1
+            y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
         else:
             y = self.y  # Nx1
 
@@ -226,7 +211,7 @@ class GPR(Model):
             v = torch.triangular_solve(Ks,L,upper=False)[0]  # NxM
 
             if self.mean is not None:
-                y = self.y - self.mean(X).reshape(-1,1)  # Nx1
+                y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
                 mu = Ks.T.mm(torch.cholesky_solve(y,L))  # Mx1
                 mu += self.mean(Z).reshape(-1,1)         # Mx1
             else:

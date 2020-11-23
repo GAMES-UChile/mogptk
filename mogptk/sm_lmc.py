@@ -42,6 +42,7 @@ class SM_LMC(Model):
     def __init__(self, dataset, Q=1, Rq=1, model=Exact(), name="SM-LMC"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
+        dataset.rescale_x()
 
         spectral = SpectralKernel(dataset.get_input_dims()[0])
         spectral.weight.trainable = False
@@ -52,7 +53,7 @@ class SM_LMC(Model):
             Q=Q,
             Rq=Rq)
 
-        super(SM_LMC, self).__init__(dataset, kernel, model, name)
+        super(SM_LMC, self).__init__(dataset, kernel, model, name=name)
         self.Q = Q
         self.Rq = Rq
         if issubclass(type(model), Exact):
