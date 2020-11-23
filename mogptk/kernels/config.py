@@ -2,7 +2,10 @@ import torch
 
 class Config:
     dtype = torch.float64
-    device = torch.device('cpu')
+    if torch.cuda.is_available():
+        device = torch.device('cuda', torch.cuda.current_device())
+    else:
+        device = torch.device('cpu')
     positive_minimum = 1e-8
 config = Config()
 
@@ -24,7 +27,7 @@ def use_gpu(n=None):
     elif n is not None and (not isinstance(n, int) or n < 0 or torch.cuda.device_count() <= n):
         logger.error("CUDA GPU '%s' is not available" % (n,))
     elif n is None:
-        config.device = torch.device('cuda')
+        config.device = torch.device('cuda', torch.cuda.current_device())
     else:
         config.device = torch.device('cuda', n)
 
