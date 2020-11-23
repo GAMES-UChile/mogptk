@@ -49,8 +49,6 @@ class SM(Model):
 
         super(SM, self).__init__(dataset, kernel, model, name=name)
         self.Q = Q
-        if issubclass(type(model), Exact):
-            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
     def init_parameters(self, method='BNSE'):
         """

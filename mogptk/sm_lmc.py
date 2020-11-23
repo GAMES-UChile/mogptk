@@ -56,8 +56,6 @@ class SM_LMC(Model):
         super(SM_LMC, self).__init__(dataset, kernel, model, name=name)
         self.Q = Q
         self.Rq = Rq
-        if issubclass(type(model), Exact):
-            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
         for q in range(Q):
             self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
     
