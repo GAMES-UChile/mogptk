@@ -57,20 +57,13 @@ class Model:
         if len(set(names)) != len(names):
             raise ValueError("all data channels must have unique names")
 
-        if issubclass(type(kernel), MultiOutputKernel):
-            pass
-        elif issubclass(type(kernel), Kernel):
-            kernel = IndependentMultiOutputKernel(kernel, output_dims=dataset.get_output_dims())
-        else:
-            raise ValueError("kernel must derive from mogptk.kernels.Kernel")
-
         for channel in dataset:
             for dim in range(channel.get_input_dims()):
                 xran = np.max(channel.X[dim].transformed) - np.min(channel.X[dim].transformed)
                 if xran < 1e-3:
-                    logger.warning("Very small X range may give problems, it is suggested to scale up your X-axis")
+                    logger.warning("Very small X range may give problems, it is suggested to scale up your X axis")
                 elif 1e4 < xran:
-                    logger.warning("Very large X range may give problems, it is suggested to scale down your X-axis")
+                    logger.warning("Very large X range may give problems, it is suggested to scale down your X axis")
 
         self.name = name
         self.dataset = dataset

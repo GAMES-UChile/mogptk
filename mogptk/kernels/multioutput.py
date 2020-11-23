@@ -3,7 +3,9 @@ import numpy as np
 from . import MultiOutputKernel, Parameter, config
 
 class IndependentMultiOutputKernel(MultiOutputKernel):
-    def __init__(self, *kernels, output_dims, name="IMO"):
+    def __init__(self, *kernels, output_dims=None, name="IMO"):
+        if output_dims is None:
+            output_dims = len(kernels)
         super(IndependentMultiOutputKernel, self).__init__(output_dims, name=name)
         self.kernels = self._check_kernels(kernels, output_dims)
 
