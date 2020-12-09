@@ -9,11 +9,11 @@ class CholeskyException(Exception):
 class Model:
     def __init__(self, kernel, X, y, mean=None, name=None):
         if not issubclass(type(kernel), Kernel):
-            raise ValueError("kernel must derive from mogptk.kernels.Kernel")
+            raise ValueError("kernel must derive from mogptk.gpr.Kernel")
         X, y = self._check_input(X, y)
         if mean is not None:
             if not issubclass(type(mean), Mean):
-                raise ValueError("mean must derive from mogptk.kernels.Mean")
+                raise ValueError("mean must derive from mogptk.gpr.Mean")
             mu = mean(X).reshape(-1,1)
             if mu.shape != y.shape:
                 raise ValueError("mean and y data must match shapes: %s != %s" % (mu.shape, y.shape))
@@ -123,7 +123,7 @@ class Model:
         except Exception as e:
             vals = [["Name", "Range", "Value"]]
             for name, p in zip(self._param_names, self._params):
-                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.constrained.detach().numy())])
+                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.constrained.detach().numpy())])
 
             nameWidth = max([len(val[0]) for val in vals])
             rangeWidth = max([len(val[1]) for val in vals])
@@ -168,11 +168,11 @@ class Model:
             if n is None:
                 S = 1
 
-            mu, var = self.predict(Z, full_var=True)  # MxD and MxMxD
+            mu, var = self.predict(Z, full=True, numpy=False)  # MxD and MxMxD
             u = torch.normal(torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype), torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
             L = torch.cholesky(var + 1e-6*torch.ones(Z.shape[0]).diagflat())  # MxM
             samples = mu + L.mm(u)  # MxS
-            if num is None:
+            if n is None:
                 samples = samples.squeeze()
             return samples.detach().numpy()
 
@@ -199,7 +199,7 @@ class GPR(Model):
         p -= self.log_marginal_likelihood_constant
         return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
-    def predict(self, Z):
+    def predict(self, Z, full=False, numpy=True):
         with torch.no_grad():
             Z = self._check_input(Z)  # MxD
 
@@ -218,5 +218,9 @@ class GPR(Model):
                 mu = Ks.T.mm(torch.cholesky_solve(self.y,L))  # Mx1
 
             var = Kss - v.T.mm(v)  # MxM
-            var = var.diag().reshape(-1,1)  # Mx1
-            return mu.detach().numpy(), var.detach().numpy()
+            if not full:
+                var = var.diag().reshape(-1,1)  # Mx1
+            if numpy:
+                return mu.detach().numpy(), var.detach().numpy()
+            else:
+                return mu.detach(), var.detach()

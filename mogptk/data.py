@@ -519,6 +519,14 @@ class Data:
         return X, np.array(self.Y[~self.mask])
 
     ################################################################
+
+    def reset(self):
+        """
+        Reset the data set and undo the removal of data points. That is, this reverts any calls to `remove_randomly`, `remove_range`, `remove_relative_range`, `remove_random_ranges`, and `remove_index`.
+        """
+        self.mask[:] = True
+        for i in range(len(self.removed_ranges)):
+            self.removed_ranges[i] = []
     
     def remove_randomly(self, n=None, pct=None):
         """
@@ -975,7 +983,8 @@ class Data:
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
-            matplotlib.axes.Axes
+            matplotlib.figure.Figure: only if `ax` is not set
+            matplotlib.axes.Axes: only if `ax` is not set
 
         Examples:
             >>> ax = data.plot()
@@ -986,8 +995,9 @@ class Data:
         if self.get_input_dims() == 2:
             raise NotImplementedError("two dimensional input data not yet implemented") # TODO
 
+        fig = None
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            fig, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
 
         legends = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -1063,8 +1073,10 @@ class Data:
 
         if legend:
             legend_rows = (len(legends)-1)/5 + 1
-            ax.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(3.0+0.7+0.3*legend_rows)/3.0), ncol=5)
-        return ax
+            ax.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
+
+        if fig is not None:
+            return fig, ax
 
     def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, transformed=False):
         """

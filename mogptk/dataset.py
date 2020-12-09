@@ -649,8 +649,8 @@ class DataSet:
 
         legends = {}
         for channel in range(self.get_output_dims()):
-            ax = self.channels[channel].plot(pred=pred, ax=axes[channel,0], transformed=transformed)
-            legend = ax.get_legend()
+            self.channels[channel].plot(pred=pred, ax=axes[channel,0], transformed=transformed)
+            legend = axes[channel,0].get_legend()
             for text, handle in zip(legend.texts, legend.legendHandles):
                 if text.get_text() == "Training Points":
                     handle = plt.Line2D([0], [0], ls='-', color='k', marker='.', ms=10, label='Training Points')

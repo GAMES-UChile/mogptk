@@ -1,8 +1,8 @@
 import numpy as np
 
-from .dataset import DataSet
-from .model import Model, Exact, logger
-from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
+from ..dataset import DataSet
+from ..model import Model, Exact, logger
+from ..gpr import LinearModelOfCoregionalizationKernel, SpectralKernel
 
 class SM_LMC(Model):
     """
@@ -13,13 +13,13 @@ class SM_LMC(Model):
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
-        mean (mogptk.kernels.mean.Mean): The mean class.
+        mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
-        model: The mogptk.kernels.model.Model.
-        kernel: The mogptk.kernels.kernel.Kernel.
+        model: The mogptk.gpr.model.Model.
+        kernel: The mogptk.gpr.kernel.Kernel.
 
     Examples:
 

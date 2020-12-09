@@ -10,7 +10,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from .serie import Serie
 from .dataset import DataSet
-from .kernels import GPR, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
+from .gpr import GPR, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
 from .errors import mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
 
 logger = logging.getLogger('mogptk')
@@ -43,9 +43,9 @@ class Model:
 
         Args:
             dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
-            kernel (mogptk.kernels.kernel.Kernel): The kernel class.
+            kernel (mogptk.gpr.kernel.Kernel): The kernel class.
             model: Gaussian process model to use, such as `mogptk.model.Exact`.
-            mean (mogptk.kernels.mean.Mean): The mean class.
+            mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
         """
         
@@ -93,7 +93,7 @@ class Model:
         Returns all parameters of the kernel.
 
         Returns:
-            list: mogptk.kernels.parameter.Parameter    
+            list: mogptk.gpr.parameter.Parameter
 
         Examples:
             >>> params = model.get_parameters()

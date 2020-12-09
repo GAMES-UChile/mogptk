@@ -1,8 +1,8 @@
 import numpy as np
 
-from .dataset import DataSet
-from .model import Model, Exact, logger
-from .kernels import GaussianConvolutionProcessKernel, MixtureKernel
+from ..dataset import DataSet
+from ..model import Model, Exact, logger
+from ..gpr import GaussianConvolutionProcessKernel, MixtureKernel
 
 class CONV(Model):
     """
@@ -12,13 +12,13 @@ class CONV(Model):
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
-        mean (mogptk.kernels.mean.Mean): The mean class.
+        mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
-        model: The mogptk.kernels.model.Model.
-        kernel: The mogptk.kernels.kernel.Kernel.
+        model: The mogptk.gpr.model.Model.
+        kernel: The mogptk.gpr.kernel.Kernel.
 
     Examples:
 

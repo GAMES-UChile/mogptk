@@ -132,3 +132,32 @@ class SpectralKernel(Kernel):
         exp = torch.exp(-2.0*np.pi**2 * tau**2 * self.variance().reshape(1,1,-1))  # NxMxD
         cos = torch.cos(2.0*np.pi * tau * self.mean().reshape(1,1,-1))  # NxMxD
         return self.weight() * torch.prod(exp * cos, dim=2)
+
+class MaternKernel(Kernel):
+    def __init__(self, nu=0.5, input_dims=None, active_dims=None, name="Matérn"):
+        super(MaternKernel, self).__init__(input_dims, active_dims, name)
+
+        if nu not in [0.5, 1.5, 2.5]:
+            raise ValueError("nu parameter must be 0.5, 1.5, or 2.5")
+
+        l = torch.rand(input_dims)
+        sigma = torch.rand(1)
+
+        self.nu = nu
+        self.l = Parameter(l, lower=1e-6)
+        self.sigma = Parameter(sigma, lower=1e-6)
+
+    def K(self, X1, X2=None):
+        # X has shape (data_points,input_dims)
+        X1,X2 = self._check_input(X1,X2)
+        if X2 is None:
+            X2 = X1
+
+        dist = torch.abs(torch.tensordot(self.distance(X1,X2), 1.0/self.l(), dims=1))
+        if self.nu == 0.5:
+            constant = 1.0
+        elif self.nu == 1.5:
+            constant = 1.0 + np.sqrt(3.0)*dist
+        elif self.nu == 2.5:
+            constant = 1.0 + np.sqrt(5.0)*dist + 5.0/3.0*dist**2
+        return self.sigma()**2 * constant * torch.exp(-np.sqrt(self.nu*2.0)*dist)
