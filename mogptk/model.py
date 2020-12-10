@@ -467,7 +467,7 @@ class Model:
             else:
                 X[m*n:(m+1)*n,1] = np.linspace(start[m], end[m], n)
 
-        return self.model.K(X).detach().numpy()
+        return self.model.K(X)
 
     def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         """
