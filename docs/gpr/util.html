@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.7.4" />
-<title>mogptk.kernels.mean API documentation</title>
+<title>mogptk.gpr.util API documentation</title>
 <meta name="description" content="" />
 <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
 <link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
@@ -19,38 +19,25 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>mogptk.kernels.mean</code></h1>
+<h1 class="title">Module <code>mogptk.gpr.util</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/mean.py#L0-L23" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/util.py#L0-L11" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">from . import Parameter
+<pre><code class="python">from . import Parameter, Mean, Kernel
 
-class Mean:
-    def __init__(self, name=None):
-        if name is None:
-            name = self.__class__.__name__
-            if name.endswith(&#39;Mean&#39;) and name != &#39;Mean&#39;:
-                name = name[:-4]
-        self.name = name
-
-    def __call__(self, X):
-        raise NotImplementedError()
-
-    def __setattr__(self, name, val):
-        if name == &#39;trainable&#39;:
-            from .util import _find_parameters
-            for p in _find_parameters(self):
-                p.trainable = val
-            return
-        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
-            raise AttributeError(&#34;parameter is read-only, use Parameter.assign()&#34;)
-        if isinstance(val, Parameter) and val.name is None:
-            val.name = name
-        super(Mean,self).__setattr__(name, val)        </code></pre>
+def _find_parameters(obj):
+    if isinstance(obj, Parameter):
+        yield obj
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            yield from _find_parameters(v)
+    elif issubclass(type(obj), Kernel) or issubclass(type(obj), Mean):
+        for v in obj.__dict__.values():
+            yield from _find_parameters(v)</code></pre>
 </details>
 </section>
 <section>
@@ -60,44 +47,6 @@ class Mean:
 <section>
 </section>
 <section>
-<h2 class="section-title" id="header-classes">Classes</h2>
-<dl>
-<dt id="mogptk.kernels.mean.Mean"><code class="flex name class">
-<span>class <span class="ident">Mean</span></span>
-<span>(</span><span>name=None)</span>
-</code></dt>
-<dd>
-<section class="desc"></section>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/mean.py#L3-L24" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">class Mean:
-    def __init__(self, name=None):
-        if name is None:
-            name = self.__class__.__name__
-            if name.endswith(&#39;Mean&#39;) and name != &#39;Mean&#39;:
-                name = name[:-4]
-        self.name = name
-
-    def __call__(self, X):
-        raise NotImplementedError()
-
-    def __setattr__(self, name, val):
-        if name == &#39;trainable&#39;:
-            from .util import _find_parameters
-            for p in _find_parameters(self):
-                p.trainable = val
-            return
-        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
-            raise AttributeError(&#34;parameter is read-only, use Parameter.assign()&#34;)
-        if isinstance(val, Parameter) and val.name is None:
-            val.name = name
-        super(Mean,self).__setattr__(name, val)        </code></pre>
-</details>
-</dd>
-</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -108,14 +57,7 @@ class Mean:
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="mogptk.kernels" href="index.html">mogptk.kernels</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-classes">Classes</a></h3>
-<ul>
-<li>
-<h4><code><a title="mogptk.kernels.mean.Mean" href="#mogptk.kernels.mean.Mean">Mean</a></code></h4>
-</li>
+<li><code><a title="mogptk.gpr" href="index.html">mogptk.gpr</a></code></li>
 </ul>
 </li>
 </ul>

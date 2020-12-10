@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L0-L1291" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L0-L1303" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import copy
@@ -548,6 +548,14 @@ class Data:
         return X, np.array(self.Y[~self.mask])
 
     ################################################################
+
+    def reset(self):
+        &#34;&#34;&#34;
+        Reset the data set and undo the removal of data points. That is, this reverts any calls to `remove_randomly`, `remove_range`, `remove_relative_range`, `remove_random_ranges`, and `remove_index`.
+        &#34;&#34;&#34;
+        self.mask[:] = True
+        for i in range(len(self.removed_ranges)):
+            self.removed_ranges[i] = []
     
     def remove_randomly(self, n=None, pct=None):
         &#34;&#34;&#34;
@@ -1004,7 +1012,8 @@ class Data:
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
-            matplotlib.axes.Axes
+            matplotlib.figure.Figure: only if `ax` is not set
+            matplotlib.axes.Axes: only if `ax` is not set
 
         Examples:
             &gt;&gt;&gt; ax = data.plot()
@@ -1015,8 +1024,9 @@ class Data:
         if self.get_input_dims() == 2:
             raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
+        fig = None
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            fig, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
 
         legends = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -1092,8 +1102,10 @@ class Data:
 
         if legend:
             legend_rows = (len(legends)-1)/5 + 1
-            ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.7+0.3*legend_rows)/3.0), ncol=5)
-        return ax
+            ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
+
+        if fig is not None:
+            return fig, ax
 
     def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=False):
         &#34;&#34;&#34;
@@ -1363,7 +1375,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L22-L111" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L22-L111" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
     &#34;&#34;&#34;
@@ -1489,7 +1501,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L117-L1175" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L117-L1187" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Data:
     def __init__(self, X, Y, name=None, x_labels=None, y_label=None):
@@ -1896,6 +1908,14 @@ def _timedelta64_to_higher_unit(array):
         return X, np.array(self.Y[~self.mask])
 
     ################################################################
+
+    def reset(self):
+        &#34;&#34;&#34;
+        Reset the data set and undo the removal of data points. That is, this reverts any calls to `remove_randomly`, `remove_range`, `remove_relative_range`, `remove_random_ranges`, and `remove_index`.
+        &#34;&#34;&#34;
+        self.mask[:] = True
+        for i in range(len(self.removed_ranges)):
+            self.removed_ranges[i] = []
     
     def remove_randomly(self, n=None, pct=None):
         &#34;&#34;&#34;
@@ -2352,7 +2372,8 @@ def _timedelta64_to_higher_unit(array):
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
-            matplotlib.axes.Axes
+            matplotlib.figure.Figure: only if `ax` is not set
+            matplotlib.axes.Axes: only if `ax` is not set
 
         Examples:
             &gt;&gt;&gt; ax = data.plot()
@@ -2363,8 +2384,9 @@ def _timedelta64_to_higher_unit(array):
         if self.get_input_dims() == 2:
             raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
+        fig = None
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            fig, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
 
         legends = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -2440,8 +2462,10 @@ def _timedelta64_to_higher_unit(array):
 
         if legend:
             legend_rows = (len(legends)-1)/5 + 1
-            ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.7+0.3*legend_rows)/3.0), ncol=5)
-        return ax
+            ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
+
+        if fig is not None:
+            return fig, ax
 
     def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=False):
         &#34;&#34;&#34;
@@ -2574,7 +2598,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L386-L416" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L386-L416" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def aggregate(self, duration, f=np.mean):
     &#34;&#34;&#34;
@@ -2617,7 +2641,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L789-L794" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L797-L802" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clear_predictions(self):
     &#34;&#34;&#34;
@@ -2643,7 +2667,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L256-L266" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L256-L266" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -2678,7 +2702,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L361-L384" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L361-L384" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def filter(self, start, end):
     &#34;&#34;&#34;
@@ -2728,7 +2752,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L871-L917" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L879-L925" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
     &#34;&#34;&#34;
@@ -2798,7 +2822,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L459-L475" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L459-L475" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2839,7 +2863,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L446-L457" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L446-L457" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -2877,7 +2901,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L818-L869" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L826-L877" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
@@ -2950,7 +2974,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L420-L431" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L420-L431" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_name(self):
     &#34;&#34;&#34;
@@ -2979,7 +3003,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L798-L816" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L806-L824" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -3027,7 +3051,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L673-L705" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L681-L713" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction(self, name, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -3081,7 +3105,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L648-L659" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L656-L667" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_names(self):
     &#34;&#34;&#34;
@@ -3110,7 +3134,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L661-L671" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L669-L679" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_x(self):
     &#34;&#34;&#34;
@@ -3155,7 +3179,7 @@ numpy.ndarray: Variance array of shape (Q,input_dims).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L919-L964" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L927-L972" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
     &#34;&#34;&#34;
@@ -3224,7 +3248,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L495-L519" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L495-L519" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3272,7 +3296,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L477-L493" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L477-L493" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3313,7 +3337,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L433-L444" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L433-L444" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def has_test_data(self):
     &#34;&#34;&#34;
@@ -3348,17 +3372,15 @@ numpy.ndarray: Y data of shape (n,).</p>
 <dd>Display transformed Y data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><code>matplotlib.axes.Axes</code></dt>
-<dd>&nbsp;</dd>
-</dl>
+<p>matplotlib.figure.Figure: only if <code>ax</code> is not set
+matplotlib.axes.Axes: only if <code>ax</code> is not set</p>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; ax = data.plot()
 </code></pre></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L966-L1067" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L974-L1079" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, pred=None, title=None, ax=None, legend=True, transformed=False):
     &#34;&#34;&#34;
@@ -3372,7 +3394,8 @@ numpy.ndarray: Y data of shape (n,).</p>
         transformed (boolean): Display transformed Y data as used for training.
 
     Returns:
-        matplotlib.axes.Axes
+        matplotlib.figure.Figure: only if `ax` is not set
+        matplotlib.axes.Axes: only if `ax` is not set
 
     Examples:
         &gt;&gt;&gt; ax = data.plot()
@@ -3383,8 +3406,9 @@ numpy.ndarray: Y data of shape (n,).</p>
     if self.get_input_dims() == 2:
         raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
+    fig = None
     if ax is None:
-        _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+        fig, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
 
     legends = []
     colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -3460,8 +3484,10 @@ numpy.ndarray: Y data of shape (n,).</p>
 
     if legend:
         legend_rows = (len(legends)-1)/5 + 1
-        ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.7+0.3*legend_rows)/3.0), ncol=5)
-    return ax</code></pre>
+        ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
+
+    if fig is not None:
+        return fig, ax</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.plot_spectrum"><code class="name flex">
@@ -3495,7 +3521,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L1069-L1152" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L1081-L1164" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=False):
     &#34;&#34;&#34;
@@ -3593,7 +3619,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L632-L644" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L640-L652" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_index(self, index):
     &#34;&#34;&#34;
@@ -3630,7 +3656,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L599-L630" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L607-L638" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_random_ranges(self, n, duration):
     &#34;&#34;&#34;
@@ -3686,7 +3712,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L523-L543" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L531-L551" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_randomly(self, n=None, pct=None):
     &#34;&#34;&#34;
@@ -3733,7 +3759,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L545-L573" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L553-L581" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_range(self, start=None, end=None):
     &#34;&#34;&#34;
@@ -3781,7 +3807,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L575-L597" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L583-L605" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_relative_range(self, start=0.0, end=1.0):
     &#34;&#34;&#34;
@@ -3824,7 +3850,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L318-L335" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L318-L335" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def rescale_x(self, upper=1000.0):
     &#34;&#34;&#34;
@@ -3846,6 +3872,25 @@ numpy.ndarray: Y data of shape (n,).</p>
         self.X[i].apply(t)</code></pre>
 </details>
 </dd>
+<dt id="mogptk.data.Data.reset"><code class="name flex">
+<span>def <span class="ident">reset</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Reset the data set and undo the removal of data points. That is, this reverts any calls to <code>remove_randomly</code>, <code>remove_range</code>, <code>remove_relative_range</code>, <code>remove_random_ranges</code>, and <code>remove_index</code>.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L523-L529" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def reset(self):
+    &#34;&#34;&#34;
+    Reset the data set and undo the removal of data points. That is, this reverts any calls to `remove_randomly`, `remove_range`, `remove_relative_range`, `remove_random_ranges`, and `remove_index`.
+    &#34;&#34;&#34;
+    self.mask[:] = True
+    for i in range(len(self.removed_ranges)):
+        self.removed_ranges[i] = []</code></pre>
+</details>
+</dd>
 <dt id="mogptk.data.Data.set_function"><code class="name flex">
 <span>def <span class="ident">set_function</span></span>(<span>self, f)</span>
 </code></dt>
@@ -3863,7 +3908,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L303-L316" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L303-L316" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_function(self, f):
     &#34;&#34;&#34;
@@ -3899,7 +3944,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L280-L301" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L280-L301" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_labels(self, x_labels, y_label):
     &#34;&#34;&#34;
@@ -3941,7 +3986,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L268-L278" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L268-L278" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_name(self, name):
     &#34;&#34;&#34;
@@ -3983,7 +4028,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L735-L787" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L743-L795" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start=None, end=None, n=None, step=None):
     &#34;&#34;&#34;
@@ -4056,7 +4101,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L707-L733" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L715-L741" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_x(self, X):
     &#34;&#34;&#34;
@@ -4107,7 +4152,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/data.py#L337-L359" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/data.py#L337-L359" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;
@@ -4185,6 +4230,7 @@ numpy.ndarray: Y data of shape (n,).</p>
 <li><code><a title="mogptk.data.Data.remove_range" href="#mogptk.data.Data.remove_range">remove_range</a></code></li>
 <li><code><a title="mogptk.data.Data.remove_relative_range" href="#mogptk.data.Data.remove_relative_range">remove_relative_range</a></code></li>
 <li><code><a title="mogptk.data.Data.rescale_x" href="#mogptk.data.Data.rescale_x">rescale_x</a></code></li>
+<li><code><a title="mogptk.data.Data.reset" href="#mogptk.data.Data.reset">reset</a></code></li>
 <li><code><a title="mogptk.data.Data.set_function" href="#mogptk.data.Data.set_function">set_function</a></code></li>
 <li><code><a title="mogptk.data.Data.set_labels" href="#mogptk.data.Data.set_labels">set_labels</a></code></li>
 <li><code><a title="mogptk.data.Data.set_name" href="#mogptk.data.Data.set_name">set_name</a></code></li>

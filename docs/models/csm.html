@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.7.4" />
-<title>mogptk.sm_lmc API documentation</title>
+<title>mogptk.models.csm API documentation</title>
 <meta name="description" content="" />
 <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
 <link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
@@ -19,36 +19,36 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>mogptk.sm_lmc</code></h1>
+<h1 class="title">Module <code>mogptk.models.csm</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/sm_lmc.py#L0-L123" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/models/csm.py#L0-L121" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
-from .dataset import DataSet
-from .model import Model, Exact, logger
-from .kernels import LinearModelOfCoregionalizationKernel, SpectralKernel
+from ..dataset import DataSet
+from ..model import Model, Exact, logger
+from ..gpr import CrossSpectralKernel, MixtureKernel
 
-class SM_LMC(Model):
+class CSM(Model):
     &#34;&#34;&#34;
-    Spectral Mixture Linear Model of Coregionalization kernel with `Q` components and `Rq` latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
+    Cross Spectral Mixture kernel [1] with `Q` components and `Rq` latent functions. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
 
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
-        mean (mogptk.kernels.mean.Mean): The mean class.
+        mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
-        model: The mogptk.kernels.model.Model.
-        kernel: The mogptk.kernels.kernel.Kernel.
+        model: The mogptk.gpr.model.Model.
+        kernel: The mogptk.gpr.kernel.Kernel.
 
     Examples:
 
@@ -60,34 +60,29 @@ class SM_LMC(Model):
     &gt;&gt;&gt; y2 = 2.0 * np.sin(0.2 * t)
     &gt;&gt;&gt; 
     &gt;&gt;&gt; dataset = mogptk.DataSet(t, [y1, y2])
-    &gt;&gt;&gt; model = mogptk.SM_LMC(dataset, Q=2)
+    &gt;&gt;&gt; model = mogptk.CSM(dataset, Q=2)
     &gt;&gt;&gt; model.init_parameters()
     &gt;&gt;&gt; model.train()
     &gt;&gt;&gt; model.predict()
     &gt;&gt;&gt; dataset.plot()
 
-    [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013\
-    [2] P. Goovaerts, &#34;Geostatistics for Natural Resource Evaluation&#34;, Oxford University Press, 1997
+    [1] K.R. Ulrich et al, &#34;GP Kernels for Cross-Spectrum Analysis&#34;, Advances in Neural Information Processing Systems 28, 2015
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;SM-LMC&#34;):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;CSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         dataset.rescale_x()
 
-        spectral = SpectralKernel(dataset.get_input_dims()[0])
-        spectral.weight.trainable = False
-        kernel = LinearModelOfCoregionalizationKernel(
-            spectral,
+        spectral = CrossSpectralKernel(
             output_dims=dataset.get_output_dims(),
             input_dims=dataset.get_input_dims()[0],
-            Q=Q,
-            Rq=Rq)
+            Rq=Rq,
+        )
+        kernel = MixtureKernel(spectral, Q)
 
-        super(SM_LMC, self).__init__(dataset, kernel, model, mean, name)
+        super(CSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
-        for q in range(Q):
-            self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
     
     def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
         &#34;&#34;&#34;
@@ -107,9 +102,9 @@ class SM_LMC(Model):
             sm_params (object): Additional parameters for PyTorch optimizer.
             sm_plot (bool): Show the PSD of the kernel after fitting SM.
         &#34;&#34;&#34;
-        
+
         output_dims = self.dataset.get_output_dims()
-        
+
         if not method.lower() in [&#39;bnse&#39;, &#39;ls&#39;, &#39;sm&#39;]:
             raise ValueError(&#34;valid methods of estimation are BNSE, LS, and SM&#34;)
 
@@ -120,7 +115,7 @@ class SM_LMC(Model):
         else:
             amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
         if len(amplitudes) == 0:
-            logger.warning(&#39;{} could not find peaks for SM-LMC&#39;.format(method))
+            logger.warning(&#39;{} could not find peaks for MOSM&#39;.format(method))
             return
 
         # flatten output_dims and mixtures
@@ -137,20 +132,23 @@ class SM_LMC(Model):
             constant[channel,q % self.Q,:] = amplitudes[i].mean()
             if q &lt; self.Q:
                 self.model.kernel[q].mean.assign(means[i])
-                self.model.kernel[q].variance.assign(variances[i] * 2.0)
+                self.model.kernel[q].variance.assign(variances[i] * 5.0)
 
         # normalize proportional to channel variance
         for i, channel in enumerate(self.dataset):
             _, y = channel.get_train_data(transformed=True)
             if 0.0 &lt; constant[i,:,:].sum():
                 constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
-        self.model.kernel.weight.assign(constant)
+
+        for q in range(self.Q):
+            self.model.kernel[q].amplitude.assign(constant[:,q,:])
 
         noise = np.empty((output_dims,))
         for i, channel in enumerate(self.dataset):
             _, y = channel.get_train_data(transformed=True)
             noise[i] = y.var() / 30.0
-        self.model.kernel.noise.assign(noise)</code></pre>
+        for q in range(self.Q):
+            self.model.kernel[q].noise.assign(noise)</code></pre>
 </details>
 </section>
 <section>
@@ -162,23 +160,23 @@ class SM_LMC(Model):
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="mogptk.sm_lmc.SM_LMC"><code class="flex name class">
-<span>class <span class="ident">SM_LMC</span></span>
-<span>(</span><span>dataset, Q=1, Rq=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='SM-LMC')</span>
+<dt id="mogptk.models.csm.CSM"><code class="flex name class">
+<span>class <span class="ident">CSM</span></span>
+<span>(</span><span>dataset, Q=1, Rq=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='CSM')</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Spectral Mixture Linear Model of Coregionalization kernel with <code>Q</code> components and <code>Rq</code> latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
+<section class="desc"><p>Cross Spectral Mixture kernel [1] with <code>Q</code> components and <code>Rq</code> latent functions. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="../dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
 <dd><code>DataSet</code> object of data for all channels.</dd>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of components.</dd>
 <dt><strong><code>Rq</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of subcomponents.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <a title="mogptk.model.Exact" href="model.html#mogptk.model.Exact"><code>Exact</code></a>.</dd>
-<dt><strong><code>mean</code></strong> :&ensp;<a title="mogptk.kernels.mean.Mean" href="kernels/mean.html#mogptk.kernels.mean.Mean"><code>Mean</code></a></dt>
+<dd>Gaussian process model to use, such as <a title="mogptk.model.Exact" href="../model.html#mogptk.model.Exact"><code>Exact</code></a>.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean"><code>Mean</code></a></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
@@ -188,9 +186,9 @@ class SM_LMC(Model):
 <dt><strong><code>dataset</code></strong></dt>
 <dd>The associated mogptk.dataset.DataSet.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>The mogptk.kernels.model.Model.</dd>
+<dd>The mogptk.gpr.model.Model.</dd>
 <dt><strong><code>kernel</code></strong></dt>
-<dd>The mogptk.kernels.kernel.Kernel.</dd>
+<dd>The mogptk.gpr.kernel.Kernel.</dd>
 </dl>
 <p>Examples:</p>
 <pre><code>&gt;&gt;&gt; import numpy as np
@@ -201,24 +199,23 @@ class SM_LMC(Model):
 &gt;&gt;&gt; y2 = 2.0 * np.sin(0.2 * t)
 &gt;&gt;&gt; 
 &gt;&gt;&gt; dataset = mogptk.DataSet(t, [y1, y2])
-&gt;&gt;&gt; model = mogptk.SM_LMC(dataset, Q=2)
+&gt;&gt;&gt; model = mogptk.CSM(dataset, Q=2)
 &gt;&gt;&gt; model.init_parameters()
 &gt;&gt;&gt; model.train()
 &gt;&gt;&gt; model.predict()
 &gt;&gt;&gt; dataset.plot()
 </code></pre>
-<p>[1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
-[2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997</p>
+<p>[1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015</p>
 <p>Model is the base class for multi-output Gaussian process models.</p>
 <h2 id="args_1">Args</h2>
 <dl>
-<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a>, <a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a></dt>
+<dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="../dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a>, <a title="mogptk.data.Data" href="../data.html#mogptk.data.Data"><code>Data</code></a></dt>
 <dd><code>DataSet</code> with <code>Data</code> objects for all the channels. When a (list or dict of) <code>Data</code> object is passed, it will automatically be converted to a <code>DataSet</code>.</dd>
-<dt><strong><code>kernel</code></strong> :&ensp;<a title="mogptk.kernels.kernel.Kernel" href="kernels/kernel.html#mogptk.kernels.kernel.Kernel"><code>Kernel</code></a></dt>
+<dt><strong><code>kernel</code></strong> :&ensp;<a title="mogptk.gpr.kernel.Kernel" href="../gpr/kernel.html#mogptk.gpr.kernel.Kernel"><code>Kernel</code></a></dt>
 <dd>The kernel class.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <a title="mogptk.model.Exact" href="model.html#mogptk.model.Exact"><code>Exact</code></a>.</dd>
-<dt><strong><code>mean</code></strong> :&ensp;<a title="mogptk.kernels.mean.Mean" href="kernels/mean.html#mogptk.kernels.mean.Mean"><code>Mean</code></a></dt>
+<dd>Gaussian process model to use, such as <a title="mogptk.model.Exact" href="../model.html#mogptk.model.Exact"><code>Exact</code></a>.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean"><code>Mean</code></a></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
@@ -226,24 +223,24 @@ class SM_LMC(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/sm_lmc.py#L7-L124" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/models/csm.py#L7-L122" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">class SM_LMC(Model):
+<pre><code class="python">class CSM(Model):
     &#34;&#34;&#34;
-    Spectral Mixture Linear Model of Coregionalization kernel with `Q` components and `Rq` latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
+    Cross Spectral Mixture kernel [1] with `Q` components and `Rq` latent functions. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
 
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
-        mean (mogptk.kernels.mean.Mean): The mean class.
+        mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
-        model: The mogptk.kernels.model.Model.
-        kernel: The mogptk.kernels.kernel.Kernel.
+        model: The mogptk.gpr.model.Model.
+        kernel: The mogptk.gpr.kernel.Kernel.
 
     Examples:
 
@@ -255,34 +252,29 @@ class SM_LMC(Model):
     &gt;&gt;&gt; y2 = 2.0 * np.sin(0.2 * t)
     &gt;&gt;&gt; 
     &gt;&gt;&gt; dataset = mogptk.DataSet(t, [y1, y2])
-    &gt;&gt;&gt; model = mogptk.SM_LMC(dataset, Q=2)
+    &gt;&gt;&gt; model = mogptk.CSM(dataset, Q=2)
     &gt;&gt;&gt; model.init_parameters()
     &gt;&gt;&gt; model.train()
     &gt;&gt;&gt; model.predict()
     &gt;&gt;&gt; dataset.plot()
 
-    [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013\
-    [2] P. Goovaerts, &#34;Geostatistics for Natural Resource Evaluation&#34;, Oxford University Press, 1997
+    [1] K.R. Ulrich et al, &#34;GP Kernels for Cross-Spectrum Analysis&#34;, Advances in Neural Information Processing Systems 28, 2015
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;SM-LMC&#34;):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;CSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
         dataset.rescale_x()
 
-        spectral = SpectralKernel(dataset.get_input_dims()[0])
-        spectral.weight.trainable = False
-        kernel = LinearModelOfCoregionalizationKernel(
-            spectral,
+        spectral = CrossSpectralKernel(
             output_dims=dataset.get_output_dims(),
             input_dims=dataset.get_input_dims()[0],
-            Q=Q,
-            Rq=Rq)
+            Rq=Rq,
+        )
+        kernel = MixtureKernel(spectral, Q)
 
-        super(SM_LMC, self).__init__(dataset, kernel, model, mean, name)
+        super(CSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
-        for q in range(Q):
-            self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
     
     def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
         &#34;&#34;&#34;
@@ -302,9 +294,9 @@ class SM_LMC(Model):
             sm_params (object): Additional parameters for PyTorch optimizer.
             sm_plot (bool): Show the PSD of the kernel after fitting SM.
         &#34;&#34;&#34;
-        
+
         output_dims = self.dataset.get_output_dims()
-        
+
         if not method.lower() in [&#39;bnse&#39;, &#39;ls&#39;, &#39;sm&#39;]:
             raise ValueError(&#34;valid methods of estimation are BNSE, LS, and SM&#34;)
 
@@ -315,7 +307,7 @@ class SM_LMC(Model):
         else:
             amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
         if len(amplitudes) == 0:
-            logger.warning(&#39;{} could not find peaks for SM-LMC&#39;.format(method))
+            logger.warning(&#39;{} could not find peaks for MOSM&#39;.format(method))
             return
 
         # flatten output_dims and mixtures
@@ -332,28 +324,31 @@ class SM_LMC(Model):
             constant[channel,q % self.Q,:] = amplitudes[i].mean()
             if q &lt; self.Q:
                 self.model.kernel[q].mean.assign(means[i])
-                self.model.kernel[q].variance.assign(variances[i] * 2.0)
+                self.model.kernel[q].variance.assign(variances[i] * 5.0)
 
         # normalize proportional to channel variance
         for i, channel in enumerate(self.dataset):
             _, y = channel.get_train_data(transformed=True)
             if 0.0 &lt; constant[i,:,:].sum():
                 constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
-        self.model.kernel.weight.assign(constant)
+
+        for q in range(self.Q):
+            self.model.kernel[q].amplitude.assign(constant[:,q,:])
 
         noise = np.empty((output_dims,))
         for i, channel in enumerate(self.dataset):
             _, y = channel.get_train_data(transformed=True)
             noise[i] = y.var() / 30.0
-        self.model.kernel.noise.assign(noise)</code></pre>
+        for q in range(self.Q):
+            self.model.kernel[q].noise.assign(noise)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.model.Model" href="model.html#mogptk.model.Model">Model</a></li>
+<li><a title="mogptk.model.Model" href="../model.html#mogptk.model.Model">Model</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.sm_lmc.SM_LMC.init_parameters"><code class="name flex">
+<dt id="mogptk.models.csm.CSM.init_parameters"><code class="name flex">
 <span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False)</span>
 </code></dt>
 <dd>
@@ -382,7 +377,7 @@ class SM_LMC(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/sm_lmc.py#L63-L124" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/models/csm.py#L58-L122" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
     &#34;&#34;&#34;
@@ -402,9 +397,9 @@ class SM_LMC(Model):
         sm_params (object): Additional parameters for PyTorch optimizer.
         sm_plot (bool): Show the PSD of the kernel after fitting SM.
     &#34;&#34;&#34;
-    
+
     output_dims = self.dataset.get_output_dims()
-    
+
     if not method.lower() in [&#39;bnse&#39;, &#39;ls&#39;, &#39;sm&#39;]:
         raise ValueError(&#34;valid methods of estimation are BNSE, LS, and SM&#34;)
 
@@ -415,7 +410,7 @@ class SM_LMC(Model):
     else:
         amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
     if len(amplitudes) == 0:
-        logger.warning(&#39;{} could not find peaks for SM-LMC&#39;.format(method))
+        logger.warning(&#39;{} could not find peaks for MOSM&#39;.format(method))
         return
 
     # flatten output_dims and mixtures
@@ -432,38 +427,41 @@ class SM_LMC(Model):
         constant[channel,q % self.Q,:] = amplitudes[i].mean()
         if q &lt; self.Q:
             self.model.kernel[q].mean.assign(means[i])
-            self.model.kernel[q].variance.assign(variances[i] * 2.0)
+            self.model.kernel[q].variance.assign(variances[i] * 5.0)
 
     # normalize proportional to channel variance
     for i, channel in enumerate(self.dataset):
         _, y = channel.get_train_data(transformed=True)
         if 0.0 &lt; constant[i,:,:].sum():
             constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
-    self.model.kernel.weight.assign(constant)
+
+    for q in range(self.Q):
+        self.model.kernel[q].amplitude.assign(constant[:,q,:])
 
     noise = np.empty((output_dims,))
     for i, channel in enumerate(self.dataset):
         _, y = channel.get_train_data(transformed=True)
         noise[i] = y.var() / 30.0
-    self.model.kernel.noise.assign(noise)</code></pre>
+    for q in range(self.Q):
+        self.model.kernel[q].noise.assign(noise)</code></pre>
 </details>
 </dd>
 </dl>
 <h3>Inherited members</h3>
 <ul class="hlist">
-<li><code><b><a title="mogptk.model.Model" href="model.html#mogptk.model.Model">Model</a></b></code>:
+<li><code><b><a title="mogptk.model.Model" href="../model.html#mogptk.model.Model">Model</a></b></code>:
 <ul class="hlist">
-<li><code><a title="mogptk.model.Model.error" href="model.html#mogptk.model.Model.error">error</a></code></li>
-<li><code><a title="mogptk.model.Model.get_gram_matrix" href="model.html#mogptk.model.Model.get_gram_matrix">get_gram_matrix</a></code></li>
-<li><code><a title="mogptk.model.Model.get_parameters" href="model.html#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
-<li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="model.html#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
-<li><code><a title="mogptk.model.Model.loss" href="model.html#mogptk.model.Model.loss">loss</a></code></li>
-<li><code><a title="mogptk.model.Model.plot" href="model.html#mogptk.model.Model.plot">plot</a></code></li>
-<li><code><a title="mogptk.model.Model.plot_prediction" href="model.html#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
-<li><code><a title="mogptk.model.Model.predict" href="model.html#mogptk.model.Model.predict">predict</a></code></li>
-<li><code><a title="mogptk.model.Model.print_parameters" href="model.html#mogptk.model.Model.print_parameters">print_parameters</a></code></li>
-<li><code><a title="mogptk.model.Model.save" href="model.html#mogptk.model.Model.save">save</a></code></li>
-<li><code><a title="mogptk.model.Model.train" href="model.html#mogptk.model.Model.train">train</a></code></li>
+<li><code><a title="mogptk.model.Model.error" href="../model.html#mogptk.model.Model.error">error</a></code></li>
+<li><code><a title="mogptk.model.Model.get_gram_matrix" href="../model.html#mogptk.model.Model.get_gram_matrix">get_gram_matrix</a></code></li>
+<li><code><a title="mogptk.model.Model.get_parameters" href="../model.html#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="../model.html#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
+<li><code><a title="mogptk.model.Model.loss" href="../model.html#mogptk.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.model.Model.plot" href="../model.html#mogptk.model.Model.plot">plot</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_prediction" href="../model.html#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
+<li><code><a title="mogptk.model.Model.predict" href="../model.html#mogptk.model.Model.predict">predict</a></code></li>
+<li><code><a title="mogptk.model.Model.print_parameters" href="../model.html#mogptk.model.Model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.save" href="../model.html#mogptk.model.Model.save">save</a></code></li>
+<li><code><a title="mogptk.model.Model.train" href="../model.html#mogptk.model.Model.train">train</a></code></li>
 </ul>
 </li>
 </ul>
@@ -479,15 +477,15 @@ class SM_LMC(Model):
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="mogptk" href="index.html">mogptk</a></code></li>
+<li><code><a title="mogptk.models" href="index.html">mogptk.models</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="mogptk.sm_lmc.SM_LMC" href="#mogptk.sm_lmc.SM_LMC">SM_LMC</a></code></h4>
+<h4><code><a title="mogptk.models.csm.CSM" href="#mogptk.models.csm.CSM">CSM</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.sm_lmc.SM_LMC.init_parameters" href="#mogptk.sm_lmc.SM_LMC.init_parameters">init_parameters</a></code></li>
+<li><code><a title="mogptk.models.csm.CSM.init_parameters" href="#mogptk.models.csm.CSM.init_parameters">init_parameters</a></code></li>
 </ul>
 </li>
 </ul>

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.7.4" />
-<title>mogptk.kernels.parameter API documentation</title>
+<title>mogptk.gpr.parameter API documentation</title>
 <meta name="description" content="" />
 <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
 <link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
@@ -19,13 +19,13 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>mogptk.kernels.parameter</code></h1>
+<h1 class="title">Module <code>mogptk.gpr.parameter</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L0-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L0-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import torch.nn.functional as functional
@@ -173,7 +173,7 @@ class Parameter:
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="mogptk.kernels.parameter.Parameter"><code class="flex name class">
+<dt id="mogptk.gpr.parameter.Parameter"><code class="flex name class">
 <span>class <span class="ident">Parameter</span></span>
 <span>(</span><span>data, name=None, lower=None, upper=None, prior=None, trainable=True)</span>
 </code></dt>
@@ -182,7 +182,7 @@ class Parameter:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L43-L135" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L43-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Parameter:
     def __init__(self, data, name=None, lower=None, upper=None, prior=None, trainable=True):
@@ -280,13 +280,13 @@ class Parameter:
 </details>
 <h3>Instance variables</h3>
 <dl>
-<dt id="mogptk.kernels.parameter.Parameter.constrained"><code class="name">var <span class="ident">constrained</span></code></dt>
+<dt id="mogptk.gpr.parameter.Parameter.constrained"><code class="name">var <span class="ident">constrained</span></code></dt>
 <dd>
 <section class="desc"></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L62-L66" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L62-L66" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def constrained(self):
@@ -298,7 +298,7 @@ def constrained(self):
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.parameter.Parameter.assign"><code class="name flex">
+<dt id="mogptk.gpr.parameter.Parameter.assign"><code class="name flex">
 <span>def <span class="ident">assign</span></span>(<span>self, data, name=None, lower=None, upper=None, prior=None, trainable=None)</span>
 </code></dt>
 <dd>
@@ -306,7 +306,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L71-L130" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L71-L130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
     if not isinstance(data, torch.Tensor):
@@ -370,7 +370,7 @@ def constrained(self):
     self.unconstrained = data</code></pre>
 </details>
 </dd>
-<dt id="mogptk.kernels.parameter.Parameter.log_prior"><code class="name flex">
+<dt id="mogptk.gpr.parameter.Parameter.log_prior"><code class="name flex">
 <span>def <span class="ident">log_prior</span></span>(<span>self)</span>
 </code></dt>
 <dd>
@@ -378,7 +378,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L132-L135" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L132-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     if self.prior is None:
@@ -386,7 +386,7 @@ def constrained(self):
     return self.prior.log_p(self()).sum()</code></pre>
 </details>
 </dd>
-<dt id="mogptk.kernels.parameter.Parameter.numpy"><code class="name flex">
+<dt id="mogptk.gpr.parameter.Parameter.numpy"><code class="name flex">
 <span>def <span class="ident">numpy</span></span>(<span>self)</span>
 </code></dt>
 <dd>
@@ -394,7 +394,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L68-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L68-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def numpy(self):
     return self.constrained.detach().numpy()</code></pre>
@@ -402,7 +402,7 @@ def constrained(self):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.parameter.Sigmoid"><code class="flex name class">
+<dt id="mogptk.gpr.parameter.Sigmoid"><code class="flex name class">
 <span>class <span class="ident">Sigmoid</span></span>
 <span>(</span><span>lower=0.0, upper=1.0)</span>
 </code></dt>
@@ -411,7 +411,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L29-L41" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L29-L41" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Sigmoid(Transform):
     def __init__(self, lower=0.0, upper=1.0):
@@ -429,11 +429,11 @@ def constrained(self):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.parameter.Transform" href="#mogptk.kernels.parameter.Transform">Transform</a></li>
+<li><a title="mogptk.gpr.parameter.Transform" href="#mogptk.gpr.parameter.Transform">Transform</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.parameter.Sigmoid.forward"><code class="name flex">
+<dt id="mogptk.gpr.parameter.Sigmoid.forward"><code class="name flex">
 <span>def <span class="ident">forward</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
@@ -441,13 +441,13 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L34-L35" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L34-L35" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     return self.lower + (self.upper-self.lower)*torch.sigmoid(x)</code></pre>
 </details>
 </dd>
-<dt id="mogptk.kernels.parameter.Sigmoid.inverse"><code class="name flex">
+<dt id="mogptk.gpr.parameter.Sigmoid.inverse"><code class="name flex">
 <span>def <span class="ident">inverse</span></span>(<span>self, y)</span>
 </code></dt>
 <dd>
@@ -455,7 +455,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L37-L41" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L37-L41" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     if torch.any(y &lt; self.lower) or torch.any(self.upper &lt; y):
@@ -466,7 +466,7 @@ def constrained(self):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.parameter.Softplus"><code class="flex name class">
+<dt id="mogptk.gpr.parameter.Softplus"><code class="flex name class">
 <span>class <span class="ident">Softplus</span></span>
 <span>(</span><span>lower=0.0, beta=0.1, threshold=20.0)</span>
 </code></dt>
@@ -475,7 +475,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L15-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L15-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Softplus(Transform):
     def __init__(self, lower=0.0, beta=0.1, threshold=20.0):
@@ -493,11 +493,11 @@ def constrained(self):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.parameter.Transform" href="#mogptk.kernels.parameter.Transform">Transform</a></li>
+<li><a title="mogptk.gpr.parameter.Transform" href="#mogptk.gpr.parameter.Transform">Transform</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.parameter.Softplus.forward"><code class="name flex">
+<dt id="mogptk.gpr.parameter.Softplus.forward"><code class="name flex">
 <span>def <span class="ident">forward</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
@@ -505,13 +505,13 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L21-L22" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L21-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     return self.lower + functional.softplus(x, beta=self.beta, threshold=self.threshold)</code></pre>
 </details>
 </dd>
-<dt id="mogptk.kernels.parameter.Softplus.inverse"><code class="name flex">
+<dt id="mogptk.gpr.parameter.Softplus.inverse"><code class="name flex">
 <span>def <span class="ident">inverse</span></span>(<span>self, y)</span>
 </code></dt>
 <dd>
@@ -519,7 +519,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L24-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L24-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     if torch.any(y &lt; self.lower):
@@ -529,7 +529,7 @@ def constrained(self):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.parameter.Transform"><code class="flex name class">
+<dt id="mogptk.gpr.parameter.Transform"><code class="flex name class">
 <span>class <span class="ident">Transform</span></span>
 </code></dt>
 <dd>
@@ -537,7 +537,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L6-L13" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L6-L13" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Transform:
     def forward(self, x):
@@ -550,12 +550,12 @@ def constrained(self):
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.parameter.Sigmoid" href="#mogptk.kernels.parameter.Sigmoid">Sigmoid</a></li>
-<li><a title="mogptk.kernels.parameter.Softplus" href="#mogptk.kernels.parameter.Softplus">Softplus</a></li>
+<li><a title="mogptk.gpr.parameter.Sigmoid" href="#mogptk.gpr.parameter.Sigmoid">Sigmoid</a></li>
+<li><a title="mogptk.gpr.parameter.Softplus" href="#mogptk.gpr.parameter.Softplus">Softplus</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.parameter.Transform.forward"><code class="name flex">
+<dt id="mogptk.gpr.parameter.Transform.forward"><code class="name flex">
 <span>def <span class="ident">forward</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
@@ -563,14 +563,14 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L7-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L7-L9" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     # unconstrained to constrained space
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
-<dt id="mogptk.kernels.parameter.Transform.inverse"><code class="name flex">
+<dt id="mogptk.gpr.parameter.Transform.inverse"><code class="name flex">
 <span>def <span class="ident">inverse</span></span>(<span>self, y)</span>
 </code></dt>
 <dd>
@@ -578,7 +578,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/parameter.py#L11-L13" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L11-L13" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     # constrained to unconstrained space
@@ -598,39 +598,39 @@ def constrained(self):
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="mogptk.kernels" href="index.html">mogptk.kernels</a></code></li>
+<li><code><a title="mogptk.gpr" href="index.html">mogptk.gpr</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="mogptk.kernels.parameter.Parameter" href="#mogptk.kernels.parameter.Parameter">Parameter</a></code></h4>
+<h4><code><a title="mogptk.gpr.parameter.Parameter" href="#mogptk.gpr.parameter.Parameter">Parameter</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.parameter.Parameter.assign" href="#mogptk.kernels.parameter.Parameter.assign">assign</a></code></li>
-<li><code><a title="mogptk.kernels.parameter.Parameter.constrained" href="#mogptk.kernels.parameter.Parameter.constrained">constrained</a></code></li>
-<li><code><a title="mogptk.kernels.parameter.Parameter.log_prior" href="#mogptk.kernels.parameter.Parameter.log_prior">log_prior</a></code></li>
-<li><code><a title="mogptk.kernels.parameter.Parameter.numpy" href="#mogptk.kernels.parameter.Parameter.numpy">numpy</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Parameter.assign" href="#mogptk.gpr.parameter.Parameter.assign">assign</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Parameter.constrained" href="#mogptk.gpr.parameter.Parameter.constrained">constrained</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Parameter.log_prior" href="#mogptk.gpr.parameter.Parameter.log_prior">log_prior</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Parameter.numpy" href="#mogptk.gpr.parameter.Parameter.numpy">numpy</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.parameter.Sigmoid" href="#mogptk.kernels.parameter.Sigmoid">Sigmoid</a></code></h4>
+<h4><code><a title="mogptk.gpr.parameter.Sigmoid" href="#mogptk.gpr.parameter.Sigmoid">Sigmoid</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.parameter.Sigmoid.forward" href="#mogptk.kernels.parameter.Sigmoid.forward">forward</a></code></li>
-<li><code><a title="mogptk.kernels.parameter.Sigmoid.inverse" href="#mogptk.kernels.parameter.Sigmoid.inverse">inverse</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Sigmoid.forward" href="#mogptk.gpr.parameter.Sigmoid.forward">forward</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Sigmoid.inverse" href="#mogptk.gpr.parameter.Sigmoid.inverse">inverse</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.parameter.Softplus" href="#mogptk.kernels.parameter.Softplus">Softplus</a></code></h4>
+<h4><code><a title="mogptk.gpr.parameter.Softplus" href="#mogptk.gpr.parameter.Softplus">Softplus</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.parameter.Softplus.forward" href="#mogptk.kernels.parameter.Softplus.forward">forward</a></code></li>
-<li><code><a title="mogptk.kernels.parameter.Softplus.inverse" href="#mogptk.kernels.parameter.Softplus.inverse">inverse</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Softplus.forward" href="#mogptk.gpr.parameter.Softplus.forward">forward</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Softplus.inverse" href="#mogptk.gpr.parameter.Softplus.inverse">inverse</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.parameter.Transform" href="#mogptk.kernels.parameter.Transform">Transform</a></code></h4>
+<h4><code><a title="mogptk.gpr.parameter.Transform" href="#mogptk.gpr.parameter.Transform">Transform</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.parameter.Transform.forward" href="#mogptk.kernels.parameter.Transform.forward">forward</a></code></li>
-<li><code><a title="mogptk.kernels.parameter.Transform.inverse" href="#mogptk.kernels.parameter.Transform.inverse">inverse</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Transform.forward" href="#mogptk.gpr.parameter.Transform.forward">forward</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Transform.inverse" href="#mogptk.gpr.parameter.Transform.inverse">inverse</a></code></li>
 </ul>
 </li>
 </ul>

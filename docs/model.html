@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L0-L539" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L0-L539" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import time
@@ -39,7 +39,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from .serie import Serie
 from .dataset import DataSet
-from .kernels import GPR, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
+from .gpr import GPR, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
 from .errors import mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
 
 logger = logging.getLogger(&#39;mogptk&#39;)
@@ -72,9 +72,9 @@ class Model:
 
         Args:
             dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
-            kernel (mogptk.kernels.kernel.Kernel): The kernel class.
+            kernel (mogptk.gpr.kernel.Kernel): The kernel class.
             model: Gaussian process model to use, such as `mogptk.model.Exact`.
-            mean (mogptk.kernels.mean.Mean): The mean class.
+            mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
         &#34;&#34;&#34;
         
@@ -122,7 +122,7 @@ class Model:
         Returns all parameters of the kernel.
 
         Returns:
-            list: mogptk.kernels.parameter.Parameter    
+            list: mogptk.gpr.parameter.Parameter
 
         Examples:
             &gt;&gt;&gt; params = model.get_parameters()
@@ -496,7 +496,7 @@ class Model:
             else:
                 X[m*n:(m+1)*n,1] = np.linspace(start[m], end[m], n)
 
-        return self.model.K(X).detach().numpy()
+        return self.model.K(X)
 
     def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         &#34;&#34;&#34;
@@ -592,7 +592,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L18-L30" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L18-L30" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -622,7 +622,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L32-L37" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L32-L37" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
@@ -641,7 +641,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L36-L37" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L36-L37" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def build(self, kernel, x, y, mean=None, name=None):
     return GPR(kernel, x, y, mean=mean, name=name)</code></pre>
@@ -659,11 +659,11 @@ def _format_duration(s):
 <dl>
 <dt><strong><code>dataset</code></strong> :&ensp;<a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet"><code>DataSet</code></a>, <a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a></dt>
 <dd><code>DataSet</code> with <code>Data</code> objects for all the channels. When a (list or dict of) <code>Data</code> object is passed, it will automatically be converted to a <code>DataSet</code>.</dd>
-<dt><strong><code>kernel</code></strong> :&ensp;<a title="mogptk.kernels.kernel.Kernel" href="kernels/kernel.html#mogptk.kernels.kernel.Kernel"><code>Kernel</code></a></dt>
+<dt><strong><code>kernel</code></strong> :&ensp;<a title="mogptk.gpr.kernel.Kernel" href="gpr/kernel.html#mogptk.gpr.kernel.Kernel"><code>Kernel</code></a></dt>
 <dd>The kernel class.</dd>
 <dt><strong><code>model</code></strong></dt>
 <dd>Gaussian process model to use, such as <a title="mogptk.model.Exact" href="#mogptk.model.Exact"><code>Exact</code></a>.</dd>
-<dt><strong><code>mean</code></strong> :&ensp;<a title="mogptk.kernels.mean.Mean" href="kernels/mean.html#mogptk.kernels.mean.Mean"><code>Mean</code></a></dt>
+<dt><strong><code>mean</code></strong> :&ensp;<a title="mogptk.gpr.mean.Mean" href="gpr/mean.html#mogptk.gpr.mean.Mean"><code>Mean</code></a></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
@@ -671,7 +671,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L39-L512" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L39-L512" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
@@ -680,9 +680,9 @@ def _format_duration(s):
 
         Args:
             dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
-            kernel (mogptk.kernels.kernel.Kernel): The kernel class.
+            kernel (mogptk.gpr.kernel.Kernel): The kernel class.
             model: Gaussian process model to use, such as `mogptk.model.Exact`.
-            mean (mogptk.kernels.mean.Mean): The mean class.
+            mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
         &#34;&#34;&#34;
         
@@ -730,7 +730,7 @@ def _format_duration(s):
         Returns all parameters of the kernel.
 
         Returns:
-            list: mogptk.kernels.parameter.Parameter    
+            list: mogptk.gpr.parameter.Parameter
 
         Examples:
             &gt;&gt;&gt; params = model.get_parameters()
@@ -1104,7 +1104,7 @@ def _format_duration(s):
             else:
                 X[m*n:(m+1)*n,1] = np.linspace(start[m], end[m], n)
 
-        return self.model.K(X).detach().numpy()
+        return self.model.K(X)
 
     def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         &#34;&#34;&#34;
@@ -1150,11 +1150,11 @@ def _format_duration(s):
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="mogptk.conv.CONV" href="conv.html#mogptk.conv.CONV">CONV</a></li>
-<li><a title="mogptk.csm.CSM" href="csm.html#mogptk.csm.CSM">CSM</a></li>
-<li><a title="mogptk.mosm.MOSM" href="mosm.html#mogptk.mosm.MOSM">MOSM</a></li>
-<li><a title="mogptk.sm.SM" href="sm.html#mogptk.sm.SM">SM</a></li>
-<li><a title="mogptk.sm_lmc.SM_LMC" href="sm_lmc.html#mogptk.sm_lmc.SM_LMC">SM_LMC</a></li>
+<li><a title="mogptk.models.conv.CONV" href="models/conv.html#mogptk.models.conv.CONV">CONV</a></li>
+<li><a title="mogptk.models.csm.CSM" href="models/csm.html#mogptk.models.csm.CSM">CSM</a></li>
+<li><a title="mogptk.models.mosm.MOSM" href="models/mosm.html#mogptk.models.mosm.MOSM">MOSM</a></li>
+<li><a title="mogptk.models.sm.SM" href="models/sm.html#mogptk.models.sm.SM">SM</a></li>
+<li><a title="mogptk.models.sm_lmc.SM_LMC" href="models/sm_lmc.html#mogptk.models.sm_lmc.SM_LMC">SM_LMC</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
@@ -1179,7 +1179,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L145-L168" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L145-L168" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;):
     &#34;&#34;&#34;
@@ -1229,7 +1229,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L436-L470" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L436-L470" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_gram_matrix(self, start=None, end=None, n=31):
     &#34;&#34;&#34;
@@ -1265,7 +1265,7 @@ def _format_duration(s):
         else:
             X[m*n:(m+1)*n,1] = np.linspace(start[m], end[m], n)
 
-    return self.model.K(X).detach().numpy()</code></pre>
+    return self.model.K(X)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.Model.get_parameters"><code class="name flex">
@@ -1276,8 +1276,7 @@ def _format_duration(s):
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>list</code></strong></dt>
-<dd>mogptk.kernels.parameter.Parameter
-</dd>
+<dd>mogptk.gpr.parameter.Parameter</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code>&gt;&gt;&gt; params = model.get_parameters()
@@ -1285,14 +1284,14 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L91-L101" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L91-L101" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
     Returns all parameters of the kernel.
 
     Returns:
-        list: mogptk.kernels.parameter.Parameter    
+        list: mogptk.gpr.parameter.Parameter
 
     Examples:
         &gt;&gt;&gt; params = model.get_parameters()
@@ -1316,7 +1315,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L121-L131" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L121-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -1347,7 +1346,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L133-L143" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L133-L143" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -1390,7 +1389,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L472-L512" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L472-L512" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -1460,7 +1459,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L417-L434" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L417-L434" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
     &#34;&#34;&#34;
@@ -1506,7 +1505,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L362-L415" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L362-L415" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -1575,7 +1574,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L82-L89" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L82-L89" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -1603,7 +1602,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L103-L119" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L103-L119" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -1657,7 +1656,7 @@ numpy.ndarray: Errors for all iterations. Only if <code>error</code> is set.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/model.py#L170-L291" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L170-L291" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,

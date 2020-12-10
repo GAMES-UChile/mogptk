@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.7.4" />
-<title>mogptk.kernels.singleoutput API documentation</title>
+<title>mogptk.gpr.singleoutput API documentation</title>
 <meta name="description" content="" />
 <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
 <link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
@@ -19,13 +19,13 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>mogptk.kernels.singleoutput</code></h1>
+<h1 class="title">Module <code>mogptk.gpr.singleoutput</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L0-L133" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L0-L162" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -160,7 +160,36 @@ class SpectralKernel(Kernel):
         tau = self.distance(X1,X2)  # NxMxD
         exp = torch.exp(-2.0*np.pi**2 * tau**2 * self.variance().reshape(1,1,-1))  # NxMxD
         cos = torch.cos(2.0*np.pi * tau * self.mean().reshape(1,1,-1))  # NxMxD
-        return self.weight() * torch.prod(exp * cos, dim=2)</code></pre>
+        return self.weight() * torch.prod(exp * cos, dim=2)
+
+class MaternKernel(Kernel):
+    def __init__(self, nu=0.5, input_dims=None, active_dims=None, name=&#34;Matérn&#34;):
+        super(MaternKernel, self).__init__(input_dims, active_dims, name)
+
+        if nu not in [0.5, 1.5, 2.5]:
+            raise ValueError(&#34;nu parameter must be 0.5, 1.5, or 2.5&#34;)
+
+        l = torch.rand(input_dims)
+        sigma = torch.rand(1)
+
+        self.nu = nu
+        self.l = Parameter(l, lower=1e-6)
+        self.sigma = Parameter(sigma, lower=1e-6)
+
+    def K(self, X1, X2=None):
+        # X has shape (data_points,input_dims)
+        X1,X2 = self._check_input(X1,X2)
+        if X2 is None:
+            X2 = X1
+
+        dist = torch.abs(torch.tensordot(self.distance(X1,X2), 1.0/self.l(), dims=1))
+        if self.nu == 0.5:
+            constant = 1.0
+        elif self.nu == 1.5:
+            constant = 1.0 + np.sqrt(3.0)*dist
+        elif self.nu == 2.5:
+            constant = 1.0 + np.sqrt(5.0)*dist + 5.0/3.0*dist**2
+        return self.sigma()**2 * constant * torch.exp(-np.sqrt(self.nu*2.0)*dist)</code></pre>
 </details>
 </section>
 <section>
@@ -172,7 +201,7 @@ class SpectralKernel(Kernel):
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="mogptk.kernels.singleoutput.LinearKernel"><code class="flex name class">
+<dt id="mogptk.gpr.singleoutput.LinearKernel"><code class="flex name class">
 <span>class <span class="ident">LinearKernel</span></span>
 <span>(</span><span>input_dims=None, active_dims=None, name='Linear')</span>
 </code></dt>
@@ -181,7 +210,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L5-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L5-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearKernel(Kernel):
     def __init__(self, input_dims=None, active_dims=None, name=&#34;Linear&#34;):
@@ -201,11 +230,11 @@ class SpectralKernel(Kernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.singleoutput.LinearKernel.K"><code class="name flex">
+<dt id="mogptk.gpr.singleoutput.LinearKernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -213,7 +242,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L13-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L13-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -226,7 +255,81 @@ class SpectralKernel(Kernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.singleoutput.PeriodicKernel"><code class="flex name class">
+<dt id="mogptk.gpr.singleoutput.MaternKernel"><code class="flex name class">
+<span>class <span class="ident">MaternKernel</span></span>
+<span>(</span><span>nu=0.5, input_dims=None, active_dims=None, name='Matérn')</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L136-L163" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class MaternKernel(Kernel):
+    def __init__(self, nu=0.5, input_dims=None, active_dims=None, name=&#34;Matérn&#34;):
+        super(MaternKernel, self).__init__(input_dims, active_dims, name)
+
+        if nu not in [0.5, 1.5, 2.5]:
+            raise ValueError(&#34;nu parameter must be 0.5, 1.5, or 2.5&#34;)
+
+        l = torch.rand(input_dims)
+        sigma = torch.rand(1)
+
+        self.nu = nu
+        self.l = Parameter(l, lower=1e-6)
+        self.sigma = Parameter(sigma, lower=1e-6)
+
+    def K(self, X1, X2=None):
+        # X has shape (data_points,input_dims)
+        X1,X2 = self._check_input(X1,X2)
+        if X2 is None:
+            X2 = X1
+
+        dist = torch.abs(torch.tensordot(self.distance(X1,X2), 1.0/self.l(), dims=1))
+        if self.nu == 0.5:
+            constant = 1.0
+        elif self.nu == 1.5:
+            constant = 1.0 + np.sqrt(3.0)*dist
+        elif self.nu == 2.5:
+            constant = 1.0 + np.sqrt(5.0)*dist + 5.0/3.0*dist**2
+        return self.sigma()**2 * constant * torch.exp(-np.sqrt(self.nu*2.0)*dist)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.gpr.singleoutput.MaternKernel.K"><code class="name flex">
+<span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L150-L163" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def K(self, X1, X2=None):
+    # X has shape (data_points,input_dims)
+    X1,X2 = self._check_input(X1,X2)
+    if X2 is None:
+        X2 = X1
+
+    dist = torch.abs(torch.tensordot(self.distance(X1,X2), 1.0/self.l(), dims=1))
+    if self.nu == 0.5:
+        constant = 1.0
+    elif self.nu == 1.5:
+        constant = 1.0 + np.sqrt(3.0)*dist
+    elif self.nu == 2.5:
+        constant = 1.0 + np.sqrt(5.0)*dist + 5.0/3.0*dist**2
+    return self.sigma()**2 * constant * torch.exp(-np.sqrt(self.nu*2.0)*dist)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.gpr.singleoutput.PeriodicKernel"><code class="flex name class">
 <span>class <span class="ident">PeriodicKernel</span></span>
 <span>(</span><span>input_dims, active_dims=None, name='Periodic')</span>
 </code></dt>
@@ -235,7 +338,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L95-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L95-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PeriodicKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name=&#34;Periodic&#34;):
@@ -259,11 +362,11 @@ class SpectralKernel(Kernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.singleoutput.PeriodicKernel.K"><code class="name flex">
+<dt id="mogptk.gpr.singleoutput.PeriodicKernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -271,7 +374,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L107-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L107-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -284,7 +387,7 @@ class SpectralKernel(Kernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.singleoutput.PhiKernel"><code class="flex name class">
+<dt id="mogptk.gpr.singleoutput.PhiKernel"><code class="flex name class">
 <span>class <span class="ident">PhiKernel</span></span>
 <span>(</span><span>phi, input_dims, active_dims=None, name='Phi')</span>
 </code></dt>
@@ -293,7 +396,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L38-L56" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L38-L56" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PhiKernel(Kernel):
     def __init__(self, phi, input_dims, active_dims=None, name=&#34;Phi&#34;):
@@ -317,11 +420,11 @@ class SpectralKernel(Kernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.singleoutput.PhiKernel.K"><code class="name flex">
+<dt id="mogptk.gpr.singleoutput.PhiKernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -329,7 +432,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L48-L56" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L48-L56" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -344,7 +447,7 @@ class SpectralKernel(Kernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.singleoutput.PolynomialKernel"><code class="flex name class">
+<dt id="mogptk.gpr.singleoutput.PolynomialKernel"><code class="flex name class">
 <span>class <span class="ident">PolynomialKernel</span></span>
 <span>(</span><span>degree, input_dims=None, active_dims=None, name='Polynomial')</span>
 </code></dt>
@@ -353,7 +456,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L21-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L21-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PolynomialKernel(Kernel):
     def __init__(self, degree, input_dims=None, active_dims=None, name=&#34;Polynomial&#34;):
@@ -374,11 +477,11 @@ class SpectralKernel(Kernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.singleoutput.PolynomialKernel.K"><code class="name flex">
+<dt id="mogptk.gpr.singleoutput.PolynomialKernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -386,7 +489,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L30-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L30-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -399,7 +502,7 @@ class SpectralKernel(Kernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.singleoutput.RationalQuadraticKernel"><code class="flex name class">
+<dt id="mogptk.gpr.singleoutput.RationalQuadraticKernel"><code class="flex name class">
 <span>class <span class="ident">RationalQuadraticKernel</span></span>
 <span>(</span><span>alpha, input_dims, active_dims=None, name='RQ')</span>
 </code></dt>
@@ -408,7 +511,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L76-L93" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L76-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class RationalQuadraticKernel(Kernel):
     def __init__(self, alpha, input_dims, active_dims=None, name=&#34;RQ&#34;):
@@ -431,11 +534,11 @@ class SpectralKernel(Kernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.singleoutput.RationalQuadraticKernel.K"><code class="name flex">
+<dt id="mogptk.gpr.singleoutput.RationalQuadraticKernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -443,7 +546,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L87-L93" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L87-L93" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -456,7 +559,7 @@ class SpectralKernel(Kernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.singleoutput.SpectralKernel"><code class="flex name class">
+<dt id="mogptk.gpr.singleoutput.SpectralKernel"><code class="flex name class">
 <span>class <span class="ident">SpectralKernel</span></span>
 <span>(</span><span>input_dims, active_dims=None, name='SM')</span>
 </code></dt>
@@ -465,7 +568,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L115-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L115-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name=&#34;SM&#34;):
@@ -490,11 +593,11 @@ class SpectralKernel(Kernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.singleoutput.SpectralKernel.K"><code class="name flex">
+<dt id="mogptk.gpr.singleoutput.SpectralKernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -502,7 +605,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L127-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L127-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -516,7 +619,7 @@ class SpectralKernel(Kernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.singleoutput.SquaredExponentialKernel"><code class="flex name class">
+<dt id="mogptk.gpr.singleoutput.SquaredExponentialKernel"><code class="flex name class">
 <span>class <span class="ident">SquaredExponentialKernel</span></span>
 <span>(</span><span>input_dims, active_dims=None, name='SE')</span>
 </code></dt>
@@ -525,7 +628,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L58-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L58-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SquaredExponentialKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name=&#34;SE&#34;):
@@ -547,11 +650,11 @@ class SpectralKernel(Kernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.singleoutput.SquaredExponentialKernel.K"><code class="name flex">
+<dt id="mogptk.gpr.singleoutput.SquaredExponentialKernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -559,7 +662,7 @@ class SpectralKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/singleoutput.py#L68-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/singleoutput.py#L68-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -583,51 +686,57 @@ class SpectralKernel(Kernel):
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="mogptk.kernels" href="index.html">mogptk.kernels</a></code></li>
+<li><code><a title="mogptk.gpr" href="index.html">mogptk.gpr</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="mogptk.kernels.singleoutput.LinearKernel" href="#mogptk.kernels.singleoutput.LinearKernel">LinearKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.singleoutput.LinearKernel" href="#mogptk.gpr.singleoutput.LinearKernel">LinearKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.singleoutput.LinearKernel.K" href="#mogptk.kernels.singleoutput.LinearKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.singleoutput.LinearKernel.K" href="#mogptk.gpr.singleoutput.LinearKernel.K">K</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.singleoutput.PeriodicKernel" href="#mogptk.kernels.singleoutput.PeriodicKernel">PeriodicKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.singleoutput.MaternKernel" href="#mogptk.gpr.singleoutput.MaternKernel">MaternKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.singleoutput.PeriodicKernel.K" href="#mogptk.kernels.singleoutput.PeriodicKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.singleoutput.MaternKernel.K" href="#mogptk.gpr.singleoutput.MaternKernel.K">K</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.singleoutput.PhiKernel" href="#mogptk.kernels.singleoutput.PhiKernel">PhiKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.singleoutput.PeriodicKernel" href="#mogptk.gpr.singleoutput.PeriodicKernel">PeriodicKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.singleoutput.PhiKernel.K" href="#mogptk.kernels.singleoutput.PhiKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.singleoutput.PeriodicKernel.K" href="#mogptk.gpr.singleoutput.PeriodicKernel.K">K</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.singleoutput.PolynomialKernel" href="#mogptk.kernels.singleoutput.PolynomialKernel">PolynomialKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.singleoutput.PhiKernel" href="#mogptk.gpr.singleoutput.PhiKernel">PhiKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.singleoutput.PolynomialKernel.K" href="#mogptk.kernels.singleoutput.PolynomialKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.singleoutput.PhiKernel.K" href="#mogptk.gpr.singleoutput.PhiKernel.K">K</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.singleoutput.RationalQuadraticKernel" href="#mogptk.kernels.singleoutput.RationalQuadraticKernel">RationalQuadraticKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.singleoutput.PolynomialKernel" href="#mogptk.gpr.singleoutput.PolynomialKernel">PolynomialKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.singleoutput.RationalQuadraticKernel.K" href="#mogptk.kernels.singleoutput.RationalQuadraticKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.singleoutput.PolynomialKernel.K" href="#mogptk.gpr.singleoutput.PolynomialKernel.K">K</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.singleoutput.SpectralKernel" href="#mogptk.kernels.singleoutput.SpectralKernel">SpectralKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.singleoutput.RationalQuadraticKernel" href="#mogptk.gpr.singleoutput.RationalQuadraticKernel">RationalQuadraticKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.singleoutput.SpectralKernel.K" href="#mogptk.kernels.singleoutput.SpectralKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.singleoutput.RationalQuadraticKernel.K" href="#mogptk.gpr.singleoutput.RationalQuadraticKernel.K">K</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.singleoutput.SquaredExponentialKernel" href="#mogptk.kernels.singleoutput.SquaredExponentialKernel">SquaredExponentialKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.singleoutput.SpectralKernel" href="#mogptk.gpr.singleoutput.SpectralKernel">SpectralKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.singleoutput.SquaredExponentialKernel.K" href="#mogptk.kernels.singleoutput.SquaredExponentialKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.singleoutput.SpectralKernel.K" href="#mogptk.gpr.singleoutput.SpectralKernel.K">K</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.singleoutput.SquaredExponentialKernel" href="#mogptk.gpr.singleoutput.SquaredExponentialKernel">SquaredExponentialKernel</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.gpr.singleoutput.SquaredExponentialKernel.K" href="#mogptk.gpr.singleoutput.SquaredExponentialKernel.K">K</a></code></li>
 </ul>
 </li>
 </ul>

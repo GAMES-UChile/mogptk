@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.7.4" />
-<title>mogptk.kernels.kernel API documentation</title>
+<title>mogptk.gpr.kernel API documentation</title>
 <meta name="description" content="" />
 <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
 <link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
@@ -19,13 +19,13 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>mogptk.kernels.kernel</code></h1>
+<h1 class="title">Module <code>mogptk.gpr.kernel</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L0-L190" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L0-L190" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import copy
@@ -229,7 +229,7 @@ class MultiOutputKernel(Kernel):
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="mogptk.kernels.kernel.AddKernel"><code class="flex name class">
+<dt id="mogptk.gpr.kernel.AddKernel"><code class="flex name class">
 <span>class <span class="ident">AddKernel</span></span>
 <span>(</span><span>*kernels, name='Add')</span>
 </code></dt>
@@ -238,7 +238,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L103-L112" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L103-L112" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AddKernel(Kernel):
     def __init__(self, *kernels, name=&#34;Add&#34;):
@@ -253,15 +253,15 @@ class MultiOutputKernel(Kernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.Kernel" href="#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.MixtureKernel" href="#mogptk.kernels.kernel.MixtureKernel">MixtureKernel</a></li>
+<li><a title="mogptk.gpr.kernel.MixtureKernel" href="#mogptk.gpr.kernel.MixtureKernel">MixtureKernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.kernel.AddKernel.K"><code class="name flex">
+<dt id="mogptk.gpr.kernel.AddKernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -269,7 +269,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L111-L112" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L111-L112" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).sum(dim=2)</code></pre>
@@ -277,7 +277,7 @@ class MultiOutputKernel(Kernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.kernel.AutomaticRelevanceDeterminationKernel"><code class="flex name class">
+<dt id="mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel"><code class="flex name class">
 <span>class <span class="ident">AutomaticRelevanceDeterminationKernel</span></span>
 <span>(</span><span>kernel, input_dims, name='ARD')</span>
 </code></dt>
@@ -286,7 +286,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L130-L135" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L130-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AutomaticRelevanceDeterminationKernel(MulKernel):
     def __init__(self, kernel, input_dims, name=&#34;ARD&#34;):
@@ -297,11 +297,11 @@ class MultiOutputKernel(Kernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.MulKernel" href="#mogptk.kernels.kernel.MulKernel">MulKernel</a></li>
-<li><a title="mogptk.kernels.kernel.Kernel" href="#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.MulKernel" href="#mogptk.gpr.kernel.MulKernel">MulKernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 </dd>
-<dt id="mogptk.kernels.kernel.Kernel"><code class="flex name class">
+<dt id="mogptk.gpr.kernel.Kernel"><code class="flex name class">
 <span>class <span class="ident">Kernel</span></span>
 <span>(</span><span>input_dims=None, active_dims=None, name=None)</span>
 </code></dt>
@@ -310,7 +310,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L5-L101" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L5-L101" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernel:
     def __init__(self, input_dims=None, active_dims=None, name=None):
@@ -412,26 +412,27 @@ class MultiOutputKernel(Kernel):
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.AddKernel" href="#mogptk.kernels.kernel.AddKernel">AddKernel</a></li>
-<li><a title="mogptk.kernels.kernel.MulKernel" href="#mogptk.kernels.kernel.MulKernel">MulKernel</a></li>
-<li><a title="mogptk.kernels.kernel.MultiOutputKernel" href="#mogptk.kernels.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
-<li><a title="mogptk.kernels.singleoutput.LinearKernel" href="singleoutput.html#mogptk.kernels.singleoutput.LinearKernel">LinearKernel</a></li>
-<li><a title="mogptk.kernels.singleoutput.PeriodicKernel" href="singleoutput.html#mogptk.kernels.singleoutput.PeriodicKernel">PeriodicKernel</a></li>
-<li><a title="mogptk.kernels.singleoutput.PhiKernel" href="singleoutput.html#mogptk.kernels.singleoutput.PhiKernel">PhiKernel</a></li>
-<li><a title="mogptk.kernels.singleoutput.PolynomialKernel" href="singleoutput.html#mogptk.kernels.singleoutput.PolynomialKernel">PolynomialKernel</a></li>
-<li><a title="mogptk.kernels.singleoutput.RationalQuadraticKernel" href="singleoutput.html#mogptk.kernels.singleoutput.RationalQuadraticKernel">RationalQuadraticKernel</a></li>
-<li><a title="mogptk.kernels.singleoutput.SpectralKernel" href="singleoutput.html#mogptk.kernels.singleoutput.SpectralKernel">SpectralKernel</a></li>
-<li><a title="mogptk.kernels.singleoutput.SquaredExponentialKernel" href="singleoutput.html#mogptk.kernels.singleoutput.SquaredExponentialKernel">SquaredExponentialKernel</a></li>
+<li><a title="mogptk.gpr.kernel.AddKernel" href="#mogptk.gpr.kernel.AddKernel">AddKernel</a></li>
+<li><a title="mogptk.gpr.kernel.MulKernel" href="#mogptk.gpr.kernel.MulKernel">MulKernel</a></li>
+<li><a title="mogptk.gpr.kernel.MultiOutputKernel" href="#mogptk.gpr.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.LinearKernel" href="singleoutput.html#mogptk.gpr.singleoutput.LinearKernel">LinearKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.MaternKernel" href="singleoutput.html#mogptk.gpr.singleoutput.MaternKernel">MaternKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.PeriodicKernel" href="singleoutput.html#mogptk.gpr.singleoutput.PeriodicKernel">PeriodicKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.PhiKernel" href="singleoutput.html#mogptk.gpr.singleoutput.PhiKernel">PhiKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.PolynomialKernel" href="singleoutput.html#mogptk.gpr.singleoutput.PolynomialKernel">PolynomialKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.RationalQuadraticKernel" href="singleoutput.html#mogptk.gpr.singleoutput.RationalQuadraticKernel">RationalQuadraticKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.SpectralKernel" href="singleoutput.html#mogptk.gpr.singleoutput.SpectralKernel">SpectralKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.SquaredExponentialKernel" href="singleoutput.html#mogptk.gpr.singleoutput.SquaredExponentialKernel">SquaredExponentialKernel</a></li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="mogptk.kernels.kernel.Kernel.active_dims"><code class="name">var <span class="ident">active_dims</span></code></dt>
+<dt id="mogptk.gpr.kernel.Kernel.active_dims"><code class="name">var <span class="ident">active_dims</span></code></dt>
 <dd>
 <section class="desc"></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L71-L73" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L71-L73" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def active_dims(self):
@@ -441,7 +442,7 @@ def active_dims(self):
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.kernel.Kernel.K"><code class="name flex">
+<dt id="mogptk.gpr.kernel.Kernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -449,13 +450,13 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L87-L88" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L87-L88" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
-<dt id="mogptk.kernels.kernel.Kernel.distance"><code class="name flex">
+<dt id="mogptk.gpr.kernel.Kernel.distance"><code class="name flex">
 <span>def <span class="ident">distance</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -463,7 +464,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L90-L94" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L90-L94" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def distance(self, X1, X2=None):
     # X1 is NxD, X2 is MxD, then ret is NxMxD
@@ -472,7 +473,7 @@ def active_dims(self):
     return X1.unsqueeze(1) - X2</code></pre>
 </details>
 </dd>
-<dt id="mogptk.kernels.kernel.Kernel.squared_distance"><code class="name flex">
+<dt id="mogptk.gpr.kernel.Kernel.squared_distance"><code class="name flex">
 <span>def <span class="ident">squared_distance</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -480,7 +481,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L96-L101" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L96-L101" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def squared_distance(self, X1, X2=None):
     # X1 is NxD, X2 is MxD, then ret is NxMxD
@@ -492,7 +493,7 @@ def active_dims(self):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.kernel.MixtureKernel"><code class="flex name class">
+<dt id="mogptk.gpr.kernel.MixtureKernel"><code class="flex name class">
 <span>class <span class="ident">MixtureKernel</span></span>
 <span>(</span><span>kernel, Q, name='Mixture')</span>
 </code></dt>
@@ -501,7 +502,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L125-L128" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L125-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MixtureKernel(AddKernel):
     def __init__(self, kernel, Q, name=&#34;Mixture&#34;):
@@ -510,11 +511,11 @@ def active_dims(self):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.AddKernel" href="#mogptk.kernels.kernel.AddKernel">AddKernel</a></li>
-<li><a title="mogptk.kernels.kernel.Kernel" href="#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.AddKernel" href="#mogptk.gpr.kernel.AddKernel">AddKernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 </dd>
-<dt id="mogptk.kernels.kernel.MulKernel"><code class="flex name class">
+<dt id="mogptk.gpr.kernel.MulKernel"><code class="flex name class">
 <span>class <span class="ident">MulKernel</span></span>
 <span>(</span><span>*kernels, name='Mul')</span>
 </code></dt>
@@ -523,7 +524,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L114-L123" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L114-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MulKernel(Kernel):
     def __init__(self, *kernels, name=&#34;Mul&#34;):
@@ -538,15 +539,15 @@ def active_dims(self):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.Kernel" href="#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.AutomaticRelevanceDeterminationKernel" href="#mogptk.kernels.kernel.AutomaticRelevanceDeterminationKernel">AutomaticRelevanceDeterminationKernel</a></li>
+<li><a title="mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel" href="#mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel">AutomaticRelevanceDeterminationKernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.kernel.MulKernel.K"><code class="name flex">
+<dt id="mogptk.gpr.kernel.MulKernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -554,7 +555,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L122-L123" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L122-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).prod(dim=2)</code></pre>
@@ -562,7 +563,7 @@ def active_dims(self):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.kernel.MultiOutputKernel"><code class="flex name class">
+<dt id="mogptk.gpr.kernel.MultiOutputKernel"><code class="flex name class">
 <span>class <span class="ident">MultiOutputKernel</span></span>
 <span>(</span><span>output_dims, input_dims=None, active_dims=None, name=None)</span>
 </code></dt>
@@ -571,7 +572,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L137-L191" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L137-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputKernel(Kernel):
     # The MultiOutputKernel is a base class for multi output kernels. It assumes that the first dimension of X contains channel IDs (integers) and calculate the final kernel matrix accordingly. Concretely, it will call the Ksub method for derived kernels from this class, which should return the kernel matrix between channel i and j, given inputs X1 and X2. This class will automatically split and recombine the input vectors and kernel matrices respectively, in order to create the final kernel matrix of the multi output kernel.
@@ -631,19 +632,19 @@ def active_dims(self):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.Kernel" href="#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.multioutput.CrossSpectralKernel" href="multioutput.html#mogptk.kernels.multioutput.CrossSpectralKernel">CrossSpectralKernel</a></li>
-<li><a title="mogptk.kernels.multioutput.GaussianConvolutionProcessKernel" href="multioutput.html#mogptk.kernels.multioutput.GaussianConvolutionProcessKernel">GaussianConvolutionProcessKernel</a></li>
-<li><a title="mogptk.kernels.multioutput.IndependentMultiOutputKernel" href="multioutput.html#mogptk.kernels.multioutput.IndependentMultiOutputKernel">IndependentMultiOutputKernel</a></li>
-<li><a title="mogptk.kernels.multioutput.LinearModelOfCoregionalizationKernel" href="multioutput.html#mogptk.kernels.multioutput.LinearModelOfCoregionalizationKernel">LinearModelOfCoregionalizationKernel</a></li>
-<li><a title="mogptk.kernels.multioutput.MultiOutputSpectralKernel" href="multioutput.html#mogptk.kernels.multioutput.MultiOutputSpectralKernel">MultiOutputSpectralKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.CrossSpectralKernel" href="multioutput.html#mogptk.gpr.multioutput.CrossSpectralKernel">CrossSpectralKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.GaussianConvolutionProcessKernel" href="multioutput.html#mogptk.gpr.multioutput.GaussianConvolutionProcessKernel">GaussianConvolutionProcessKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.IndependentMultiOutputKernel" href="multioutput.html#mogptk.gpr.multioutput.IndependentMultiOutputKernel">IndependentMultiOutputKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel" href="multioutput.html#mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel">LinearModelOfCoregionalizationKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.MultiOutputSpectralKernel" href="multioutput.html#mogptk.gpr.multioutput.MultiOutputSpectralKernel">MultiOutputSpectralKernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.kernel.MultiOutputKernel.K"><code class="name flex">
+<dt id="mogptk.gpr.kernel.MultiOutputKernel.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -651,7 +652,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L149-L188" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L149-L188" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,1+input_dims) where the first column is the channel ID
@@ -695,7 +696,7 @@ def active_dims(self):
     return res</code></pre>
 </details>
 </dd>
-<dt id="mogptk.kernels.kernel.MultiOutputKernel.Ksub"><code class="name flex">
+<dt id="mogptk.gpr.kernel.MultiOutputKernel.Ksub"><code class="name flex">
 <span>def <span class="ident">Ksub</span></span>(<span>self, i, j, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -703,7 +704,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/kernel.py#L190-L191" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L190-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     raise NotImplementedError()</code></pre>
@@ -722,43 +723,43 @@ def active_dims(self):
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="mogptk.kernels" href="index.html">mogptk.kernels</a></code></li>
+<li><code><a title="mogptk.gpr" href="index.html">mogptk.gpr</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="mogptk.kernels.kernel.AddKernel" href="#mogptk.kernels.kernel.AddKernel">AddKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.kernel.AddKernel" href="#mogptk.gpr.kernel.AddKernel">AddKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.kernel.AddKernel.K" href="#mogptk.kernels.kernel.AddKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.AddKernel.K" href="#mogptk.gpr.kernel.AddKernel.K">K</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.kernel.AutomaticRelevanceDeterminationKernel" href="#mogptk.kernels.kernel.AutomaticRelevanceDeterminationKernel">AutomaticRelevanceDeterminationKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel" href="#mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel">AutomaticRelevanceDeterminationKernel</a></code></h4>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.kernel.Kernel" href="#mogptk.kernels.kernel.Kernel">Kernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.kernel.Kernel.K" href="#mogptk.kernels.kernel.Kernel.K">K</a></code></li>
-<li><code><a title="mogptk.kernels.kernel.Kernel.active_dims" href="#mogptk.kernels.kernel.Kernel.active_dims">active_dims</a></code></li>
-<li><code><a title="mogptk.kernels.kernel.Kernel.distance" href="#mogptk.kernels.kernel.Kernel.distance">distance</a></code></li>
-<li><code><a title="mogptk.kernels.kernel.Kernel.squared_distance" href="#mogptk.kernels.kernel.Kernel.squared_distance">squared_distance</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.K" href="#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.active_dims" href="#mogptk.gpr.kernel.Kernel.active_dims">active_dims</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.kernel.MixtureKernel" href="#mogptk.kernels.kernel.MixtureKernel">MixtureKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.kernel.MixtureKernel" href="#mogptk.gpr.kernel.MixtureKernel">MixtureKernel</a></code></h4>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.kernel.MulKernel" href="#mogptk.kernels.kernel.MulKernel">MulKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.kernel.MulKernel" href="#mogptk.gpr.kernel.MulKernel">MulKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.kernel.MulKernel.K" href="#mogptk.kernels.kernel.MulKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MulKernel.K" href="#mogptk.gpr.kernel.MulKernel.K">K</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.kernel.MultiOutputKernel" href="#mogptk.kernels.kernel.MultiOutputKernel">MultiOutputKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.kernel.MultiOutputKernel" href="#mogptk.gpr.kernel.MultiOutputKernel">MultiOutputKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.kernel.MultiOutputKernel.K" href="#mogptk.kernels.kernel.MultiOutputKernel.K">K</a></code></li>
-<li><code><a title="mogptk.kernels.kernel.MultiOutputKernel.Ksub" href="#mogptk.kernels.kernel.MultiOutputKernel.Ksub">Ksub</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MultiOutputKernel.K" href="#mogptk.gpr.kernel.MultiOutputKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MultiOutputKernel.Ksub" href="#mogptk.gpr.kernel.MultiOutputKernel.Ksub">Ksub</a></code></li>
 </ul>
 </li>
 </ul>

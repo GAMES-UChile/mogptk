@@ -62,12 +62,14 @@
 <li><strong>forward(y, x=None)</strong> returns y: does a forward transformation where x has shape (n,input_dims) and y has shape (n,)</li>
 <li><strong>backward(y, x=None)</strong> returns y: does a backward transformation (invert) where x has shape (n,input_dims) and y has shape (n,)</li>
 </ul>
+<h2 id="using-the-gpu">Using the GPU</h2>
+<p>If a GPU is available through CUDA it will be automatically used in tensor calculations, and may speed up training significantly. To get more information about whether CUDA is supported or which GPU is used, as well as more control over which CPU or GPU to use, see <a href="https://games-uchile.github.io/mogptk/gpr/config.html">mogptk.gpr.config</a> whose functions can be accessed through the main MOGPTK namespace (e.g. <code>mogptk.print_gpu_information()</code> or <code>mogptk.use_gpu()</code>).</p>
 <h2 id="advice-on-training">Advice on training</h2>
 <h2 id="visualization-and-interpretation">Visualization and interpretation</h2>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/__init__.py#L0-L17" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/__init__.py#L0-L15" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
 .. include:: ./documentation.md
@@ -75,32 +77,22 @@
 from .serie import *
 from .data import *
 from .dataset import *
-
 from .model import *
-from .sm import *
-from .mosm import *
-from .csm import *
-from .conv import *
-from .sm_lmc import *
+from .models.sm import *
+from .models.mosm import *
+from .models.csm import *
+from .models.sm_lmc import *
+from .models.conv import *
 
 from .plot import *
 from .errors import *
-
-from .kernels.config import *</code></pre>
+from .gpr.config import *</code></pre>
 </details>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
 <dt><code class="name"><a title="mogptk.bnse" href="bnse.html">mogptk.bnse</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.conv" href="conv.html">mogptk.conv</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.csm" href="csm.html">mogptk.csm</a></code></dt>
 <dd>
 <section class="desc"></section>
 </dd>
@@ -116,7 +108,7 @@ from .kernels.config import *</code></pre>
 <dd>
 <section class="desc"></section>
 </dd>
-<dt><code class="name"><a title="mogptk.kernels" href="kernels/index.html">mogptk.kernels</a></code></dt>
+<dt><code class="name"><a title="mogptk.gpr" href="gpr/index.html">mogptk.gpr</a></code></dt>
 <dd>
 <section class="desc"></section>
 </dd>
@@ -124,7 +116,7 @@ from .kernels.config import *</code></pre>
 <dd>
 <section class="desc"></section>
 </dd>
-<dt><code class="name"><a title="mogptk.mosm" href="mosm.html">mogptk.mosm</a></code></dt>
+<dt><code class="name"><a title="mogptk.models" href="models/index.html">mogptk.models</a></code></dt>
 <dd>
 <section class="desc"></section>
 </dd>
@@ -133,14 +125,6 @@ from .kernels.config import *</code></pre>
 <section class="desc"></section>
 </dd>
 <dt><code class="name"><a title="mogptk.serie" href="serie.html">mogptk.serie</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.sm" href="sm.html">mogptk.sm</a></code></dt>
-<dd>
-<section class="desc"></section>
-</dd>
-<dt><code class="name"><a title="mogptk.sm_lmc" href="sm_lmc.html">mogptk.sm_lmc</a></code></dt>
 <dd>
 <section class="desc"></section>
 </dd>
@@ -163,6 +147,7 @@ from .kernels.config import *</code></pre>
 <li><a href="#transformations">Transformations</a></li>
 </ul>
 </li>
+<li><a href="#using-the-gpu">Using the GPU</a></li>
 <li><a href="#advice-on-training">Advice on training</a></li>
 <li><a href="#visualization-and-interpretation">Visualization and interpretation</a></li>
 </ul>
@@ -171,18 +156,14 @@ from .kernels.config import *</code></pre>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="mogptk.bnse" href="bnse.html">mogptk.bnse</a></code></li>
-<li><code><a title="mogptk.conv" href="conv.html">mogptk.conv</a></code></li>
-<li><code><a title="mogptk.csm" href="csm.html">mogptk.csm</a></code></li>
 <li><code><a title="mogptk.data" href="data.html">mogptk.data</a></code></li>
 <li><code><a title="mogptk.dataset" href="dataset.html">mogptk.dataset</a></code></li>
 <li><code><a title="mogptk.errors" href="errors.html">mogptk.errors</a></code></li>
-<li><code><a title="mogptk.kernels" href="kernels/index.html">mogptk.kernels</a></code></li>
+<li><code><a title="mogptk.gpr" href="gpr/index.html">mogptk.gpr</a></code></li>
 <li><code><a title="mogptk.model" href="model.html">mogptk.model</a></code></li>
-<li><code><a title="mogptk.mosm" href="mosm.html">mogptk.mosm</a></code></li>
+<li><code><a title="mogptk.models" href="models/index.html">mogptk.models</a></code></li>
 <li><code><a title="mogptk.plot" href="plot.html">mogptk.plot</a></code></li>
 <li><code><a title="mogptk.serie" href="serie.html">mogptk.serie</a></code></li>
-<li><code><a title="mogptk.sm" href="sm.html">mogptk.sm</a></code></li>
-<li><code><a title="mogptk.sm_lmc" href="sm_lmc.html">mogptk.sm_lmc</a></code></li>
 </ul>
 </li>
 </ul>

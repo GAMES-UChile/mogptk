@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.7.4" />
-<title>mogptk.kernels.multioutput API documentation</title>
+<title>mogptk.gpr.multioutput API documentation</title>
 <meta name="description" content="" />
 <link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
 <link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
@@ -19,13 +19,13 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>mogptk.kernels.multioutput</code></h1>
+<h1 class="title">Module <code>mogptk.gpr.multioutput</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L0-L157" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L0-L157" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -196,7 +196,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="mogptk.kernels.multioutput.CrossSpectralKernel"><code class="flex name class">
+<dt id="mogptk.gpr.multioutput.CrossSpectralKernel"><code class="flex name class">
 <span>class <span class="ident">CrossSpectralKernel</span></span>
 <span>(</span><span>output_dims, input_dims, Rq=1, active_dims=None, name='CSM')</span>
 </code></dt>
@@ -205,7 +205,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L71-L107" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L71-L107" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CrossSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, Rq=1, active_dims=None, name=&#34;CSM&#34;):
@@ -247,12 +247,12 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.MultiOutputKernel" href="kernel.html#mogptk.kernels.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.MultiOutputKernel" href="kernel.html#mogptk.gpr.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.multioutput.CrossSpectralKernel.Ksub"><code class="name flex">
+<dt id="mogptk.gpr.multioutput.CrossSpectralKernel.Ksub"><code class="name flex">
 <span>def <span class="ident">Ksub</span></span>(<span>self, i, j, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -260,7 +260,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L87-L107" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L87-L107" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -287,7 +287,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.multioutput.GaussianConvolutionProcessKernel"><code class="flex name class">
+<dt id="mogptk.gpr.multioutput.GaussianConvolutionProcessKernel"><code class="flex name class">
 <span>class <span class="ident">GaussianConvolutionProcessKernel</span></span>
 <span>(</span><span>output_dims, input_dims, active_dims=None, name='CONV')</span>
 </code></dt>
@@ -296,7 +296,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L130-L158" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L130-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussianConvolutionProcessKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, active_dims=None, name=&#34;CONV&#34;):
@@ -330,12 +330,12 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.MultiOutputKernel" href="kernel.html#mogptk.kernels.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.MultiOutputKernel" href="kernel.html#mogptk.gpr.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.multioutput.GaussianConvolutionProcessKernel.Ksub"><code class="name flex">
+<dt id="mogptk.gpr.multioutput.GaussianConvolutionProcessKernel.Ksub"><code class="name flex">
 <span>def <span class="ident">Ksub</span></span>(<span>self, i, j, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -343,7 +343,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L143-L158" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L143-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -365,7 +365,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.multioutput.IndependentMultiOutputKernel"><code class="flex name class">
+<dt id="mogptk.gpr.multioutput.IndependentMultiOutputKernel"><code class="flex name class">
 <span>class <span class="ident">IndependentMultiOutputKernel</span></span>
 <span>(</span><span>*kernels, output_dims=None, name='IMO')</span>
 </code></dt>
@@ -374,7 +374,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L5-L22" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L5-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class IndependentMultiOutputKernel(MultiOutputKernel):
     def __init__(self, *kernels, output_dims=None, name=&#34;IMO&#34;):
@@ -397,12 +397,12 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.MultiOutputKernel" href="kernel.html#mogptk.kernels.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.MultiOutputKernel" href="kernel.html#mogptk.gpr.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.multioutput.IndependentMultiOutputKernel.Ksub"><code class="name flex">
+<dt id="mogptk.gpr.multioutput.IndependentMultiOutputKernel.Ksub"><code class="name flex">
 <span>def <span class="ident">Ksub</span></span>(<span>self, i, j, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -410,7 +410,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L15-L22" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L15-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -424,7 +424,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.multioutput.LinearModelOfCoregionalizationKernel"><code class="flex name class">
+<dt id="mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel"><code class="flex name class">
 <span>class <span class="ident">LinearModelOfCoregionalizationKernel</span></span>
 <span>(</span><span>*kernels, output_dims, input_dims, Q=None, Rq=1, name='LMC')</span>
 </code></dt>
@@ -433,7 +433,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L109-L128" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L109-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
     def __init__(self, *kernels, output_dims, input_dims, Q=None, Rq=1, name=&#34;LMC&#34;):
@@ -458,12 +458,12 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.MultiOutputKernel" href="kernel.html#mogptk.kernels.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.MultiOutputKernel" href="kernel.html#mogptk.gpr.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.multioutput.LinearModelOfCoregionalizationKernel.Ksub"><code class="name flex">
+<dt id="mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel.Ksub"><code class="name flex">
 <span>def <span class="ident">Ksub</span></span>(<span>self, i, j, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -471,7 +471,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L124-L128" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L124-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -482,7 +482,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.kernels.multioutput.MultiOutputSpectralKernel"><code class="flex name class">
+<dt id="mogptk.gpr.multioutput.MultiOutputSpectralKernel"><code class="flex name class">
 <span>class <span class="ident">MultiOutputSpectralKernel</span></span>
 <span>(</span><span>output_dims, input_dims, active_dims=None, name='MOSM')</span>
 </code></dt>
@@ -491,7 +491,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L24-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L24-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, active_dims=None, name=&#34;MOSM&#34;):
@@ -542,12 +542,12 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="mogptk.kernels.kernel.MultiOutputKernel" href="kernel.html#mogptk.kernels.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
-<li><a title="mogptk.kernels.kernel.Kernel" href="kernel.html#mogptk.kernels.kernel.Kernel">Kernel</a></li>
+<li><a title="mogptk.gpr.kernel.MultiOutputKernel" href="kernel.html#mogptk.gpr.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.kernels.multioutput.MultiOutputSpectralKernel.Ksub"><code class="name flex">
+<dt id="mogptk.gpr.multioutput.MultiOutputSpectralKernel.Ksub"><code class="name flex">
 <span>def <span class="ident">Ksub</span></span>(<span>self, i, j, X1, X2=None)</span>
 </code></dt>
 <dd>
@@ -555,7 +555,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/dce23b4e914ff0d8d8ecd30172d5fe5de1dcc211/mogptk/kernels/multioutput.py#L46-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/multioutput.py#L46-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     # X has shape (data_points,input_dims)
@@ -596,39 +596,39 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="mogptk.kernels" href="index.html">mogptk.kernels</a></code></li>
+<li><code><a title="mogptk.gpr" href="index.html">mogptk.gpr</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="mogptk.kernels.multioutput.CrossSpectralKernel" href="#mogptk.kernels.multioutput.CrossSpectralKernel">CrossSpectralKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.multioutput.CrossSpectralKernel" href="#mogptk.gpr.multioutput.CrossSpectralKernel">CrossSpectralKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.multioutput.CrossSpectralKernel.Ksub" href="#mogptk.kernels.multioutput.CrossSpectralKernel.Ksub">Ksub</a></code></li>
+<li><code><a title="mogptk.gpr.multioutput.CrossSpectralKernel.Ksub" href="#mogptk.gpr.multioutput.CrossSpectralKernel.Ksub">Ksub</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.multioutput.GaussianConvolutionProcessKernel" href="#mogptk.kernels.multioutput.GaussianConvolutionProcessKernel">GaussianConvolutionProcessKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.multioutput.GaussianConvolutionProcessKernel" href="#mogptk.gpr.multioutput.GaussianConvolutionProcessKernel">GaussianConvolutionProcessKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.multioutput.GaussianConvolutionProcessKernel.Ksub" href="#mogptk.kernels.multioutput.GaussianConvolutionProcessKernel.Ksub">Ksub</a></code></li>
+<li><code><a title="mogptk.gpr.multioutput.GaussianConvolutionProcessKernel.Ksub" href="#mogptk.gpr.multioutput.GaussianConvolutionProcessKernel.Ksub">Ksub</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.multioutput.IndependentMultiOutputKernel" href="#mogptk.kernels.multioutput.IndependentMultiOutputKernel">IndependentMultiOutputKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.multioutput.IndependentMultiOutputKernel" href="#mogptk.gpr.multioutput.IndependentMultiOutputKernel">IndependentMultiOutputKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.multioutput.IndependentMultiOutputKernel.Ksub" href="#mogptk.kernels.multioutput.IndependentMultiOutputKernel.Ksub">Ksub</a></code></li>
+<li><code><a title="mogptk.gpr.multioutput.IndependentMultiOutputKernel.Ksub" href="#mogptk.gpr.multioutput.IndependentMultiOutputKernel.Ksub">Ksub</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.multioutput.LinearModelOfCoregionalizationKernel" href="#mogptk.kernels.multioutput.LinearModelOfCoregionalizationKernel">LinearModelOfCoregionalizationKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel" href="#mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel">LinearModelOfCoregionalizationKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.multioutput.LinearModelOfCoregionalizationKernel.Ksub" href="#mogptk.kernels.multioutput.LinearModelOfCoregionalizationKernel.Ksub">Ksub</a></code></li>
+<li><code><a title="mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel.Ksub" href="#mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel.Ksub">Ksub</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="mogptk.kernels.multioutput.MultiOutputSpectralKernel" href="#mogptk.kernels.multioutput.MultiOutputSpectralKernel">MultiOutputSpectralKernel</a></code></h4>
+<h4><code><a title="mogptk.gpr.multioutput.MultiOutputSpectralKernel" href="#mogptk.gpr.multioutput.MultiOutputSpectralKernel">MultiOutputSpectralKernel</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.kernels.multioutput.MultiOutputSpectralKernel.Ksub" href="#mogptk.kernels.multioutput.MultiOutputSpectralKernel.Ksub">Ksub</a></code></li>
+<li><code><a title="mogptk.gpr.multioutput.MultiOutputSpectralKernel.Ksub" href="#mogptk.gpr.multioutput.MultiOutputSpectralKernel.Ksub">Ksub</a></code></li>
 </ul>
 </li>
 </ul>
