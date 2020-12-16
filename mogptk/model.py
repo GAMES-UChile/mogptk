@@ -11,7 +11,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from .serie import Serie
 from .dataset import DataSet
 from .gpr import GPR, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
-from .errors import mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
+from .errors import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error, root_mean_squared_error
 
 logger = logging.getLogger('mogptk')
 

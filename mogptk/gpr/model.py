@@ -160,7 +160,7 @@ class Model:
     def K(self, Z):
         with torch.no_grad():
             Z = self._check_input(Z)  # MxD
-            return self.kernel(Z).detach().numpy()
+            return self.kernel(Z).detach().cpu().numpy()
 
     def sample(self, Z, n=None):
         with torch.no_grad():
@@ -174,7 +174,7 @@ class Model:
             samples = mu + L.mm(u)  # MxS
             if n is None:
                 samples = samples.squeeze()
-            return samples.detach().numpy()
+            return samples.detach().cpu().numpy()
 
 class GPR(Model):
     def __init__(self, kernel, X, y, noise=1.0, mean=None, name="GPR"):
@@ -221,6 +221,6 @@ class GPR(Model):
             if not full:
                 var = var.diag().reshape(-1,1)  # Mx1
             if numpy:
-                return mu.detach().numpy(), var.detach().numpy()
+                return mu.detach().cpu().numpy(), var.detach().cpu().numpy()
             else:
-                return mu.detach(), var.detach()
+                return mu.detach().cpu(), var.detach().cpu()
