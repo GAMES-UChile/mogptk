@@ -17,6 +17,22 @@ def mean_absolute_percentage_error(y_true, y_pred):
     y_true, y_pred = y_true[idx], y_pred[idx]
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100.0
 
+def symmetric_mean_absolute_percentage_error(y_true, y_pred):
+    """
+    Symmetric Mean Absolute Percentage Error (sMAPE) between the true and the predicted values.
+    """
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    idx = 1e-6 < y_true
+    y_true, y_pred = y_true[idx], y_pred[idx]
+    return np.mean(np.abs((y_true - y_pred) / (y_true + y_pred))) * 200.0
+
+def mean_squared_error(y_true, y_pred):
+    """
+    Mean Squared Error (MSE) between the true and the predicted values.
+    """
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean((y_true - y_pred)**2)
+
 def root_mean_squared_error(y_true, y_pred):
     """
     Root Mean Squared Error (RMSE) between the true and the predicted values.

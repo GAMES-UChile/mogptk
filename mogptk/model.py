@@ -147,7 +147,7 @@ class Model:
         Returns the error of the kernel prediction with the removed data points in the data set.
 
         Args:
-            method (str): Error calculation method, such as MAE, MAPE, or RMSE.
+            method (str): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE.
 
         Returns:
             float: The current error.
@@ -162,6 +162,10 @@ class Model:
             return mean_absolute_error(y_true, y_pred)
         elif method.lower() == 'mape':
             return mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == 'smape':
+            return symmetric_mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == 'mse':
+            return mean_squared_error(y_true, y_pred)
         elif method.lower() == 'rmse':
             return root_mean_squared_error(y_true, y_pred)
         else:
@@ -289,6 +293,8 @@ class Model:
 
         if error is not None:
             return losses, errors
+        else:
+            return losses
 
     ################################################################################
     # Predictions ##################################################################
