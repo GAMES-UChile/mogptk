@@ -128,7 +128,7 @@ class Model:
         Examples:
             >>> model.log_marginal_likelihood()
         """
-        return self.model.log_marginal_likelihood().detach().item()
+        return self.model.log_marginal_likelihood().detach().cpu().item()
 
     def loss(self):
         """
@@ -140,7 +140,7 @@ class Model:
         Examples:
             >>> model.loss()
         """
-        return self.model.loss().detach().item()
+        return self.model.loss().detach().cpu().item()
 
     def error(self, method='MAE'):
         """

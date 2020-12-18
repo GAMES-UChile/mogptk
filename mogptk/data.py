@@ -779,7 +779,7 @@ class Data:
         X_pred = [np.array([])] * self.get_input_dims()
         if step is None and n is not None:
             for i in range(self.get_input_dims()):
-                X_pred[i] = np.linspace(start[i], end[i], n)
+                X_pred[i] = start[i] + (end[i]-start[i])*np.linspace(0.0, 1.0, n)
         else:
             if self.get_input_dims() != 1:
                 raise ValueError("cannot use step for multi dimensional input, use n")

@@ -157,10 +157,12 @@ class Model:
         loss.backward()
         return loss
 
-    def K(self, Z):
+    def K(self, X1, X2=None):
         with torch.no_grad():
-            Z = self._check_input(Z)  # MxD
-            return self.kernel(Z).detach().cpu().numpy()
+            X1 = self._check_input(X1)  # MxD
+            if X2 is not None:
+                X2 = self._check_input(X2)  # MxD
+            return self.kernel(X1,X2).cpu().numpy()
 
     def sample(self, Z, n=None):
         with torch.no_grad():
@@ -169,12 +171,14 @@ class Model:
                 S = 1
 
             mu, var = self.predict(Z, full=True, numpy=False)  # MxD and MxMxD
-            u = torch.normal(torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype), torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
+            u = torch.normal(
+                    torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
+                    torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
             L = torch.cholesky(var + 1e-6*torch.ones(Z.shape[0]).diagflat())  # MxM
             samples = mu + L.mm(u)  # MxS
             if n is None:
                 samples = samples.squeeze()
-            return samples.detach().cpu().numpy()
+            return samples.cpu().numpy()
 
 class GPR(Model):
     def __init__(self, kernel, X, y, noise=1.0, mean=None, name="GPR"):
@@ -199,7 +203,7 @@ class GPR(Model):
         p -= self.log_marginal_likelihood_constant
         return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
-    def predict(self, Z, full=False, numpy=True):
+    def predict(self, Z, full=False, tensor=False):
         with torch.no_grad():
             Z = self._check_input(Z)  # MxD
 
@@ -220,7 +224,7 @@ class GPR(Model):
             var = Kss - v.T.mm(v)  # MxM
             if not full:
                 var = var.diag().reshape(-1,1)  # Mx1
-            if numpy:
-                return mu.detach().cpu().numpy(), var.detach().cpu().numpy()
+            if tensor:
+                return mu, var
             else:
-                return mu.detach().cpu(), var.detach().cpu()
+                return mu.cpu().numpy(), var.cpu().numpy()
