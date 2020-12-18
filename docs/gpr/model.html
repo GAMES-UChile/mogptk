@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L0-L225" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L0-L229" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -146,13 +146,13 @@ class Model:
             get_ipython  # fails if we&#39;re not in a notebook
             table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th style=&#34;text-align:left&#34;&gt;Name&lt;/th&gt;&lt;th&gt;Range&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
             for name, p in zip(self._param_names, self._params):
-                table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.constrained.detach().numpy())
+                table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
             table += &#39;&lt;/table&gt;&#39;
             display(HTML(table))
         except Exception as e:
             vals = [[&#34;Name&#34;, &#34;Range&#34;, &#34;Value&#34;]]
             for name, p in zip(self._param_names, self._params):
-                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.constrained.detach().numpy())])
+                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
 
             nameWidth = max([len(val[0]) for val in vals])
             rangeWidth = max([len(val[1]) for val in vals])
@@ -186,10 +186,12 @@ class Model:
         loss.backward()
         return loss
 
-    def K(self, Z):
+    def K(self, X1, X2=None):
         with torch.no_grad():
-            Z = self._check_input(Z)  # MxD
-            return self.kernel(Z).detach().numpy()
+            X1 = self._check_input(X1)  # MxD
+            if X2 is not None:
+                X2 = self._check_input(X2)  # MxD
+            return self.kernel(X1,X2).cpu().numpy()
 
     def sample(self, Z, n=None):
         with torch.no_grad():
@@ -198,12 +200,14 @@ class Model:
                 S = 1
 
             mu, var = self.predict(Z, full=True, numpy=False)  # MxD and MxMxD
-            u = torch.normal(torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype), torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
+            u = torch.normal(
+                    torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
+                    torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
             L = torch.cholesky(var + 1e-6*torch.ones(Z.shape[0]).diagflat())  # MxM
             samples = mu + L.mm(u)  # MxS
             if n is None:
                 samples = samples.squeeze()
-            return samples.detach().numpy()
+            return samples.cpu().numpy()
 
 class GPR(Model):
     def __init__(self, kernel, X, y, noise=1.0, mean=None, name=&#34;GPR&#34;):
@@ -228,7 +232,7 @@ class GPR(Model):
         p -= self.log_marginal_likelihood_constant
         return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
-    def predict(self, Z, full=False, numpy=True):
+    def predict(self, Z, full=False, tensor=False):
         with torch.no_grad():
             Z = self._check_input(Z)  # MxD
 
@@ -249,10 +253,10 @@ class GPR(Model):
             var = Kss - v.T.mm(v)  # MxM
             if not full:
                 var = var.diag().reshape(-1,1)  # Mx1
-            if numpy:
-                return mu.detach().numpy(), var.detach().numpy()
+            if tensor:
+                return mu, var
             else:
-                return mu.detach(), var.detach()</code></pre>
+                return mu.cpu().numpy(), var.cpu().numpy()</code></pre>
 </details>
 </section>
 <section>
@@ -273,7 +277,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L6-L7" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L6-L7" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CholeskyException(Exception):
     pass</code></pre>
@@ -293,7 +297,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L179-L226" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L183-L230" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GPR(Model):
     def __init__(self, kernel, X, y, noise=1.0, mean=None, name=&#34;GPR&#34;):
@@ -318,7 +322,7 @@ class GPR(Model):
         p -= self.log_marginal_likelihood_constant
         return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
-    def predict(self, Z, full=False, numpy=True):
+    def predict(self, Z, full=False, tensor=False):
         with torch.no_grad():
             Z = self._check_input(Z)  # MxD
 
@@ -339,10 +343,10 @@ class GPR(Model):
             var = Kss - v.T.mm(v)  # MxM
             if not full:
                 var = var.diag().reshape(-1,1)  # Mx1
-            if numpy:
-                return mu.detach().numpy(), var.detach().numpy()
+            if tensor:
+                return mu, var
             else:
-                return mu.detach(), var.detach()</code></pre>
+                return mu.cpu().numpy(), var.cpu().numpy()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -358,7 +362,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L188-L200" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L192-L204" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)  # NxN
@@ -376,16 +380,16 @@ class GPR(Model):
 </details>
 </dd>
 <dt id="mogptk.gpr.model.GPR.predict"><code class="name flex">
-<span>def <span class="ident">predict</span></span>(<span>self, Z, full=False, numpy=True)</span>
+<span>def <span class="ident">predict</span></span>(<span>self, Z, full=False, tensor=False)</span>
 </code></dt>
 <dd>
 <section class="desc"></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L202-L226" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L206-L230" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def predict(self, Z, full=False, numpy=True):
+<pre><code class="python">def predict(self, Z, full=False, tensor=False):
     with torch.no_grad():
         Z = self._check_input(Z)  # MxD
 
@@ -406,10 +410,10 @@ class GPR(Model):
         var = Kss - v.T.mm(v)  # MxM
         if not full:
             var = var.diag().reshape(-1,1)  # Mx1
-        if numpy:
-            return mu.detach().numpy(), var.detach().numpy()
+        if tensor:
+            return mu, var
         else:
-            return mu.detach(), var.detach()</code></pre>
+            return mu.cpu().numpy(), var.cpu().numpy()</code></pre>
 </details>
 </dd>
 </dl>
@@ -423,7 +427,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L9-L177" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L9-L181" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, kernel, X, y, mean=None, name=None):
@@ -536,13 +540,13 @@ class GPR(Model):
             get_ipython  # fails if we&#39;re not in a notebook
             table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th style=&#34;text-align:left&#34;&gt;Name&lt;/th&gt;&lt;th&gt;Range&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
             for name, p in zip(self._param_names, self._params):
-                table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.constrained.detach().numpy())
+                table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
             table += &#39;&lt;/table&gt;&#39;
             display(HTML(table))
         except Exception as e:
             vals = [[&#34;Name&#34;, &#34;Range&#34;, &#34;Value&#34;]]
             for name, p in zip(self._param_names, self._params):
-                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.constrained.detach().numpy())])
+                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
 
             nameWidth = max([len(val[0]) for val in vals])
             rangeWidth = max([len(val[1]) for val in vals])
@@ -576,10 +580,12 @@ class GPR(Model):
         loss.backward()
         return loss
 
-    def K(self, Z):
+    def K(self, X1, X2=None):
         with torch.no_grad():
-            Z = self._check_input(Z)  # MxD
-            return self.kernel(Z).detach().numpy()
+            X1 = self._check_input(X1)  # MxD
+            if X2 is not None:
+                X2 = self._check_input(X2)  # MxD
+            return self.kernel(X1,X2).cpu().numpy()
 
     def sample(self, Z, n=None):
         with torch.no_grad():
@@ -588,12 +594,14 @@ class GPR(Model):
                 S = 1
 
             mu, var = self.predict(Z, full=True, numpy=False)  # MxD and MxMxD
-            u = torch.normal(torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype), torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
+            u = torch.normal(
+                    torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
+                    torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
             L = torch.cholesky(var + 1e-6*torch.ones(Z.shape[0]).diagflat())  # MxM
             samples = mu + L.mm(u)  # MxS
             if n is None:
                 samples = samples.squeeze()
-            return samples.detach().numpy()</code></pre>
+            return samples.cpu().numpy()</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -602,19 +610,21 @@ class GPR(Model):
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.gpr.model.Model.K"><code class="name flex">
-<span>def <span class="ident">K</span></span>(<span>self, Z)</span>
+<span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
 <section class="desc"></section>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L160-L163" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L160-L165" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def K(self, Z):
+<pre><code class="python">def K(self, X1, X2=None):
     with torch.no_grad():
-        Z = self._check_input(Z)  # MxD
-        return self.kernel(Z).detach().numpy()</code></pre>
+        X1 = self._check_input(X1)  # MxD
+        if X2 is not None:
+            X2 = self._check_input(X2)  # MxD
+        return self.kernel(X1,X2).cpu().numpy()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.gpr.model.Model.log_marginal_likelihood"><code class="name flex">
@@ -625,7 +635,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L148-L149" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L148-L149" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     raise NotImplementedError()</code></pre>
@@ -639,7 +649,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L151-L152" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L151-L152" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     return sum([p.log_prior() for p in self._params])</code></pre>
@@ -653,7 +663,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L154-L158" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L154-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     self.zero_grad()
@@ -670,7 +680,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L99-L102" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L99-L102" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def parameters(self):
     for p in self._params:
@@ -686,7 +696,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L104-L131" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L104-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     def param_range(lower, upper, trainable=True):
@@ -704,13 +714,13 @@ class GPR(Model):
         get_ipython  # fails if we&#39;re not in a notebook
         table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th style=&#34;text-align:left&#34;&gt;Name&lt;/th&gt;&lt;th&gt;Range&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
         for name, p in zip(self._param_names, self._params):
-            table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.constrained.detach().numpy())
+            table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
         table += &#39;&lt;/table&gt;&#39;
         display(HTML(table))
     except Exception as e:
         vals = [[&#34;Name&#34;, &#34;Range&#34;, &#34;Value&#34;]]
         for name, p in zip(self._param_names, self._params):
-            vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.constrained.detach().numpy())])
+            vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
 
         nameWidth = max([len(val[0]) for val in vals])
         rangeWidth = max([len(val[1]) for val in vals])
@@ -726,7 +736,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L165-L177" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L167-L181" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, Z, n=None):
     with torch.no_grad():
@@ -735,12 +745,14 @@ class GPR(Model):
             S = 1
 
         mu, var = self.predict(Z, full=True, numpy=False)  # MxD and MxMxD
-        u = torch.normal(torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype), torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
+        u = torch.normal(
+                torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
+                torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
         L = torch.cholesky(var + 1e-6*torch.ones(Z.shape[0]).diagflat())  # MxM
         samples = mu + L.mm(u)  # MxS
         if n is None:
             samples = samples.squeeze()
-        return samples.detach().numpy()</code></pre>
+        return samples.cpu().numpy()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.gpr.model.Model.zero_grad"><code class="name flex">
@@ -751,7 +763,7 @@ class GPR(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/model.py#L89-L97" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L89-L97" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def zero_grad(self):
     for p in self._params:

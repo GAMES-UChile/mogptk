@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L0-L539" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L0-L570" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import time
@@ -40,7 +40,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from .serie import Serie
 from .dataset import DataSet
 from .gpr import GPR, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
-from .errors import mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
+from .errors import mean_absolute_error, mean_absolute_percentage_error, symmetric_mean_absolute_percentage_error, mean_squared_error, root_mean_squared_error
 
 logger = logging.getLogger(&#39;mogptk&#39;)
 
@@ -157,7 +157,7 @@ class Model:
         Examples:
             &gt;&gt;&gt; model.log_marginal_likelihood()
         &#34;&#34;&#34;
-        return self.model.log_marginal_likelihood().detach().item()
+        return self.model.log_marginal_likelihood().detach().cpu().item()
 
     def loss(self):
         &#34;&#34;&#34;
@@ -169,14 +169,14 @@ class Model:
         Examples:
             &gt;&gt;&gt; model.loss()
         &#34;&#34;&#34;
-        return self.model.loss().detach().item()
+        return self.model.loss().detach().cpu().item()
 
     def error(self, method=&#39;MAE&#39;):
         &#34;&#34;&#34;
         Returns the error of the kernel prediction with the removed data points in the data set.
 
         Args:
-            method (str): Error calculation method, such as MAE, MAPE, or RMSE.
+            method (str): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE.
 
         Returns:
             float: The current error.
@@ -191,6 +191,10 @@ class Model:
             return mean_absolute_error(y_true, y_pred)
         elif method.lower() == &#39;mape&#39;:
             return mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == &#39;smape&#39;:
+            return symmetric_mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == &#39;mse&#39;:
+            return mean_squared_error(y_true, y_pred)
         elif method.lower() == &#39;rmse&#39;:
             return root_mean_squared_error(y_true, y_pred)
         else:
@@ -253,41 +257,53 @@ class Model:
         losses = np.empty((iters+1,))
         errors = np.empty((iters+1,))
         try:
+            os.write(1, (&#34;\nStart %s:\n&#34; % (method,)).encode())
             if method == &#39;LBFGS&#39;:
                 if not &#39;max_iter&#39; in kwargs:
                     kwargs[&#39;max_iter&#39;] = iters
                     iters = 0
                 optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
-                optimizer.step(lambda: self.model.loss())
-                iters = optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;]
-            elif method == &#39;Adam&#39;:
-                if &#39;lr&#39; not in kwargs:
-                    kwargs[&#39;lr&#39;] = 0.1
-                optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
-                for i in range(iters):
-                    losses[i] = self.loss()
+
+                def loss():
+                    i = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
+                    losses[i] = self.model.loss()
                     if error is not None:
                         errors[i] = self.error(error)
-                    optimizer.step()
-            elif method == &#39;SGD&#39;:
-                optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
-                for i in range(iters):
-                    losses[i] = self.loss()
-                    if error is not None:
-                        errors[i] = self.error(error)
-                    optimizer.step()
-            elif method == &#39;AdaGrad&#39;:
-                optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
-                for i in range(iters):
-                    losses[i] = self.loss()
-                    if error is not None:
-                        errors[i] = self.error(error)
-                    optimizer.step()
+                        if i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                            os.write(1, (&#34;% 5d/%d  loss=%10g  error=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], losses[i], errors[i])).encode())
+                    elif i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                        os.write(1, (&#34;% 5d/%d  loss=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], losses[i])).encode())
+                    return losses[i]
+                optimizer.step(lambda: loss())
+                iters = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
             else:
-                print(&#34;Unknown optimizer:&#34;, method)
+                if method == &#39;Adam&#39;:
+                    if &#39;lr&#39; not in kwargs:
+                        kwargs[&#39;lr&#39;] = 0.1
+                    optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
+                elif method == &#39;SGD&#39;:
+                    optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
+                elif method == &#39;AdaGrad&#39;:
+                    optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
+                else:
+                    print(&#34;Unknown optimizer:&#34;, method)
+
+                for i in range(iters):
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
+                        if i % (iters/100) == 0:
+                            os.write(1, (&#34;% 5d/%d  loss=%10g  error=%10g\n&#34; % (i, iters, losses[i], errors[i])).encode())
+                    elif i % (iters/100) == 0:
+                        os.write(1, (&#34;% 5d/%d  loss=%10g\n&#34; % (i, iters, losses[i])).encode())
+                    optimizer.step()
             losses[iters] = self.loss()
             if error is not None:
                 errors[iters] = self.error(error)
+                os.write(1, (&#34;% 5d/%d  loss=%10g  error=%10g\n&#34; % (iters, iters, losses[iters], errors[iters])).encode())
+            else:
+                os.write(1, (&#34;% 5d/%d  loss=%10g\n&#34; % (iters, iters, losses[iters])).encode())
+            os.write(1, &#34;Finished\n&#34;.encode())
         except CholeskyException:
             return
 
@@ -299,25 +315,13 @@ class Model:
             if error is not None:
                 print(&#39;‣ Final error: {:.3g}&#39;.format(errors[-1]))
 
-        if plot:
-            fig, ax = plt.subplots(1, 1, figsize=(12,3), constrained_layout=True)
-            ax.plot(np.arange(0,iters+1), losses[:iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
-            ax.set_xlim(0, iters)
-            ax.set_xlabel(&#39;Iteration&#39;)
-            ax.set_ylabel(&#39;Loss&#39;)
-
-            legends = []
-            legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
-            if error is not None:
-                ax2 = ax.twinx()
-                ax2.plot(np.arange(0,iters+1), errors[:iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
-                ax2.set_ylabel(&#39;Error&#39;)
-                legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
-
-            ax.legend(handles=legends)
-
+        self.iters = iters
+        self.losses = losses
         if error is not None:
-            return losses, errors
+            self.errors = errors
+
+        if plot:
+            self.plot_losses()
 
     ################################################################################
     # Predictions ##################################################################
@@ -442,6 +446,33 @@ class Model:
                     Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
                     Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
                 return Mu, Lower, Upper
+
+    def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+        if not hasattr(self, &#39;losses&#39;):
+            raise Exception(&#34;must be trained in order to plot the losses&#34;)
+
+        if figsize is None:
+            figsize = (12,3)
+
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        ax.plot(np.arange(0,self.iters+1), self.losses[:self.iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
+        ax.set_xlim(0, self.iters)
+        ax.set_xlabel(&#39;Iteration&#39;)
+        ax.set_ylabel(&#39;Loss&#39;)
+
+        legends = []
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
+        if errors and hasattr(self, &#39;errors&#39;):
+            ax2 = ax.twinx()
+            ax2.plot(np.arange(0,self.iters+1), self.errors[:self.iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
+            ax2.set_ylabel(&#39;Error&#39;)
+            legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
+
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        if legend:
+            ax.legend(handles=legends)
 
     def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
         &#34;&#34;&#34;
@@ -592,7 +623,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L18-L30" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L18-L30" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -622,7 +653,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L32-L37" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L32-L37" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
@@ -641,7 +672,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L36-L37" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L36-L37" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def build(self, kernel, x, y, mean=None, name=None):
     return GPR(kernel, x, y, mean=mean, name=name)</code></pre>
@@ -671,7 +702,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L39-L512" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L39-L543" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
@@ -765,7 +796,7 @@ def _format_duration(s):
         Examples:
             &gt;&gt;&gt; model.log_marginal_likelihood()
         &#34;&#34;&#34;
-        return self.model.log_marginal_likelihood().detach().item()
+        return self.model.log_marginal_likelihood().detach().cpu().item()
 
     def loss(self):
         &#34;&#34;&#34;
@@ -777,14 +808,14 @@ def _format_duration(s):
         Examples:
             &gt;&gt;&gt; model.loss()
         &#34;&#34;&#34;
-        return self.model.loss().detach().item()
+        return self.model.loss().detach().cpu().item()
 
     def error(self, method=&#39;MAE&#39;):
         &#34;&#34;&#34;
         Returns the error of the kernel prediction with the removed data points in the data set.
 
         Args:
-            method (str): Error calculation method, such as MAE, MAPE, or RMSE.
+            method (str): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE.
 
         Returns:
             float: The current error.
@@ -799,6 +830,10 @@ def _format_duration(s):
             return mean_absolute_error(y_true, y_pred)
         elif method.lower() == &#39;mape&#39;:
             return mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == &#39;smape&#39;:
+            return symmetric_mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == &#39;mse&#39;:
+            return mean_squared_error(y_true, y_pred)
         elif method.lower() == &#39;rmse&#39;:
             return root_mean_squared_error(y_true, y_pred)
         else:
@@ -861,41 +896,53 @@ def _format_duration(s):
         losses = np.empty((iters+1,))
         errors = np.empty((iters+1,))
         try:
+            os.write(1, (&#34;\nStart %s:\n&#34; % (method,)).encode())
             if method == &#39;LBFGS&#39;:
                 if not &#39;max_iter&#39; in kwargs:
                     kwargs[&#39;max_iter&#39;] = iters
                     iters = 0
                 optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
-                optimizer.step(lambda: self.model.loss())
-                iters = optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;]
-            elif method == &#39;Adam&#39;:
-                if &#39;lr&#39; not in kwargs:
-                    kwargs[&#39;lr&#39;] = 0.1
-                optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
-                for i in range(iters):
-                    losses[i] = self.loss()
+
+                def loss():
+                    i = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
+                    losses[i] = self.model.loss()
                     if error is not None:
                         errors[i] = self.error(error)
-                    optimizer.step()
-            elif method == &#39;SGD&#39;:
-                optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
-                for i in range(iters):
-                    losses[i] = self.loss()
-                    if error is not None:
-                        errors[i] = self.error(error)
-                    optimizer.step()
-            elif method == &#39;AdaGrad&#39;:
-                optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
-                for i in range(iters):
-                    losses[i] = self.loss()
-                    if error is not None:
-                        errors[i] = self.error(error)
-                    optimizer.step()
+                        if i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                            os.write(1, (&#34;% 5d/%d  loss=%10g  error=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], losses[i], errors[i])).encode())
+                    elif i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                        os.write(1, (&#34;% 5d/%d  loss=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], losses[i])).encode())
+                    return losses[i]
+                optimizer.step(lambda: loss())
+                iters = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
             else:
-                print(&#34;Unknown optimizer:&#34;, method)
+                if method == &#39;Adam&#39;:
+                    if &#39;lr&#39; not in kwargs:
+                        kwargs[&#39;lr&#39;] = 0.1
+                    optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
+                elif method == &#39;SGD&#39;:
+                    optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
+                elif method == &#39;AdaGrad&#39;:
+                    optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
+                else:
+                    print(&#34;Unknown optimizer:&#34;, method)
+
+                for i in range(iters):
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
+                        if i % (iters/100) == 0:
+                            os.write(1, (&#34;% 5d/%d  loss=%10g  error=%10g\n&#34; % (i, iters, losses[i], errors[i])).encode())
+                    elif i % (iters/100) == 0:
+                        os.write(1, (&#34;% 5d/%d  loss=%10g\n&#34; % (i, iters, losses[i])).encode())
+                    optimizer.step()
             losses[iters] = self.loss()
             if error is not None:
                 errors[iters] = self.error(error)
+                os.write(1, (&#34;% 5d/%d  loss=%10g  error=%10g\n&#34; % (iters, iters, losses[iters], errors[iters])).encode())
+            else:
+                os.write(1, (&#34;% 5d/%d  loss=%10g\n&#34; % (iters, iters, losses[iters])).encode())
+            os.write(1, &#34;Finished\n&#34;.encode())
         except CholeskyException:
             return
 
@@ -907,25 +954,13 @@ def _format_duration(s):
             if error is not None:
                 print(&#39;‣ Final error: {:.3g}&#39;.format(errors[-1]))
 
-        if plot:
-            fig, ax = plt.subplots(1, 1, figsize=(12,3), constrained_layout=True)
-            ax.plot(np.arange(0,iters+1), losses[:iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
-            ax.set_xlim(0, iters)
-            ax.set_xlabel(&#39;Iteration&#39;)
-            ax.set_ylabel(&#39;Loss&#39;)
-
-            legends = []
-            legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
-            if error is not None:
-                ax2 = ax.twinx()
-                ax2.plot(np.arange(0,iters+1), errors[:iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
-                ax2.set_ylabel(&#39;Error&#39;)
-                legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
-
-            ax.legend(handles=legends)
-
+        self.iters = iters
+        self.losses = losses
         if error is not None:
-            return losses, errors
+            self.errors = errors
+
+        if plot:
+            self.plot_losses()
 
     ################################################################################
     # Predictions ##################################################################
@@ -1051,6 +1086,33 @@ def _format_duration(s):
                     Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
                 return Mu, Lower, Upper
 
+    def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+        if not hasattr(self, &#39;losses&#39;):
+            raise Exception(&#34;must be trained in order to plot the losses&#34;)
+
+        if figsize is None:
+            figsize = (12,3)
+
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        ax.plot(np.arange(0,self.iters+1), self.losses[:self.iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
+        ax.set_xlim(0, self.iters)
+        ax.set_xlabel(&#39;Iteration&#39;)
+        ax.set_ylabel(&#39;Loss&#39;)
+
+        legends = []
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
+        if errors and hasattr(self, &#39;errors&#39;):
+            ax2 = ax.twinx()
+            ax2.plot(np.arange(0,self.iters+1), self.errors[:self.iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
+            ax2.set_ylabel(&#39;Error&#39;)
+            legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
+
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        if legend:
+            ax.legend(handles=legends)
+
     def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
@@ -1166,7 +1228,7 @@ def _format_duration(s):
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
-<dd>Error calculation method, such as MAE, MAPE, or RMSE.</dd>
+<dd>Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1179,14 +1241,14 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L145-L168" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L145-L172" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;):
     &#34;&#34;&#34;
     Returns the error of the kernel prediction with the removed data points in the data set.
 
     Args:
-        method (str): Error calculation method, such as MAE, MAPE, or RMSE.
+        method (str): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE.
 
     Returns:
         float: The current error.
@@ -1201,6 +1263,10 @@ def _format_duration(s):
         return mean_absolute_error(y_true, y_pred)
     elif method.lower() == &#39;mape&#39;:
         return mean_absolute_percentage_error(y_true, y_pred)
+    elif method.lower() == &#39;smape&#39;:
+        return symmetric_mean_absolute_percentage_error(y_true, y_pred)
+    elif method.lower() == &#39;mse&#39;:
+        return mean_squared_error(y_true, y_pred)
     elif method.lower() == &#39;rmse&#39;:
         return root_mean_squared_error(y_true, y_pred)
     else:
@@ -1229,7 +1295,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L436-L470" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L467-L501" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_gram_matrix(self, start=None, end=None, n=31):
     &#34;&#34;&#34;
@@ -1284,7 +1350,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L91-L101" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L91-L101" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -1315,7 +1381,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L121-L131" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L121-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -1327,7 +1393,7 @@ def _format_duration(s):
     Examples:
         &gt;&gt;&gt; model.log_marginal_likelihood()
     &#34;&#34;&#34;
-    return self.model.log_marginal_likelihood().detach().item()</code></pre>
+    return self.model.log_marginal_likelihood().detach().cpu().item()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.Model.loss"><code class="name flex">
@@ -1346,7 +1412,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L133-L143" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L133-L143" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -1358,7 +1424,7 @@ def _format_duration(s):
     Examples:
         &gt;&gt;&gt; model.loss()
     &#34;&#34;&#34;
-    return self.model.loss().detach().item()</code></pre>
+    return self.model.loss().detach().cpu().item()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.Model.plot"><code class="name flex">
@@ -1389,7 +1455,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L472-L512" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L503-L543" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -1434,6 +1500,44 @@ def _format_duration(s):
     return fig, ax</code></pre>
 </details>
 </dd>
+<dt id="mogptk.model.Model.plot_losses"><code class="name flex">
+<span>def <span class="ident">plot_losses</span></span>(<span>self, title=None, figsize=None, legend=True, errors=True)</span>
+</code></dt>
+<dd>
+<section class="desc"></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L421-L446" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+    if not hasattr(self, &#39;losses&#39;):
+        raise Exception(&#34;must be trained in order to plot the losses&#34;)
+
+    if figsize is None:
+        figsize = (12,3)
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+    ax.plot(np.arange(0,self.iters+1), self.losses[:self.iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
+    ax.set_xlim(0, self.iters)
+    ax.set_xlabel(&#39;Iteration&#39;)
+    ax.set_ylabel(&#39;Loss&#39;)
+
+    legends = []
+    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
+    if errors and hasattr(self, &#39;errors&#39;):
+        ax2 = ax.twinx()
+        ax2.plot(np.arange(0,self.iters+1), self.errors[:self.iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
+        ax2.set_ylabel(&#39;Error&#39;)
+        legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
+
+    if title is not None:
+        fig.suptitle(title, fontsize=18)
+
+    if legend:
+        ax.legend(handles=legends)</code></pre>
+</details>
+</dd>
 <dt id="mogptk.model.Model.plot_prediction"><code class="name flex">
 <span>def <span class="ident">plot_prediction</span></span>(<span>self, title=None, figsize=None, legend=True, transformed=False)</span>
 </code></dt>
@@ -1459,7 +1563,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L417-L434" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L448-L465" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
     &#34;&#34;&#34;
@@ -1505,7 +1609,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L362-L415" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L366-L419" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -1574,7 +1678,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L82-L89" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L82-L89" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -1602,7 +1706,7 @@ numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L103-L119" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L103-L119" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -1656,7 +1760,7 @@ numpy.ndarray: Errors for all iterations. Only if <code>error</code> is set.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/model.py#L170-L291" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/model.py#L174-L295" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -1715,41 +1819,53 @@ numpy.ndarray: Errors for all iterations. Only if <code>error</code> is set.</p>
     losses = np.empty((iters+1,))
     errors = np.empty((iters+1,))
     try:
+        os.write(1, (&#34;\nStart %s:\n&#34; % (method,)).encode())
         if method == &#39;LBFGS&#39;:
             if not &#39;max_iter&#39; in kwargs:
                 kwargs[&#39;max_iter&#39;] = iters
                 iters = 0
             optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
-            optimizer.step(lambda: self.model.loss())
-            iters = optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;]
-        elif method == &#39;Adam&#39;:
-            if &#39;lr&#39; not in kwargs:
-                kwargs[&#39;lr&#39;] = 0.1
-            optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
-            for i in range(iters):
-                losses[i] = self.loss()
+
+            def loss():
+                i = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
+                losses[i] = self.model.loss()
                 if error is not None:
                     errors[i] = self.error(error)
-                optimizer.step()
-        elif method == &#39;SGD&#39;:
-            optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
-            for i in range(iters):
-                losses[i] = self.loss()
-                if error is not None:
-                    errors[i] = self.error(error)
-                optimizer.step()
-        elif method == &#39;AdaGrad&#39;:
-            optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
-            for i in range(iters):
-                losses[i] = self.loss()
-                if error is not None:
-                    errors[i] = self.error(error)
-                optimizer.step()
+                    if i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                        os.write(1, (&#34;% 5d/%d  loss=%10g  error=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], losses[i], errors[i])).encode())
+                elif i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                    os.write(1, (&#34;% 5d/%d  loss=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], losses[i])).encode())
+                return losses[i]
+            optimizer.step(lambda: loss())
+            iters = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
         else:
-            print(&#34;Unknown optimizer:&#34;, method)
+            if method == &#39;Adam&#39;:
+                if &#39;lr&#39; not in kwargs:
+                    kwargs[&#39;lr&#39;] = 0.1
+                optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
+            elif method == &#39;SGD&#39;:
+                optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
+            elif method == &#39;AdaGrad&#39;:
+                optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
+            else:
+                print(&#34;Unknown optimizer:&#34;, method)
+
+            for i in range(iters):
+                losses[i] = self.loss()
+                if error is not None:
+                    errors[i] = self.error(error)
+                    if i % (iters/100) == 0:
+                        os.write(1, (&#34;% 5d/%d  loss=%10g  error=%10g\n&#34; % (i, iters, losses[i], errors[i])).encode())
+                elif i % (iters/100) == 0:
+                    os.write(1, (&#34;% 5d/%d  loss=%10g\n&#34; % (i, iters, losses[i])).encode())
+                optimizer.step()
         losses[iters] = self.loss()
         if error is not None:
             errors[iters] = self.error(error)
+            os.write(1, (&#34;% 5d/%d  loss=%10g  error=%10g\n&#34; % (iters, iters, losses[iters], errors[iters])).encode())
+        else:
+            os.write(1, (&#34;% 5d/%d  loss=%10g\n&#34; % (iters, iters, losses[iters])).encode())
+        os.write(1, &#34;Finished\n&#34;.encode())
     except CholeskyException:
         return
 
@@ -1761,25 +1877,13 @@ numpy.ndarray: Errors for all iterations. Only if <code>error</code> is set.</p>
         if error is not None:
             print(&#39;‣ Final error: {:.3g}&#39;.format(errors[-1]))
 
-    if plot:
-        fig, ax = plt.subplots(1, 1, figsize=(12,3), constrained_layout=True)
-        ax.plot(np.arange(0,iters+1), losses[:iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
-        ax.set_xlim(0, iters)
-        ax.set_xlabel(&#39;Iteration&#39;)
-        ax.set_ylabel(&#39;Loss&#39;)
-
-        legends = []
-        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
-        if error is not None:
-            ax2 = ax.twinx()
-            ax2.plot(np.arange(0,iters+1), errors[:iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
-            ax2.set_ylabel(&#39;Error&#39;)
-            legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
-
-        ax.legend(handles=legends)
-
+    self.iters = iters
+    self.losses = losses
     if error is not None:
-        return losses, errors</code></pre>
+        self.errors = errors
+
+    if plot:
+        self.plot_losses()</code></pre>
 </details>
 </dd>
 </dl>
@@ -1820,6 +1924,7 @@ numpy.ndarray: Errors for all iterations. Only if <code>error</code> is set.</p>
 <li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.model.Model.loss" href="#mogptk.model.Model.loss">loss</a></code></li>
 <li><code><a title="mogptk.model.Model.plot" href="#mogptk.model.Model.plot">plot</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_losses" href="#mogptk.model.Model.plot_losses">plot_losses</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_prediction" href="#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.Model.predict" href="#mogptk.model.Model.predict">predict</a></code></li>
 <li><code><a title="mogptk.model.Model.print_parameters" href="#mogptk.model.Model.print_parameters">print_parameters</a></code></li>

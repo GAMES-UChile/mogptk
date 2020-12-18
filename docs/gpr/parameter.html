@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L0-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L0-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import torch.nn.functional as functional
@@ -95,7 +95,7 @@ class Parameter:
         return self.unconstrained
 
     def numpy(self):
-        return self.constrained.detach().numpy()
+        return self.constrained.detach().cpu().numpy()
 
     def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
         if not isinstance(data, torch.Tensor):
@@ -182,7 +182,7 @@ class Parameter:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L43-L135" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L43-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Parameter:
     def __init__(self, data, name=None, lower=None, upper=None, prior=None, trainable=True):
@@ -210,7 +210,7 @@ class Parameter:
         return self.unconstrained
 
     def numpy(self):
-        return self.constrained.detach().numpy()
+        return self.constrained.detach().cpu().numpy()
 
     def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
         if not isinstance(data, torch.Tensor):
@@ -286,7 +286,7 @@ class Parameter:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L62-L66" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L62-L66" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def constrained(self):
@@ -306,7 +306,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L71-L130" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L71-L130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
     if not isinstance(data, torch.Tensor):
@@ -378,7 +378,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L132-L135" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L132-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     if self.prior is None:
@@ -394,10 +394,10 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L68-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L68-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def numpy(self):
-    return self.constrained.detach().numpy()</code></pre>
+    return self.constrained.detach().cpu().numpy()</code></pre>
 </details>
 </dd>
 </dl>
@@ -411,7 +411,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L29-L41" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L29-L41" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Sigmoid(Transform):
     def __init__(self, lower=0.0, upper=1.0):
@@ -441,7 +441,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L34-L35" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L34-L35" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     return self.lower + (self.upper-self.lower)*torch.sigmoid(x)</code></pre>
@@ -455,7 +455,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L37-L41" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L37-L41" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     if torch.any(y &lt; self.lower) or torch.any(self.upper &lt; y):
@@ -475,7 +475,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L15-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L15-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Softplus(Transform):
     def __init__(self, lower=0.0, beta=0.1, threshold=20.0):
@@ -505,7 +505,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L21-L22" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L21-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     return self.lower + functional.softplus(x, beta=self.beta, threshold=self.threshold)</code></pre>
@@ -519,7 +519,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L24-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L24-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     if torch.any(y &lt; self.lower):
@@ -537,7 +537,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L6-L13" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L6-L13" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Transform:
     def forward(self, x):
@@ -563,7 +563,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L7-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L7-L9" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     # unconstrained to constrained space
@@ -578,7 +578,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/parameter.py#L11-L13" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L11-L13" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     # constrained to unconstrained space

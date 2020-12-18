@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L0-L190" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L0-L190" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import copy
@@ -238,7 +238,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L103-L112" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L103-L112" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AddKernel(Kernel):
     def __init__(self, *kernels, name=&#34;Add&#34;):
@@ -269,7 +269,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L111-L112" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L111-L112" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).sum(dim=2)</code></pre>
@@ -286,7 +286,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L130-L135" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L130-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AutomaticRelevanceDeterminationKernel(MulKernel):
     def __init__(self, kernel, input_dims, name=&#34;ARD&#34;):
@@ -310,7 +310,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L5-L101" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L5-L101" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernel:
     def __init__(self, input_dims=None, active_dims=None, name=None):
@@ -432,7 +432,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L71-L73" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L71-L73" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def active_dims(self):
@@ -450,7 +450,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L87-L88" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L87-L88" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     raise NotImplementedError()</code></pre>
@@ -464,7 +464,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L90-L94" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L90-L94" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def distance(self, X1, X2=None):
     # X1 is NxD, X2 is MxD, then ret is NxMxD
@@ -481,7 +481,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L96-L101" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L96-L101" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def squared_distance(self, X1, X2=None):
     # X1 is NxD, X2 is MxD, then ret is NxMxD
@@ -502,7 +502,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L125-L128" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L125-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MixtureKernel(AddKernel):
     def __init__(self, kernel, Q, name=&#34;Mixture&#34;):
@@ -524,7 +524,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L114-L123" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L114-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MulKernel(Kernel):
     def __init__(self, *kernels, name=&#34;Mul&#34;):
@@ -555,7 +555,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L122-L123" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L122-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).prod(dim=2)</code></pre>
@@ -572,7 +572,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L137-L191" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L137-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputKernel(Kernel):
     # The MultiOutputKernel is a base class for multi output kernels. It assumes that the first dimension of X contains channel IDs (integers) and calculate the final kernel matrix accordingly. Concretely, it will call the Ksub method for derived kernels from this class, which should return the kernel matrix between channel i and j, given inputs X1 and X2. This class will automatically split and recombine the input vectors and kernel matrices respectively, in order to create the final kernel matrix of the multi output kernel.
@@ -652,7 +652,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L149-L188" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L149-L188" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     # X has shape (data_points,1+input_dims) where the first column is the channel ID
@@ -704,7 +704,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/kernel.py#L190-L191" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/kernel.py#L190-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     raise NotImplementedError()</code></pre>

@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/distribution.py#L0-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/distribution.py#L0-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 from . import config
@@ -66,7 +66,7 @@ class Gaussian(Distribution):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/distribution.py#L4-L6" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/distribution.py#L4-L6" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Distribution:
     def log_p(self, x):
@@ -86,7 +86,7 @@ class Gaussian(Distribution):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/distribution.py#L5-L6" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/distribution.py#L5-L6" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_p(self, x):
     raise NotImplementedError()</code></pre>
@@ -103,7 +103,7 @@ class Gaussian(Distribution):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/distribution.py#L8-L20" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/distribution.py#L8-L20" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Gaussian(Distribution):
     def __init__(self, mu=torch.tensor(0.0), sigma=torch.tensor(1.0)):
@@ -133,7 +133,7 @@ class Gaussian(Distribution):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/gpr/distribution.py#L17-L20" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/distribution.py#L17-L20" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_p(self, x):
     if x.shape != self.mu.shape:

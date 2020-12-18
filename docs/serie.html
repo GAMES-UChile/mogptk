@@ -25,9 +25,10 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L0-L200" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L0-L216" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">import numpy as np
+<pre><code class="python">import copy
+import numpy as np
 
 class TransformBase:
     &#34;&#34;&#34;
@@ -53,6 +54,9 @@ class TransformDetrend(TransformBase):
     # TODO: add regression?
     def __init__(self, degree=1):
         self.degree = degree
+
+    def __repr__(self):
+        return &#39;TransformDetrend(degree=%g)&#39; % (self.degree,)
 
     def set_data(self, data):
         if data.get_input_dims() != 1:
@@ -81,6 +85,9 @@ class TransformLinear(TransformBase):
         self.bias = bias
         self.slope = slope
 
+    def __repr__(self):
+        return &#39;TransformLinear(bias=%g, slope=%g)&#39; % (self.bias, self.slope)
+
     def set_data(self, data):
         pass
 
@@ -96,6 +103,9 @@ class TransformNormalize(TransformBase):
     &#34;&#34;&#34;
     def __init__(self):
         pass
+
+    def __repr__(self):
+        return &#39;TransformNormalize(min=%g, max=%g)&#39; % (self.ymin, self.ymax)
 
     def set_data(self, data):
         self.ymin = np.amin(data.Y.transformed[data.mask])
@@ -114,6 +124,9 @@ class TransformLog(TransformBase):
     def __init__(self):
         pass
 
+    def __repr__(self):
+        return &#39;TransformLog(shift=%g, mean=%g)&#39; % (self.shift, self.mean)
+
     def set_data(self, data):
         self.shift = 1 - data.Y.transformed.min()
         self.mean = np.log(data.Y.transformed + self.shift).mean()
@@ -130,6 +143,9 @@ class TransformStandard(TransformBase):
     &#34;&#34;&#34;
     def __init__(self):
         pass
+
+    def __repr__(self):
+        return &#39;TransformStandard(mean=%g, std=%g)&#39; % (self.mean, self.std)
     
     def set_data(self, data):
         # take only the non-removed observations
@@ -175,8 +191,8 @@ class Serie(np.ndarray):
     def __array_finalize__(self, obj):
         if obj is None:
             return
-        self.transformed = getattr(obj, &#39;transformed&#39;, None)
-        self.transformers = getattr(obj, &#39;transformers&#39;, None)
+        self.transformed = copy.deepcopy(getattr(obj, &#39;transformed&#39;, None))
+        self.transformers = copy.deepcopy(getattr(obj, &#39;transformers&#39;, None))
     
     def __getitem__(self, index):
         ret = super(Serie, self).__getitem__(index)
@@ -248,7 +264,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L122-L201" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L138-L217" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Serie(np.ndarray):
     &#34;&#34;&#34;
@@ -277,8 +293,8 @@ class Serie(np.ndarray):
     def __array_finalize__(self, obj):
         if obj is None:
             return
-        self.transformed = getattr(obj, &#39;transformed&#39;, None)
-        self.transformers = getattr(obj, &#39;transformers&#39;, None)
+        self.transformed = copy.deepcopy(getattr(obj, &#39;transformed&#39;, None))
+        self.transformers = copy.deepcopy(getattr(obj, &#39;transformers&#39;, None))
     
     def __getitem__(self, index):
         ret = super(Serie, self).__getitem__(index)
@@ -345,7 +361,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L167-L177" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L183-L193" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def apply(self, transformers, x=None):
     if not isinstance(transformers, list):
@@ -368,7 +384,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L198-L201" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L214-L217" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def detransform(self, array, x=None):
     for t in self.transformers[::-1]:
@@ -384,7 +400,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L182-L190" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L198-L206" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_time_unit(self):
     if not self.is_datetime64():
@@ -405,7 +421,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L179-L180" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L195-L196" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def is_datetime64(self):
     return np.issubdtype(self.dtype, np.datetime64)</code></pre>
@@ -419,7 +435,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L192-L196" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L208-L212" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, array, x=None):
     array = array.astype(self.dtype).astype(np.float64)
@@ -438,7 +454,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L3-L15" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L4-L16" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class TransformBase:
     &#34;&#34;&#34;
@@ -472,7 +488,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L14-L15" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L15-L16" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def backward(self, y, x=None):
     raise NotImplementedError</code></pre>
@@ -486,7 +502,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L11-L12" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L12-L13" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, y, x=None):
     raise NotImplementedError</code></pre>
@@ -500,7 +516,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L8-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L9-L10" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_data(self, data):
     pass</code></pre>
@@ -522,7 +538,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L17-L45" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L18-L49" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class TransformDetrend(TransformBase):
     &#34;&#34;&#34;
@@ -534,6 +550,9 @@ class Serie(np.ndarray):
     # TODO: add regression?
     def __init__(self, degree=1):
         self.degree = degree
+
+    def __repr__(self):
+        return &#39;TransformDetrend(degree=%g)&#39; % (self.degree,)
 
     def set_data(self, data):
         if data.get_input_dims() != 1:
@@ -568,7 +587,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L41-L45" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L45-L49" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def backward(self, y, x):
     if x is None:
@@ -585,7 +604,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L35-L39" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L39-L43" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, y, x):
     if x is None:
@@ -602,7 +621,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L28-L33" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L32-L37" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_data(self, data):
     if data.get_input_dims() != 1:
@@ -623,7 +642,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L47-L62" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L51-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class TransformLinear(TransformBase):
     &#34;&#34;&#34;
@@ -632,6 +651,9 @@ class Serie(np.ndarray):
     def __init__(self, bias=0.0, slope=1.0):
         self.bias = bias
         self.slope = slope
+
+    def __repr__(self):
+        return &#39;TransformLinear(bias=%g, slope=%g)&#39; % (self.bias, self.slope)
 
     def set_data(self, data):
         pass
@@ -656,7 +678,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L61-L62" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L68-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def backward(self, y, x=None):
     return self.bias + self.slope*y</code></pre>
@@ -670,7 +692,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L58-L59" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L65-L66" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, y, x=None):
     return (y-self.bias)/self.slope</code></pre>
@@ -684,7 +706,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L55-L56" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L62-L63" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_data(self, data):
     pass</code></pre>
@@ -700,7 +722,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L81-L96" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L91-L109" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class TransformLog(TransformBase):
     &#34;&#34;&#34;
@@ -708,6 +730,9 @@ class Serie(np.ndarray):
     &#34;&#34;&#34;
     def __init__(self):
         pass
+
+    def __repr__(self):
+        return &#39;TransformLog(shift=%g, mean=%g)&#39; % (self.shift, self.mean)
 
     def set_data(self, data):
         self.shift = 1 - data.Y.transformed.min()
@@ -733,7 +758,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L95-L96" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L108-L109" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def backward(self, y, x=None):
     return np.exp(y + self.mean) - self.shift</code></pre>
@@ -747,7 +772,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L92-L93" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L105-L106" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, y, x=None):
     return np.log(y + self.shift) - self.mean</code></pre>
@@ -761,7 +786,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L88-L90" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L101-L103" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_data(self, data):
     self.shift = 1 - data.Y.transformed.min()
@@ -778,7 +803,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L64-L79" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L71-L89" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class TransformNormalize(TransformBase):
     &#34;&#34;&#34;
@@ -786,6 +811,9 @@ class Serie(np.ndarray):
     &#34;&#34;&#34;
     def __init__(self):
         pass
+
+    def __repr__(self):
+        return &#39;TransformNormalize(min=%g, max=%g)&#39; % (self.ymin, self.ymax)
 
     def set_data(self, data):
         self.ymin = np.amin(data.Y.transformed[data.mask])
@@ -811,7 +839,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L78-L79" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L88-L89" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def backward(self, y, x=None):
     return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin</code></pre>
@@ -825,7 +853,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L75-L76" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L85-L86" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, y, x=None):
     return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)</code></pre>
@@ -839,7 +867,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L71-L73" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L81-L83" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_data(self, data):
     self.ymin = np.amin(data.Y.transformed[data.mask])
@@ -856,7 +884,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L98-L114" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L111-L130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class TransformStandard(TransformBase):
     &#34;&#34;&#34;
@@ -864,6 +892,9 @@ class Serie(np.ndarray):
     &#34;&#34;&#34;
     def __init__(self):
         pass
+
+    def __repr__(self):
+        return &#39;TransformStandard(mean=%g, std=%g)&#39; % (self.mean, self.std)
     
     def set_data(self, data):
         # take only the non-removed observations
@@ -890,7 +921,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L113-L114" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L129-L130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def backward(self, y, x=None):
     return (y * self.std) + self.mean</code></pre>
@@ -904,7 +935,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L110-L111" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L126-L127" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, y, x=None):
     return (y - self.mean) / self.std</code></pre>
@@ -918,7 +949,7 @@ class Serie(np.ndarray):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/serie.py#L105-L108" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/serie.py#L121-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_data(self, data):
     # take only the non-removed observations

@@ -25,7 +25,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/errors.py#L0-L108" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/errors.py#L0-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import pandas as pd
@@ -45,6 +45,22 @@ def mean_absolute_percentage_error(y_true, y_pred):
     idx = 1e-6 &lt; y_true
     y_true, y_pred = y_true[idx], y_pred[idx]
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100.0
+
+def symmetric_mean_absolute_percentage_error(y_true, y_pred):
+    &#34;&#34;&#34;
+    Symmetric Mean Absolute Percentage Error (sMAPE) between the true and the predicted values.
+    &#34;&#34;&#34;
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    idx = 1e-6 &lt; y_true
+    y_true, y_pred = y_true[idx], y_pred[idx]
+    return np.mean(np.abs((y_true - y_pred) / (y_true + y_pred))) * 200.0
+
+def mean_squared_error(y_true, y_pred):
+    &#34;&#34;&#34;
+    Mean Squared Error (MSE) between the true and the predicted values.
+    &#34;&#34;&#34;
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean((y_true - y_pred)**2)
 
 def root_mean_squared_error(y_true, y_pred):
     &#34;&#34;&#34;
@@ -173,7 +189,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/errors.py#L28-L108" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/errors.py#L44-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=False):
     &#34;&#34;&#34;
@@ -266,7 +282,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/errors.py#L4-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/errors.py#L4-L9" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean_absolute_error(y_true, y_pred):
     &#34;&#34;&#34;
@@ -284,7 +300,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/errors.py#L11-L18" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/errors.py#L11-L18" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean_absolute_percentage_error(y_true, y_pred):
     &#34;&#34;&#34;
@@ -296,6 +312,24 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100.0</code></pre>
 </details>
 </dd>
+<dt id="mogptk.errors.mean_squared_error"><code class="name flex">
+<span>def <span class="ident">mean_squared_error</span></span>(<span>y_true, y_pred)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Mean Squared Error (MSE) between the true and the predicted values.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/errors.py#L29-L34" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def mean_squared_error(y_true, y_pred):
+    &#34;&#34;&#34;
+    Mean Squared Error (MSE) between the true and the predicted values.
+    &#34;&#34;&#34;
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean((y_true - y_pred)**2)</code></pre>
+</details>
+</dd>
 <dt id="mogptk.errors.root_mean_squared_error"><code class="name flex">
 <span>def <span class="ident">root_mean_squared_error</span></span>(<span>y_true, y_pred)</span>
 </code></dt>
@@ -304,7 +338,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/63974ac1229f68635c964756795ce6d2c1fd0446/mogptk/errors.py#L20-L25" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/errors.py#L36-L41" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def root_mean_squared_error(y_true, y_pred):
     &#34;&#34;&#34;
@@ -312,6 +346,26 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
     &#34;&#34;&#34;
     y_true, y_pred = np.array(y_true), np.array(y_pred)
     return np.sqrt(np.mean((y_true - y_pred)**2))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.errors.symmetric_mean_absolute_percentage_error"><code class="name flex">
+<span>def <span class="ident">symmetric_mean_absolute_percentage_error</span></span>(<span>y_true, y_pred)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Symmetric Mean Absolute Percentage Error (sMAPE) between the true and the predicted values.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/errors.py#L20-L27" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def symmetric_mean_absolute_percentage_error(y_true, y_pred):
+    &#34;&#34;&#34;
+    Symmetric Mean Absolute Percentage Error (sMAPE) between the true and the predicted values.
+    &#34;&#34;&#34;
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    idx = 1e-6 &lt; y_true
+    y_true, y_pred = y_true[idx], y_pred[idx]
+    return np.mean(np.abs((y_true - y_pred) / (y_true + y_pred))) * 200.0</code></pre>
 </details>
 </dd>
 </dl>
@@ -335,7 +389,9 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <li><code><a title="mogptk.errors.error" href="#mogptk.errors.error">error</a></code></li>
 <li><code><a title="mogptk.errors.mean_absolute_error" href="#mogptk.errors.mean_absolute_error">mean_absolute_error</a></code></li>
 <li><code><a title="mogptk.errors.mean_absolute_percentage_error" href="#mogptk.errors.mean_absolute_percentage_error">mean_absolute_percentage_error</a></code></li>
+<li><code><a title="mogptk.errors.mean_squared_error" href="#mogptk.errors.mean_squared_error">mean_squared_error</a></code></li>
 <li><code><a title="mogptk.errors.root_mean_squared_error" href="#mogptk.errors.root_mean_squared_error">root_mean_squared_error</a></code></li>
+<li><code><a title="mogptk.errors.symmetric_mean_absolute_percentage_error" href="#mogptk.errors.symmetric_mean_absolute_percentage_error">symmetric_mean_absolute_percentage_error</a></code></li>
 </ul>
 </li>
 </ul>
