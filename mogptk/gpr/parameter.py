@@ -66,7 +66,7 @@ class Parameter:
         return self.unconstrained
 
     def numpy(self):
-        return self.constrained.detach().numpy()
+        return self.constrained.detach().cpu().numpy()
 
     def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
         if not isinstance(data, torch.Tensor):

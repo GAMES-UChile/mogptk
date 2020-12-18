@@ -117,13 +117,13 @@ class Model:
             get_ipython  # fails if we're not in a notebook
             table = '<table><tr><th style="text-align:left">Name</th><th>Range</th><th>Value</th></tr>'
             for name, p in zip(self._param_names, self._params):
-                table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (name, param_range(p.lower, p.upper, p.trainable), p.constrained.detach().cpu().numpy())
+                table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
             table += '</table>'
             display(HTML(table))
         except Exception as e:
             vals = [["Name", "Range", "Value"]]
             for name, p in zip(self._param_names, self._params):
-                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.constrained.detach().cpu().numpy())])
+                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
 
             nameWidth = max([len(val[0]) for val in vals])
             rangeWidth = max([len(val[1]) for val in vals])

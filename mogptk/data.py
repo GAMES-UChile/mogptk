@@ -963,9 +963,9 @@ class Data:
             plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
         for q in range(Q):
-            A[q,:] = sm.kernel[0][q].weight().detach().numpy()  # TODO: weight is not per input_dims
-            B[q,:] = sm.kernel[0][q].mean().detach().numpy()
-            C[q,:] = sm.kernel[0][q].variance().detach().numpy()
+            A[q,:] = sm.kernel[0][q].weight.numpy()  # TODO: weight is not per input_dims
+            B[q,:] = sm.kernel[0][q].mean.numpy()
+            C[q,:] = sm.kernel[0][q].variance.numpy()
         return A, B, C
 
     def plot(self, pred=None, title=None, ax=None, legend=True, transformed=False):
