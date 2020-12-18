@@ -228,41 +228,53 @@ class Model:
         losses = np.empty((iters+1,))
         errors = np.empty((iters+1,))
         try:
+            os.write(1, ("\nStart %s:\n" % (method,)).encode())
             if method == 'LBFGS':
                 if not 'max_iter' in kwargs:
                     kwargs['max_iter'] = iters
                     iters = 0
                 optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
-                optimizer.step(lambda: self.model.loss())
-                iters = optimizer.state_dict()['state'][0]['func_evals']
-            elif method == 'Adam':
-                if 'lr' not in kwargs:
-                    kwargs['lr'] = 0.1
-                optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
-                for i in range(iters):
-                    losses[i] = self.loss()
+
+                def loss():
+                    i = int(optimizer.state_dict()['state'][0]['func_evals'])
+                    losses[i] = self.model.loss()
                     if error is not None:
                         errors[i] = self.error(error)
-                    optimizer.step()
-            elif method == 'SGD':
-                optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
-                for i in range(iters):
-                    losses[i] = self.loss()
-                    if error is not None:
-                        errors[i] = self.error(error)
-                    optimizer.step()
-            elif method == 'AdaGrad':
-                optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
-                for i in range(iters):
-                    losses[i] = self.loss()
-                    if error is not None:
-                        errors[i] = self.error(error)
-                    optimizer.step()
+                        if i % (kwargs['max_iter']/100) == 0:
+                            os.write(1, ("% 5d/%d  loss=%10g  error=%10g\n" % (i, kwargs['max_iter'], losses[i], errors[i])).encode())
+                    elif i % (kwargs['max_iter']/100) == 0:
+                        os.write(1, ("% 5d/%d  loss=%10g\n" % (i, kwargs['max_iter'], losses[i])).encode())
+                    return losses[i]
+                optimizer.step(lambda: loss())
+                iters = int(optimizer.state_dict()['state'][0]['func_evals'])
             else:
-                print("Unknown optimizer:", method)
+                if method == 'Adam':
+                    if 'lr' not in kwargs:
+                        kwargs['lr'] = 0.1
+                    optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
+                elif method == 'SGD':
+                    optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
+                elif method == 'AdaGrad':
+                    optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
+                else:
+                    print("Unknown optimizer:", method)
+
+                for i in range(iters):
+                    losses[i] = self.loss()
+                    if error is not None:
+                        errors[i] = self.error(error)
+                        if i % (iters/100) == 0:
+                            os.write(1, ("% 5d/%d  loss=%10g  error=%10g\n" % (i, iters, losses[i], errors[i])).encode())
+                    elif i % (iters/100) == 0:
+                        os.write(1, ("% 5d/%d  loss=%10g\n" % (i, iters, losses[i])).encode())
+                    optimizer.step()
             losses[iters] = self.loss()
             if error is not None:
                 errors[iters] = self.error(error)
+                os.write(1, ("% 5d/%d  loss=%10g  error=%10g\n" % (iters, iters, losses[iters], errors[iters])).encode())
+            else:
+                os.write(1, ("% 5d/%d  loss=%10g\n" % (iters, iters, losses[iters])).encode())
+            os.write(1, "Finished\n".encode())
         except CholeskyException:
             return
 
@@ -274,27 +286,13 @@ class Model:
             if error is not None:
                 print('‣ Final error: {:.3g}'.format(errors[-1]))
 
-        if plot:
-            fig, ax = plt.subplots(1, 1, figsize=(12,3), constrained_layout=True)
-            ax.plot(np.arange(0,iters+1), losses[:iters+1], c='k', ls='-')
-            ax.set_xlim(0, iters)
-            ax.set_xlabel('Iteration')
-            ax.set_ylabel('Loss')
-
-            legends = []
-            legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Loss'))
-            if error is not None:
-                ax2 = ax.twinx()
-                ax2.plot(np.arange(0,iters+1), errors[:iters+1], c='k', ls='-.')
-                ax2.set_ylabel('Error')
-                legends.append(plt.Line2D([0], [0], ls='-.', color='k', label='Error'))
-
-            ax.legend(handles=legends)
-
+        self.iters = iters
+        self.losses = losses
         if error is not None:
-            return losses, errors
-        else:
-            return losses
+            self.errors = errors
+
+        if plot:
+            self.plot_losses()
 
     ################################################################################
     # Predictions ##################################################################
@@ -419,6 +417,33 @@ class Model:
                     Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
                     Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
                 return Mu, Lower, Upper
+
+    def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+        if not hasattr(self, 'losses'):
+            raise Exception("must be trained in order to plot the losses")
+
+        if figsize is None:
+            figsize = (12,3)
+
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        ax.plot(np.arange(0,self.iters+1), self.losses[:self.iters+1], c='k', ls='-')
+        ax.set_xlim(0, self.iters)
+        ax.set_xlabel('Iteration')
+        ax.set_ylabel('Loss')
+
+        legends = []
+        legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Loss'))
+        if errors and hasattr(self, 'errors'):
+            ax2 = ax.twinx()
+            ax2.plot(np.arange(0,self.iters+1), self.errors[:self.iters+1], c='k', ls='-.')
+            ax2.set_ylabel('Error')
+            legends.append(plt.Line2D([0], [0], ls='-.', color='k', label='Error'))
+
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        if legend:
+            ax.legend(handles=legends)
 
     def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
         """

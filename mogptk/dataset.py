@@ -650,18 +650,19 @@ class DataSet:
         legends = {}
         for channel in range(self.get_output_dims()):
             self.channels[channel].plot(pred=pred, ax=axes[channel,0], transformed=transformed)
-            legend = axes[channel,0].get_legend()
-            for text, handle in zip(legend.texts, legend.legendHandles):
+            l = axes[channel,0].get_legend()
+            for text, handle in zip(l.texts, l.legendHandles):
                 if text.get_text() == "Training Points":
                     handle = plt.Line2D([0], [0], ls='-', color='k', marker='.', ms=10, label='Training Points')
                 legends[text.get_text()] = handle
-            legend.remove()
+            l.remove()
 
         legend_rows = (len(legends)-1)/5 + 1
         if title is not None:
             fig.suptitle(title, y=(h+0.2+0.4*legend_rows)/h, fontsize=18)
 
-        fig.legend(handles=legends.values(), loc="upper center", bbox_to_anchor=(0.5,(h-0.3+0.5*legend_rows)/h), ncol=5)
+        if legend:
+            fig.legend(handles=legends.values(), loc="upper center", bbox_to_anchor=(0.5,(h-0.3+0.5*legend_rows)/h), ncol=5)
         return fig, axes
 
     def plot_spectrum(self, title=None, method='ls', per=None, maxfreq=None, figsize=None, transformed=False):
