@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 
 class TransformBase:
@@ -24,6 +25,9 @@ class TransformDetrend(TransformBase):
     # TODO: add regression?
     def __init__(self, degree=1):
         self.degree = degree
+
+    def __repr__(self):
+        return 'TransformDetrend(degree=%g)' % (self.degree,)
 
     def set_data(self, data):
         if data.get_input_dims() != 1:
@@ -52,6 +56,9 @@ class TransformLinear(TransformBase):
         self.bias = bias
         self.slope = slope
 
+    def __repr__(self):
+        return 'TransformLinear(bias=%g, slope=%g)' % (self.bias, self.slope)
+
     def set_data(self, data):
         pass
 
@@ -67,6 +74,9 @@ class TransformNormalize(TransformBase):
     """
     def __init__(self):
         pass
+
+    def __repr__(self):
+        return 'TransformNormalize(min=%g, max=%g)' % (self.ymin, self.ymax)
 
     def set_data(self, data):
         self.ymin = np.amin(data.Y.transformed[data.mask])
@@ -85,6 +95,9 @@ class TransformLog(TransformBase):
     def __init__(self):
         pass
 
+    def __repr__(self):
+        return 'TransformLog(shift=%g, mean=%g)' % (self.shift, self.mean)
+
     def set_data(self, data):
         self.shift = 1 - data.Y.transformed.min()
         self.mean = np.log(data.Y.transformed + self.shift).mean()
@@ -101,6 +114,9 @@ class TransformStandard(TransformBase):
     """
     def __init__(self):
         pass
+
+    def __repr__(self):
+        return 'TransformStandard(mean=%g, std=%g)' % (self.mean, self.std)
     
     def set_data(self, data):
         # take only the non-removed observations
@@ -146,8 +162,8 @@ class Serie(np.ndarray):
     def __array_finalize__(self, obj):
         if obj is None:
             return
-        self.transformed = getattr(obj, 'transformed', None)
-        self.transformers = getattr(obj, 'transformers', None)
+        self.transformed = copy.deepcopy(getattr(obj, 'transformed', None))
+        self.transformers = copy.deepcopy(getattr(obj, 'transformers', None))
     
     def __getitem__(self, index):
         ret = super(Serie, self).__getitem__(index)

@@ -243,9 +243,6 @@ class Data:
         if isinstance(y_label, str):
             self.Y_label = y_label
 
-    def __str__(self):
-        return self.__repr__()
-
     def __repr__(self):
         df = pd.DataFrame()
         for i in range(len(self.X)):
