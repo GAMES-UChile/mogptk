@@ -1,10 +1,22 @@
+import sys
 import torch
 import numpy as np
 from IPython.display import display, HTML
 from . import Parameter, Mean, Kernel, config
+from functools import reduce
+import operator
+
+def prod(iterable):
+    return reduce(operator.mul, iterable, 1)
 
 class CholeskyException(Exception):
-    pass
+    def __init__(self, message, K, model):
+        self.message = message
+        self.K = K
+        self.model = model
+
+    def __str__(self):
+        return self.message
 
 class Model:
     def __init__(self, kernel, X, y, mean=None, name=None):
@@ -101,49 +113,63 @@ class Model:
             if p.trainable:
                 yield p.unconstrained
     
-    def print_parameters(self):
+    def print_parameters(self, file=None):
         def param_range(lower, upper, trainable=True):
+            if lower is not None:
+                if prod(lower.shape) == 1:
+                    lower = lower.item()
+                else:
+                    lower = lower.tolist()
+            if upper is not None:
+                if prod(upper.shape) == 1:
+                    upper = upper.item()
+                else:
+                    upper = upper.tolist()
+
             if not trainable:
                 return "fixed"
             if lower is None and upper is None:
-                return "(-∞,∞)"
+                return "(-∞, ∞)"
             elif lower is None:
-                return "(-∞,%s]" % upper.tolist()
+                return "(-∞, %s]" % upper
             elif upper is None:
-                return "[%s,∞)" % lower.tolist()
-            return "[%s,%s]" % (lower.tolist(),upper.tolist())
+                return "[%s, ∞)" % lower
+            return "[%s, %s]" % (lower, upper)
 
-        try:
-            get_ipython  # fails if we're not in a notebook
-            table = '<table><tr><th style="text-align:left">Name</th><th>Range</th><th>Value</th></tr>'
-            for name, p in zip(self._param_names, self._params):
-                table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
-            table += '</table>'
-            display(HTML(table))
-        except Exception as e:
-            vals = [["Name", "Range", "Value"]]
-            for name, p in zip(self._param_names, self._params):
-                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
+        if file is None:
+            try:
+                get_ipython  # fails if we're not in a notebook
+                table = '<table><tr><th style="text-align:left">Name</th><th>Range</th><th>Value</th></tr>'
+                for name, p in zip(self._param_names, self._params):
+                    table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
+                table += '</table>'
+                display(HTML(table))
+                return
+            except Exception as e:
+                pass
 
-            nameWidth = max([len(val[0]) for val in vals])
-            rangeWidth = max([len(val[1]) for val in vals])
-            for val in vals:
-                print("%-*s  %-*s  %s" % (nameWidth, val[0], rangeWidth, val[1], val[2]))
+        vals = [["Name", "Range", "Value"]]
+        for name, p in zip(self._param_names, self._params):
+            vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
+
+        nameWidth = max([len(val[0]) for val in vals])
+        rangeWidth = max([len(val[1]) for val in vals])
+        for val in vals:
+            print("%-*s  %-*s  %s" % (nameWidth, val[0], rangeWidth, val[1], val[2]), file=file)
 
     def _cholesky(self, K):
         try:
             return torch.cholesky(K)
         except RuntimeError as e:
-            print()
-            print("ERROR:", e.args[0])
-            print("K =", K)
+            print("ERROR:", e.args[0], file=sys.__stdout__)
+            print("K =", K, file=sys.__stdout__)
             if K.isnan().any():
-                print("Kernel matrix has NaNs!")
+                print("Kernel matrix has NaNs!", file=sys.__stdout__)
             if K.isinf().any():
-                print("Kernel matrix has infinities!")
-            print("Parameters:")
-            self.print_parameters()
-            raise CholeskyException
+                print("Kernel matrix has infinities!", file=sys.__stdout__)
+            print("Parameters:", file=sys.__stdout__)
+            self.print_parameters(file=sys.__stdout__)
+            raise CholeskyException(e.args[0], K, self)
 
     def log_marginal_likelihood(self):
         raise NotImplementedError()

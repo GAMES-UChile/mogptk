@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import pickle
 import numpy as np
@@ -227,64 +228,62 @@ class Model:
 
         losses = np.empty((iters+1,))
         errors = np.empty((iters+1,))
-        try:
-            os.write(1, ("\nStart %s:\n" % (method,)).encode())
-            if method == 'LBFGS':
-                if not 'max_iter' in kwargs:
-                    kwargs['max_iter'] = iters
-                    iters = 0
-                optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
 
-                def loss():
-                    i = int(optimizer.state_dict()['state'][0]['func_evals'])
-                    losses[i] = self.model.loss()
-                    if error is not None:
-                        errors[i] = self.error(error)
-                        if i % (kwargs['max_iter']/100) == 0:
-                            os.write(1, ("% 5d/%d  loss=%10g  error=%10g\n" % (i, kwargs['max_iter'], losses[i], errors[i])).encode())
-                    elif i % (kwargs['max_iter']/100) == 0:
-                        os.write(1, ("% 5d/%d  loss=%10g\n" % (i, kwargs['max_iter'], losses[i])).encode())
-                    return losses[i]
-                optimizer.step(lambda: loss())
-                iters = int(optimizer.state_dict()['state'][0]['func_evals'])
-            else:
-                if method == 'Adam':
-                    if 'lr' not in kwargs:
-                        kwargs['lr'] = 0.1
-                    optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
-                elif method == 'SGD':
-                    optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
-                elif method == 'AdaGrad':
-                    optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
-                else:
-                    print("Unknown optimizer:", method)
+        sys.__stdout__.write("\nStart %s:\n" % (method,))
+        if method == 'LBFGS':
+            if not 'max_iter' in kwargs:
+                kwargs['max_iter'] = iters
+                iters = 0
+            optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
 
-                for i in range(iters):
-                    losses[i] = self.loss()
-                    if error is not None:
-                        errors[i] = self.error(error)
-                        if i % (iters/100) == 0:
-                            os.write(1, ("% 5d/%d  loss=%10g  error=%10g\n" % (i, iters, losses[i], errors[i])).encode())
-                    elif i % (iters/100) == 0:
-                        os.write(1, ("% 5d/%d  loss=%10g\n" % (i, iters, losses[i])).encode())
-                    optimizer.step()
-            losses[iters] = self.loss()
-            if error is not None:
-                errors[iters] = self.error(error)
-                os.write(1, ("% 5d/%d  loss=%10g  error=%10g\n" % (iters, iters, losses[iters], errors[iters])).encode())
+            def loss():
+                i = int(optimizer.state_dict()['state'][0]['func_evals'])
+                losses[i] = self.loss()
+                if error is not None:
+                    errors[i] = self.error(error)
+                    if i % (kwargs['max_iter']/100) == 0:
+                        sys.__stdout__.write("% 5d/%d  loss=%10g  error=%10g\n" % (i, kwargs['max_iter'], losses[i], errors[i]))
+                elif i % (kwargs['max_iter']/100) == 0:
+                    sys.__stdout__.write("% 5d/%d  loss=%10g\n" % (i, kwargs['max_iter'], losses[i]))
+                return losses[i]
+            optimizer.step(lambda: loss())
+            iters = int(optimizer.state_dict()['state'][0]['func_evals'])
+        else:
+            if method == 'Adam':
+                if 'lr' not in kwargs:
+                    kwargs['lr'] = 0.1
+                optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
+            elif method == 'SGD':
+                optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
+            elif method == 'AdaGrad':
+                optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
             else:
-                os.write(1, ("% 5d/%d  loss=%10g\n" % (iters, iters, losses[iters])).encode())
-            os.write(1, "Finished\n".encode())
-        except CholeskyException:
-            return
+                print("Unknown optimizer:", method)
+
+            for i in range(iters):
+                losses[i] = self.loss()
+                if error is not None:
+                    errors[i] = self.error(error)
+                    if i % (iters/100) == 0:
+                        sys.__stdout__.write("% 5d/%d  loss=%10g  error=%10g\n" % (i, iters, losses[i], errors[i]))
+                elif i % (iters/100) == 0:
+                    sys.__stdout__.write("% 5d/%d  loss=%10g\n" % (i, iters, losses[i]))
+                optimizer.step()
+        losses[iters] = self.loss()
+        if error is not None:
+            errors[iters] = self.error(error)
+            sys.__stdout__.write("% 5d/%d  loss=%10g  error=%10g\n" % (iters, iters, losses[iters], errors[iters]))
+        else:
+            sys.__stdout__.write("% 5d/%d  loss=%10g\n" % (iters, iters, losses[iters]))
+        sys.__stdout__.write("Finished\n")
 
         if verbose:
             elapsed_time = time.time() - inital_time
             print('\nOptimization finished in {}'.format(_format_duration(elapsed_time)))
             print('‣ Function evaluations: {}'.format(iters))
-            print('‣ Final loss: {:.3g}'.format(losses[-1]))
+            print('‣ Final loss: {:.3g}'.format(losses[iters]))
             if error is not None:
-                print('‣ Final error: {:.3g}'.format(errors[-1]))
+                print('‣ Final error: {:.3g}'.format(errors[iters]))
 
         self.iters = iters
         self.losses = losses

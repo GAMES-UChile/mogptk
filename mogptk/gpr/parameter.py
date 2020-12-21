@@ -41,7 +41,7 @@ class Sigmoid(Transform):
         return torch.log(y) - torch.log(1-y)
 
 class Parameter:
-    def __init__(self, data, name=None, lower=None, upper=None, prior=None, trainable=True):
+    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True):
         self.name = name
         self.lower = None
         self.upper = None
@@ -49,7 +49,7 @@ class Parameter:
         self.trainable = trainable
         self.transform = None
         self.unconstrained = None
-        self.assign(data, lower=lower, upper=upper)
+        self.assign(value, lower=lower, upper=upper)
 
     def __repr__(self):
         if self.name is None:
@@ -68,35 +68,46 @@ class Parameter:
     def numpy(self):
         return self.constrained.detach().cpu().numpy()
 
-    def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
-        if not isinstance(data, torch.Tensor):
-            data = torch.tensor(data, device=config.device, dtype=config.dtype)
+    def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+        if value is not None:
+            if not isinstance(value, torch.Tensor):
+                value = torch.tensor(value, device=config.device, dtype=config.dtype)
+            else:
+                value = value.to(config.device, config.dtype)
+                if value.requires_grad:
+                    value = value.detach()
+
+            if self.unconstrained is not None:
+                origshape = value.shape
+                while len(value.shape) < len(self.unconstrained.shape) and self.unconstrained.shape[len(value.shape)] == 1:
+                    value = value.unsqueeze(len(value.shape))
+                if value.shape != self.unconstrained.shape:
+                    raise ValueError("parameter shape must match: %s != %s" % (origshape, self.unconstrained.shape))
         else:
-            data = data.to(config.device, config.dtype)
+            value = self.unconstrained.detach()
+
         if lower is not None:
             lower = torch.tensor(lower, device=config.device, dtype=config.dtype)
-            if len(lower.shape) != 0 and lower.shape != data.shape:
-                raise ValueError("lower and data must match shapes: %s != %s" % (lower.shape, data.shape))
+            if len(lower.shape) != 0:
+                while len(lower.shape) < len(value.shape) and value.shape[len(lower.shape)] == 1:
+                    lower = lower.unsqueeze(len(lower.shape))
+                if lower.shape != value.shape:
+                    raise ValueError("lower and value must match shapes: %s != %s" % (lower.shape, value.shape))
+        else:
+            lower = self.lower
+
         if upper is not None:
             upper = torch.tensor(upper, device=config.device, dtype=config.dtype)
-            if len(upper.shape) != 0 and upper.shape != data.shape:
-                raise ValueError("upper and data must match shapes: %s != %s" % (upper.shape, data.shape))
-        if data.requires_grad:
-            data = data.detach()
-
-        if self.unconstrained is not None:
-            origshape = data.shape
-            while len(data.shape) < len(self.unconstrained.shape) and self.unconstrained.shape[len(data.shape)] == 1:
-                data = data.unsqueeze(len(data.shape))
-            if data.shape != self.unconstrained.shape:
-                raise ValueError("parameter shape must match: %s != %s" % (origshape, self.unconstrained.shape))
+            if len(upper.shape) != 0:
+                while len(upper.shape) < len(value.shape) and value.shape[len(upper.shape)] == 1:
+                    upper = upper.unsqueeze(len(upper.shape))
+                if upper.shape != value.shape:
+                    raise ValueError("upper and value must match shapes: %s != %s" % (upper.shape, value.shape))
+        else:
+            upper = self.upper
 
         if name is None:
             name = self.name
-        if lower is None:
-            lower = self.lower
-        if upper is None:
-            upper = self.upper
         if prior is None:
             prior = self.prior
         if trainable is None:
@@ -115,11 +126,11 @@ class Parameter:
 
         if transform is not None:
             if lower is not None:
-                data = torch.where(data < lower, lower * torch.ones_like(data), data)
+                value = torch.where(value < lower, lower * torch.ones_like(value), value)
             if upper is not None:
-                data = torch.where(upper < data, upper * torch.ones_like(data), data)
-            data = transform.inverse(data)
-        data.requires_grad = True
+                value = torch.where(upper < value, upper * torch.ones_like(value), value)
+            value = transform.inverse(value)
+        value.requires_grad = True
 
         self.name = name
         self.prior = prior
@@ -127,7 +138,7 @@ class Parameter:
         self.upper = upper
         self.trainable = trainable
         self.transform = transform
-        self.unconstrained = data
+        self.unconstrained = value
 
     def log_prior(self):
         if self.prior is None:
