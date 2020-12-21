@@ -46,7 +46,6 @@ class SM_LMC(Model):
         dataset.rescale_x()
 
         spectral = SpectralKernel(dataset.get_input_dims()[0])
-        spectral.weight.trainable = False
         kernel = LinearModelOfCoregionalizationKernel(
             spectral,
             output_dims=dataset.get_output_dims(),
@@ -54,12 +53,15 @@ class SM_LMC(Model):
             Q=Q,
             Rq=Rq)
 
+        nyquist = np.amin(dataset.get_nyquist_estimation(), axis=0)
+
         super(SM_LMC, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
         for q in range(Q):
             self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
-    
+            self.model.kernel[q].mean.assign(upper=nyquist)
+
     def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
         """
         Estimate kernel parameters from the data set. The initialization can be done using three methods:

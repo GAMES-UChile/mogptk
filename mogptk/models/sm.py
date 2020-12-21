@@ -48,8 +48,13 @@ class SM(Model):
             output_dims=dataset.get_output_dims(),
         )
 
+        nyquist = dataset.get_nyquist_estimation()
+
         super(SM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
+        for j in range(dataset.get_output_dims()):
+            for q in range(Q):
+                self.model.kernel[j][q].mean.assign(upper=nyquist[j])
 
     def init_parameters(self, method='BNSE'):
         """
