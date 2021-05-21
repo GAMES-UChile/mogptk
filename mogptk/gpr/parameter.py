@@ -37,7 +37,7 @@ class Sigmoid(Transform):
     def inverse(self, y):
         if torch.any(y < self.lower) or torch.any(self.upper < y):
             raise ValueError("values must be between %s and %s" % (self.lower, self.upper))
-        y = y/(self.upper-self.lower) - self.lower
+        y = (y-self.lower)/(self.upper-self.lower)
         return torch.log(y) - torch.log(1-y)
 
 class Parameter:
