@@ -562,20 +562,20 @@ class Data:
             >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price')
             >>> data.remove_range('2016-01-15', '2016-06-15')
         """
-        if self.get_input_dims() != 1:
-            raise ValueError("can only remove ranges on one dimensional input data")
-
         if start is None:
-            start = np.min(self.X[0])
+            start = [np.min(x) for x in self.X]
         if end is None:
-            end = np.max(self.X[0])
+            end = [np.max(x) for x in self.X]
 
         start = self._normalize_val(start)
         end = self._normalize_val(end)
 
-        idx = np.where(np.logical_and(self.X[0] >= start[0], self.X[0] <= end[0]))
-        self.mask[idx] = False
-        self.removed_ranges[0].append([start[0], end[0]])
+        mask = np.logical_and(self.X[0] >= start[0], self.X[0] <= end[0])
+        for i in range(1,self.get_input_dims()):
+            mask = np.logical_or(mask, np.logical_and(self.X[i] >= start[i], self.X[i] <= end[i]))
+        self.mask[np.where(mask)] = False
+        for i in range(self.get_input_dims()):
+            self.removed_ranges[i].append([start[i], end[i]])
     
     def remove_relative_range(self, start=0.0, end=1.0):
         """
