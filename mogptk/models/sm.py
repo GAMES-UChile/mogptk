@@ -79,10 +79,10 @@ class SM(Model):
         if method.lower() == 'ips':
             for j in range(output_dims):
                 nyquist = self.dataset[j].get_nyquist_estimation()
-                x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
+                x, y = np.array([x.transformed[self.dataset[j].mask] for x in self.dataset[j].X]).T, self.dataset[j].Y.transformed[self.dataset[j].mask]
                 x_range = np.max(x, axis=0) - np.min(x, axis=0)
 
-                weights = [y.std()/self.Q] * self.Q
+                weights = [2.0*y.std()/self.Q] * self.Q
                 means = nyquist * np.random.rand(self.Q, input_dims[j])
                 variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
 
