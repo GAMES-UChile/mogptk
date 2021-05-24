@@ -3,6 +3,7 @@ import copy
 import inspect
 import datetime
 import logging
+import math
 
 import numpy as np
 import pandas as pd
@@ -23,13 +24,13 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     """
     LoadFunction loads a dataset from a given function y = f(x) + Normal(0,var). It will pick `n` data points between start and end for the X axis for which `f` is being evaluated. By default the `n` points are spread equally over the interval, with `random=True` they will be picked randomly.
 
-    The given function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
+    The given function should take one argument X which is a list of `numpy.ndarray` of shape (n,) for every input dimension and returns an `numpy.ndarray` Y of shape (n,). If your data has only one input dimension, you can use X[0] to select the first (and only) input dimension.
 
     Args:
-        f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
+        f (function): Function taking X a list with elements of shape (n,) for each input dimension and returning shape (n,) as Y.
         start (float, list): Define start of interval.
         end (float, list): Define end of interval.
-        n (int): Number of data points to pick between start and end.
+        n (int, list): Number of data points to pick between start and end.
         var (float): Variance added to the output.
         name (str): Name of data.
         random (boolean): Select points randomly between start and end.
@@ -56,35 +57,44 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
         end = [end]
     if len(start) != len(end):
         raise ValueError("start and end must be of the same length")
-    if not _is_homogeneous_type(start + end):
-        raise ValueError("start and end must have elements of the same type")
 
-    if isinstance(start[0], datetime.datetime) or isinstance(start[0], str) or isinstance(start[0], np.datetime64):
-        # convert datetime.datetime or strings to np.datetime64
-        for i in range(len(start)):
+    input_dims = len(start)
+    for i in range(input_dims):
+        if not _is_homogeneous_type([start[i] + end[i]]):
+            raise ValueError("start and end must have elements of the same type")
+
+        if isinstance(start[i], datetime.datetime) or isinstance(start[i], str) or isinstance(start[i], np.datetime64):
             try:
                 start[i] = np.datetime64(start[i], 'us')
                 end[i] = np.datetime64(end[i], 'us')
             except:
-                raise ValueError("start and end must have a number or datetime data type")
-    else:
-        for i in range(len(start)):
+                raise ValueError("start and end must have matching number or datetime data type")
+        else:
             try:
                 start[i] = np.float64(start[i])
                 end[i] = np.float64(end[i])
             except:
-                raise ValueError("start and end must have a number or datetime data type")
+                raise ValueError("start and end must have matching number or datetime data type")
 
-    input_dims = len(start)
-    is_datetime64 = isinstance(start[0], np.datetime64)
-    _check_function(f, input_dims, is_datetime64)
+    _check_function(f, input_dims, [isinstance(start[i], np.datetime64) for i in range(input_dims)])
 
-    if is_datetime64:
-        if random:
-            raise ValueError("cannot use random for datetime inputs")
-        x = np.empty((n, input_dims), dtype=start[0].dtype)
-    else:
-        x = np.empty((n, input_dims))
+    if not isinstance(n, list):
+        n = [n] * input_dims
+    elif len(n) != input_dims:
+        raise ValueError("n must be a scalar or a list of values for each input dimension")
+    if not isinstance(random, list):
+        random = [random] * input_dims
+    elif len(random) != input_dims:
+        raise ValueError("random must be a scalar or a list of values for each input dimension")
+
+    for i in range(input_dims):
+        if random[i] and isinstance(start[i], np.datetime64):
+            if input_dims == 1:
+                raise ValueError("cannot use random for datetime inputs for input dimension %d", (i,))
+            else:
+                raise ValueError("cannot use random for datetime inputs")
+
+    x = [None] * input_dims
     for i in range(input_dims):
         if start[i] >= end[i]:
             if input_dims == 1:
@@ -92,19 +102,24 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
             else:
                 raise ValueError("start must be lower than end for input dimension %d" % (i,))
 
-        if is_datetime64:
-            dt = (end[i]-start[i]) / float(n-1)
+        if isinstance(start[i], np.datetime64):
+            dt = (end[i]-start[i]) / float(n[i]-1)
             dt = _timedelta64_to_higher_unit(dt)
-            x[:,i] = np.arange(start[i], start[i]+dt*(n-1)+np.timedelta64(1,'us'), dt)
-        elif random:
-            x[:,i] = np.random.uniform(start[i], end[i], n)
+            x[i] = np.arange(start[i], start[i]+dt*(n[i]-1)+np.timedelta64(1,'us'), dt, dtype=start[i].dtype)
+        elif random[i]:
+            x[i] = np.random.uniform(start[i], end[i], n[i])
         else:
-            x[:,i] = np.linspace(start[i], end[i], n)
+            x[i] = np.linspace(start[i], end[i], n[i])
+
+        N_tile = math.prod(n[:i])
+        N_repeat = math.prod(n[i+1:])
+        x[i] = np.tile(np.repeat(x[i], N_repeat), N_tile)
 
     y = f(x)
     if y.ndim == 2 and y.shape[1] == 1:
         y = y[:,0]
-    y += np.random.normal(0.0, var, n)
+    N = math.prod(n)
+    y += np.random.normal(0.0, var, (N,))
 
     data = Data(x, y, name=name)
     data.set_function(f)
@@ -121,10 +136,10 @@ class Data:
 
         This class accepts the data directly, otherwise you can load data conveniently using `LoadFunction`, `LoadCSV`, `LoadDataFrame`, etc. The data class allows to modify the data before passing into the model. Examples are transforming data, such as detrending or taking the log, removing data ranges to simulate sensor failure, and aggregating data for given spans on X, such as aggregating daily data into weekly data. Additionally, we also use this class to set the range we want to predict.
 
-        It is possible to use the format given by `numpy.meshgrid` for X and its values in Y.
+        It is possible to use the format given by `numpy.meshgrid` for X as a list of numpy arrays for each input dimension, and its values in Y. Each input dimension and Y must have shape (N1,N2,...,Nn) where n is the number of input dimensions and N the number of data points per input dimension.
 
         Args:
-            X (list, numpy.ndarray, dict): Independent variable data of shape (n,) or (n,input_dims).
+            X (list, numpy.ndarray, dict): Independent variable data of shape (n,) or (n,input_dims), or a list with elements of shape (n,) for each input dimension.
             Y (list, numpy.ndarray): Dependent variable data of shape (n,).
             name (str): Name of data.
             x_labels (str, list of str): Name or names of input dimensions.
@@ -148,9 +163,9 @@ class Data:
                     raise ValueError("X dict should contain all lists or np.ndarrays where each has the same length")
                 if not all(key in X for key in x_labels):
                     raise ValueError("X dict must contain all keys listed in x_labels")
-                X = list(map(list, zip(*[X[key] for key in x_labels])))
+                X = [X[key] for key in x_labels]
 
-        # check if X and Y are correct inputs
+        # check if X is correct
         if isinstance(X, list):
             if all(isinstance(x, list) for x in X):
                 m = len(X[0])
@@ -158,7 +173,7 @@ class Data:
                     raise ValueError("X list items must all be lists of the same length")
                 if not all(all(isinstance(val, (int, float, datetime.datetime, np.datetime64)) for val in x) for x in X):
                     raise ValueError("X list items must all be lists of numbers or datetime")
-                if not _is_homogeneous_type(x):
+                if not all(_is_homogeneous_type(x) for x in X):
                     raise ValueError("X list items must all be lists with elements of the same type")
             elif all(isinstance(x, np.ndarray) for x in X):
                 m = len(X[0])
@@ -168,56 +183,68 @@ class Data:
                 raise ValueError("X list items must be all lists, all numpy.ndarrays, or all numbers or datetime")
             elif not _is_homogeneous_type(X):
                 raise ValueError("X list items must all have elements of the same type")
-            X = np.array(X)
+            X = [np.array(x) for x in X]
+        elif isinstance(X, np.ndarray):
+            if X.ndim == 1:
+                X = X.reshape(-1, 1)
+            if X.ndim != 2:
+                raise ValueError("X must be either a one or two dimensional array of data")
+            X = [X[:,i] for i in range(X.shape[1])]
+        else:
+            raise ValueError("X must be list or numpy array, if dict is passed then x_labels must also be set")
+
+        input_dims = len(X)
+        # try to cast unknown data types, X becomes np.float64 or np.datetime64
+        for i in range(input_dims):
+            if X[i].dtype == np.object_ or np.issubdtype(X[i].dtype, np.character):
+                # convert datetime.datetime or strings to np.datetime64
+                try:
+                    X[i] = X[i].astype(np.datetime64)
+                except:
+                    raise ValueError("X data must have a number or datetime data type")
+            elif not np.issubdtype(X[i].dtype, np.datetime64):
+                try:
+                    X[i] = X[i].astype(np.float64)
+                except:
+                    raise ValueError("X data must have a number or datetime data type")
+
+            # convert X datetime64[us] to a higher unit like s, m, h, D, ...
+            if np.issubdtype(X[i].dtype, np.datetime64):
+                X[i] = _datetime64_to_higher_unit(X[i])
+
+        # check if Y is correct
         if isinstance(Y, list):
             if not all(isinstance(y, (int, float)) for y in Y):
                 raise ValueError("Y list items must all be numbers")
             elif not _is_homogeneous_type(Y):
                 raise ValueError("Y list items must all have elements of the same type")
             Y = np.array(Y)
-        if not isinstance(X, np.ndarray) or not isinstance(Y, np.ndarray):
-            raise ValueError("X and Y must be lists or numpy arrays, if dicts are passed then x_labels and/or y_label must also be set")
-        
-        # try to cast unknown data types, X becomes np.float64 or np.datetime64, and Y becomes mp.float64
-        if X.dtype == np.object_ or np.issubdtype(X.dtype, np.character):
-            # convert datetime.datetime or strings to np.datetime64
-            try:
-                X = X.astype(np.datetime64)
-            except:
-                raise ValueError("X data must have a number or datetime data type")
-        elif not np.issubdtype(X.dtype, np.datetime64):
-            try:
-                X = X.astype(np.float64)
-            except:
-                raise ValueError("X data must have a number or datetime data type")
+        elif not isinstance(Y, np.ndarray):
+            raise ValueError("Y must be list or numpy array")
 
+        # try to cast unknown data types, Y becomes np.float64
         try:
             Y = Y.astype(np.float64)
         except:
             raise ValueError("Y data must have a number data type")
 
-        # convert X datetime64[us] to a higher unit like s, m, h, D, ...
-        if np.issubdtype(X.dtype, np.datetime64):
-            X = _datetime64_to_higher_unit(X)
-
         # convert meshgrids to flat arrays
-        if 2 < X.ndim and 1 < Y.ndim and X.shape[1:] == Y.shape:
-            X = np.vstack(list(map(np.ravel, X))).T
+        if 1<X[0].ndim and 1 < Y.ndim and X[0].shape == Y.shape:
+            print("unravel")
+            X = [np.ravel(x) for x in X]
             Y = np.ravel(Y)
 
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
-        if X.ndim != 2:
-            raise ValueError("X must be either a one or two dimensional array of data")
+        if any(x.ndim != 1 for x in X):
+            raise ValueError("X must be a one dimensional array of data for every input dimension")
         if Y.ndim != 1:
             raise ValueError("Y must be a one dimensional array of data")
-        if X.shape[0] != Y.shape[0]:
-            raise ValueError("X and Y must be of the same length")
         if Y.shape[0] == 0:
             raise ValueError("X and Y must have a length greater than zero")
+        if any(x.shape[0] != Y.shape[0] for x in X):
+            raise ValueError("X and Y must be of the same length for each input dimension")
 
-        input_dims = X.shape[1]
-        self.X = [Serie(X[:,i]) for i in range(input_dims)] # [shape (n)] * input_dims
+
+        self.X = [Serie(X[i]) for i in range(input_dims)] # [shape (n)] * input_dims
         self.Y = Serie(Y) # shape (n)
         self.mask = np.array([True] * Y.shape[0])
         self.F = None
@@ -309,7 +336,7 @@ class Data:
         Examples:
             >>> data.set_function(lambda x: np.sin(3*x[:,0])
         """
-        _check_function(f, self.get_input_dims(), self.X[0].is_datetime64())
+        _check_function(f, self.get_input_dims(), [x.is_datetime64() for x in self.X])
         self.F = f
 
     def rescale_x(self, upper=1000.0):
@@ -1196,14 +1223,10 @@ def _check_function(f, input_dims, is_datetime64):
     if not len(sig.parameters) == 1:
         raise ValueError("function must take X as a parameter")
 
-    if is_datetime64:
-        x = np.array([[np.datetime64('2000', 'us')] * input_dims])
-    else:
-        x = np.ones((1, input_dims))
-
+    x = [np.array([np.datetime64('2000', 'us')]) if is_datetime64[i] else np.ones((1,)) for i in range(input_dims)]
     y = f(x)
     if len(y.shape) != 1 or y.shape[0] != 1:
-        raise ValueError("function must return Y with shape (n), note that X has shape (n,input_dims)")
+        raise ValueError("function must return Y with shape (n,), note that X is a list where each element is an input dimension of shape (n,)")
 
 _datetime64_unit_names = {
     'Y': 'year',
@@ -1295,7 +1318,7 @@ def _timedelta64_to_higher_unit(array):
 
     units = ['D', 'h', 'm', 's']  # cannot convert days to non-linear months or years
     for unit in units:
-        _, intg = np.modf(array / np.timedelta64(1,unit))
-        if np.any(intg):
+        frac, _ = np.modf(array / np.timedelta64(1,unit))
+        if not np.any(frac):
             return array.astype('timedelta64[%s]' % (unit,))
     return array
