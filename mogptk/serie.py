@@ -23,8 +23,9 @@ class TransformDetrend(TransformBase):
         degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
     """
     # TODO: add regression?
-    def __init__(self, degree=1):
+    def __init__(self, degree=1, dim=0):
         self.degree = degree
+        self.dim = dim
 
     def __repr__(self):
         return 'TransformDetrend(degree=%g)' % (self.degree,)
@@ -39,14 +40,14 @@ class TransformDetrend(TransformBase):
     def forward(self, y, x):
         if x is None:
             raise ValueError("must set X for transformation")
-        x = x.astype(np.float64)
-        return y - np.polyval(self.coef, x[:, 0])
+        x = x[self.dim].astype(np.float64)
+        return y - np.polyval(self.coef, x)
     
     def backward(self, y, x):
         if x is None:
             raise ValueError("must set X for transformation")
-        x = x.astype(np.float64)
-        return y + np.polyval(self.coef, x[:, 0])
+        x = x[self.dim].astype(np.float64)
+        return y + np.polyval(self.coef, x)
 
 class TransformLinear(TransformBase):
     """

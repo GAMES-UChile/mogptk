@@ -70,7 +70,7 @@ class Model:
         self.dataset = dataset
         self.kernel = kernel
 
-        X = [np.array([x[channel.mask] for x in channel.X]).T for channel in self.dataset.channels]
+        X = [[x[channel.mask] for x in channel.X] for channel in self.dataset.channels]
         Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset.channels]
         x, y = self._to_kernel_format(X, Y)
 
@@ -318,20 +318,22 @@ class Model:
         elif not isinstance(X, list):
             raise ValueError("X must be a list, dict or numpy.ndarray")
         if len(X) != len(self.dataset.channels):
-            raise ValueError("X must be a list of shape (n,input_dims) for each channel")
+            raise ValueError("X must be a list of shape [(n,)] * input_dims for each channel")
         X_orig = X
         X = X.copy()
         for j, channel_x in enumerate(X):
             input_dims = self.dataset.get_input_dims()[j]
-            if isinstance(channel_x, list):
-                channel_x = np.array(channel_x)
-            elif not isinstance(channel_x, np.ndarray):
+            if isinstance(channel_x, np.ndarray):
+                if channel_x.ndim == 1:
+                    channel_x = channel_x.reshape(-1, 1)
+                if channel_x.ndim != 2 or channel_x.shape[1] != input_dims:
+                    raise ValueError("X must be a list of shape (n,input_dims) or [(n,)] * input_dims for each channel")
+                channel_x = [channel_x[:,i] for i in range(input_dims)]
+            elif not isinstance(channel_x, list):
                 raise ValueError("X must be a list of lists or numpy.ndarrays")
-            if channel_x.ndim == 1:
-                channel_x = channel_x.reshape(-1, 1)
-            if channel_x.ndim != 2 or channel_x.shape[1] != input_dims:
-                raise ValueError("X must be a list of shape (n,input_dims) for each channel")
-            X[j] = np.array([self.dataset[j].X[i].transform(channel_x[:,i]) for i in range(input_dims)]).T
+            if not all(isinstance(x, np.ndarray) for x in channel_x):
+                raise ValueError("X must be a list of shape (n,input_dims) or [(n,)] * input_dims for each channel")
+            X[j] = np.array([self.dataset[j].X[i].transform(channel_x[i]) for i in range(input_dims)]).T
 
         chan = [i * np.ones(len(X[i])) for i in range(len(X))]
         chan = np.concatenate(chan).reshape(-1, 1)
@@ -392,7 +394,7 @@ class Model:
         Mu = []
         Var = []
         for j in range(self.dataset.get_output_dims()):
-            N = X[j].shape[0]
+            N = X[j][0].shape[0]
             Mu.append(np.squeeze(mu[i:i+N]))
             Var.append(np.squeeze(var[i:i+N]))
             i += N

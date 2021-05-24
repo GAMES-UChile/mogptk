@@ -372,7 +372,7 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape (n,input_dims) per channel.
+            list: X data of shape [(n,)] * input_dims per channel.
             list: Y data of shape (n,) per channel.
 
         Examples:
@@ -388,7 +388,7 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape (n,input_dims) per channel.
+            list: X data of shape [(n,)] * input_dims per channel.
             list: Y data of shape (n,) per channel.
 
         Examples:
@@ -404,7 +404,7 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape (n,input_dims) per channel.
+            list: X data of shape [(n,)] * input_dims per channel.
             list: Y data of shape (n,) per channel.
 
         Examples:
@@ -417,7 +417,7 @@ class DataSet:
         Returns the prediction X range for all channels.
 
         Returns:
-            list: X prediction of shape (n,input_dims) per channel.
+            list: X prediction of shape [(n,)] * input_dims per channel.
 
         Examples:
             >>> x = dataset.get_prediction_x()
@@ -437,7 +437,7 @@ class DataSet:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            list: X prediction of shape (n,input_dims) per channel.
+            list: X prediction of shape [(n,)] * input_dims per channel.
             list: Y mean prediction of shape (n,) per channel.
             list: Y lower prediction of uncertainty interval of shape (n,) per channel.
             list: Y upper prediction of uncertainty interval of shape (n,) per channel.
@@ -462,7 +462,7 @@ class DataSet:
         Set the prediction range directly for saved predictions per channel. This will clear old predictions.
 
         Args:
-            x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
+            x (list, dict): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
             >>> dataset.set_prediction_x([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])

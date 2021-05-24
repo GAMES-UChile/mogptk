@@ -229,8 +229,7 @@ class Data:
             raise ValueError("Y data must have a number data type")
 
         # convert meshgrids to flat arrays
-        if 1<X[0].ndim and 1 < Y.ndim and X[0].shape == Y.shape:
-            print("unravel")
+        if 1 < X[0].ndim and 1 < Y.ndim and X[0].shape == Y.shape:
             X = [np.ravel(x) for x in X]
             Y = np.ravel(Y)
 
@@ -387,27 +386,26 @@ class Data:
         Filter the data range to be between `start` and `end` in the X axis.
 
         Args:
-            start (float, str): Start of interval.
-            end (float, str): End of interval.
+            start (float, str, list): Start of interval.
+            end (float, str, list): End of interval (not included).
 
         Examples:
             >>> data.filter(3, 8)
         
             >>> data.filter('2016-01-15', '2016-06-15')
         """
-        if self.get_input_dims() != 1:
-            raise ValueError("can only filter on one dimensional input data")
-
         start = self._normalize_val(start)
         end = self._normalize_val(end)
         
-        ind = (self.X[0] >= start[0]) & (self.X[0] < end[0])
+        ind = np.logical_and(self.X[0] >= start[0], self.X[0] < end[0])
+        for i in range(1,self.get_input_dims()):
+            ind = np.logical_and(ind, np.logical_and(self.X[i] >= start[i], self.X[i] < end[i]))
 
-        self.X[0] = self.X[0][ind]
+        self.X = [x[ind] for x in self.X]
         self.Y = self.Y[ind]
         self.mask = self.mask[ind]
 
-    def aggregate(self, duration, f=np.mean):
+    def aggregate(self, duration, f=np.mean, dim=0):
         """
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -415,29 +413,26 @@ class Data:
 
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
-            f (function): Function to use to reduce data.
+            f (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`.
 
         Examples:
             >>> data.aggregate(5)
 
             >>> data.aggregate('2W', f=np.sum)
         """
-        if self.get_input_dims() != 1:
-            raise ValueError("can only aggregate on one dimensional input data")
-        
-        start = np.min(self.X[0])
-        end = np.max(self.X[0])
+        start = np.min(self.X[dim])
+        end = np.max(self.X[dim])
         step = _parse_delta(duration)
 
         X = np.arange(start+step/2, end+step/2, step)
         Y = np.empty((len(X)))
         for i in range(len(X)):
-            ind = (self.X[0] >= X[i]-step/2) & (self.X[0] < X[i]+step/2)
+            ind = (self.X[dim] >= X[i]-step/2) & (self.X[dim] < X[i]+step/2)
             Y[i] = f(self.Y[ind])
 
-        self.X = [Serie(X, self.X[0].transformers)]
-        self.Y = Serie(Y, self.Y.transformers, np.array([x for x in self.X]).T)
-        self.mask = np.array([True] * len(self.X[0]))
+        self.X[dim] = Serie(X, self.X[dim].transformers)
+        self.Y = Serie(Y, self.Y.transformers, self.X)
+        self.mask = np.array([True] * len(self.Y))
 
     ################################################################
 
@@ -488,15 +483,15 @@ class Data:
             transformed (boolean): Return transformed data.
 
         Returns:
-            numpy.ndarray: X data of shape (n,input_dims).
+            list of numpy.ndarray: X data of shape [(n,)] * input_dims.
             numpy.ndarray: Y data of shape (n,).
 
         Examples:
             >>> x, y = data.get_data()
         """
         if transformed:
-            return np.array([x for x in self.X]).T, self.Y.transformed
-        return np.array([x for x in self.X]).T, np.array(self.Y)
+            return self.X, self.Y.transformed
+        return self.X, np.array(self.Y)
 
     def get_train_data(self, transformed=False):
         """
@@ -506,15 +501,15 @@ class Data:
             transformed (boolean): Return transformed data.
 
         Returns:
-            numpy.ndarray: X data of shape (n,input_dims).
+            list of numpy.ndarray: X data of shape [(n,)] * input_dims.
             numpy.ndarray: Y data of shape (n,).
 
         Examples:
             >>> x, y = data.get_train_data()
         """
         if transformed:
-            return np.array([x[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
-        return np.array([x[self.mask] for x in self.X]).T, np.array(self.Y[self.mask])
+            return [x[self.mask] for x in self.X], self.Y.transformed[self.mask]
+        return [x[self.mask] for x in self.X], np.array(self.Y[self.mask])
 
     def get_test_data(self, transformed=False):
         """
@@ -524,13 +519,13 @@ class Data:
             transformed (boolean): Return transformed data.
 
         Returns:
-            numpy.ndarray: X data of shape (n,input_dims).
+            list of numpy.ndarray: X data of shape [(n,)] * input_dims.
             numpy.ndarray: Y data of shape (n,).
 
         Examples:
             >>> x, y = data.get_test_data()
         """
-        X = np.array([x[~self.mask] for x in self.X]).T
+        X = [x[~self.mask] for x in self.X]
         if self.F is not None:
             if X.shape[0] == 0:
                 X, _ = self.get_data()
@@ -580,7 +575,7 @@ class Data:
         
         Args:
             start (float, str): Start of interval. Defaults to the first value in observations.
-            end (float, str): End of interval. Defaults to the last value in observations.
+            end (float, str): End of interval (not included). Defaults to the last value in observations.
 
         Examples:
             >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -597,9 +592,9 @@ class Data:
         start = self._normalize_val(start)
         end = self._normalize_val(end)
 
-        mask = np.logical_and(self.X[0] >= start[0], self.X[0] <= end[0])
+        mask = np.logical_and(self.X[0] >= start[0], self.X[0] < end[0])
         for i in range(1,self.get_input_dims()):
-            mask = np.logical_or(mask, np.logical_and(self.X[i] >= start[i], self.X[i] <= end[i]))
+            mask = np.logical_or(mask, np.logical_and(self.X[i] >= start[i], self.X[i] < end[i]))
         self.mask[np.where(mask)] = False
         for i in range(self.get_input_dims()):
             self.removed_ranges[i].append([start[i], end[i]])
@@ -695,12 +690,12 @@ class Data:
         Returns the prediction X range.
 
         Returns:
-            numpy.ndarray: X prediction of shape (n,input_dims).
+            numpy.ndarray: X prediction of shape [(n,)] * input_dims.
 
         Examples:
             >>> x = data.get_prediction_x()
         """
-        return np.array([x for x in self.X_pred]).T
+        return self.X_pred.copy()
     
     def get_prediction(self, name, sigma=2.0, transformed=False):
         """
@@ -712,7 +707,7 @@ class Data:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            numpy.ndarray: X prediction of shape (n,input_dims).
+            numpy.ndarray: X prediction of shape [(n,)] * input_dims.
             numpy.ndarray: Y mean prediction of shape (n,).
             numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
             numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
@@ -723,7 +718,7 @@ class Data:
         if name not in self.Y_mu_pred:
             raise ValueError("prediction name '%s' does not exist" % (name))
        
-        X = np.array([x for x in self.X_pred]).T
+        X = self.X_pred.copy()
         mu = self.Y_mu_pred[name]
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
@@ -741,25 +736,24 @@ class Data:
         Set the prediction range directly for saved predictions. This will clear old predictions.
 
         Args:
-            X (list, numpy.ndarray): Array of shape (n,) or (n,input_dims) used for predictions.
+            X (list, numpy.ndarray): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims used for predictions.
 
         Examples:
             >>> data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
         """
-        # TODO: accept multiple input dims and make sure dtype equals X
-        if isinstance(X, list):
-            X = np.array(X)
-        elif not isinstance(X, np.ndarray):
+        if isinstance(X, np.ndarray):
+            if X.ndim == 1:
+                X = X.reshape(-1,1)
+            if X.ndim != 2 or X.shape[1] != self.get_input_dims():
+                raise ValueError("X shape must be (n,input_dims)")
+            X = [X[:,i] for i in range(self.get_input_dims())]
+        elif not isinstance(X, list):
             raise ValueError("X expected to be a list or numpy.ndarray")
+        if not all(x.ndim == 1 for x in X) or not all(x.shape[0] == self.get_input_dims()):
+            raise ValueError("X shape must be (n,), (n,input_dims), or [(n,)] * input_dims")
 
-        X = X.astype(np.float64)
-
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
-        if X.ndim != 2 or X.shape[1] != self.get_input_dims():
-            raise ValueError("X shape must be (n,input_dims)")
-
-        self.X_pred = [Serie(X[:,i], self.X[i].transformers) for i in range(self.get_input_dims())]
+        X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
+        self.X_pred = [Serie(X[i], self.X[i].transformers) for i in range(self.get_input_dims())]
 
         # clear old prediction data now that X_pred has been updated
         self.clear_predictions()
@@ -1029,9 +1023,9 @@ class Data:
             if self.Y_mu_pred[name].size != 0 and (pred is None or name.lower() == pred.lower()):
                 X_pred, mu, lower, upper = self.get_prediction(name, transformed=transformed)
 
-                idx = np.argsort(X_pred[:,0])
-                ax.plot(X_pred[:,0][idx], mu[idx], ls='-', color=colors[i], lw=2)
-                ax.fill_between(X_pred[:,0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
+                idx = np.argsort(X_pred[0])
+                ax.plot(X_pred[0][idx], mu[idx], ls='-', color=colors[i], lw=2)
+                ax.fill_between(X_pred[0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
                 #ax.plot(X_pred[:,0][idx], lower[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
                 #ax.plot(X_pred[:,0][idx], upper[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
 
@@ -1047,13 +1041,12 @@ class Data:
             if np.issubdtype(self.X[0].dtype, np.datetime64):
                 dt = np.timedelta64(1,self.X[0].get_time_unit())
                 n = int((xmax-xmin) / dt) + 1
-                x = np.empty((n, 1), dtype=self.X[0].dtype)
-                x[:,0] = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt)
+                x = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt, dtype=self.X[0].dtype)
             else:
                 n = len(self.X[0])*10
-                x = np.empty((n, 1))
-                x[:,0] = np.linspace(xmin, xmax, n)
+                x = np.linspace(xmin, xmax, n)
 
+            x = [x]
             y = self.F(x)
             if transformed:
                 y = self.Y.transform(y, x)
@@ -1067,11 +1060,11 @@ class Data:
         legends.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
         x, y = self.get_train_data(transformed=transformed)
-        if 1000 < x.shape[0]:
-            ax.plot(x[:,0], y, 'k-')
+        if 1000 < x[0].shape[0]:
+            ax.plot(x[0], y, 'k-')
             legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Training Points'))
         else:
-            ax.plot(x[:,0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
+            ax.plot(x[0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
             legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
 
         if self.has_test_data():
@@ -1200,8 +1193,6 @@ class Data:
             val = [val] * self.get_input_dims()
         if len(val) != self.get_input_dims():
             raise ValueError("value must be a scalar or a list of values for each input dimension")
-        if not _is_homogeneous_type(val):
-            raise ValueError("value must have elements of the same type")
 
         for i in range(self.get_input_dims()):
             try:
