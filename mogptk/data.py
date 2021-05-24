@@ -381,13 +381,14 @@ class Data:
 
         self.Y.apply(t, np.array([x for x in self.X]).T)
     
-    def filter(self, start, end):
+    def filter(self, start, end, dim=None):
         """
         Filter the data range to be between `start` and `end` in the X axis.
 
         Args:
             start (float, str, list): Start of interval.
             end (float, str, list): End of interval (not included).
+            dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
 
         Examples:
             >>> data.filter(3, 8)
@@ -397,9 +398,12 @@ class Data:
         start = self._normalize_val(start)
         end = self._normalize_val(end)
         
-        ind = np.logical_and(self.X[0] >= start[0], self.X[0] < end[0])
-        for i in range(1,self.get_input_dims()):
-            ind = np.logical_and(ind, np.logical_and(self.X[i] >= start[i], self.X[i] < end[i]))
+        if dim is not None:
+            ind = np.logical_and(self.X[dim] >= start[dim], self.X[dim] < end[dim])
+        else:
+            ind = np.logical_and(self.X[0] >= start[0], self.X[0] < end[0])
+            for i in range(1,self.get_input_dims()):
+                ind = np.logical_and(ind, np.logical_and(self.X[i] >= start[i], self.X[i] < end[i]))
 
         self.X = [x[ind] for x in self.X]
         self.Y = self.Y[ind]
@@ -414,6 +418,7 @@ class Data:
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
             f (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`.
+            dim (int): Input dimension to apply to, defaults to the first input dimension.
 
         Examples:
             >>> data.aggregate(5)
@@ -569,13 +574,14 @@ class Data:
         idx = np.random.choice(len(self.Y), n, replace=False)
         self.mask[idx] = False
     
-    def remove_range(self, start=None, end=None):
+    def remove_range(self, start=None, end=None, dim=None):
         """
         Removes observations in the interval `[start,end]`.
         
         Args:
             start (float, str): Start of interval. Defaults to the first value in observations.
             end (float, str): End of interval (not included). Defaults to the last value in observations.
+            dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
 
         Examples:
             >>> data = mogptk.LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
@@ -592,69 +598,68 @@ class Data:
         start = self._normalize_val(start)
         end = self._normalize_val(end)
 
-        mask = np.logical_and(self.X[0] >= start[0], self.X[0] < end[0])
-        for i in range(1,self.get_input_dims()):
-            mask = np.logical_or(mask, np.logical_and(self.X[i] >= start[i], self.X[i] < end[i]))
+        if dim is not None:
+            mask = np.logical_and(self.X[dim] >= start[dim], self.X[dim] < end[dim])
+            self.removed_ranges[dim].append([start[dim], end[dim]])
+        else:
+            mask = np.logical_and(self.X[0] >= start[0], self.X[0] < end[0])
+            for i in range(1,self.get_input_dims()):
+                mask = np.logical_or(mask, np.logical_and(self.X[i] >= start[i], self.X[i] < end[i]))
+            for i in range(self.get_input_dims()):
+                self.removed_ranges[i].append([start[i], end[i]])
         self.mask[np.where(mask)] = False
-        for i in range(self.get_input_dims()):
-            self.removed_ranges[i].append([start[i], end[i]])
     
-    def remove_relative_range(self, start=0.0, end=1.0):
+    def remove_relative_range(self, start=0.0, end=1.0, dim=None):
         """
         Removes observations between `start` and `end` as a percentage of the number of observations. So `0` is the first observation, `0.5` is the middle observation, and `1` is the last observation.
 
         Args:
             start (float): Start percentage in interval [0,1].
             end (float): End percentage in interval [0,1].
+            dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
         """
-        if self.get_input_dims() != 1:
-            raise ValueError("can only remove ranges on one dimensional input data")
-
         start = self._normalize_val(start)
         end = self._normalize_val(end)
 
-        x_min = np.min(self.X[0])
-        x_max = np.max(self.X[0])
+        x_min = [np.min(x) for x in self.X]
+        x_max = [np.max(x) for x in self.X]
         for i in range(self.get_input_dims()):
-            start[i] = x_min + max(0.0, min(1.0, start[i])) * (x_max-x_min)
-            end[i] = x_min + max(0.0, min(1.0, end[i])) * (x_max-x_min)
+            start[i] = x_min[i] + max(0.0, min(1.0, start[i])) * (x_max[i]-x_min[i])
+            end[i] = x_min[i] + max(0.0, min(1.0, end[i])) * (x_max[i]-x_min[i])
 
-        idx = np.where(np.logical_and(self.X[0] >= start[0], self.X[0] <= end[0]))
-        self.mask[idx] = False
-        self.removed_ranges[0].append([start[0], end[0]])
+        self.remove_range(start, end, dim)
 
-    def remove_random_ranges(self, n, duration):
+    def remove_random_ranges(self, n, duration, dim=0):
         """
         Removes a number of ranges to simulate sensor failure. May remove fewer ranges if there is no more room to remove a range in the remaining data.
 
         Args:
             n (int): Number of ranges to remove.
             duration (float, str): Width of ranges to remove, can use a number or the duration format syntax (see aggregate()).
+            dim (int): Input dimension to apply to, defaults to the first input dimension.
 
         Examples:
             >>> data.remove_random_ranges(2, 5) # remove two ranges that are 5 wide in input space
 
             >>> data.remove_random_ranges(3, '1d') # remove three ranges that are 1 day wide
         """
-        if self.get_input_dims() != 1:
-            raise ValueError("can only remove ranges on one dimensional input data")
         if n < 1:
             return
 
         delta = _parse_delta(duration)
-        m = (np.max(self.X[0])-np.min(self.X[0])) - n*delta
+        m = (np.max(self.X[dim])-np.min(self.X[dim])) - n*delta
         if m <= 0:
             raise ValueError("no data left after removing ranges")
 
-        locs = self.X[0] <= (np.max(self.X[0])-delta)
+        locs = self.X[dim] <= (np.max(self.X[dim])-delta)
         locs[sum(locs)] = True # make sure the last data point can be deleted
         for i in range(n):
-            if len(self.X[0][locs]) == 0:
+            if len(self.X[dim][locs]) == 0:
                 break # range could not be removed, there is no remaining data range of width delta
-            x = self.X[0][locs][np.random.randint(len(self.X[0][locs]))]
-            locs[(self.X[0] > x-delta) & (self.X[0] < x+delta)] = False
-            self.mask[(self.X[0] >= x) & (self.X[0] < x+delta)] = False
-            self.removed_ranges[0].append([x, x+delta])
+            x = self.X[dim][locs][np.random.randint(len(self.X[dim][locs]))]
+            locs[(self.X[dim] > x-delta) & (self.X[dim] < x+delta)] = False
+            self.mask[(self.X[dim] >= x) & (self.X[dim] < x+delta)] = False
+            self.removed_ranges[dim].append([x, x+delta])
 
     def remove_index(self, index):
         """
@@ -749,7 +754,7 @@ class Data:
             X = [X[:,i] for i in range(self.get_input_dims())]
         elif not isinstance(X, list):
             raise ValueError("X expected to be a list or numpy.ndarray")
-        if not all(x.ndim == 1 for x in X) or not all(x.shape[0] == self.get_input_dims()):
+        if not all(x.ndim == 1 for x in X) or not all(x.shape[0] == self.get_input_dims() for x in X):
             raise ValueError("X shape must be (n,), (n,input_dims), or [(n,)] * input_dims")
 
         X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
@@ -763,10 +768,10 @@ class Data:
         Sets the prediction range. The interval is set as `[start,end]`, with either `n` points or a given step between the points.
 
         Args:
-            start (float, str): Start of interval, defaults to the first observation.
-            end (float, str): End of interval, defaults to the last observation.
-            n (int): Number of points to generate in the interval.
-            step (float, str): Spacing between points in the interval.
+            start (float, str, list): Start of interval, defaults to the first observation.
+            end (float, str, list): End of interval, defaults to the last observation.
+            n (int, list): Number of points to generate in the interval.
+            step (float, str, list): Spacing between points in the interval.
 
             If neither step or n is passed, default number of points is 100.
 
@@ -777,10 +782,6 @@ class Data:
             >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price')
             >>> data.set_prediction_range('2016-01-15', '2016-06-15', step='1d')
         """
-        # TODO: accept multiple input dims and make sure dtype equals X
-        if self.get_input_dims() != 1:
-            raise ValueError("can only set prediction range on one dimensional input data")
-
         if start is None:
             start = [x[0] for x in self.X]
         if end is None:
@@ -788,25 +789,23 @@ class Data:
         
         start = self._normalize_val(start)
         end = self._normalize_val(end)
+        n = self._normalize_val(n)
+        step = self._normalize_val(step)
 
-        # TODO: works for multi input dims?
-        if end <= start:
+        if np.any(end <= start):
             raise ValueError("start must be lower than end")
 
         # TODO: prediction range for multi input dimension; fix other axes to zero so we can plot?
         X_pred = [np.array([])] * self.get_input_dims()
-        if step is None and n is not None:
-            for i in range(self.get_input_dims()):
-                X_pred[i] = start[i] + (end[i]-start[i])*np.linspace(0.0, 1.0, n)
-        else:
-            if self.get_input_dims() != 1:
-                raise ValueError("cannot use step for multi dimensional input, use n")
-            if step is None:
-                step = (end[0]-start[0])/100
+        for i in range(self.get_input_dims()):
+            if n is not None and n[i] is not None:
+                X_pred[i] = start[i] + (end[i]-start[i])*np.linspace(0.0, 1.0, int(n[i]))
             else:
-                step = _parse_delta(step)
-            X_pred[0] = np.arange(start[0], end[0]+step, step)
-        
+                if step is None or step[i] is None:
+                    x_step = (end[i]-start[i])/100
+                else:
+                    x_step = _parse_delta(step[i])
+                X_pred[i] = np.arange(start[i], end[i]+x_step, x_step)
         self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(X_pred)]
 
         # clear old prediction data now that X_pred has been updated

@@ -247,13 +247,14 @@ class DataSet:
         for channel in self.channels:
             channel.transform(transformer)
 
-    def filter(self, start, end):
+    def filter(self, start, end, dim=None):
         """
         Filter the data range to be between `start` and `end` in the X axis.
 
         Args:
-            start (float, str): Start of interval.
-            end (float, str): End of interval.
+            start (float, str, list): Start of interval.
+            end (float, str, list): End of interval.
+            dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
 
         Examples:
             >>> dataset.filter(3, 8)
@@ -261,9 +262,9 @@ class DataSet:
             >>> dataset.filter('2016-01-15', '2016-06-15')
         """
         for channel in self.channels:
-            channel.filter(start, end)
+            channel.filter(start, end, dim=dim)
 
-    def aggregate(self, duration, f=np.mean):
+    def aggregate(self, duration, f=np.mean, dim=0):
         """
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -272,6 +273,7 @@ class DataSet:
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
             f (function): Function to use to reduce data.
+            dim (int): Input dimension to apply to, defaults to the first input dimension.
 
         Examples:
             >>> dataset.aggregate(5)
@@ -279,7 +281,7 @@ class DataSet:
             >>> dataset.aggregate('2W', f=np.sum)
         """
         for channel in self.channels:
-            channel.aggregate(duration, f)
+            channel.aggregate(duration, f, dim=dim)
 
     def get_input_dims(self):
         """
