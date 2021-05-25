@@ -961,7 +961,7 @@ class Data:
         Examples:
             >>> amplitudes, means, variances = data.get_sm_estimation()
         """
-        from .sm import SM
+        from .models.sm import SM
 
         input_dims = self.get_input_dims()
 
