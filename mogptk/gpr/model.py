@@ -213,10 +213,11 @@ class GPR(Model):
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
 
         self.noise = Parameter(noise, name="noise", lower=config.positive_minimum)
+        self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self._register_parameters(self.noise)
 
     def log_marginal_likelihood(self):
-        K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)  # NxN
+        K = self.kernel(self.X) + self.noise()*self.eye # NxN
         L = self._cholesky(K)  # NxN
 
         if self.mean is not None:
@@ -233,7 +234,7 @@ class GPR(Model):
         with torch.no_grad():
             Z = self._check_input(Z)  # MxD
 
-            K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)  # NxN
+            K = self.kernel(self.X) + self.noise()*self.eye # NxN
             Ks = self.kernel(self.X,Z)  # NxM
             Kss = self.kernel(Z) + self.noise()*torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)  # MxM
 
