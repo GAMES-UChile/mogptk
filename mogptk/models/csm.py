@@ -15,6 +15,7 @@ class CSM(Model):
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
+        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -39,10 +40,9 @@ class CSM(Model):
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name="CSM"):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name="CSM", rescale_x=True):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
-        dataset.rescale_x()
 
         spectral = CrossSpectralKernel(
             output_dims=dataset.get_output_dims(),
@@ -50,12 +50,11 @@ class CSM(Model):
             Rq=Rq,
         )
         kernel = MixtureKernel(spectral, Q)
+        super(CSM, self).__init__(dataset, kernel, model, mean, name, rescale_x)
 
-        nyquist = np.amin(dataset.get_nyquist_estimation(), axis=0)
-
-        super(CSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
+        nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
         for q in range(Q):
             self.model.kernel[q].mean.assign(upper=nyquist)
     

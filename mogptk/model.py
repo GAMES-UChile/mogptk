@@ -38,7 +38,7 @@ class Exact:
         return GPR(kernel, x, y, mean=mean, name=name)
 
 class Model:
-    def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
+    def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None, rescale_x=False):
         """
         Model is the base class for multi-output Gaussian process models.
 
@@ -48,6 +48,7 @@ class Model:
             model: Gaussian process model to use, such as `mogptk.model.Exact`.
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
+            rescale_x (bool): Rescale the X axis to [0,1000] to help training.
         """
         
         if not isinstance(dataset, DataSet):
@@ -58,20 +59,23 @@ class Model:
         if len(set(names)) != len(names):
             raise ValueError("all data channels must have unique names")
 
-        for channel in dataset:
-            for dim in range(channel.get_input_dims()):
-                xran = np.max(channel.X[dim].transformed) - np.min(channel.X[dim].transformed)
-                if xran < 1e-3:
-                    logger.warning("Very small X range may give problems, it is suggested to scale up your X axis")
-                elif 1e4 < xran:
-                    logger.warning("Very large X range may give problems, it is suggested to scale down your X axis")
+        if rescale_x:
+            dataset.rescale_x()
+        else:
+            for channel in dataset:
+                for dim in range(channel.get_input_dims()):
+                    xran = np.max(channel.X[dim].transformed) - np.min(channel.X[dim].transformed)
+                    if xran < 1e-3:
+                        logger.warning("Very small X range may give problems, it is suggested to scale up your X axis")
+                    elif 1e4 < xran:
+                        logger.warning("Very large X range may give problems, it is suggested to scale down your X axis")
 
         self.name = name
         self.dataset = dataset
         self.kernel = kernel
 
-        X = [[x[channel.mask] for x in channel.X] for channel in self.dataset.channels]
-        Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset.channels]
+        X = [[x[channel.mask] for x in channel.X] for channel in self.dataset]
+        Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset]
         x, y = self._to_kernel_format(X, Y)
 
         self.model = model.build(kernel, x, y, mean, name)
@@ -192,8 +196,8 @@ class Model:
             **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
 
         Returns:
-            numpy.ndarray: Losses for all iterations. Only if `error` is set.
-            numpy.ndarray: Errors for all iterations. Only if `error` is set.
+            numpy.ndarray: Losses for all iterations.
+            numpy.ndarray: Errors for all iterations. Only if `error` is set, otherwise zero.
 
         Examples:
             >>> model.train()
@@ -202,6 +206,9 @@ class Model:
             
             >>> model.train(method='adam', lr=0.5)
         """
+        if error is not None and all(not channel.has_test_data() for channel in self.dataset):
+            raise ValueError("data set must have test points (such as removed ranges) when error is specified")
+
         if method.lower() in ('l-bfgs', 'lbfgs', 'l-bfgs-b', 'lbfgsb'):
             method = 'LBFGS'
         elif method.lower() == 'adam':
@@ -227,7 +234,7 @@ class Model:
             inital_time = time.time()
 
         losses = np.empty((iters+1,))
-        errors = np.empty((iters+1,))
+        errors = np.zeros((iters+1,))
 
         sys.__stdout__.write("\nStart %s:\n" % (method,))
         if method == 'LBFGS':
@@ -287,11 +294,10 @@ class Model:
 
         self.iters = iters
         self.losses = losses
-        if error is not None:
-            self.errors = errors
-
+        self.errors = errors
         if plot:
             self.plot_losses()
+        return losses, errors
 
     ################################################################################
     # Predictions ##################################################################

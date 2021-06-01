@@ -15,6 +15,7 @@ class SM(Model):
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
+        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -38,21 +39,19 @@ class SM(Model):
 
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
     """
-    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="SM"):
+    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="SM", rescale_x=True):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
-        dataset.rescale_x()
 
         kernel = IndependentMultiOutputKernel(
             [MixtureKernel(SpectralKernel(dataset[i].get_input_dims()), Q) for i in range(dataset.get_output_dims())],
             output_dims=dataset.get_output_dims(),
         )
+        super(SM, self).__init__(dataset, kernel, model, mean, name, rescale_x)
 
-        nyquist = dataset.get_nyquist_estimation()
-
-        super(SM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
-        for j in range(dataset.get_output_dims()):
+        nyquist = self.dataset.get_nyquist_estimation()
+        for j in range(self.dataset.get_output_dims()):
             for q in range(Q):
                 self.model.kernel[j][q].mean.assign(upper=nyquist[j])
 
