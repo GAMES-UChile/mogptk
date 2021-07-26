@@ -3,16 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.7.4" />
+<meta name="generator" content="pdoc 0.9.2" />
 <title>mogptk.gpr.parameter API documentation</title>
 <meta name="description" content="" />
-<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
-<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
-<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
-<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
-<script async src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_CHTML'></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
 <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
 </head>
 <body>
@@ -25,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L0-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L0-L145" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import torch.nn.functional as functional
@@ -66,11 +68,11 @@ class Sigmoid(Transform):
     def inverse(self, y):
         if torch.any(y &lt; self.lower) or torch.any(self.upper &lt; y):
             raise ValueError(&#34;values must be between %s and %s&#34; % (self.lower, self.upper))
-        y = y/(self.upper-self.lower) - self.lower
+        y = (y-self.lower)/(self.upper-self.lower)
         return torch.log(y) - torch.log(1-y)
 
 class Parameter:
-    def __init__(self, data, name=None, lower=None, upper=None, prior=None, trainable=True):
+    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True):
         self.name = name
         self.lower = None
         self.upper = None
@@ -78,7 +80,7 @@ class Parameter:
         self.trainable = trainable
         self.transform = None
         self.unconstrained = None
-        self.assign(data, lower=lower, upper=upper)
+        self.assign(value, lower=lower, upper=upper)
 
     def __repr__(self):
         if self.name is None:
@@ -97,35 +99,46 @@ class Parameter:
     def numpy(self):
         return self.constrained.detach().cpu().numpy()
 
-    def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
-        if not isinstance(data, torch.Tensor):
-            data = torch.tensor(data, device=config.device, dtype=config.dtype)
+    def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+        if value is not None:
+            if not isinstance(value, torch.Tensor):
+                value = torch.tensor(value, device=config.device, dtype=config.dtype)
+            else:
+                value = value.to(config.device, config.dtype)
+                if value.requires_grad:
+                    value = value.detach()
+
+            if self.unconstrained is not None:
+                origshape = value.shape
+                while len(value.shape) &lt; len(self.unconstrained.shape) and self.unconstrained.shape[len(value.shape)] == 1:
+                    value = value.unsqueeze(len(value.shape))
+                if value.shape != self.unconstrained.shape:
+                    raise ValueError(&#34;parameter shape must match: %s != %s&#34; % (origshape, self.unconstrained.shape))
         else:
-            data = data.to(config.device, config.dtype)
+            value = self.unconstrained.detach()
+
         if lower is not None:
             lower = torch.tensor(lower, device=config.device, dtype=config.dtype)
-            if len(lower.shape) != 0 and lower.shape != data.shape:
-                raise ValueError(&#34;lower and data must match shapes: %s != %s&#34; % (lower.shape, data.shape))
+            if len(lower.shape) != 0:
+                while len(lower.shape) &lt; len(value.shape) and value.shape[len(lower.shape)] == 1:
+                    lower = lower.unsqueeze(len(lower.shape))
+                if lower.shape != value.shape:
+                    raise ValueError(&#34;lower and value must match shapes: %s != %s&#34; % (lower.shape, value.shape))
+        else:
+            lower = self.lower
+
         if upper is not None:
             upper = torch.tensor(upper, device=config.device, dtype=config.dtype)
-            if len(upper.shape) != 0 and upper.shape != data.shape:
-                raise ValueError(&#34;upper and data must match shapes: %s != %s&#34; % (upper.shape, data.shape))
-        if data.requires_grad:
-            data = data.detach()
-
-        if self.unconstrained is not None:
-            origshape = data.shape
-            while len(data.shape) &lt; len(self.unconstrained.shape) and self.unconstrained.shape[len(data.shape)] == 1:
-                data = data.unsqueeze(len(data.shape))
-            if data.shape != self.unconstrained.shape:
-                raise ValueError(&#34;parameter shape must match: %s != %s&#34; % (origshape, self.unconstrained.shape))
+            if len(upper.shape) != 0:
+                while len(upper.shape) &lt; len(value.shape) and value.shape[len(upper.shape)] == 1:
+                    upper = upper.unsqueeze(len(upper.shape))
+                if upper.shape != value.shape:
+                    raise ValueError(&#34;upper and value must match shapes: %s != %s&#34; % (upper.shape, value.shape))
+        else:
+            upper = self.upper
 
         if name is None:
             name = self.name
-        if lower is None:
-            lower = self.lower
-        if upper is None:
-            upper = self.upper
         if prior is None:
             prior = self.prior
         if trainable is None:
@@ -144,11 +157,11 @@ class Parameter:
 
         if transform is not None:
             if lower is not None:
-                data = torch.where(data &lt; lower, lower * torch.ones_like(data), data)
+                value = torch.where(value &lt; lower, lower * torch.ones_like(value), value)
             if upper is not None:
-                data = torch.where(upper &lt; data, upper * torch.ones_like(data), data)
-            data = transform.inverse(data)
-        data.requires_grad = True
+                value = torch.where(upper &lt; value, upper * torch.ones_like(value), value)
+            value = transform.inverse(value)
+        value.requires_grad = True
 
         self.name = name
         self.prior = prior
@@ -156,7 +169,7 @@ class Parameter:
         self.upper = upper
         self.trainable = trainable
         self.transform = transform
-        self.unconstrained = data
+        self.unconstrained = value
 
     def log_prior(self):
         if self.prior is None:
@@ -175,17 +188,17 @@ class Parameter:
 <dl>
 <dt id="mogptk.gpr.parameter.Parameter"><code class="flex name class">
 <span>class <span class="ident">Parameter</span></span>
-<span>(</span><span>data, name=None, lower=None, upper=None, prior=None, trainable=True)</span>
+<span>(</span><span>value, name=None, lower=None, upper=None, prior=None, trainable=True)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L43-L135" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L43-L146" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Parameter:
-    def __init__(self, data, name=None, lower=None, upper=None, prior=None, trainable=True):
+    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True):
         self.name = name
         self.lower = None
         self.upper = None
@@ -193,7 +206,7 @@ class Parameter:
         self.trainable = trainable
         self.transform = None
         self.unconstrained = None
-        self.assign(data, lower=lower, upper=upper)
+        self.assign(value, lower=lower, upper=upper)
 
     def __repr__(self):
         if self.name is None:
@@ -212,35 +225,46 @@ class Parameter:
     def numpy(self):
         return self.constrained.detach().cpu().numpy()
 
-    def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
-        if not isinstance(data, torch.Tensor):
-            data = torch.tensor(data, device=config.device, dtype=config.dtype)
+    def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+        if value is not None:
+            if not isinstance(value, torch.Tensor):
+                value = torch.tensor(value, device=config.device, dtype=config.dtype)
+            else:
+                value = value.to(config.device, config.dtype)
+                if value.requires_grad:
+                    value = value.detach()
+
+            if self.unconstrained is not None:
+                origshape = value.shape
+                while len(value.shape) &lt; len(self.unconstrained.shape) and self.unconstrained.shape[len(value.shape)] == 1:
+                    value = value.unsqueeze(len(value.shape))
+                if value.shape != self.unconstrained.shape:
+                    raise ValueError(&#34;parameter shape must match: %s != %s&#34; % (origshape, self.unconstrained.shape))
         else:
-            data = data.to(config.device, config.dtype)
+            value = self.unconstrained.detach()
+
         if lower is not None:
             lower = torch.tensor(lower, device=config.device, dtype=config.dtype)
-            if len(lower.shape) != 0 and lower.shape != data.shape:
-                raise ValueError(&#34;lower and data must match shapes: %s != %s&#34; % (lower.shape, data.shape))
+            if len(lower.shape) != 0:
+                while len(lower.shape) &lt; len(value.shape) and value.shape[len(lower.shape)] == 1:
+                    lower = lower.unsqueeze(len(lower.shape))
+                if lower.shape != value.shape:
+                    raise ValueError(&#34;lower and value must match shapes: %s != %s&#34; % (lower.shape, value.shape))
+        else:
+            lower = self.lower
+
         if upper is not None:
             upper = torch.tensor(upper, device=config.device, dtype=config.dtype)
-            if len(upper.shape) != 0 and upper.shape != data.shape:
-                raise ValueError(&#34;upper and data must match shapes: %s != %s&#34; % (upper.shape, data.shape))
-        if data.requires_grad:
-            data = data.detach()
-
-        if self.unconstrained is not None:
-            origshape = data.shape
-            while len(data.shape) &lt; len(self.unconstrained.shape) and self.unconstrained.shape[len(data.shape)] == 1:
-                data = data.unsqueeze(len(data.shape))
-            if data.shape != self.unconstrained.shape:
-                raise ValueError(&#34;parameter shape must match: %s != %s&#34; % (origshape, self.unconstrained.shape))
+            if len(upper.shape) != 0:
+                while len(upper.shape) &lt; len(value.shape) and value.shape[len(upper.shape)] == 1:
+                    upper = upper.unsqueeze(len(upper.shape))
+                if upper.shape != value.shape:
+                    raise ValueError(&#34;upper and value must match shapes: %s != %s&#34; % (upper.shape, value.shape))
+        else:
+            upper = self.upper
 
         if name is None:
             name = self.name
-        if lower is None:
-            lower = self.lower
-        if upper is None:
-            upper = self.upper
         if prior is None:
             prior = self.prior
         if trainable is None:
@@ -259,11 +283,11 @@ class Parameter:
 
         if transform is not None:
             if lower is not None:
-                data = torch.where(data &lt; lower, lower * torch.ones_like(data), data)
+                value = torch.where(value &lt; lower, lower * torch.ones_like(value), value)
             if upper is not None:
-                data = torch.where(upper &lt; data, upper * torch.ones_like(data), data)
-            data = transform.inverse(data)
-        data.requires_grad = True
+                value = torch.where(upper &lt; value, upper * torch.ones_like(value), value)
+            value = transform.inverse(value)
+        value.requires_grad = True
 
         self.name = name
         self.prior = prior
@@ -271,7 +295,7 @@ class Parameter:
         self.upper = upper
         self.trainable = trainable
         self.transform = transform
-        self.unconstrained = data
+        self.unconstrained = value
 
     def log_prior(self):
         if self.prior is None:
@@ -282,11 +306,11 @@ class Parameter:
 <dl>
 <dt id="mogptk.gpr.parameter.Parameter.constrained"><code class="name">var <span class="ident">constrained</span></code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L62-L66" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L62-L66" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def constrained(self):
@@ -299,44 +323,55 @@ def constrained(self):
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.gpr.parameter.Parameter.assign"><code class="name flex">
-<span>def <span class="ident">assign</span></span>(<span>self, data, name=None, lower=None, upper=None, prior=None, trainable=None)</span>
+<span>def <span class="ident">assign</span></span>(<span>self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L71-L130" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L71-L141" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def assign(self, data, name=None, lower=None, upper=None, prior=None, trainable=None):
-    if not isinstance(data, torch.Tensor):
-        data = torch.tensor(data, device=config.device, dtype=config.dtype)
+<pre><code class="python">def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+    if value is not None:
+        if not isinstance(value, torch.Tensor):
+            value = torch.tensor(value, device=config.device, dtype=config.dtype)
+        else:
+            value = value.to(config.device, config.dtype)
+            if value.requires_grad:
+                value = value.detach()
+
+        if self.unconstrained is not None:
+            origshape = value.shape
+            while len(value.shape) &lt; len(self.unconstrained.shape) and self.unconstrained.shape[len(value.shape)] == 1:
+                value = value.unsqueeze(len(value.shape))
+            if value.shape != self.unconstrained.shape:
+                raise ValueError(&#34;parameter shape must match: %s != %s&#34; % (origshape, self.unconstrained.shape))
     else:
-        data = data.to(config.device, config.dtype)
+        value = self.unconstrained.detach()
+
     if lower is not None:
         lower = torch.tensor(lower, device=config.device, dtype=config.dtype)
-        if len(lower.shape) != 0 and lower.shape != data.shape:
-            raise ValueError(&#34;lower and data must match shapes: %s != %s&#34; % (lower.shape, data.shape))
+        if len(lower.shape) != 0:
+            while len(lower.shape) &lt; len(value.shape) and value.shape[len(lower.shape)] == 1:
+                lower = lower.unsqueeze(len(lower.shape))
+            if lower.shape != value.shape:
+                raise ValueError(&#34;lower and value must match shapes: %s != %s&#34; % (lower.shape, value.shape))
+    else:
+        lower = self.lower
+
     if upper is not None:
         upper = torch.tensor(upper, device=config.device, dtype=config.dtype)
-        if len(upper.shape) != 0 and upper.shape != data.shape:
-            raise ValueError(&#34;upper and data must match shapes: %s != %s&#34; % (upper.shape, data.shape))
-    if data.requires_grad:
-        data = data.detach()
-
-    if self.unconstrained is not None:
-        origshape = data.shape
-        while len(data.shape) &lt; len(self.unconstrained.shape) and self.unconstrained.shape[len(data.shape)] == 1:
-            data = data.unsqueeze(len(data.shape))
-        if data.shape != self.unconstrained.shape:
-            raise ValueError(&#34;parameter shape must match: %s != %s&#34; % (origshape, self.unconstrained.shape))
+        if len(upper.shape) != 0:
+            while len(upper.shape) &lt; len(value.shape) and value.shape[len(upper.shape)] == 1:
+                upper = upper.unsqueeze(len(upper.shape))
+            if upper.shape != value.shape:
+                raise ValueError(&#34;upper and value must match shapes: %s != %s&#34; % (upper.shape, value.shape))
+    else:
+        upper = self.upper
 
     if name is None:
         name = self.name
-    if lower is None:
-        lower = self.lower
-    if upper is None:
-        upper = self.upper
     if prior is None:
         prior = self.prior
     if trainable is None:
@@ -355,11 +390,11 @@ def constrained(self):
 
     if transform is not None:
         if lower is not None:
-            data = torch.where(data &lt; lower, lower * torch.ones_like(data), data)
+            value = torch.where(value &lt; lower, lower * torch.ones_like(value), value)
         if upper is not None:
-            data = torch.where(upper &lt; data, upper * torch.ones_like(data), data)
-        data = transform.inverse(data)
-    data.requires_grad = True
+            value = torch.where(upper &lt; value, upper * torch.ones_like(value), value)
+        value = transform.inverse(value)
+    value.requires_grad = True
 
     self.name = name
     self.prior = prior
@@ -367,18 +402,18 @@ def constrained(self):
     self.upper = upper
     self.trainable = trainable
     self.transform = transform
-    self.unconstrained = data</code></pre>
+    self.unconstrained = value</code></pre>
 </details>
 </dd>
 <dt id="mogptk.gpr.parameter.Parameter.log_prior"><code class="name flex">
 <span>def <span class="ident">log_prior</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L132-L135" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L143-L146" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     if self.prior is None:
@@ -390,11 +425,11 @@ def constrained(self):
 <span>def <span class="ident">numpy</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L68-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L68-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def numpy(self):
     return self.constrained.detach().cpu().numpy()</code></pre>
@@ -407,11 +442,11 @@ def constrained(self):
 <span>(</span><span>lower=0.0, upper=1.0)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L29-L41" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L29-L41" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Sigmoid(Transform):
     def __init__(self, lower=0.0, upper=1.0):
@@ -424,7 +459,7 @@ def constrained(self):
     def inverse(self, y):
         if torch.any(y &lt; self.lower) or torch.any(self.upper &lt; y):
             raise ValueError(&#34;values must be between %s and %s&#34; % (self.lower, self.upper))
-        y = y/(self.upper-self.lower) - self.lower
+        y = (y-self.lower)/(self.upper-self.lower)
         return torch.log(y) - torch.log(1-y)</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -437,11 +472,11 @@ def constrained(self):
 <span>def <span class="ident">forward</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L34-L35" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L34-L35" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     return self.lower + (self.upper-self.lower)*torch.sigmoid(x)</code></pre>
@@ -451,16 +486,16 @@ def constrained(self):
 <span>def <span class="ident">inverse</span></span>(<span>self, y)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L37-L41" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L37-L41" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     if torch.any(y &lt; self.lower) or torch.any(self.upper &lt; y):
         raise ValueError(&#34;values must be between %s and %s&#34; % (self.lower, self.upper))
-    y = y/(self.upper-self.lower) - self.lower
+    y = (y-self.lower)/(self.upper-self.lower)
     return torch.log(y) - torch.log(1-y)</code></pre>
 </details>
 </dd>
@@ -471,11 +506,11 @@ def constrained(self):
 <span>(</span><span>lower=0.0, beta=0.1, threshold=20.0)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L15-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L15-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Softplus(Transform):
     def __init__(self, lower=0.0, beta=0.1, threshold=20.0):
@@ -501,11 +536,11 @@ def constrained(self):
 <span>def <span class="ident">forward</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L21-L22" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L21-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     return self.lower + functional.softplus(x, beta=self.beta, threshold=self.threshold)</code></pre>
@@ -515,11 +550,11 @@ def constrained(self):
 <span>def <span class="ident">inverse</span></span>(<span>self, y)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L24-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L24-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     if torch.any(y &lt; self.lower):
@@ -533,11 +568,11 @@ def constrained(self):
 <span>class <span class="ident">Transform</span></span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L6-L13" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L6-L13" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Transform:
     def forward(self, x):
@@ -559,11 +594,11 @@ def constrained(self):
 <span>def <span class="ident">forward</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L7-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L7-L9" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     # unconstrained to constrained space
@@ -574,11 +609,11 @@ def constrained(self):
 <span>def <span class="ident">inverse</span></span>(<span>self, y)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/parameter.py#L11-L13" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/parameter.py#L11-L13" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     # constrained to unconstrained space
@@ -639,9 +674,7 @@ def constrained(self):
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.7.4</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
 </footer>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
-<script>hljs.initHighlightingOnLoad()</script>
 </body>
 </html>

@@ -3,16 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.7.4" />
+<meta name="generator" content="pdoc 0.9.2" />
 <title>mogptk.dataset API documentation</title>
 <meta name="description" content="" />
-<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
-<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
-<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
-<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
-<script async src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_CHTML'></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
 <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
 </head>
 <body>
@@ -25,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L0-L702" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L0-L704" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import copy
 
@@ -276,13 +278,14 @@ class DataSet:
         for channel in self.channels:
             channel.transform(transformer)
 
-    def filter(self, start, end):
+    def filter(self, start, end, dim=None):
         &#34;&#34;&#34;
         Filter the data range to be between `start` and `end` in the X axis.
 
         Args:
-            start (float, str): Start of interval.
-            end (float, str): End of interval.
+            start (float, str, list): Start of interval.
+            end (float, str, list): End of interval.
+            dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
 
         Examples:
             &gt;&gt;&gt; dataset.filter(3, 8)
@@ -290,9 +293,9 @@ class DataSet:
             &gt;&gt;&gt; dataset.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         for channel in self.channels:
-            channel.filter(start, end)
+            channel.filter(start, end, dim=dim)
 
-    def aggregate(self, duration, f=np.mean):
+    def aggregate(self, duration, f=np.mean, dim=0):
         &#34;&#34;&#34;
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -301,6 +304,7 @@ class DataSet:
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
             f (function): Function to use to reduce data.
+            dim (int): Input dimension to apply to, defaults to the first input dimension.
 
         Examples:
             &gt;&gt;&gt; dataset.aggregate(5)
@@ -308,7 +312,7 @@ class DataSet:
             &gt;&gt;&gt; dataset.aggregate(&#39;2W&#39;, f=np.sum)
         &#34;&#34;&#34;
         for channel in self.channels:
-            channel.aggregate(duration, f)
+            channel.aggregate(duration, f, dim=dim)
 
     def get_input_dims(self):
         &#34;&#34;&#34;
@@ -401,7 +405,7 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape (n,input_dims) per channel.
+            list: X data of shape [(n,)] * input_dims per channel.
             list: Y data of shape (n,) per channel.
 
         Examples:
@@ -417,7 +421,7 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape (n,input_dims) per channel.
+            list: X data of shape [(n,)] * input_dims per channel.
             list: Y data of shape (n,) per channel.
 
         Examples:
@@ -433,7 +437,7 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape (n,input_dims) per channel.
+            list: X data of shape [(n,)] * input_dims per channel.
             list: Y data of shape (n,) per channel.
 
         Examples:
@@ -446,7 +450,7 @@ class DataSet:
         Returns the prediction X range for all channels.
 
         Returns:
-            list: X prediction of shape (n,input_dims) per channel.
+            list: X prediction of shape [(n,)] * input_dims per channel.
 
         Examples:
             &gt;&gt;&gt; x = dataset.get_prediction_x()
@@ -466,7 +470,7 @@ class DataSet:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            list: X prediction of shape (n,input_dims) per channel.
+            list: X prediction of shape [(n,)] * input_dims per channel.
             list: Y mean prediction of shape (n,) per channel.
             list: Y lower prediction of uncertainty interval of shape (n,) per channel.
             list: Y upper prediction of uncertainty interval of shape (n,) per channel.
@@ -491,7 +495,7 @@ class DataSet:
         Set the prediction range directly for saved predictions per channel. This will clear old predictions.
 
         Args:
-            x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
+            x (list, dict): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
             &gt;&gt;&gt; dataset.set_prediction_x([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
@@ -743,35 +747,32 @@ class DataSet:
 <span>def <span class="ident">LoadCSV</span></span>(<span>filename, x_col=0, y_col=1, name=None, **kwargs)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>LoadCSV loads a dataset from a given CSV file. It loads in <code>x_col</code> as the names of the input dimension columns, and <code>y_col</code> as the names of the output columns.</p>
+<div class="desc"><p>LoadCSV loads a dataset from a given CSV file. It loads in <code>x_col</code> as the names of the input dimension columns, and <code>y_col</code> as the names of the output columns.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
 <dd>CSV filename.</dd>
-<dt><strong><code>x_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code> of <code>int</code> or <code>str</code></dt>
+<dt><strong><code>x_col</code></strong> :&ensp;<code>int, str, list</code> of <code>int</code> or <code>str</code></dt>
 <dd>Names or indices of X column(s) in CSV.</dd>
-<dt><strong><code>y_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code> of <code>int</code> or <code>str</code></dt>
+<dt><strong><code>y_col</code></strong> :&ensp;<code>int, str, list</code> of <code>int</code> or <code>str</code></dt>
 <dd>Names or indices of Y column(s) in CSV.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, <code>list</code></dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str, list</code></dt>
 <dd>Name or names of data channels.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments for csv.DictReader.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a> or <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
-<dd>&nbsp;</dd>
-</dl>
+<p>mogptk.data.Data or mogptk.dataset.DataSet</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; LoadCSV('gold.csv', 'Date', 'Price', name='Gold')
+<pre><code class="language-python-repl">&gt;&gt;&gt; LoadCSV('gold.csv', 'Date', 'Price', name='Gold')
 &lt;mogptk.dataset.DataSet at ...&gt;
 &gt;&gt;&gt; LoadCSV('gold.csv', 'Date', 'Price', sep=' ', quotechar='|')
 &lt;mogptk.dataset.DataSet at ...&gt;
-</code></pre></section>
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L9-L32" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L9-L32" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
     &#34;&#34;&#34;
@@ -803,32 +804,29 @@ class DataSet:
 <span>def <span class="ident">LoadDataFrame</span></span>(<span>df, x_col=0, y_col=1, name=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>LoadDataFrame loads a DataFrame from pandas. It loads in <code>x_col</code> as the names of the input dimension columns, and <code>y_col</code> the names of the output columns.</p>
+<div class="desc"><p>LoadDataFrame loads a DataFrame from pandas. It loads in <code>x_col</code> as the names of the input dimension columns, and <code>y_col</code> the names of the output columns.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>df</code></strong> :&ensp;<code>pandas.DataFrame</code></dt>
 <dd>The pandas DataFrame.</dd>
-<dt><strong><code>x_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code> of <code>int</code> or <code>str</code></dt>
+<dt><strong><code>x_col</code></strong> :&ensp;<code>int, str, list</code> of <code>int</code> or <code>str</code></dt>
 <dd>Names or indices of X column(s) in DataFrame.</dd>
-<dt><strong><code>y_col</code></strong> :&ensp;<code>int</code>, <code>str</code>, <code>list</code> of <code>int</code> or <code>str</code></dt>
+<dt><strong><code>y_col</code></strong> :&ensp;<code>int, str, list</code> of <code>int</code> or <code>str</code></dt>
 <dd>Names or indices of Y column(s) in DataFrame.</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, <code>list</code> of <code>str</code></dt>
+<dt><strong><code>name</code></strong> :&ensp;<code>str, list</code> of <code>str</code></dt>
 <dd>Name or names of data channels.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a> or <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
-<dd>&nbsp;</dd>
-</dl>
+<p>mogptk.data.Data or mogptk.dataset.DataSet</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; df = pd.DataFrame(...)
+<pre><code class="language-python-repl">&gt;&gt;&gt; df = pd.DataFrame(...)
 &gt;&gt;&gt; LoadDataFrame(df, 'Date', 'Price', name='Gold')
 &lt;mogptk.dataset.DataSet at ...&gt;
-</code></pre></section>
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L34-L98" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L34-L98" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadDataFrame(df, x_col=0, y_col=1, name=None):
     &#34;&#34;&#34;
@@ -907,41 +905,41 @@ class DataSet:
 <span>(</span><span>*args, names=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>DataSet is a class that holds multiple Data objects as channels. It is the complete representation of the data used for fitting multi-output Gaussian processes.</p>
+<div class="desc"><p>DataSet is a class that holds multiple Data objects as channels. It is the complete representation of the data used for fitting multi-output Gaussian processes.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>*args</code></strong> :&ensp;<a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a>, <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>, <code>list</code>, <code>dict</code>, <code>numpy.ndarray</code></dt>
-<dd>Accepts multiple arguments, each of which should be either a <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a> or <code>Data</code> object, a list of <code>Data</code> objects or a dictionary of <code>Data</code> objects. Each <code>Data</code> object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a> is passed its channels will be added. It is also possible to pass X and Y data array directly by either passing two <code>numpy.ndarrays</code> or two lists of <code>numpy.ndarrays</code> for X and Y data.</dd>
+<dt><strong><code>*args</code></strong> :&ensp;<code><a title="mogptk.data.Data" href="data.html#mogptk.data.Data">Data</a>, <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet">DataSet</a>, list, dict, numpy.ndarray</code></dt>
+<dd>Accepts multiple arguments, each of which should be either a <code><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet">DataSet</a></code> or <code>Data</code> object, a list of <code>Data</code> objects or a dictionary of <code>Data</code> objects. Each <code>Data</code> object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a <code><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet">DataSet</a></code> is passed its channels will be added. It is also possible to pass X and Y data array directly by either passing two <code>numpy.ndarrays</code> or two lists of <code>numpy.ndarrays</code> for X and Y data.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <p>Different ways to initiate a DataSet:</p>
-<pre><code>&gt;&gt;&gt; wind_velocity = mogptk.LoadDataFrame(df, x_col='Date', y_col='Wind Velocity', name='wind')
+<pre><code class="language-python-repl">&gt;&gt;&gt; wind_velocity = mogptk.LoadDataFrame(df, x_col='Date', y_col='Wind Velocity', name='wind')
 &gt;&gt;&gt; tidal_height = mogptk.LoadDataFrame(df, x_col='Date', y_col='Tidal Height', name='tidal')
 &gt;&gt;&gt; dataset = mogptk.DataSet(wind_velocity, tidal_height)
-
-&gt;&gt;&gt; dataset = mogptk.DataSet(
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset = mogptk.DataSet(
 &gt;&gt;&gt;     mogptk.LoadDataFrame(df, x_col='Date', y_col='Wind Velocity', name='wind'),
 &gt;&gt;&gt;     mogptk.LoadDataFrame(df, x_col='Date', y_col='Tidal Height', name='tidal'),
 &gt;&gt;&gt; )
-
-&gt;&gt;&gt; dataset = mogptk.DataSet()
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset = mogptk.DataSet()
 &gt;&gt;&gt; dataset.append(mogptk.LoadDataFrame(df, x_col='Date', y_col='Wind Velocity', name='wind'))
 &gt;&gt;&gt; dataset.append(mogptk.LoadDataFrame(df, x_col='Date', y_col='Tidal Height', name='tidal'))
-
-&gt;&gt;&gt; dataset = mogptk.DataSet(x, y)
-
-&gt;&gt;&gt; dataset = mogptk.DataSet(x, [y1, y2, y3], names=['A', 'B', 'C'])
-
-&gt;&gt;&gt; dataset = mogptk.DataSet([x1, x2, x3], [y1, y2, y3])
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset = mogptk.DataSet(x, y)
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset = mogptk.DataSet(x, [y1, y2, y3], names=['A', 'B', 'C'])
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset = mogptk.DataSet([x1, x2, x3], [y1, y2, y3])
 </code></pre>
 <p>Accessing individual channels:</p>
-<pre><code>&gt;&gt;&gt; dataset[0]       # first channel
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset[0]       # first channel
 &gt;&gt;&gt; dataset['wind']  # wind velocity channel
-</code></pre></section>
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L104-L703" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L104-L705" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class DataSet:
     &#34;&#34;&#34;
@@ -1089,13 +1087,14 @@ class DataSet:
         for channel in self.channels:
             channel.transform(transformer)
 
-    def filter(self, start, end):
+    def filter(self, start, end, dim=None):
         &#34;&#34;&#34;
         Filter the data range to be between `start` and `end` in the X axis.
 
         Args:
-            start (float, str): Start of interval.
-            end (float, str): End of interval.
+            start (float, str, list): Start of interval.
+            end (float, str, list): End of interval.
+            dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
 
         Examples:
             &gt;&gt;&gt; dataset.filter(3, 8)
@@ -1103,9 +1102,9 @@ class DataSet:
             &gt;&gt;&gt; dataset.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         for channel in self.channels:
-            channel.filter(start, end)
+            channel.filter(start, end, dim=dim)
 
-    def aggregate(self, duration, f=np.mean):
+    def aggregate(self, duration, f=np.mean, dim=0):
         &#34;&#34;&#34;
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -1114,6 +1113,7 @@ class DataSet:
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
             f (function): Function to use to reduce data.
+            dim (int): Input dimension to apply to, defaults to the first input dimension.
 
         Examples:
             &gt;&gt;&gt; dataset.aggregate(5)
@@ -1121,7 +1121,7 @@ class DataSet:
             &gt;&gt;&gt; dataset.aggregate(&#39;2W&#39;, f=np.sum)
         &#34;&#34;&#34;
         for channel in self.channels:
-            channel.aggregate(duration, f)
+            channel.aggregate(duration, f, dim=dim)
 
     def get_input_dims(self):
         &#34;&#34;&#34;
@@ -1214,7 +1214,7 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape (n,input_dims) per channel.
+            list: X data of shape [(n,)] * input_dims per channel.
             list: Y data of shape (n,) per channel.
 
         Examples:
@@ -1230,7 +1230,7 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape (n,input_dims) per channel.
+            list: X data of shape [(n,)] * input_dims per channel.
             list: Y data of shape (n,) per channel.
 
         Examples:
@@ -1246,7 +1246,7 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape (n,input_dims) per channel.
+            list: X data of shape [(n,)] * input_dims per channel.
             list: Y data of shape (n,) per channel.
 
         Examples:
@@ -1259,7 +1259,7 @@ class DataSet:
         Returns the prediction X range for all channels.
 
         Returns:
-            list: X prediction of shape (n,input_dims) per channel.
+            list: X prediction of shape [(n,)] * input_dims per channel.
 
         Examples:
             &gt;&gt;&gt; x = dataset.get_prediction_x()
@@ -1279,7 +1279,7 @@ class DataSet:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            list: X prediction of shape (n,input_dims) per channel.
+            list: X prediction of shape [(n,)] * input_dims per channel.
             list: Y mean prediction of shape (n,) per channel.
             list: Y lower prediction of uncertainty interval of shape (n,) per channel.
             list: Y upper prediction of uncertainty interval of shape (n,) per channel.
@@ -1304,7 +1304,7 @@ class DataSet:
         Set the prediction range directly for saved predictions per channel. This will clear old predictions.
 
         Args:
-            x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
+            x (list, dict): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
             &gt;&gt;&gt; dataset.set_prediction_x([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
@@ -1547,29 +1547,31 @@ class DataSet:
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.dataset.DataSet.aggregate"><code class="name flex">
-<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=&lt;function mean&gt;)</span>
+<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=&lt;function mean&gt;, dim=0)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
+<div class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
 <p>For example, group daily data by week and take the mean. The duration can be set as a number which defined the intervals on the X axis, or by a string written in the duration format in case the X axis has data type <code>numpy.datetime64</code>. The duration format uses: Y=year, M=month, W=week, D=day, h=hour, m=minute, and s=second. For example, 3W1D means three weeks and one day, ie. 22 days, or 6M to mean six months.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>duration</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
+<dt><strong><code>duration</code></strong> :&ensp;<code>float, str</code></dt>
 <dd>Duration along the X axis or as a string in the duration format.</dd>
 <dt><strong><code>f</code></strong> :&ensp;<code>function</code></dt>
 <dd>Function to use to reduce data.</dd>
+<dt><strong><code>dim</code></strong> :&ensp;<code>int</code></dt>
+<dd>Input dimension to apply to, defaults to the first input dimension.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; dataset.aggregate(5)
-
-&gt;&gt;&gt; dataset.aggregate('2W', f=np.sum)
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.aggregate(5)
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.aggregate('2W', f=np.sum)
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L266-L282" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L267-L284" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def aggregate(self, duration, f=np.mean):
+<pre><code class="python">def aggregate(self, duration, f=np.mean, dim=0):
     &#34;&#34;&#34;
     Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -1578,6 +1580,7 @@ class DataSet:
     Args:
         duration (float, str): Duration along the X axis or as a string in the duration format.
         f (function): Function to use to reduce data.
+        dim (int): Input dimension to apply to, defaults to the first input dimension.
 
     Examples:
         &gt;&gt;&gt; dataset.aggregate(5)
@@ -1585,26 +1588,26 @@ class DataSet:
         &gt;&gt;&gt; dataset.aggregate(&#39;2W&#39;, f=np.sum)
     &#34;&#34;&#34;
     for channel in self.channels:
-        channel.aggregate(duration, f)</code></pre>
+        channel.aggregate(duration, f, dim=dim)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.append"><code class="name flex">
 <span>def <span class="ident">append</span></span>(<span>self, arg)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Append channel(s) to the DataSet.</p>
+<div class="desc"><p>Append channel(s) to the DataSet.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>arg</code></strong> :&ensp;<a title="mogptk.data.Data" href="data.html#mogptk.data.Data"><code>Data</code></a>, <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>, <code>list</code>, <code>dict</code></dt>
-<dd>Argument can be either a <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a> or <code>Data</code> object, a list of <code>Data</code> objects or a dictionary of <code>Data</code> objects. Each <code>Data</code> object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a> is passed, its channels will be added.</dd>
+<dt><strong><code>arg</code></strong> :&ensp;<code><a title="mogptk.data.Data" href="data.html#mogptk.data.Data">Data</a>, <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet">DataSet</a>, list, dict</code></dt>
+<dd>Argument can be either a <code><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet">DataSet</a></code> or <code>Data</code> object, a list of <code>Data</code> objects or a dictionary of <code>Data</code> objects. Each <code>Data</code> object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a <code><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet">DataSet</a></code> is passed, its channels will be added.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='A'))
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.append(mogptk.LoadFunction(lambda x: np.sin(5*x[:,0]), n=200, start=0.0, end=4.0, name='A'))
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L182-L206" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L182-L206" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def append(self, arg):
     &#34;&#34;&#34;
@@ -1637,11 +1640,11 @@ class DataSet:
 <span>def <span class="ident">clear_predictions</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Clear all saved predictions for all channels.</p></section>
+<div class="desc"><p>Clear all saved predictions for all channels.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L525-L530" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L527-L532" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clear_predictions(self):
     &#34;&#34;&#34;
@@ -1655,19 +1658,16 @@ class DataSet:
 <span>def <span class="ident">copy</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Make a deep copy of <a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a>.</p>
+<div class="desc"><p>Make a deep copy of <code><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet">DataSet</a></code>.</p>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><a title="mogptk.dataset.DataSet" href="#mogptk.dataset.DataSet"><code>DataSet</code></a></dt>
-<dd>&nbsp;</dd>
-</dl>
+<p>mogptk.dataset.DataSet</p>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; other = dataset.copy()
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; other = dataset.copy()
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L208-L218" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L208-L218" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -1683,34 +1683,37 @@ class DataSet:
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.filter"><code class="name flex">
-<span>def <span class="ident">filter</span></span>(<span>self, start, end)</span>
+<span>def <span class="ident">filter</span></span>(<span>self, start, end, dim=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Filter the data range to be between <code>start</code> and <code>end</code> in the X axis.</p>
+<div class="desc"><p>Filter the data range to be between <code>start</code> and <code>end</code> in the X axis.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>start</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
+<dt><strong><code>start</code></strong> :&ensp;<code>float, str, list</code></dt>
 <dd>Start of interval.</dd>
-<dt><strong><code>end</code></strong> :&ensp;<code>float</code>, <code>str</code></dt>
+<dt><strong><code>end</code></strong> :&ensp;<code>float, str, list</code></dt>
 <dd>End of interval.</dd>
+<dt><strong><code>dim</code></strong> :&ensp;<code>int</code></dt>
+<dd>Input dimension to apply to, if not specified applies to all input dimensions.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; dataset.filter(3, 8)
-
-&gt;&gt;&gt; dataset.filter('2016-01-15', '2016-06-15')
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.filter(3, 8)
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.filter('2016-01-15', '2016-06-15')
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L250-L264" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L250-L265" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def filter(self, start, end):
+<pre><code class="python">def filter(self, start, end, dim=None):
     &#34;&#34;&#34;
     Filter the data range to be between `start` and `end` in the X axis.
 
     Args:
-        start (float, str): Start of interval.
-        end (float, str): End of interval.
+        start (float, str, list): Start of interval.
+        end (float, str, list): End of interval.
+        dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
 
     Examples:
         &gt;&gt;&gt; dataset.filter(3, 8)
@@ -1718,28 +1721,31 @@ class DataSet:
         &gt;&gt;&gt; dataset.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
     &#34;&#34;&#34;
     for channel in self.channels:
-        channel.filter(start, end)</code></pre>
+        channel.filter(start, end, dim=dim)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get"><code class="name flex">
 <span>def <span class="ident">get</span></span>(<span>self, index)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Return Data object given a channel index or name.</p>
+<div class="desc"><p>Return Data object given a channel index or name.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>index</code></strong> :&ensp;<code>int</code>, <code>str</code></dt>
+<dt><strong><code>index</code></strong> :&ensp;<code>int, str</code></dt>
 <dd>Index or name of the channel.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>mogptk.data.Data: Channel data.</p>
+<dl>
+<dt><code><a title="mogptk.data.Data" href="data.html#mogptk.data.Data">Data</a></code></dt>
+<dd>Channel data.</dd>
+</dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; channel = dataset.get('A')
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; channel = dataset.get('A')
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L323-L343" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L325-L345" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get(self, index):
     &#34;&#34;&#34;
@@ -1768,7 +1774,7 @@ class DataSet:
 <span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q=1, n=1000)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.</p>
+<div class="desc"><p>Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
@@ -1778,20 +1784,20 @@ class DataSet:
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Amplitude array of shape (Q,input_dims) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Frequency array of shape (Q,input_dims) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Variance array of shape (Q,input_dims) per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; amplitudes, means, variances = dataset.get_bnse_estimation()
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; amplitudes, means, variances = dataset.get_bnse_estimation()
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L570-L594" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L572-L596" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
     &#34;&#34;&#34;
@@ -1824,26 +1830,23 @@ class DataSet:
 <span>def <span class="ident">get_data</span></span>(<span>self, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns all observations, train and test.</p>
+<div class="desc"><p>Returns all observations, train and test.</p>
 <h2 id="arguments">Arguments</h2>
-<dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
-<dd>Return transformed data.</dd>
-</dl>
+<p>transformed (boolean): Return transformed data.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
-<dd>X data of shape (n,input_dims) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
+<dd>X data of shape [(n,)] * input_dims per channel.</dd>
+<dt><code>list</code></dt>
 <dd>Y data of shape (n,) per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; x, y = dataset.get_data()
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; x, y = dataset.get_data()
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L367-L381" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L369-L383" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -1853,7 +1856,7 @@ class DataSet:
         transformed (boolean): Return transformed data.
 
     Returns:
-        list: X data of shape (n,input_dims) per channel.
+        list: X data of shape [(n,)] * input_dims per channel.
         list: Y data of shape (n,) per channel.
 
     Examples:
@@ -1866,24 +1869,24 @@ class DataSet:
 <span>def <span class="ident">get_index</span></span>(<span>self, index)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Return channel's numeric index given its name.</p>
+<div class="desc"><p>Return channel's numeric index given its name.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>index</code></strong> :&ensp;<code>int</code>, <code>str</code></dt>
+<dt><strong><code>index</code></strong> :&ensp;<code>int, str</code></dt>
 <dd>Index or name of the channel.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>int</code></strong></dt>
+<dt><code>int</code></dt>
 <dd>Channel index.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; channel_index = dataset.get_index('A')
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; channel_index = dataset.get_index('A')
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L345-L365" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L347-L367" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_index(self, index):
     &#34;&#34;&#34;
@@ -1912,20 +1915,20 @@ class DataSet:
 <span>def <span class="ident">get_input_dims</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Return the input dimensions per channel.</p>
+<div class="desc"><p>Return the input dimensions per channel.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>List of the number of input dimensions per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; dataset.get_input_dims()
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.get_input_dims()
 [2, 1]
-</code></pre></section>
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L284-L295" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L286-L297" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -1945,7 +1948,7 @@ class DataSet:
 <span>def <span class="ident">get_lombscargle_estimation</span></span>(<span>self, Q=1, n=10000)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Peak estimation of the spectrum using Lomb-Scargle per channel.</p>
+<div class="desc"><p>Peak estimation of the spectrum using Lomb-Scargle per channel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
@@ -1955,20 +1958,20 @@ class DataSet:
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Amplitude array of shape (Q,input_dims) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Frequency array of shape (Q,input_dims) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Variance array of shape (Q,input_dims) per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; amplitudes, means, variances = dataset.get_lombscargle_estimation()
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; amplitudes, means, variances = dataset.get_lombscargle_estimation()
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L544-L568" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L546-L570" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
@@ -2001,20 +2004,20 @@ class DataSet:
 <span>def <span class="ident">get_names</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Return the names of the channels.</p>
+<div class="desc"><p>Return the names of the channels.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>List of channel names.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; dataset.get_names()
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.get_names()
 ['A', 'B', 'C']
-</code></pre></section>
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L310-L321" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L312-L323" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_names(self):
     &#34;&#34;&#34;
@@ -2034,19 +2037,19 @@ class DataSet:
 <span>def <span class="ident">get_nyquist_estimation</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Estimate the Nyquist frequency by taking 0.5/(minimum distance of points) per channel.</p>
+<div class="desc"><p>Estimate the Nyquist frequency by taking 0.5/(minimum distance of points) per channel.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Nyquist frequency array of shape (input_dims) per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; freqs = dataset.get_nyquist_estimation()
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; freqs = dataset.get_nyquist_estimation()
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L532-L542" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L534-L544" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -2065,23 +2068,20 @@ class DataSet:
 <span>def <span class="ident">get_output_dims</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Return the output dimensions of the dataset, i.e. the number of channels.</p>
+<div class="desc"><p>Return the output dimensions of the dataset, i.e. the number of channels.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>int</code></strong></dt>
+<dt><code>int</code></dt>
 <dd>Number of output dimensions.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; dataset.get_output_dims()
-**`4`**
-</code></pre>
-<dl>
-<dd>&nbsp;</dd>
-</dl></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.get_output_dims()
+4
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L297-L308" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L299-L310" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_output_dims(self):
     &#34;&#34;&#34;
@@ -2101,7 +2101,7 @@ class DataSet:
 <span>def <span class="ident">get_prediction</span></span>(<span>self, name, sigma=2.0, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the prediction of a given name with a confidence interval of <code>sigma</code> times the standard deviation.</p>
+<div class="desc"><p>Returns the prediction of a given name with a confidence interval of <code>sigma</code> times the standard deviation.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -2113,22 +2113,22 @@ class DataSet:
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
-<dd>X prediction of shape (n,input_dims) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
+<dd>X prediction of shape [(n,)] * input_dims per channel.</dd>
+<dt><code>list</code></dt>
 <dd>Y mean prediction of shape (n,) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Y lower prediction of uncertainty interval of shape (n,) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Y upper prediction of uncertainty interval of shape (n,) per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = dataset.get_prediction('MOSM', sigma=1)
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = dataset.get_prediction('MOSM', sigma=1)
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L430-L458" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L432-L460" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction(self, name, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -2140,7 +2140,7 @@ class DataSet:
         transformed (boolean): Return transformed data as used for training.
 
     Returns:
-        list: X prediction of shape (n,input_dims) per channel.
+        list: X prediction of shape [(n,)] * input_dims per channel.
         list: Y mean prediction of shape (n,) per channel.
         list: Y lower prediction of uncertainty interval of shape (n,) per channel.
         list: Y upper prediction of uncertainty interval of shape (n,) per channel.
@@ -2165,26 +2165,26 @@ class DataSet:
 <span>def <span class="ident">get_prediction_x</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the prediction X range for all channels.</p>
+<div class="desc"><p>Returns the prediction X range for all channels.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
-<dd>X prediction of shape (n,input_dims) per channel.</dd>
+<dt><code>list</code></dt>
+<dd>X prediction of shape [(n,)] * input_dims per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; x = dataset.get_prediction_x()
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; x = dataset.get_prediction_x()
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L415-L428" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L417-L430" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_x(self):
     &#34;&#34;&#34;
     Returns the prediction X range for all channels.
 
     Returns:
-        list: X prediction of shape (n,input_dims) per channel.
+        list: X prediction of shape [(n,)] * input_dims per channel.
 
     Examples:
         &gt;&gt;&gt; x = dataset.get_prediction_x()
@@ -2199,7 +2199,7 @@ class DataSet:
 <span>def <span class="ident">get_sm_estimation</span></span>(<span>self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Peak estimation of the spectrum using the spectral mixture kernel per channel.</p>
+<div class="desc"><p>Peak estimation of the spectrum using the spectral mixture kernel per channel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
@@ -2217,20 +2217,20 @@ class DataSet:
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Amplitude array of shape (Q,input_dims) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Frequency array of shape (Q,input_dims) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
 <dd>Variance array of shape (Q,input_dims) per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; amplitudes, means, variances = dataset.get_sm_estimation()
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; amplitudes, means, variances = dataset.get_sm_estimation()
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L596-L624" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L598-L626" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
     &#34;&#34;&#34;
@@ -2267,26 +2267,23 @@ class DataSet:
 <span>def <span class="ident">get_test_data</span></span>(<span>self, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns the observations used for testing which correspond to the removed points.</p>
+<div class="desc"><p>Returns the observations used for testing which correspond to the removed points.</p>
 <h2 id="arguments">Arguments</h2>
-<dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
-<dd>Return transformed data.</dd>
-</dl>
+<p>transformed (boolean): Return transformed data.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
-<dd>X data of shape (n,input_dims) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
+<dd>X data of shape [(n,)] * input_dims per channel.</dd>
+<dt><code>list</code></dt>
 <dd>Y data of shape (n,) per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; x, y = dataset.get_test_data()
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; x, y = dataset.get_test_data()
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L399-L413" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L401-L415" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2296,7 +2293,7 @@ class DataSet:
         transformed (boolean): Return transformed data.
 
     Returns:
-        list: X data of shape (n,input_dims) per channel.
+        list: X data of shape [(n,)] * input_dims per channel.
         list: Y data of shape (n,) per channel.
 
     Examples:
@@ -2309,26 +2306,23 @@ class DataSet:
 <span>def <span class="ident">get_train_data</span></span>(<span>self, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Returns observations used for training.</p>
+<div class="desc"><p>Returns observations used for training.</p>
 <h2 id="arguments">Arguments</h2>
-<dl>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
-<dd>Return transformed data.</dd>
-</dl>
+<p>transformed (boolean): Return transformed data.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>list</code></strong></dt>
-<dd>X data of shape (n,input_dims) per channel.</dd>
-<dt><strong><code>list</code></strong></dt>
+<dt><code>list</code></dt>
+<dd>X data of shape [(n,)] * input_dims per channel.</dd>
+<dt><code>list</code></dt>
 <dd>Y data of shape (n,) per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; x, y = dataset.get_train_data()
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; x, y = dataset.get_train_data()
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L383-L397" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L385-L399" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2338,7 +2332,7 @@ class DataSet:
         transformed (boolean): Return transformed data.
 
     Returns:
-        list: X data of shape (n,input_dims) per channel.
+        list: X data of shape [(n,)] * input_dims per channel.
         list: Y data of shape (n,) per channel.
 
     Examples:
@@ -2351,7 +2345,7 @@ class DataSet:
 <span>def <span class="ident">plot</span></span>(<span>self, pred=None, title=None, figsize=None, legend=True, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Plot the data including removed observations, latent function, and predictions for each channel.</p>
+<div class="desc"><p>Plot the data including removed observations, latent function, and predictions for each channel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>pred</code></strong> :&ensp;<code>str</code></dt>
@@ -2366,15 +2360,19 @@ class DataSet:
 <dd>Display transformed Y data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>matplotlib.figure.Figure: The figure.
-list of matplotlib.axes.Axes: List of axes.</p>
+<dl>
+<dt><code>matplotlib.figure.Figure</code></dt>
+<dd>The figure.</dd>
+<dt><code>list</code> of <code>matplotlib.axes.Axes</code></dt>
+<dd>List of axes.</dd>
+</dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; fig, axes = dataset.plot(title='Title')
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; fig, axes = dataset.plot(title='Title')
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L626-L666" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L628-L668" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
     &#34;&#34;&#34;
@@ -2423,16 +2421,16 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <span>def <span class="ident">plot_spectrum</span></span>(<span>self, title=None, method='ls', per=None, maxfreq=None, figsize=None, transformed=False)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Plot the spectrum for each channel.</p>
+<div class="desc"><p>Plot the spectrum for each channel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
 <dd>Set the title of the plot.</dd>
-<dt><strong><code>method</code></strong> :&ensp;<code>list</code>, <code>str</code></dt>
+<dt><strong><code>method</code></strong> :&ensp;<code>list, str</code></dt>
 <dd>Set the method to get the spectrum such as LS or BNSE.</dd>
-<dt><strong><code>per</code></strong> :&ensp;<code>list</code>, <code>str</code></dt>
+<dt><strong><code>per</code></strong> :&ensp;<code>list, str</code></dt>
 <dd>Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.</dd>
-<dt><strong><code>maxfreq</code></strong> :&ensp;<code>list</code>, <code>float</code></dt>
+<dt><strong><code>maxfreq</code></strong> :&ensp;<code>list, float</code></dt>
 <dd>Maximum frequency to plot, otherwise the Nyquist frequency is used.</dd>
 <dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code></dt>
 <dd>Set the figure size.</dd>
@@ -2440,15 +2438,19 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <dd>Display transformed Y data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>matplotlib.figure.Figure: The figure.
-list of matplotlib.axes.Axes: List of axes.</p>
+<dl>
+<dt><code>matplotlib.figure.Figure</code></dt>
+<dd>The figure.</dd>
+<dt><code>list</code> of <code>matplotlib.axes.Axes</code></dt>
+<dd>List of axes.</dd>
+</dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; fig, axes = dataset.plot_spectrum(title='Title', method='bnse')
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; fig, axes = dataset.plot_spectrum(title='Title', method='bnse')
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L668-L703" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L670-L705" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, transformed=False):
     &#34;&#34;&#34;
@@ -2492,19 +2494,19 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <span>def <span class="ident">rescale_x</span></span>(<span>self, upper=1000.0)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Rescale the X axis so that it is in the interval [0.0,upper] for each channel. This helps training most kernels.</p>
+<div class="desc"><p>Rescale the X axis so that it is in the interval [0.0,upper] for each channel. This helps training most kernels.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>upper</code></strong> :&ensp;<code>float</code></dt>
 <dd>Upper end of the interval.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; dataset.rescale_x()
-</code></pre></section>
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.rescale_x()
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L220-L231" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L220-L231" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def rescale_x(self, upper=1000.0):
     &#34;&#34;&#34;
@@ -2524,26 +2526,26 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <span>def <span class="ident">set_prediction_range</span></span>(<span>self, start, end, n=None, step=None)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Set the prediction range per channel. Inputs should be lists of shape (input_dims,) for each channel or dicts where the keys are the channel indices.</p>
+<div class="desc"><p>Set the prediction range per channel. Inputs should be lists of shape (input_dims,) for each channel or dicts where the keys are the channel indices.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>start</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
+<dt><strong><code>start</code></strong> :&ensp;<code>list, dict</code></dt>
 <dd>Start values for prediction range per channel.</dd>
-<dt><strong><code>end</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
+<dt><strong><code>end</code></strong> :&ensp;<code>list, dict</code></dt>
 <dd>End values for prediction range per channel.</dd>
-<dt><strong><code>n</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
+<dt><strong><code>n</code></strong> :&ensp;<code>list, dict</code></dt>
 <dd>Number of points for prediction range per channel.</dd>
-<dt><strong><code>step</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
+<dt><strong><code>step</code></strong> :&ensp;<code>list, dict</code></dt>
 <dd>Step size for prediction range per channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; dataset.set_prediction_range([2, 3], [5, 6], [4, None], [None, 0.5])
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.set_prediction_range([2, 3], [5, 6], [4, None], [None, 0.5])
 &gt;&gt;&gt; dataset.set_prediction_range(0.0, 5.0, n=200) # the same for each channel
-</code></pre></section>
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L484-L523" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L486-L525" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start, end, n=None, step=None):
     &#34;&#34;&#34;
@@ -2591,27 +2593,27 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <span>def <span class="ident">set_prediction_x</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Set the prediction range directly for saved predictions per channel. This will clear old predictions.</p>
+<div class="desc"><p>Set the prediction range directly for saved predictions per channel. This will clear old predictions.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>x</code></strong> :&ensp;<code>list</code>, <code>dict</code></dt>
-<dd>Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
+<dt><strong><code>x</code></strong> :&ensp;<code>list, dict</code></dt>
+<dd>Array of shape (n,), (n,input_dims), or [(n,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; dataset.set_prediction_x([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.set_prediction_x([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
 &gt;&gt;&gt; dataset.set_prediction_x({'A': [5.0, 5.5, 6.0, 6.5, 7.0], 'B': [0.1, 0.2, 0.3]})
-</code></pre></section>
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L460-L482" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L462-L484" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_x(self, x):
     &#34;&#34;&#34;
     Set the prediction range directly for saved predictions per channel. This will clear old predictions.
 
     Args:
-        x (list, dict): Array of shape (n,) or (n,input_dims) per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
+        x (list, dict): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
     Examples:
         &gt;&gt;&gt; dataset.set_prediction_x([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
@@ -2635,23 +2637,23 @@ list of matplotlib.axes.Axes: List of axes.</p>
 <span>def <span class="ident">transform</span></span>(<span>self, transformer)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Transform each channel by using one of the provided transformers, such as <code>TransformDetrend</code>, <code>TransformLinear</code>, <code>TransformLog</code>, <code>TransformNormalize</code>, <code>TransformStandard</code>, etc.</p>
+<div class="desc"><p>Transform each channel by using one of the provided transformers, such as <code>TransformDetrend</code>, <code>TransformLinear</code>, <code>TransformLog</code>, <code>TransformNormalize</code>, <code>TransformStandard</code>, etc.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>transformer</code></strong> :&ensp;<code>obj</code></dt>
 <dd>Transformer object derived from TransformBase.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code>&gt;&gt;&gt; dataset.transform(mogptk.TransformDetrend(degree=2))        # remove polynomial trend
+<pre><code class="language-python-repl">&gt;&gt;&gt; dataset.transform(mogptk.TransformDetrend(degree=2))        # remove polynomial trend
 &gt;&gt;&gt; dataset.transform(mogptk.TransformLinear(slope=1, bias=2))  # remove linear trend
 &gt;&gt;&gt; dataset.transform(mogptk.TransformLog)                      # log transform the data
 &gt;&gt;&gt; dataset.transform(mogptk.TransformNormalize)                # transform to [-1,1]
 &gt;&gt;&gt; dataset.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
-</code></pre></section>
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/dataset.py#L233-L248" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/dataset.py#L233-L248" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;
@@ -2731,9 +2733,7 @@ list of matplotlib.axes.Axes: List of axes.</p>
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.7.4</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
 </footer>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
-<script>hljs.initHighlightingOnLoad()</script>
 </body>
 </html>

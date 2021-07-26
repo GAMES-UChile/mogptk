@@ -3,16 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.7.4" />
+<meta name="generator" content="pdoc 0.9.2" />
 <title>mogptk.gpr.model API documentation</title>
 <meta name="description" content="" />
-<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
-<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
-<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
-<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
-<script async src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_CHTML'></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
 <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
 </head>
 <body>
@@ -25,15 +27,27 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L0-L229" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L0-L256" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">import torch
+<pre><code class="python">import sys
+import torch
 import numpy as np
 from IPython.display import display, HTML
 from . import Parameter, Mean, Kernel, config
+from functools import reduce
+import operator
+
+def prod(iterable):
+    return reduce(operator.mul, iterable, 1)
 
 class CholeskyException(Exception):
-    pass
+    def __init__(self, message, K, model):
+        self.message = message
+        self.K = K
+        self.model = model
+
+    def __str__(self):
+        return self.message
 
 class Model:
     def __init__(self, kernel, X, y, mean=None, name=None):
@@ -130,49 +144,63 @@ class Model:
             if p.trainable:
                 yield p.unconstrained
     
-    def print_parameters(self):
+    def print_parameters(self, file=None):
         def param_range(lower, upper, trainable=True):
+            if lower is not None:
+                if prod(lower.shape) == 1:
+                    lower = lower.item()
+                else:
+                    lower = lower.tolist()
+            if upper is not None:
+                if prod(upper.shape) == 1:
+                    upper = upper.item()
+                else:
+                    upper = upper.tolist()
+
             if not trainable:
                 return &#34;fixed&#34;
             if lower is None and upper is None:
-                return &#34;(-∞,∞)&#34;
+                return &#34;(-∞, ∞)&#34;
             elif lower is None:
-                return &#34;(-∞,%s]&#34; % upper.tolist()
+                return &#34;(-∞, %s]&#34; % upper
             elif upper is None:
-                return &#34;[%s,∞)&#34; % lower.tolist()
-            return &#34;[%s,%s]&#34; % (lower.tolist(),upper.tolist())
+                return &#34;[%s, ∞)&#34; % lower
+            return &#34;[%s, %s]&#34; % (lower, upper)
 
-        try:
-            get_ipython  # fails if we&#39;re not in a notebook
-            table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th style=&#34;text-align:left&#34;&gt;Name&lt;/th&gt;&lt;th&gt;Range&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
-            for name, p in zip(self._param_names, self._params):
-                table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
-            table += &#39;&lt;/table&gt;&#39;
-            display(HTML(table))
-        except Exception as e:
-            vals = [[&#34;Name&#34;, &#34;Range&#34;, &#34;Value&#34;]]
-            for name, p in zip(self._param_names, self._params):
-                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
+        if file is None:
+            try:
+                get_ipython  # fails if we&#39;re not in a notebook
+                table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th style=&#34;text-align:left&#34;&gt;Name&lt;/th&gt;&lt;th&gt;Range&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
+                for name, p in zip(self._param_names, self._params):
+                    table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
+                table += &#39;&lt;/table&gt;&#39;
+                display(HTML(table))
+                return
+            except Exception as e:
+                pass
 
-            nameWidth = max([len(val[0]) for val in vals])
-            rangeWidth = max([len(val[1]) for val in vals])
-            for val in vals:
-                print(&#34;%-*s  %-*s  %s&#34; % (nameWidth, val[0], rangeWidth, val[1], val[2]))
+        vals = [[&#34;Name&#34;, &#34;Range&#34;, &#34;Value&#34;]]
+        for name, p in zip(self._param_names, self._params):
+            vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
+
+        nameWidth = max([len(val[0]) for val in vals])
+        rangeWidth = max([len(val[1]) for val in vals])
+        for val in vals:
+            print(&#34;%-*s  %-*s  %s&#34; % (nameWidth, val[0], rangeWidth, val[1], val[2]), file=file)
 
     def _cholesky(self, K):
         try:
             return torch.cholesky(K)
         except RuntimeError as e:
-            print()
-            print(&#34;ERROR:&#34;, e.args[0])
-            print(&#34;K =&#34;, K)
+            print(&#34;ERROR:&#34;, e.args[0], file=sys.__stdout__)
+            print(&#34;K =&#34;, K, file=sys.__stdout__)
             if K.isnan().any():
-                print(&#34;Kernel matrix has NaNs!&#34;)
+                print(&#34;Kernel matrix has NaNs!&#34;, file=sys.__stdout__)
             if K.isinf().any():
-                print(&#34;Kernel matrix has infinities!&#34;)
-            print(&#34;Parameters:&#34;)
-            self.print_parameters()
-            raise CholeskyException
+                print(&#34;Kernel matrix has infinities!&#34;, file=sys.__stdout__)
+            print(&#34;Parameters:&#34;, file=sys.__stdout__)
+            self.print_parameters(file=sys.__stdout__)
+            raise CholeskyException(e.args[0], K, self)
 
     def log_marginal_likelihood(self):
         raise NotImplementedError()
@@ -216,10 +244,11 @@ class GPR(Model):
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
 
         self.noise = Parameter(noise, name=&#34;noise&#34;, lower=config.positive_minimum)
+        self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self._register_parameters(self.noise)
 
     def log_marginal_likelihood(self):
-        K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)  # NxN
+        K = self.kernel(self.X) + self.noise()*self.eye # NxN
         L = self._cholesky(K)  # NxN
 
         if self.mean is not None:
@@ -236,7 +265,7 @@ class GPR(Model):
         with torch.no_grad():
             Z = self._check_input(Z)  # MxD
 
-            K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)  # NxN
+            K = self.kernel(self.X) + self.noise()*self.eye # NxN
             Ks = self.kernel(self.X,Z)  # NxM
             Kss = self.kernel(Z) + self.noise()*torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)  # MxM
 
@@ -264,23 +293,46 @@ class GPR(Model):
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="mogptk.gpr.model.prod"><code class="name flex">
+<span>def <span class="ident">prod</span></span>(<span>iterable)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L9-L10" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def prod(iterable):
+    return reduce(operator.mul, iterable, 1)</code></pre>
+</details>
+</dd>
+</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
 <dt id="mogptk.gpr.model.CholeskyException"><code class="flex name class">
 <span>class <span class="ident">CholeskyException</span></span>
-<span>(</span><span>...)</span>
+<span>(</span><span>message, K, model)</span>
 </code></dt>
 <dd>
-<section class="desc"><p>Common base class for all non-exit exceptions.</p></section>
+<div class="desc"><p>Common base class for all non-exit exceptions.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L6-L7" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L12-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CholeskyException(Exception):
-    pass</code></pre>
+    def __init__(self, message, K, model):
+        self.message = message
+        self.K = K
+        self.model = model
+
+    def __str__(self):
+        return self.message</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -293,11 +345,11 @@ class GPR(Model):
 <span>(</span><span>kernel, X, y, noise=1.0, mean=None, name='GPR')</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L183-L230" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L209-L257" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GPR(Model):
     def __init__(self, kernel, X, y, noise=1.0, mean=None, name=&#34;GPR&#34;):
@@ -306,10 +358,11 @@ class GPR(Model):
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
 
         self.noise = Parameter(noise, name=&#34;noise&#34;, lower=config.positive_minimum)
+        self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self._register_parameters(self.noise)
 
     def log_marginal_likelihood(self):
-        K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)  # NxN
+        K = self.kernel(self.X) + self.noise()*self.eye # NxN
         L = self._cholesky(K)  # NxN
 
         if self.mean is not None:
@@ -326,7 +379,7 @@ class GPR(Model):
         with torch.no_grad():
             Z = self._check_input(Z)  # MxD
 
-            K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)  # NxN
+            K = self.kernel(self.X) + self.noise()*self.eye # NxN
             Ks = self.kernel(self.X,Z)  # NxM
             Kss = self.kernel(Z) + self.noise()*torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)  # MxM
 
@@ -358,14 +411,14 @@ class GPR(Model):
 <span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L192-L204" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L219-L231" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
-    K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)  # NxN
+    K = self.kernel(self.X) + self.noise()*self.eye # NxN
     L = self._cholesky(K)  # NxN
 
     if self.mean is not None:
@@ -383,17 +436,17 @@ class GPR(Model):
 <span>def <span class="ident">predict</span></span>(<span>self, Z, full=False, tensor=False)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L206-L230" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L233-L257" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Z, full=False, tensor=False):
     with torch.no_grad():
         Z = self._check_input(Z)  # MxD
 
-        K = self.kernel(self.X) + self.noise()*torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)  # NxN
+        K = self.kernel(self.X) + self.noise()*self.eye # NxN
         Ks = self.kernel(self.X,Z)  # NxM
         Kss = self.kernel(Z) + self.noise()*torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)  # MxM
 
@@ -423,11 +476,11 @@ class GPR(Model):
 <span>(</span><span>kernel, X, y, mean=None, name=None)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L9-L181" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L21-L207" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, kernel, X, y, mean=None, name=None):
@@ -524,49 +577,63 @@ class GPR(Model):
             if p.trainable:
                 yield p.unconstrained
     
-    def print_parameters(self):
+    def print_parameters(self, file=None):
         def param_range(lower, upper, trainable=True):
+            if lower is not None:
+                if prod(lower.shape) == 1:
+                    lower = lower.item()
+                else:
+                    lower = lower.tolist()
+            if upper is not None:
+                if prod(upper.shape) == 1:
+                    upper = upper.item()
+                else:
+                    upper = upper.tolist()
+
             if not trainable:
                 return &#34;fixed&#34;
             if lower is None and upper is None:
-                return &#34;(-∞,∞)&#34;
+                return &#34;(-∞, ∞)&#34;
             elif lower is None:
-                return &#34;(-∞,%s]&#34; % upper.tolist()
+                return &#34;(-∞, %s]&#34; % upper
             elif upper is None:
-                return &#34;[%s,∞)&#34; % lower.tolist()
-            return &#34;[%s,%s]&#34; % (lower.tolist(),upper.tolist())
+                return &#34;[%s, ∞)&#34; % lower
+            return &#34;[%s, %s]&#34; % (lower, upper)
 
-        try:
-            get_ipython  # fails if we&#39;re not in a notebook
-            table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th style=&#34;text-align:left&#34;&gt;Name&lt;/th&gt;&lt;th&gt;Range&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
-            for name, p in zip(self._param_names, self._params):
-                table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
-            table += &#39;&lt;/table&gt;&#39;
-            display(HTML(table))
-        except Exception as e:
-            vals = [[&#34;Name&#34;, &#34;Range&#34;, &#34;Value&#34;]]
-            for name, p in zip(self._param_names, self._params):
-                vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
+        if file is None:
+            try:
+                get_ipython  # fails if we&#39;re not in a notebook
+                table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th style=&#34;text-align:left&#34;&gt;Name&lt;/th&gt;&lt;th&gt;Range&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
+                for name, p in zip(self._param_names, self._params):
+                    table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
+                table += &#39;&lt;/table&gt;&#39;
+                display(HTML(table))
+                return
+            except Exception as e:
+                pass
 
-            nameWidth = max([len(val[0]) for val in vals])
-            rangeWidth = max([len(val[1]) for val in vals])
-            for val in vals:
-                print(&#34;%-*s  %-*s  %s&#34; % (nameWidth, val[0], rangeWidth, val[1], val[2]))
+        vals = [[&#34;Name&#34;, &#34;Range&#34;, &#34;Value&#34;]]
+        for name, p in zip(self._param_names, self._params):
+            vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
+
+        nameWidth = max([len(val[0]) for val in vals])
+        rangeWidth = max([len(val[1]) for val in vals])
+        for val in vals:
+            print(&#34;%-*s  %-*s  %s&#34; % (nameWidth, val[0], rangeWidth, val[1], val[2]), file=file)
 
     def _cholesky(self, K):
         try:
             return torch.cholesky(K)
         except RuntimeError as e:
-            print()
-            print(&#34;ERROR:&#34;, e.args[0])
-            print(&#34;K =&#34;, K)
+            print(&#34;ERROR:&#34;, e.args[0], file=sys.__stdout__)
+            print(&#34;K =&#34;, K, file=sys.__stdout__)
             if K.isnan().any():
-                print(&#34;Kernel matrix has NaNs!&#34;)
+                print(&#34;Kernel matrix has NaNs!&#34;, file=sys.__stdout__)
             if K.isinf().any():
-                print(&#34;Kernel matrix has infinities!&#34;)
-            print(&#34;Parameters:&#34;)
-            self.print_parameters()
-            raise CholeskyException
+                print(&#34;Kernel matrix has infinities!&#34;, file=sys.__stdout__)
+            print(&#34;Parameters:&#34;, file=sys.__stdout__)
+            self.print_parameters(file=sys.__stdout__)
+            raise CholeskyException(e.args[0], K, self)
 
     def log_marginal_likelihood(self):
         raise NotImplementedError()
@@ -613,11 +680,11 @@ class GPR(Model):
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L160-L165" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L186-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     with torch.no_grad():
@@ -631,11 +698,11 @@ class GPR(Model):
 <span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L148-L149" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L174-L175" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     raise NotImplementedError()</code></pre>
@@ -645,11 +712,11 @@ class GPR(Model):
 <span>def <span class="ident">log_prior</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L151-L152" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L177-L178" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     return sum([p.log_prior() for p in self._params])</code></pre>
@@ -659,11 +726,11 @@ class GPR(Model):
 <span>def <span class="ident">loss</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L154-L158" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L180-L184" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     self.zero_grad()
@@ -676,11 +743,11 @@ class GPR(Model):
 <span>def <span class="ident">parameters</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L99-L102" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L111-L114" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def parameters(self):
     for p in self._params:
@@ -689,54 +756,69 @@ class GPR(Model):
 </details>
 </dd>
 <dt id="mogptk.gpr.model.Model.print_parameters"><code class="name flex">
-<span>def <span class="ident">print_parameters</span></span>(<span>self)</span>
+<span>def <span class="ident">print_parameters</span></span>(<span>self, file=None)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L104-L131" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L116-L158" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def print_parameters(self):
+<pre><code class="python">def print_parameters(self, file=None):
     def param_range(lower, upper, trainable=True):
+        if lower is not None:
+            if prod(lower.shape) == 1:
+                lower = lower.item()
+            else:
+                lower = lower.tolist()
+        if upper is not None:
+            if prod(upper.shape) == 1:
+                upper = upper.item()
+            else:
+                upper = upper.tolist()
+
         if not trainable:
             return &#34;fixed&#34;
         if lower is None and upper is None:
-            return &#34;(-∞,∞)&#34;
+            return &#34;(-∞, ∞)&#34;
         elif lower is None:
-            return &#34;(-∞,%s]&#34; % upper.tolist()
+            return &#34;(-∞, %s]&#34; % upper
         elif upper is None:
-            return &#34;[%s,∞)&#34; % lower.tolist()
-        return &#34;[%s,%s]&#34; % (lower.tolist(),upper.tolist())
+            return &#34;[%s, ∞)&#34; % lower
+        return &#34;[%s, %s]&#34; % (lower, upper)
 
-    try:
-        get_ipython  # fails if we&#39;re not in a notebook
-        table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th style=&#34;text-align:left&#34;&gt;Name&lt;/th&gt;&lt;th&gt;Range&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
-        for name, p in zip(self._param_names, self._params):
-            table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
-        table += &#39;&lt;/table&gt;&#39;
-        display(HTML(table))
-    except Exception as e:
-        vals = [[&#34;Name&#34;, &#34;Range&#34;, &#34;Value&#34;]]
-        for name, p in zip(self._param_names, self._params):
-            vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
+    if file is None:
+        try:
+            get_ipython  # fails if we&#39;re not in a notebook
+            table = &#39;&lt;table&gt;&lt;tr&gt;&lt;th style=&#34;text-align:left&#34;&gt;Name&lt;/th&gt;&lt;th&gt;Range&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&#39;
+            for name, p in zip(self._param_names, self._params):
+                table += &#39;&lt;tr&gt;&lt;td style=&#34;text-align:left&#34;&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;&#39; % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
+            table += &#39;&lt;/table&gt;&#39;
+            display(HTML(table))
+            return
+        except Exception as e:
+            pass
 
-        nameWidth = max([len(val[0]) for val in vals])
-        rangeWidth = max([len(val[1]) for val in vals])
-        for val in vals:
-            print(&#34;%-*s  %-*s  %s&#34; % (nameWidth, val[0], rangeWidth, val[1], val[2]))</code></pre>
+    vals = [[&#34;Name&#34;, &#34;Range&#34;, &#34;Value&#34;]]
+    for name, p in zip(self._param_names, self._params):
+        vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
+
+    nameWidth = max([len(val[0]) for val in vals])
+    rangeWidth = max([len(val[1]) for val in vals])
+    for val in vals:
+        print(&#34;%-*s  %-*s  %s&#34; % (nameWidth, val[0], rangeWidth, val[1], val[2]), file=file)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.gpr.model.Model.sample"><code class="name flex">
 <span>def <span class="ident">sample</span></span>(<span>self, Z, n=None)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L167-L181" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L193-L207" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, Z, n=None):
     with torch.no_grad():
@@ -759,11 +841,11 @@ class GPR(Model):
 <span>def <span class="ident">zero_grad</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<section class="desc"></section>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2258f29e0690dd779a19b1f4472d290dc59ab6d2/mogptk/gpr/model.py#L89-L97" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/gpr/model.py#L101-L109" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def zero_grad(self):
     for p in self._params:
@@ -790,6 +872,11 @@ class GPR(Model):
 <li><h3>Super-module</h3>
 <ul>
 <li><code><a title="mogptk.gpr" href="index.html">mogptk.gpr</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="mogptk.gpr.model.prod" href="#mogptk.gpr.model.prod">prod</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -823,9 +910,7 @@ class GPR(Model):
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.7.4</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
 </footer>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
-<script>hljs.initHighlightingOnLoad()</script>
 </body>
 </html>

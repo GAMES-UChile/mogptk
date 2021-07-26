@@ -42,7 +42,7 @@ The transformation classes allow transforming the dependent data (Y axis) to be 
 - **backward(y, x=None)** returns y: does a backward transformation (invert) where x has shape (n,input\_dims) and y has shape (n,)
 
 ## Using the GPU
-If a GPU is available through CUDA it will be automatically used in tensor calculations, and may speed up training significantly. To get more information about whether CUDA is supported or which GPU is used, as well as more control over which CPU or GPU to use, see [mogptk.gpr.config](https://games-uchile.github.io/mogptk/gpr/config.html) whose functions can be accessed through the main MOGPTK namespace (e.g. `mogptk.print_gpu_information()` or `mogptk.use_gpu()`).
+If a GPU is available through CUDA it will be automatically used in tensor calculations, and may speed up training significantly. To get more information about whether CUDA is supported or which GPU is used, as well as more control over which CPU or GPU to use, see [mogptk.gpr.config](https://games-uchile.github.io/mogptk/gpr/config.html).
 
 ## Advice on training 
 
