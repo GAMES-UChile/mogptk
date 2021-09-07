@@ -395,8 +395,8 @@ class Data:
         
             >>> data.filter('2016-01-15', '2016-06-15')
         """
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
         
         if dim is not None:
             ind = np.logical_and(self.X[dim] >= start[dim], self.X[dim] < end[dim])
@@ -595,8 +595,8 @@ class Data:
         if end is None:
             end = [np.max(x) for x in self.X]
 
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
 
         if dim is not None:
             mask = np.logical_and(self.X[dim] >= start[dim], self.X[dim] < end[dim])
@@ -618,8 +618,8 @@ class Data:
             end (float): End percentage in interval [0,1].
             dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
         """
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
 
         x_min = [np.min(x) for x in self.X]
         x_max = [np.max(x) for x in self.X]
@@ -780,17 +780,22 @@ class Data:
             >>> data.set_prediction_range(3, 8, 200)
         
             >>> data = mogptk.LoadCSV('gold.csv', 'Date', 'Price')
-            >>> data.set_prediction_range('2016-01-15', '2016-06-15', step='1d')
+            >>> data.set_prediction_range('2016-01-15', '2016-06-15', step='1D')
         """
         if start is None:
             start = [x[0] for x in self.X]
         if end is None:
             start = [x[-1] for x in self.X]
         
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
         n = self._normalize_val(n)
         step = self._normalize_val(step)
+        for i in range(self.get_input_dims()):
+            if n is not None and not isinstance(n[i], int):
+                raise ValueError("n must be integer")
+            if step is not None and np.issubdtype(self.X[i].dtype, np.datetime64):
+                step[i] = _parse_delta(step[i])
 
         if np.any(end <= start):
             raise ValueError("start must be lower than end")
@@ -867,7 +872,7 @@ class Data:
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
             x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
-            freq = np.linspace(0, nyquist[i], n+1)[1:]
+            freq = np.linspace(0.0, nyquist[i], n+1)[1:]
             psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, freq)
 
             ind, _ = signal.find_peaks(psd)
@@ -1079,8 +1084,8 @@ class Data:
                 (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
             ))
 
-        xmin = min(self.X[0].min(), self.X_pred[0].min())
-        xmax = max(self.X[0].max(), self.X_pred[0].max())
+        xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
+        xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
         ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
         ax.set_xlabel(self.X_labels[0])
@@ -1094,7 +1099,7 @@ class Data:
         if fig is not None:
             return fig, ax
 
-    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, transformed=False):
+    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, transformed=True):
         """
         Plot the spectrum of the data.
 
@@ -1180,7 +1185,7 @@ class Data:
         return ax
 
     def _normalize_val(self, val):
-        # normalize input values for X axis, that is: expand to input_dims if a single value, convert values to appropriate dtype
+        # normalize input values, that is: expand to input_dims if a single value
         if val is None:
             return val
         if isinstance(val, np.ndarray):
@@ -1192,7 +1197,11 @@ class Data:
             val = [val] * self.get_input_dims()
         if len(val) != self.get_input_dims():
             raise ValueError("value must be a scalar or a list of values for each input dimension")
+        return val
 
+    def _normalize_x_val(self, val):
+        # normalize input values for X axis, that is: expand to input_dims if a single value, convert values to appropriate dtype
+        val = self._normalize_val(val)
         for i in range(self.get_input_dims()):
             try:
                 val[i] = self.X[i].dtype.type(val[i])

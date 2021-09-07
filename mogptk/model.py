@@ -219,7 +219,7 @@ class Model:
             method = 'AdaGrad'
 
         if verbose:
-            training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
+            training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
             parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
             print('\nStarting optimization using', method)
             print('‣ Model: {}'.format(self.name))
@@ -538,8 +538,8 @@ class Model:
 
         # Major ticks every 20, minor ticks every 5
         M = len(self.dataset)
-        major_ticks = np.arange(-0.5, M * n_points, n_points)
-        minor_ticks = np.arange(-0.5, M * n_points, 2)
+        major_ticks = np.arange(-0.5, M * n, n)
+        minor_ticks = np.arange(-0.5, M * n, 2)
 
         ax.set_xticks(major_ticks)
         ax.set_yticks(major_ticks)

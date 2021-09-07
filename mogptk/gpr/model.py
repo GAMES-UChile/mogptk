@@ -159,7 +159,7 @@ class Model:
 
     def _cholesky(self, K):
         try:
-            return torch.cholesky(K)
+            return torch.linalg.cholesky(K)
         except RuntimeError as e:
             print("ERROR:", e.args[0], file=sys.__stdout__)
             print("K =", K, file=sys.__stdout__)
@@ -196,11 +196,11 @@ class Model:
             if n is None:
                 S = 1
 
-            mu, var = self.predict(Z, full=True, numpy=False)  # MxD and MxMxD
+            mu, var = self.predict(Z, full=True, tensor=True)  # MxD and MxMxD
             u = torch.normal(
                     torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
                     torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
-            L = torch.cholesky(var + 1e-6*torch.ones(Z.shape[0]).diagflat())  # MxM
+            L = torch.linalg.cholesky(var + 1e-6*torch.ones(Z.shape[0]).diagflat())  # MxM
             samples = mu + L.mm(u)  # MxS
             if n is None:
                 samples = samples.squeeze()
