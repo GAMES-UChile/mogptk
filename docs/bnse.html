@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L0-L226" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L0-L226" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import matplotlib.pyplot as plt
@@ -273,7 +273,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L191-L192" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L191-L192" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Spec_Mix(x,y, gamma, theta, sigma=1):
     return sigma**2 * np.exp(-gamma*outersum(x,-y)**2)*np.cos(2*np.pi*theta*outersum(x,-y))</code></pre>
@@ -287,7 +287,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L194-L195" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L194-L195" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Spec_Mix_sine(x,y, gamma, theta, sigma=1):
     return sigma**2 * np.exp(-gamma*outersum(x,-y)**2)*np.sin(2*np.pi*theta*outersum(x,-y))</code></pre>
@@ -301,7 +301,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L197-L199" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L197-L199" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Spec_Mix_spectral(x, y, alpha, gamma, theta, sigma=1):
     magnitude = np.pi * sigma**2 / (np.sqrt(alpha*(alpha + 2*gamma)))
@@ -316,7 +316,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L201-L209" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L201-L209" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def freq_covariances(x, y, alpha, gamma, theta, sigma=1, kernel = &#39;sm&#39;):
     if kernel == &#39;sm&#39;:
@@ -337,7 +337,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L186-L189" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L186-L189" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def outersum(a,b):
     # equivalent to np.outer(a,np.ones_like(b))+np.outer(np.ones_like(a),b) when a and b are arrays
@@ -353,7 +353,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L217-L221" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L217-L221" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def time_freq_SM_im(x, y, alpha, gamma, theta, sigma=1):
     at = alpha/(np.pi**2)
@@ -370,7 +370,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L211-L215" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L211-L215" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def time_freq_SM_re(x, y, alpha, gamma, theta, sigma=1):
     at = alpha/(np.pi**2)
@@ -387,7 +387,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L223-L227" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L223-L227" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39;):
     if kernel == &#39;sm&#39;:
@@ -410,7 +410,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L6-L183" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L6-L183" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class bse:
     def __init__(self, space_input, space_output):
@@ -601,7 +601,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L79-L95" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L79-L95" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def compute_moments(self):
     #posterior moments for time
@@ -630,7 +630,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L48-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L48-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def dnlogp(self, hypers):
     sigma = np.exp(hypers[0])
@@ -664,7 +664,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L97-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L97-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_freq_peaks(self):
     x = self.w
@@ -693,7 +693,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L28-L33" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L28-L33" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def neg_log_likelihood(self):
     Y = self.y
@@ -711,7 +711,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L36-L46" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L36-L46" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def nlogp(self, hypers):
     sigma = np.exp(hypers[0])
@@ -734,7 +734,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L132-L154" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L132-L154" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_freq_posterior(self):
     #posterior moments for frequency
@@ -769,7 +769,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L156-L176" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L156-L176" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_power_spectral_density(self, how_many, flag=None):
     #posterior moments for frequency
@@ -802,7 +802,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L115-L130" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L115-L130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_time_posterior(self, flag=None):
     #posterior moments for time
@@ -830,7 +830,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L182-L183" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L182-L183" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_freqspace(self, max_freq, dimension=500):
     self.w = np.linspace(0, max_freq, dimension)</code></pre>
@@ -844,7 +844,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L178-L180" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L178-L180" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_labels(self, time_label, signal_label):
     self.time_label = time_label
@@ -859,7 +859,7 @@ def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = &#39;sm&#39
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/bnse.py#L71-L77" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/bnse.py#L71-L77" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(self):
     hypers0 = np.array([np.log(self.sigma), np.log(self.gamma), np.log(self.theta), np.log(self.sigma_n)])

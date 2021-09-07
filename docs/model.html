@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L0-L577" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L0-L577" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import sys
@@ -250,7 +250,7 @@ class Model:
             method = &#39;AdaGrad&#39;
 
         if verbose:
-            training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
+            training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
             parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
             print(&#39;\nStarting optimization using&#39;, method)
             print(&#39;‣ Model: {}&#39;.format(self.name))
@@ -569,8 +569,8 @@ class Model:
 
         # Major ticks every 20, minor ticks every 5
         M = len(self.dataset)
-        major_ticks = np.arange(-0.5, M * n_points, n_points)
-        minor_ticks = np.arange(-0.5, M * n_points, 2)
+        major_ticks = np.arange(-0.5, M * n, n)
+        minor_ticks = np.arange(-0.5, M * n, 2)
 
         ax.set_xticks(major_ticks)
         ax.set_yticks(major_ticks)
@@ -632,7 +632,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L19-L31" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L19-L31" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -662,7 +662,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L33-L38" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L33-L38" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
@@ -681,7 +681,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L37-L38" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L37-L38" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def build(self, kernel, x, y, mean=None, name=None):
     return GPR(kernel, x, y, mean=mean, name=name)</code></pre>
@@ -713,7 +713,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L40-L550" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L40-L550" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None, rescale_x=False):
@@ -897,7 +897,7 @@ def _format_duration(s):
             method = &#39;AdaGrad&#39;
 
         if verbose:
-            training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
+            training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
             parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
             print(&#39;\nStarting optimization using&#39;, method)
             print(&#39;‣ Model: {}&#39;.format(self.name))
@@ -1216,8 +1216,8 @@ def _format_duration(s):
 
         # Major ticks every 20, minor ticks every 5
         M = len(self.dataset)
-        major_ticks = np.arange(-0.5, M * n_points, n_points)
-        minor_ticks = np.arange(-0.5, M * n_points, 2)
+        major_ticks = np.arange(-0.5, M * n, n)
+        minor_ticks = np.arange(-0.5, M * n, 2)
 
         ax.set_xticks(major_ticks)
         ax.set_yticks(major_ticks)
@@ -1258,7 +1258,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L150-L177" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L150-L177" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;):
     &#34;&#34;&#34;
@@ -1315,7 +1315,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L474-L508" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L474-L508" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_gram_matrix(self, start=None, end=None, n=31):
     &#34;&#34;&#34;
@@ -1370,7 +1370,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L96-L106" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L96-L106" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -1401,7 +1401,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L126-L136" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L126-L136" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -1432,7 +1432,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L138-L148" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L138-L148" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -1475,7 +1475,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L510-L550" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L510-L550" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -1508,8 +1508,8 @@ def _format_duration(s):
 
     # Major ticks every 20, minor ticks every 5
     M = len(self.dataset)
-    major_ticks = np.arange(-0.5, M * n_points, n_points)
-    minor_ticks = np.arange(-0.5, M * n_points, 2)
+    major_ticks = np.arange(-0.5, M * n, n)
+    minor_ticks = np.arange(-0.5, M * n, 2)
 
     ax.set_xticks(major_ticks)
     ax.set_yticks(major_ticks)
@@ -1528,7 +1528,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L428-L453" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L428-L453" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
     if not hasattr(self, &#39;losses&#39;):
@@ -1587,7 +1587,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L455-L472" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L455-L472" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
     &#34;&#34;&#34;
@@ -1638,7 +1638,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L373-L426" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L373-L426" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -1707,7 +1707,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L87-L94" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L87-L94" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -1735,7 +1735,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L108-L124" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L108-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -1793,7 +1793,7 @@ def _format_duration(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/model.py#L179-L300" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/model.py#L179-L300" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -1838,7 +1838,7 @@ def _format_duration(s):
         method = &#39;AdaGrad&#39;
 
     if verbose:
-        training_points = sum([len(channel.get_train_data()[0]) for channel in self.dataset])
+        training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
         parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
         print(&#39;\nStarting optimization using&#39;, method)
         print(&#39;‣ Model: {}&#39;.format(self.name))

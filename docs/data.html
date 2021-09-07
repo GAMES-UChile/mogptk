@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L0-L1313" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L0-L1322" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import copy
@@ -426,8 +426,8 @@ class Data:
         
             &gt;&gt;&gt; data.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
         
         if dim is not None:
             ind = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
@@ -626,8 +626,8 @@ class Data:
         if end is None:
             end = [np.max(x) for x in self.X]
 
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
 
         if dim is not None:
             mask = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
@@ -649,8 +649,8 @@ class Data:
             end (float): End percentage in interval [0,1].
             dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
         &#34;&#34;&#34;
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
 
         x_min = [np.min(x) for x in self.X]
         x_max = [np.max(x) for x in self.X]
@@ -811,17 +811,22 @@ class Data:
             &gt;&gt;&gt; data.set_prediction_range(3, 8, 200)
         
             &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;)
-            &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
+            &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1D&#39;)
         &#34;&#34;&#34;
         if start is None:
             start = [x[0] for x in self.X]
         if end is None:
             start = [x[-1] for x in self.X]
         
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
         n = self._normalize_val(n)
         step = self._normalize_val(step)
+        for i in range(self.get_input_dims()):
+            if n is not None and not isinstance(n[i], int):
+                raise ValueError(&#34;n must be integer&#34;)
+            if step is not None and np.issubdtype(self.X[i].dtype, np.datetime64):
+                step[i] = _parse_delta(step[i])
 
         if np.any(end &lt;= start):
             raise ValueError(&#34;start must be lower than end&#34;)
@@ -898,7 +903,7 @@ class Data:
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
             x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
-            freq = np.linspace(0, nyquist[i], n+1)[1:]
+            freq = np.linspace(0.0, nyquist[i], n+1)[1:]
             psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, freq)
 
             ind, _ = signal.find_peaks(psd)
@@ -1110,8 +1115,8 @@ class Data:
                 (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.5, lw=0, label=&#39;Removed Ranges&#39;
             ))
 
-        xmin = min(self.X[0].min(), self.X_pred[0].min())
-        xmax = max(self.X[0].max(), self.X_pred[0].max())
+        xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
+        xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
         ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
         ax.set_xlabel(self.X_labels[0])
@@ -1125,7 +1130,7 @@ class Data:
         if fig is not None:
             return fig, ax
 
-    def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=False):
+    def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=True):
         &#34;&#34;&#34;
         Plot the spectrum of the data.
 
@@ -1211,7 +1216,7 @@ class Data:
         return ax
 
     def _normalize_val(self, val):
-        # normalize input values for X axis, that is: expand to input_dims if a single value, convert values to appropriate dtype
+        # normalize input values, that is: expand to input_dims if a single value
         if val is None:
             return val
         if isinstance(val, np.ndarray):
@@ -1223,7 +1228,11 @@ class Data:
             val = [val] * self.get_input_dims()
         if len(val) != self.get_input_dims():
             raise ValueError(&#34;value must be a scalar or a list of values for each input dimension&#34;)
+        return val
 
+    def _normalize_x_val(self, val):
+        # normalize input values for X axis, that is: expand to input_dims if a single value, convert values to appropriate dtype
+        val = self._normalize_val(val)
         for i in range(self.get_input_dims()):
             try:
                 val[i] = self.X[i].dtype.type(val[i])
@@ -1384,7 +1393,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L23-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L23-L126" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
     &#34;&#34;&#34;
@@ -1524,7 +1533,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L132-L1201" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L132-L1210" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Data:
     def __init__(self, X, Y, name=None, x_labels=None, y_label=None):
@@ -1792,8 +1801,8 @@ def _timedelta64_to_higher_unit(array):
         
             &gt;&gt;&gt; data.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
         
         if dim is not None:
             ind = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
@@ -1992,8 +2001,8 @@ def _timedelta64_to_higher_unit(array):
         if end is None:
             end = [np.max(x) for x in self.X]
 
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
 
         if dim is not None:
             mask = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
@@ -2015,8 +2024,8 @@ def _timedelta64_to_higher_unit(array):
             end (float): End percentage in interval [0,1].
             dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
         &#34;&#34;&#34;
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
 
         x_min = [np.min(x) for x in self.X]
         x_max = [np.max(x) for x in self.X]
@@ -2177,17 +2186,22 @@ def _timedelta64_to_higher_unit(array):
             &gt;&gt;&gt; data.set_prediction_range(3, 8, 200)
         
             &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;)
-            &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
+            &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1D&#39;)
         &#34;&#34;&#34;
         if start is None:
             start = [x[0] for x in self.X]
         if end is None:
             start = [x[-1] for x in self.X]
         
-        start = self._normalize_val(start)
-        end = self._normalize_val(end)
+        start = self._normalize_x_val(start)
+        end = self._normalize_x_val(end)
         n = self._normalize_val(n)
         step = self._normalize_val(step)
+        for i in range(self.get_input_dims()):
+            if n is not None and not isinstance(n[i], int):
+                raise ValueError(&#34;n must be integer&#34;)
+            if step is not None and np.issubdtype(self.X[i].dtype, np.datetime64):
+                step[i] = _parse_delta(step[i])
 
         if np.any(end &lt;= start):
             raise ValueError(&#34;start must be lower than end&#34;)
@@ -2264,7 +2278,7 @@ def _timedelta64_to_higher_unit(array):
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
             x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
-            freq = np.linspace(0, nyquist[i], n+1)[1:]
+            freq = np.linspace(0.0, nyquist[i], n+1)[1:]
             psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, freq)
 
             ind, _ = signal.find_peaks(psd)
@@ -2476,8 +2490,8 @@ def _timedelta64_to_higher_unit(array):
                 (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.5, lw=0, label=&#39;Removed Ranges&#39;
             ))
 
-        xmin = min(self.X[0].min(), self.X_pred[0].min())
-        xmax = max(self.X[0].max(), self.X_pred[0].max())
+        xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
+        xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
         ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
         ax.set_xlabel(self.X_labels[0])
@@ -2491,7 +2505,7 @@ def _timedelta64_to_higher_unit(array):
         if fig is not None:
             return fig, ax
 
-    def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=False):
+    def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=True):
         &#34;&#34;&#34;
         Plot the spectrum of the data.
 
@@ -2577,7 +2591,7 @@ def _timedelta64_to_higher_unit(array):
         return ax
 
     def _normalize_val(self, val):
-        # normalize input values for X axis, that is: expand to input_dims if a single value, convert values to appropriate dtype
+        # normalize input values, that is: expand to input_dims if a single value
         if val is None:
             return val
         if isinstance(val, np.ndarray):
@@ -2589,7 +2603,11 @@ def _timedelta64_to_higher_unit(array):
             val = [val] * self.get_input_dims()
         if len(val) != self.get_input_dims():
             raise ValueError(&#34;value must be a scalar or a list of values for each input dimension&#34;)
+        return val
 
+    def _normalize_x_val(self, val):
+        # normalize input values for X axis, that is: expand to input_dims if a single value, convert values to appropriate dtype
+        val = self._normalize_val(val)
         for i in range(self.get_input_dims()):
             try:
                 val[i] = self.X[i].dtype.type(val[i])
@@ -2622,7 +2640,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L412-L440" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L412-L440" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def aggregate(self, duration, f=np.mean, dim=0):
     &#34;&#34;&#34;
@@ -2663,7 +2681,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L814-L819" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L819-L824" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clear_predictions(self):
     &#34;&#34;&#34;
@@ -2686,7 +2704,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L279-L289" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L279-L289" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -2723,7 +2741,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L384-L410" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L384-L410" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def filter(self, start, end, dim=None):
     &#34;&#34;&#34;
@@ -2739,8 +2757,8 @@ def _timedelta64_to_higher_unit(array):
     
         &gt;&gt;&gt; data.filter(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
     &#34;&#34;&#34;
-    start = self._normalize_val(start)
-    end = self._normalize_val(end)
+    start = self._normalize_x_val(start)
+    end = self._normalize_x_val(end)
     
     if dim is not None:
         ind = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
@@ -2781,7 +2799,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L896-L942" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L901-L947" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
     &#34;&#34;&#34;
@@ -2852,7 +2870,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L483-L499" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L483-L499" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2890,7 +2908,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L470-L481" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L470-L481" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -2933,7 +2951,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L843-L894" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L848-L899" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
@@ -2962,7 +2980,7 @@ def _timedelta64_to_higher_unit(array):
     nyquist = self.get_nyquist_estimation()
     for i in range(input_dims):
         x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
-        freq = np.linspace(0, nyquist[i], n+1)[1:]
+        freq = np.linspace(0.0, nyquist[i], n+1)[1:]
         psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, freq)
 
         ind, _ = signal.find_peaks(psd)
@@ -3003,7 +3021,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L444-L455" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L444-L455" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_name(self):
     &#34;&#34;&#34;
@@ -3035,7 +3053,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L823-L841" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L828-L846" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -3089,7 +3107,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L705-L737" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L705-L737" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction(self, name, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -3143,7 +3161,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L680-L691" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L680-L691" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_names(self):
     &#34;&#34;&#34;
@@ -3175,7 +3193,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L693-L703" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L693-L703" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_x(self):
     &#34;&#34;&#34;
@@ -3225,7 +3243,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L944-L989" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L949-L994" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
     &#34;&#34;&#34;
@@ -3295,7 +3313,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L519-L543" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L519-L543" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3344,7 +3362,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L501-L517" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L501-L517" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3379,7 +3397,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L457-L468" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L457-L468" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def has_test_data(self):
     &#34;&#34;&#34;
@@ -3426,7 +3444,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L991-L1095" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L996-L1100" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, pred=None, title=None, ax=None, legend=True, transformed=False):
     &#34;&#34;&#34;
@@ -3519,8 +3537,8 @@ True
             (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.5, lw=0, label=&#39;Removed Ranges&#39;
         ))
 
-    xmin = min(self.X[0].min(), self.X_pred[0].min())
-    xmax = max(self.X[0].max(), self.X_pred[0].max())
+    xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
+    xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
     ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
     ax.set_xlabel(self.X_labels[0])
@@ -3536,7 +3554,7 @@ True
 </details>
 </dd>
 <dt id="mogptk.data.Data.plot_spectrum"><code class="name flex">
-<span>def <span class="ident">plot_spectrum</span></span>(<span>self, title=None, method='ls', ax=None, per=None, maxfreq=None, transformed=False)</span>
+<span>def <span class="ident">plot_spectrum</span></span>(<span>self, title=None, method='ls', ax=None, per=None, maxfreq=None, transformed=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot the spectrum of the data.</p>
@@ -3563,9 +3581,9 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L1097-L1180" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L1102-L1185" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=False):
+<pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=True):
     &#34;&#34;&#34;
     Plot the spectrum of the data.
 
@@ -3661,7 +3679,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L664-L676" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L664-L676" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_index(self, index):
     &#34;&#34;&#34;
@@ -3700,7 +3718,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L632-L662" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L632-L662" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_random_ranges(self, n, duration, dim=0):
     &#34;&#34;&#34;
@@ -3755,7 +3773,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L555-L575" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L555-L575" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_randomly(self, n=None, pct=None):
     &#34;&#34;&#34;
@@ -3804,7 +3822,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L577-L610" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L577-L610" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_range(self, start=None, end=None, dim=None):
     &#34;&#34;&#34;
@@ -3827,8 +3845,8 @@ True
     if end is None:
         end = [np.max(x) for x in self.X]
 
-    start = self._normalize_val(start)
-    end = self._normalize_val(end)
+    start = self._normalize_x_val(start)
+    end = self._normalize_x_val(end)
 
     if dim is not None:
         mask = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
@@ -3859,7 +3877,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L612-L630" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L612-L630" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_relative_range(self, start=0.0, end=1.0, dim=None):
     &#34;&#34;&#34;
@@ -3870,8 +3888,8 @@ True
         end (float): End percentage in interval [0,1].
         dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
     &#34;&#34;&#34;
-    start = self._normalize_val(start)
-    end = self._normalize_val(end)
+    start = self._normalize_x_val(start)
+    end = self._normalize_x_val(end)
 
     x_min = [np.min(x) for x in self.X]
     x_max = [np.max(x) for x in self.X]
@@ -3898,7 +3916,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L341-L358" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L341-L358" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def rescale_x(self, upper=1000.0):
     &#34;&#34;&#34;
@@ -3928,7 +3946,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L547-L553" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L547-L553" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def reset(self):
     &#34;&#34;&#34;
@@ -3956,7 +3974,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L326-L339" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L326-L339" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_function(self, f):
     &#34;&#34;&#34;
@@ -3992,7 +4010,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L303-L324" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L303-L324" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_labels(self, x_labels, y_label):
     &#34;&#34;&#34;
@@ -4034,7 +4052,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L291-L301" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L291-L301" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_name(self, name):
     &#34;&#34;&#34;
@@ -4071,12 +4089,12 @@ True
 &gt;&gt;&gt; data.set_prediction_range(3, 8, 200)
 </code></pre>
 <pre><code class="language-python-repl">&gt;&gt;&gt; data = mogptk.LoadCSV('gold.csv', 'Date', 'Price')
-&gt;&gt;&gt; data.set_prediction_range('2016-01-15', '2016-06-15', step='1d')
+&gt;&gt;&gt; data.set_prediction_range('2016-01-15', '2016-06-15', step='1D')
 </code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L766-L812" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L766-L817" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start=None, end=None, n=None, step=None):
     &#34;&#34;&#34;
@@ -4095,17 +4113,22 @@ True
         &gt;&gt;&gt; data.set_prediction_range(3, 8, 200)
     
         &gt;&gt;&gt; data = mogptk.LoadCSV(&#39;gold.csv&#39;, &#39;Date&#39;, &#39;Price&#39;)
-        &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1d&#39;)
+        &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1D&#39;)
     &#34;&#34;&#34;
     if start is None:
         start = [x[0] for x in self.X]
     if end is None:
         start = [x[-1] for x in self.X]
     
-    start = self._normalize_val(start)
-    end = self._normalize_val(end)
+    start = self._normalize_x_val(start)
+    end = self._normalize_x_val(end)
     n = self._normalize_val(n)
     step = self._normalize_val(step)
+    for i in range(self.get_input_dims()):
+        if n is not None and not isinstance(n[i], int):
+            raise ValueError(&#34;n must be integer&#34;)
+        if step is not None and np.issubdtype(self.X[i].dtype, np.datetime64):
+            step[i] = _parse_delta(step[i])
 
     if np.any(end &lt;= start):
         raise ValueError(&#34;start must be lower than end&#34;)
@@ -4143,7 +4166,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L739-L764" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L739-L764" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_x(self, X):
     &#34;&#34;&#34;
@@ -4193,7 +4216,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/1b120b728be6d0e1fdfaf5bf224b14096ec3550d/mogptk/data.py#L360-L382" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L360-L382" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;
