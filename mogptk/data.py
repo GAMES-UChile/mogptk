@@ -4,6 +4,7 @@ import inspect
 import datetime
 import logging
 import math
+import collections
 
 import numpy as np
 import pandas as pd
@@ -43,18 +44,26 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
         <mogptk.data.Data at ...>
     """
 
-    if type(start) is not type(end):
-        raise ValueError("start and end must be of the same type")
     if isinstance(start, np.ndarray):
         if start.ndim == 0:
             start = [start.item()]
-            end = [end.item()]
         else:
             start = list(start)
-            end = list(end)
-    if not isinstance(start, list):
+    elif _is_iterable(start):
+        start = list(start)
+    else:
         start = [start]
+    if isinstance(end, np.ndarray):
+        if end.ndim == 0:
+            end = [end.item()]
+        else:
+            end = list(end)
+    elif _is_iterable(end):
+        end = list(end)
+    else:
         end = [end]
+    if type(start[0]) is not type(end[0]):
+        raise ValueError("start and end must be of the same type")
     if len(start) != len(end):
         raise ValueError("start and end must be of the same length")
 
@@ -78,13 +87,17 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
 
     _check_function(f, input_dims, [isinstance(start[i], np.datetime64) for i in range(input_dims)])
 
-    if not isinstance(n, list):
+    if _is_iterable(n):
+        n = list(n)
+    else:
         n = [n] * input_dims
-    elif len(n) != input_dims:
+    if len(n) != input_dims:
         raise ValueError("n must be a scalar or a list of values for each input dimension")
-    if not isinstance(random, list):
+    if _is_iterable(random):
+        random = list(random)
+    else:
         random = [random] * input_dims
-    elif len(random) != input_dims:
+    if len(random) != input_dims:
         raise ValueError("random must be a scalar or a list of values for each input dimension")
 
     for i in range(input_dims):
@@ -1193,7 +1206,9 @@ class Data:
                 val = [val.item()]
             else:
                 val = list(val)
-        elif not isinstance(val, list):
+        elif _is_iterable(val):
+            val = list(val)
+        else:
             val = [val] * self.get_input_dims()
         if len(val) != self.get_input_dims():
             raise ValueError("value must be a scalar or a list of values for each input dimension")
@@ -1208,6 +1223,9 @@ class Data:
             except:
                 raise ValueError("value must be of type %s" % (self.X[i].dtype,))
         return val
+
+def _is_iterable(val):
+    return isinstance(val, collections.abc.Iterable) and not isinstance(val, (dict, str))
 
 def _is_homogeneous_type(seq):
     it = iter(seq)

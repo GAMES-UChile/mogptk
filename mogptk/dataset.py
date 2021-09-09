@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from .data import Data
+from .data import Data, _is_iterable
 
 def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
     """
@@ -50,6 +50,10 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
         <mogptk.dataset.DataSet at ...>
     """
 
+    if _is_iterable(x_col):
+        x_col = list(x_col)
+    if _is_iterable(y_col):
+        y_col = list(y_col)
     if (not isinstance(x_col, list) or not all(isinstance(item, int) for item in x_col) and not all(isinstance(item, str) for item in x_col)) and not isinstance(x_col, int) and not isinstance(x_col, str):
         raise ValueError("x_col must be integer, string or list of integers or strings")
     if (not isinstance(y_col, list) or not all(isinstance(item, int) for item in y_col) and not all(isinstance(item, str) for item in y_col)) and not isinstance(y_col, int) and not isinstance(y_col, str):
@@ -63,7 +67,9 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
     if name is None:
         name = [None] * len(y_col)
     else:
-        if not isinstance(name, list):
+        if _is_iterable(name):
+            name = list(name)
+        else:
             name = [name]
         if len(y_col) != len(name):
             raise ValueError("y_col and name must be of the same length")
