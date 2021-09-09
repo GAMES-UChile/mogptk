@@ -399,31 +399,29 @@ class Model:
         i = 0
         Mu = []
         Var = []
+        Lower = []
+        Upper = []
         for j in range(self.dataset.get_output_dims()):
             N = X[j][0].shape[0]
             Mu.append(np.squeeze(mu[i:i+N]))
             Var.append(np.squeeze(var[i:i+N]))
+            Lower.append(Mu[j] - sigma*np.sqrt(Var[j]))
+            Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
             i += N
 
         if save:
             for j in range(self.dataset.get_output_dims()):
                 self.dataset[j].Y_mu_pred[self.name] = Mu[j]
                 self.dataset[j].Y_var_pred[self.name] = Var[j]
-        else:
-            Lower = []
-            Upper = []
-            for j in range(self.dataset.get_output_dims()):
-                Lower.append(Mu[j] - sigma*np.sqrt(Var[j]))
-                Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
 
-            if transformed:
-                return Mu, Lower, Upper
-            else:
-                for j in range(self.dataset.get_output_dims()):
-                    Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
-                    Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
-                    Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
-                return Mu, Lower, Upper
+        if transformed:
+            return Mu, Lower, Upper
+        else:
+            for j in range(self.dataset.get_output_dims()):
+                Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
+                Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
+                Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+            return Mu, Lower, Upper
 
     def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
         if not hasattr(self, 'losses'):
