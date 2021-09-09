@@ -767,7 +767,7 @@ class Data:
             X = [X[:,i] for i in range(self.get_input_dims())]
         elif not isinstance(X, list):
             raise ValueError("X expected to be a list or numpy.ndarray")
-        if not all(x.ndim == 1 for x in X) or not all(x.shape[0] == self.get_input_dims() for x in X):
+        if not all(x.ndim == 1 for x in X) or len(X) != self.get_input_dims():
             raise ValueError("X shape must be (n,), (n,input_dims), or [(n,)] * input_dims")
 
         X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
