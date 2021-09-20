@@ -1018,8 +1018,7 @@ class Data:
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
-            matplotlib.figure.Figure: only if `ax` is not set
-            matplotlib.axes.Axes: only if `ax` is not set
+            matplotlib.axes.Axes
 
         Examples:
             >>> ax = data.plot()
@@ -1030,9 +1029,8 @@ class Data:
         if self.get_input_dims() == 2:
             raise NotImplementedError("two dimensional input data not yet implemented") # TODO
 
-        fig = None
         if ax is None:
-            fig, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
 
         legends = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -1109,8 +1107,7 @@ class Data:
             legend_rows = (len(legends)-1)/5 + 1
             ax.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
 
-        if fig is not None:
-            return fig, ax
+        return ax
 
     def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, transformed=True):
         """
