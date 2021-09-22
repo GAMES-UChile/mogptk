@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L0-L1322" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L0-L1341" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import copy
@@ -35,6 +35,7 @@ import inspect
 import datetime
 import logging
 import math
+import collections
 
 import numpy as np
 import pandas as pd
@@ -46,6 +47,7 @@ from pandas.plotting import register_matplotlib_converters
 
 from .bnse import bse
 from .serie import Serie, TransformLinear
+from .plot import plot_spectrum
 
 register_matplotlib_converters()
 
@@ -74,18 +76,26 @@ def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
         &lt;mogptk.data.Data at ...&gt;
     &#34;&#34;&#34;
 
-    if type(start) is not type(end):
-        raise ValueError(&#34;start and end must be of the same type&#34;)
     if isinstance(start, np.ndarray):
         if start.ndim == 0:
             start = [start.item()]
-            end = [end.item()]
         else:
             start = list(start)
-            end = list(end)
-    if not isinstance(start, list):
+    elif _is_iterable(start):
+        start = list(start)
+    else:
         start = [start]
+    if isinstance(end, np.ndarray):
+        if end.ndim == 0:
+            end = [end.item()]
+        else:
+            end = list(end)
+    elif _is_iterable(end):
+        end = list(end)
+    else:
         end = [end]
+    if type(start[0]) is not type(end[0]):
+        raise ValueError(&#34;start and end must be of the same type&#34;)
     if len(start) != len(end):
         raise ValueError(&#34;start and end must be of the same length&#34;)
 
@@ -109,13 +119,17 @@ def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
 
     _check_function(f, input_dims, [isinstance(start[i], np.datetime64) for i in range(input_dims)])
 
-    if not isinstance(n, list):
+    if _is_iterable(n):
+        n = list(n)
+    else:
         n = [n] * input_dims
-    elif len(n) != input_dims:
+    if len(n) != input_dims:
         raise ValueError(&#34;n must be a scalar or a list of values for each input dimension&#34;)
-    if not isinstance(random, list):
+    if _is_iterable(random):
+        random = list(random)
+    else:
         random = [random] * input_dims
-    elif len(random) != input_dims:
+    if len(random) != input_dims:
         raise ValueError(&#34;random must be a scalar or a list of values for each input dimension&#34;)
 
     for i in range(input_dims):
@@ -785,7 +799,7 @@ class Data:
             X = [X[:,i] for i in range(self.get_input_dims())]
         elif not isinstance(X, list):
             raise ValueError(&#34;X expected to be a list or numpy.ndarray&#34;)
-        if not all(x.ndim == 1 for x in X) or not all(x.shape[0] == self.get_input_dims() for x in X):
+        if not all(x.ndim == 1 for x in X) or len(X) != self.get_input_dims():
             raise ValueError(&#34;X shape must be (n,), (n,input_dims), or [(n,)] * input_dims&#34;)
 
         X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
@@ -868,7 +882,7 @@ class Data:
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
-        nyquist = np.empty((input_dims))
+        nyquist = np.empty((input_dims,))
         for i in range(self.get_input_dims()):
             x = np.sort(self.X[i].transformed[self.mask])
             dist = np.abs(x[1:]-x[:-1])
@@ -1013,9 +1027,12 @@ class Data:
 
         if plot:
             nyquist = self.get_nyquist_estimation()
-            means = np.array([sm.model.kernel[0][q].mean() for q in range(Q)])
-            weights = np.array([sm.model.kernel[0][q].weight() for q in range(Q)])
-            scales = np.array([sm.model.kernel[0][q].variance() for q in range(Q)])
+            means = np.array([sm.model.kernel[0][q].mean.numpy() for q in range(Q)])
+            weights = np.array([sm.model.kernel[0][q].weight.numpy() for q in range(Q)])
+            scales = np.array([sm.model.kernel[0][q].variance.numpy() for q in range(Q)])
+            nyquist = np.expand_dims(nyquist, 0)
+            means = np.expand_dims(means, 1)
+            scales = np.expand_dims(scales, 1)
             plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
         for q in range(Q):
@@ -1036,8 +1053,7 @@ class Data:
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
-            matplotlib.figure.Figure: only if `ax` is not set
-            matplotlib.axes.Axes: only if `ax` is not set
+            matplotlib.axes.Axes
 
         Examples:
             &gt;&gt;&gt; ax = data.plot()
@@ -1048,9 +1064,8 @@ class Data:
         if self.get_input_dims() == 2:
             raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-        fig = None
         if ax is None:
-            fig, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
 
         legends = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -1127,8 +1142,7 @@ class Data:
             legend_rows = (len(legends)-1)/5 + 1
             ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
 
-        if fig is not None:
-            return fig, ax
+        return ax
 
     def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=True):
         &#34;&#34;&#34;
@@ -1224,7 +1238,9 @@ class Data:
                 val = [val.item()]
             else:
                 val = list(val)
-        elif not isinstance(val, list):
+        elif _is_iterable(val):
+            val = list(val)
+        else:
             val = [val] * self.get_input_dims()
         if len(val) != self.get_input_dims():
             raise ValueError(&#34;value must be a scalar or a list of values for each input dimension&#34;)
@@ -1239,6 +1255,9 @@ class Data:
             except:
                 raise ValueError(&#34;value must be of type %s&#34; % (self.X[i].dtype,))
         return val
+
+def _is_iterable(val):
+    return isinstance(val, collections.abc.Iterable) and not isinstance(val, (dict, str))
 
 def _is_homogeneous_type(seq):
     it = iter(seq)
@@ -1393,7 +1412,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L23-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L25-L140" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
     &#34;&#34;&#34;
@@ -1418,18 +1437,26 @@ def _timedelta64_to_higher_unit(array):
         &lt;mogptk.data.Data at ...&gt;
     &#34;&#34;&#34;
 
-    if type(start) is not type(end):
-        raise ValueError(&#34;start and end must be of the same type&#34;)
     if isinstance(start, np.ndarray):
         if start.ndim == 0:
             start = [start.item()]
-            end = [end.item()]
         else:
             start = list(start)
-            end = list(end)
-    if not isinstance(start, list):
+    elif _is_iterable(start):
+        start = list(start)
+    else:
         start = [start]
+    if isinstance(end, np.ndarray):
+        if end.ndim == 0:
+            end = [end.item()]
+        else:
+            end = list(end)
+    elif _is_iterable(end):
+        end = list(end)
+    else:
         end = [end]
+    if type(start[0]) is not type(end[0]):
+        raise ValueError(&#34;start and end must be of the same type&#34;)
     if len(start) != len(end):
         raise ValueError(&#34;start and end must be of the same length&#34;)
 
@@ -1453,13 +1480,17 @@ def _timedelta64_to_higher_unit(array):
 
     _check_function(f, input_dims, [isinstance(start[i], np.datetime64) for i in range(input_dims)])
 
-    if not isinstance(n, list):
+    if _is_iterable(n):
+        n = list(n)
+    else:
         n = [n] * input_dims
-    elif len(n) != input_dims:
+    if len(n) != input_dims:
         raise ValueError(&#34;n must be a scalar or a list of values for each input dimension&#34;)
-    if not isinstance(random, list):
+    if _is_iterable(random):
+        random = list(random)
+    else:
         random = [random] * input_dims
-    elif len(random) != input_dims:
+    if len(random) != input_dims:
         raise ValueError(&#34;random must be a scalar or a list of values for each input dimension&#34;)
 
     for i in range(input_dims):
@@ -1533,7 +1564,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L132-L1210" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L146-L1226" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Data:
     def __init__(self, X, Y, name=None, x_labels=None, y_label=None):
@@ -2160,7 +2191,7 @@ def _timedelta64_to_higher_unit(array):
             X = [X[:,i] for i in range(self.get_input_dims())]
         elif not isinstance(X, list):
             raise ValueError(&#34;X expected to be a list or numpy.ndarray&#34;)
-        if not all(x.ndim == 1 for x in X) or not all(x.shape[0] == self.get_input_dims() for x in X):
+        if not all(x.ndim == 1 for x in X) or len(X) != self.get_input_dims():
             raise ValueError(&#34;X shape must be (n,), (n,input_dims), or [(n,)] * input_dims&#34;)
 
         X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
@@ -2243,7 +2274,7 @@ def _timedelta64_to_higher_unit(array):
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
 
-        nyquist = np.empty((input_dims))
+        nyquist = np.empty((input_dims,))
         for i in range(self.get_input_dims()):
             x = np.sort(self.X[i].transformed[self.mask])
             dist = np.abs(x[1:]-x[:-1])
@@ -2388,9 +2419,12 @@ def _timedelta64_to_higher_unit(array):
 
         if plot:
             nyquist = self.get_nyquist_estimation()
-            means = np.array([sm.model.kernel[0][q].mean() for q in range(Q)])
-            weights = np.array([sm.model.kernel[0][q].weight() for q in range(Q)])
-            scales = np.array([sm.model.kernel[0][q].variance() for q in range(Q)])
+            means = np.array([sm.model.kernel[0][q].mean.numpy() for q in range(Q)])
+            weights = np.array([sm.model.kernel[0][q].weight.numpy() for q in range(Q)])
+            scales = np.array([sm.model.kernel[0][q].variance.numpy() for q in range(Q)])
+            nyquist = np.expand_dims(nyquist, 0)
+            means = np.expand_dims(means, 1)
+            scales = np.expand_dims(scales, 1)
             plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
         for q in range(Q):
@@ -2411,8 +2445,7 @@ def _timedelta64_to_higher_unit(array):
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
-            matplotlib.figure.Figure: only if `ax` is not set
-            matplotlib.axes.Axes: only if `ax` is not set
+            matplotlib.axes.Axes
 
         Examples:
             &gt;&gt;&gt; ax = data.plot()
@@ -2423,9 +2456,8 @@ def _timedelta64_to_higher_unit(array):
         if self.get_input_dims() == 2:
             raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-        fig = None
         if ax is None:
-            fig, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
 
         legends = []
         colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -2502,8 +2534,7 @@ def _timedelta64_to_higher_unit(array):
             legend_rows = (len(legends)-1)/5 + 1
             ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
 
-        if fig is not None:
-            return fig, ax
+        return ax
 
     def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=True):
         &#34;&#34;&#34;
@@ -2599,7 +2630,9 @@ def _timedelta64_to_higher_unit(array):
                 val = [val.item()]
             else:
                 val = list(val)
-        elif not isinstance(val, list):
+        elif _is_iterable(val):
+            val = list(val)
+        else:
             val = [val] * self.get_input_dims()
         if len(val) != self.get_input_dims():
             raise ValueError(&#34;value must be a scalar or a list of values for each input dimension&#34;)
@@ -2640,7 +2673,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L412-L440" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L426-L454" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def aggregate(self, duration, f=np.mean, dim=0):
     &#34;&#34;&#34;
@@ -2681,7 +2714,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L819-L824" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L833-L838" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clear_predictions(self):
     &#34;&#34;&#34;
@@ -2704,7 +2737,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L279-L289" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L293-L303" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -2741,7 +2774,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L384-L410" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L398-L424" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def filter(self, start, end, dim=None):
     &#34;&#34;&#34;
@@ -2799,7 +2832,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L901-L947" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L915-L961" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
     &#34;&#34;&#34;
@@ -2870,7 +2903,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L483-L499" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L497-L513" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2908,7 +2941,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L470-L481" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L484-L495" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -2951,7 +2984,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L848-L899" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L862-L913" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
@@ -3021,7 +3054,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L444-L455" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L458-L469" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_name(self):
     &#34;&#34;&#34;
@@ -3053,7 +3086,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L828-L846" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L842-L860" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -3067,7 +3100,7 @@ def _timedelta64_to_higher_unit(array):
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
 
-    nyquist = np.empty((input_dims))
+    nyquist = np.empty((input_dims,))
     for i in range(self.get_input_dims()):
         x = np.sort(self.X[i].transformed[self.mask])
         dist = np.abs(x[1:]-x[:-1])
@@ -3107,7 +3140,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L705-L737" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L719-L751" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction(self, name, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -3161,7 +3194,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L680-L691" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L694-L705" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_names(self):
     &#34;&#34;&#34;
@@ -3193,7 +3226,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L693-L703" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L707-L717" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_x(self):
     &#34;&#34;&#34;
@@ -3243,7 +3276,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L949-L994" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L963-L1011" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
     &#34;&#34;&#34;
@@ -3281,9 +3314,12 @@ def _timedelta64_to_higher_unit(array):
 
     if plot:
         nyquist = self.get_nyquist_estimation()
-        means = np.array([sm.model.kernel[0][q].mean() for q in range(Q)])
-        weights = np.array([sm.model.kernel[0][q].weight() for q in range(Q)])
-        scales = np.array([sm.model.kernel[0][q].variance() for q in range(Q)])
+        means = np.array([sm.model.kernel[0][q].mean.numpy() for q in range(Q)])
+        weights = np.array([sm.model.kernel[0][q].weight.numpy() for q in range(Q)])
+        scales = np.array([sm.model.kernel[0][q].variance.numpy() for q in range(Q)])
+        nyquist = np.expand_dims(nyquist, 0)
+        means = np.expand_dims(means, 1)
+        scales = np.expand_dims(scales, 1)
         plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
     for q in range(Q):
@@ -3313,7 +3349,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L519-L543" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L533-L557" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3362,7 +3398,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L501-L517" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L515-L531" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3397,7 +3433,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L457-L468" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L471-L482" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def has_test_data(self):
     &#34;&#34;&#34;
@@ -3432,19 +3468,14 @@ True
 <dd>Display transformed Y data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><code>matplotlib.figure.Figure</code></dt>
-<dd>only if <code>ax</code> is not set</dd>
-<dt><code>matplotlib.axes.Axes</code></dt>
-<dd>only if <code>ax</code> is not set</dd>
-</dl>
+<p>matplotlib.axes.Axes</p>
 <h2 id="examples">Examples</h2>
 <pre><code class="language-python-repl">&gt;&gt;&gt; ax = data.plot()
 </code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L996-L1100" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L1013-L1114" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, pred=None, title=None, ax=None, legend=True, transformed=False):
     &#34;&#34;&#34;
@@ -3458,8 +3489,7 @@ True
         transformed (boolean): Display transformed Y data as used for training.
 
     Returns:
-        matplotlib.figure.Figure: only if `ax` is not set
-        matplotlib.axes.Axes: only if `ax` is not set
+        matplotlib.axes.Axes
 
     Examples:
         &gt;&gt;&gt; ax = data.plot()
@@ -3470,9 +3500,8 @@ True
     if self.get_input_dims() == 2:
         raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
-    fig = None
     if ax is None:
-        fig, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+        _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
 
     legends = []
     colors = list(matplotlib.colors.TABLEAU_COLORS)
@@ -3549,8 +3578,7 @@ True
         legend_rows = (len(legends)-1)/5 + 1
         ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
 
-    if fig is not None:
-        return fig, ax</code></pre>
+    return ax</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.plot_spectrum"><code class="name flex">
@@ -3581,7 +3609,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L1102-L1185" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L1116-L1199" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, transformed=True):
     &#34;&#34;&#34;
@@ -3679,7 +3707,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L664-L676" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L678-L690" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_index(self, index):
     &#34;&#34;&#34;
@@ -3718,7 +3746,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L632-L662" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L646-L676" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_random_ranges(self, n, duration, dim=0):
     &#34;&#34;&#34;
@@ -3773,7 +3801,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L555-L575" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L569-L589" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_randomly(self, n=None, pct=None):
     &#34;&#34;&#34;
@@ -3822,7 +3850,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L577-L610" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L591-L624" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_range(self, start=None, end=None, dim=None):
     &#34;&#34;&#34;
@@ -3877,7 +3905,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L612-L630" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L626-L644" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_relative_range(self, start=0.0, end=1.0, dim=None):
     &#34;&#34;&#34;
@@ -3916,7 +3944,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L341-L358" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L355-L372" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def rescale_x(self, upper=1000.0):
     &#34;&#34;&#34;
@@ -3946,7 +3974,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L547-L553" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L561-L567" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def reset(self):
     &#34;&#34;&#34;
@@ -3974,7 +4002,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L326-L339" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L340-L353" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_function(self, f):
     &#34;&#34;&#34;
@@ -4010,7 +4038,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L303-L324" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L317-L338" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_labels(self, x_labels, y_label):
     &#34;&#34;&#34;
@@ -4052,7 +4080,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L291-L301" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L305-L315" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_name(self, name):
     &#34;&#34;&#34;
@@ -4094,7 +4122,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L766-L817" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L780-L831" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start=None, end=None, n=None, step=None):
     &#34;&#34;&#34;
@@ -4166,7 +4194,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L739-L764" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L753-L778" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_x(self, X):
     &#34;&#34;&#34;
@@ -4186,7 +4214,7 @@ True
         X = [X[:,i] for i in range(self.get_input_dims())]
     elif not isinstance(X, list):
         raise ValueError(&#34;X expected to be a list or numpy.ndarray&#34;)
-    if not all(x.ndim == 1 for x in X) or not all(x.shape[0] == self.get_input_dims() for x in X):
+    if not all(x.ndim == 1 for x in X) or len(X) != self.get_input_dims():
         raise ValueError(&#34;X shape must be (n,), (n,input_dims), or [(n,)] * input_dims&#34;)
 
     X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
@@ -4216,7 +4244,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/data.py#L360-L382" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/data.py#L374-L396" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;

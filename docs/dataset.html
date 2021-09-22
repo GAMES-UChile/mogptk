@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L0-L704" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L0-L710" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import copy
 
@@ -35,7 +35,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from .data import Data
+from .data import Data, _is_iterable
 
 def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
     &#34;&#34;&#34;
@@ -81,6 +81,10 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
         &lt;mogptk.dataset.DataSet at ...&gt;
     &#34;&#34;&#34;
 
+    if _is_iterable(x_col):
+        x_col = list(x_col)
+    if _is_iterable(y_col):
+        y_col = list(y_col)
     if (not isinstance(x_col, list) or not all(isinstance(item, int) for item in x_col) and not all(isinstance(item, str) for item in x_col)) and not isinstance(x_col, int) and not isinstance(x_col, str):
         raise ValueError(&#34;x_col must be integer, string or list of integers or strings&#34;)
     if (not isinstance(y_col, list) or not all(isinstance(item, int) for item in y_col) and not all(isinstance(item, str) for item in y_col)) and not isinstance(y_col, int) and not isinstance(y_col, str):
@@ -94,7 +98,9 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
     if name is None:
         name = [None] * len(y_col)
     else:
-        if not isinstance(name, list):
+        if _is_iterable(name):
+            name = list(name)
+        else:
             name = [name]
         if len(y_col) != len(name):
             raise ValueError(&#34;y_col and name must be of the same length&#34;)
@@ -772,7 +778,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L9-L32" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L9-L32" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
     &#34;&#34;&#34;
@@ -826,7 +832,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L34-L98" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L34-L104" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadDataFrame(df, x_col=0, y_col=1, name=None):
     &#34;&#34;&#34;
@@ -847,6 +853,10 @@ class DataSet:
         &lt;mogptk.dataset.DataSet at ...&gt;
     &#34;&#34;&#34;
 
+    if _is_iterable(x_col):
+        x_col = list(x_col)
+    if _is_iterable(y_col):
+        y_col = list(y_col)
     if (not isinstance(x_col, list) or not all(isinstance(item, int) for item in x_col) and not all(isinstance(item, str) for item in x_col)) and not isinstance(x_col, int) and not isinstance(x_col, str):
         raise ValueError(&#34;x_col must be integer, string or list of integers or strings&#34;)
     if (not isinstance(y_col, list) or not all(isinstance(item, int) for item in y_col) and not all(isinstance(item, str) for item in y_col)) and not isinstance(y_col, int) and not isinstance(y_col, str):
@@ -860,7 +870,9 @@ class DataSet:
     if name is None:
         name = [None] * len(y_col)
     else:
-        if not isinstance(name, list):
+        if _is_iterable(name):
+            name = list(name)
+        else:
             name = [name]
         if len(y_col) != len(name):
             raise ValueError(&#34;y_col and name must be of the same length&#34;)
@@ -939,7 +951,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L104-L705" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L110-L711" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class DataSet:
     &#34;&#34;&#34;
@@ -1569,7 +1581,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L267-L284" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L273-L290" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def aggregate(self, duration, f=np.mean, dim=0):
     &#34;&#34;&#34;
@@ -1607,7 +1619,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L182-L206" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L188-L212" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def append(self, arg):
     &#34;&#34;&#34;
@@ -1644,7 +1656,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L527-L532" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L533-L538" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clear_predictions(self):
     &#34;&#34;&#34;
@@ -1667,7 +1679,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L208-L218" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L214-L224" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -1704,7 +1716,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L250-L265" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L256-L271" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def filter(self, start, end, dim=None):
     &#34;&#34;&#34;
@@ -1745,7 +1757,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L325-L345" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L331-L351" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get(self, index):
     &#34;&#34;&#34;
@@ -1797,7 +1809,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L572-L596" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L578-L602" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
     &#34;&#34;&#34;
@@ -1846,7 +1858,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L369-L383" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L375-L389" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -1886,7 +1898,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L347-L367" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L353-L373" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_index(self, index):
     &#34;&#34;&#34;
@@ -1928,7 +1940,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L286-L297" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L292-L303" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -1971,7 +1983,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L546-L570" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L552-L576" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
@@ -2017,7 +2029,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L312-L323" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L318-L329" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_names(self):
     &#34;&#34;&#34;
@@ -2049,7 +2061,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L534-L544" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L540-L550" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -2081,7 +2093,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L299-L310" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L305-L316" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_output_dims(self):
     &#34;&#34;&#34;
@@ -2128,7 +2140,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L432-L460" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L438-L466" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction(self, name, sigma=2.0, transformed=False):
     &#34;&#34;&#34;
@@ -2177,7 +2189,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L417-L430" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L423-L436" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_x(self):
     &#34;&#34;&#34;
@@ -2230,7 +2242,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L598-L626" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L604-L632" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
     &#34;&#34;&#34;
@@ -2283,7 +2295,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L401-L415" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L407-L421" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2322,7 +2334,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L385-L399" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L391-L405" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2372,7 +2384,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L628-L668" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L634-L674" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
     &#34;&#34;&#34;
@@ -2450,7 +2462,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L670-L705" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L676-L711" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, transformed=False):
     &#34;&#34;&#34;
@@ -2506,7 +2518,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L220-L231" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L226-L237" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def rescale_x(self, upper=1000.0):
     &#34;&#34;&#34;
@@ -2545,7 +2557,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L486-L525" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L492-L531" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start, end, n=None, step=None):
     &#34;&#34;&#34;
@@ -2606,7 +2618,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L462-L484" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L468-L490" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_x(self, x):
     &#34;&#34;&#34;
@@ -2653,7 +2665,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/dataset.py#L233-L248" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/dataset.py#L239-L254" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;

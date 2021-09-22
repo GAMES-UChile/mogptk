@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L0-L270" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L0-L270" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import sys
 import torch
@@ -317,7 +317,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L9-L10" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L9-L10" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def prod(iterable):
     return reduce(operator.mul, iterable, 1)</code></pre>
@@ -337,7 +337,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L12-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L12-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CholeskyException(Exception):
     def __init__(self, message, K, model):
@@ -363,7 +363,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L209-L257" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L209-L257" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GPR(Model):
     def __init__(self, kernel, X, y, noise=1.0, mean=None, name=&#34;GPR&#34;):
@@ -429,7 +429,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L219-L231" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L219-L231" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     K = self.kernel(self.X) + self.noise()*self.eye # NxN
@@ -454,7 +454,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L233-L257" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L233-L257" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Z, full=False, tensor=False):
     with torch.no_grad():
@@ -494,7 +494,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L21-L207" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L21-L207" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, kernel, X, y, mean=None, name=None):
@@ -699,7 +699,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L186-L191" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L186-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     with torch.no_grad():
@@ -717,7 +717,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L174-L175" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L174-L175" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     raise NotImplementedError()</code></pre>
@@ -731,7 +731,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L177-L178" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L177-L178" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     return sum([p.log_prior() for p in self._params])</code></pre>
@@ -745,7 +745,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L180-L184" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L180-L184" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     self.zero_grad()
@@ -762,7 +762,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L111-L114" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L111-L114" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def parameters(self):
     for p in self._params:
@@ -778,7 +778,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L116-L158" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L116-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self, file=None):
     def param_range(lower, upper, trainable=True):
@@ -833,7 +833,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L193-L207" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L193-L207" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, Z, n=None):
     with torch.no_grad():
@@ -860,7 +860,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L101-L109" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L101-L109" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def zero_grad(self):
     for p in self._params:
@@ -884,7 +884,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L259-L271" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L259-L271" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Variational(Model):
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood, mean=None, name=&#34;Variational&#34;):
@@ -914,7 +914,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L265-L267" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L265-L267" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     pass
@@ -929,7 +929,7 @@ class Variational(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c939bd7d3acf933deff640b7e5c1836d237ab0ad/mogptk/gpr/model.py#L269-L271" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/9060803fd9cf3484255c69526a854e5ff4c503a2/mogptk/gpr/model.py#L269-L271" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Z, full=False, tensor=False):
     pass

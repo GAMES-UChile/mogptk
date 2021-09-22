@@ -73,8 +73,8 @@ class CSM(Model):
             sm_init (str): Parameter initialization strategy for SM initialization.
             sm_method (str): Optimization method for SM initialization.
             sm_iters (str): Number of iterations for SM initialization.
-            sm_params (object): Additional parameters for PyTorch optimizer.
-            sm_plot (bool): Show the PSD of the kernel after fitting SM.
+            sm_params (object): Additional parameters for PyTorch optimizer for SM initialization.
+            sm_plot (bool): Show the PSD of the kernel after fitting for SM initialization.
         """
 
         output_dims = self.dataset.get_output_dims()
