@@ -16,6 +16,7 @@ from pandas.plotting import register_matplotlib_converters
 
 from .bnse import bse
 from .serie import Serie, TransformLinear
+from .plot import plot_spectrum
 
 register_matplotlib_converters()
 
@@ -850,7 +851,7 @@ class Data:
         """
         input_dims = self.get_input_dims()
 
-        nyquist = np.empty((input_dims))
+        nyquist = np.empty((input_dims,))
         for i in range(self.get_input_dims()):
             x = np.sort(self.X[i].transformed[self.mask])
             dist = np.abs(x[1:]-x[:-1])
@@ -995,9 +996,12 @@ class Data:
 
         if plot:
             nyquist = self.get_nyquist_estimation()
-            means = np.array([sm.model.kernel[0][q].mean() for q in range(Q)])
-            weights = np.array([sm.model.kernel[0][q].weight() for q in range(Q)])
-            scales = np.array([sm.model.kernel[0][q].variance() for q in range(Q)])
+            means = np.array([sm.model.kernel[0][q].mean.numpy() for q in range(Q)])
+            weights = np.array([sm.model.kernel[0][q].weight.numpy() for q in range(Q)])
+            scales = np.array([sm.model.kernel[0][q].variance.numpy() for q in range(Q)])
+            nyquist = np.expand_dims(nyquist, 0)
+            means = np.expand_dims(means, 1)
+            scales = np.expand_dims(scales, 1)
             plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
         for q in range(Q):
