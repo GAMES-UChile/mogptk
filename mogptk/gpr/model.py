@@ -188,7 +188,7 @@ class Model:
             X1 = self._check_input(X1)  # MxD
             if X2 is not None:
                 X2 = self._check_input(X2)  # MxD
-            return self.kernel(X1,X2).cpu().numpy()
+            return self.kernel(X1,X2).cpu().numpy() # does cpu().numpy() detach? check memory usage
 
     def sample(self, Z, n=None):
         with torch.no_grad():
@@ -210,10 +210,10 @@ class GPR(Model):
     def __init__(self, kernel, X, y, noise=1.0, mean=None, name="GPR"):
         super(GPR, self).__init__(kernel, X, y, mean, name)
 
+        self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
 
         self.noise = Parameter(noise, name="noise", lower=config.positive_minimum)
-        self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self._register_parameters(self.noise)
 
     def log_marginal_likelihood(self):
@@ -226,7 +226,7 @@ class GPR(Model):
             y = self.y  # Nx1
 
         p = -0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
-        p -= L.diagonal().log().sum()
+        p -= 0.5*L.diagonal().log().sum()
         p -= self.log_marginal_likelihood_constant
         return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
