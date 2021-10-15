@@ -2,7 +2,7 @@ import sys
 import torch
 import numpy as np
 from IPython.display import display, HTML
-from . import Parameter, Mean, Kernel, config
+from . import Parameter, Mean, Kernel, GaussianLikelihood, config
 from functools import reduce
 import operator
 
@@ -207,17 +207,21 @@ class Model:
             return samples.cpu().numpy()
 
 class GPR(Model):
-    def __init__(self, kernel, X, y, noise=1.0, mean=None, name="GPR"):
+    def __init__(self, kernel, X, y, variance=1.0, jitter=1e-20, mean=None, name="GPR"):
         super(GPR, self).__init__(kernel, X, y, mean, name)
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
 
-        self.noise = Parameter(noise, name="noise", lower=config.positive_minimum)
-        self._register_parameters(self.noise)
+        # TODO: has jitter?
+        self.jitter = jitter
+        if variance < jitter:
+            variance = jitter
+        self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
+        self._register_parameters(self.variance)
 
     def log_marginal_likelihood(self):
-        K = self.kernel(self.X) + self.noise()*self.eye # NxN
+        K = self.kernel(self.X) + self.variance()*self.eye # NxN
         L = self._cholesky(K)  # NxN
 
         if self.mean is not None:
@@ -226,17 +230,17 @@ class GPR(Model):
             y = self.y  # Nx1
 
         p = -0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
-        p -= 0.5*L.diagonal().log().sum()
+        p -= L.diagonal().log().sum() # 0.5 is taken inside the log: L is the square root
         p -= self.log_marginal_likelihood_constant
         return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
-    def predict(self, Z, full=False, tensor=False):
+    def predict(self, Xs, full=False, tensor=False):
         with torch.no_grad():
-            Z = self._check_input(Z)  # MxD
+            Xs = self._check_input(Xs)  # MxD
 
-            K = self.kernel(self.X) + self.noise()*self.eye # NxN
-            Ks = self.kernel(self.X,Z)  # NxM
-            Kss = self.kernel(Z) + self.noise()*torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)  # MxM
+            K = self.kernel(self.X) + self.variance()*self.eye # NxN
+            Ks = self.kernel(self.X,Xs)  # NxM
+            Kss = self.kernel(Xs) + self.variance()*torch.eye(Xs.shape[0], device=config.device, dtype=config.dtype)  # MxM
 
             L = self._cholesky(K)  # NxN
             v = torch.triangular_solve(Ks,L,upper=False)[0]  # NxM
@@ -244,11 +248,94 @@ class GPR(Model):
             if self.mean is not None:
                 y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
                 mu = Ks.T.mm(torch.cholesky_solve(y,L))  # Mx1
-                mu += self.mean(Z).reshape(-1,1)         # Mx1
+                mu += self.mean(Xs).reshape(-1,1)         # Mx1
             else:
                 mu = Ks.T.mm(torch.cholesky_solve(self.y,L))  # Mx1
 
             var = Kss - v.T.mm(v)  # MxM
+            if not full:
+                var = var.diag().reshape(-1,1)  # Mx1
+            if tensor:
+                return mu, var
+            else:
+                return mu.cpu().numpy(), var.cpu().numpy()
+
+class Variational(Model):
+    # Using http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
+    def __init__(self, kernel, X, y, Z, likelihood=GaussianLikelihood, jitter=1e-20,
+                 mean=None, name="Variational", variance=1.0):
+        super(Variational, self).__init__(kernel, X, y, mean, name)
+
+        #self.likelihood = likelihood
+        Z = self._check_input(Z)
+        self.Z = Parameter(Z, name="induction_points")
+        self._register_parameters(self.Z)
+
+        self.jitter = jitter
+        if variance < jitter:
+            variance = jitter
+        self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
+        self._register_parameters(self.variance)
+
+        self.eyeX = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
+        self.eyeZ = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
+        self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
+
+    def elbo(self):
+        if self.mean is not None:
+            y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
+        else:
+            y = self.y  # Nx1
+
+        Kuu = self.kernel(self.Z) + self.jitter*self.eyeZ # UxU
+        Kuf = self.kernel(self.Z,self.X) # UxN
+        Kff = self.kernel(self.X) # NxN
+
+        Luu = self._cholesky(Kuu)  # UxU
+        v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # UxN
+        Q = v.mm(v.T) # NxN, Q = Kfu * Kuu^(-1) * Kuf
+        L = self._cholesky(Q + self.variance()*self.eyeX)
+        c = v.mm(y)
+
+        # TODO verify
+        p = -self.log_marginal_likelihood_constant
+        p -= L.diagonal().log().sum()/self.variance() # 0.5 is taken as the square root of L
+        p -= 0.5*self.X.shape[0]*self.variance().log()
+        p -= 0.5*y.T.mm(y)/self.variance()
+        p -= 0.5*c.T.mm(c)/self.variance()
+        p -= 0.5*(Kff.diagonal - Q.diagonal).sum()/self.variance() # trace
+        return p
+
+    def log_marginal_likelihood(self):
+        # maximize the lower bound
+        return self.elbo()
+
+    def predict(self, Xs, full=False, tensor=False):
+        with torch.no_grad():
+            Xs = self._check_input(Xs)  # MxD
+            if self.mean is not None:
+                y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
+            else:
+                y = self.y
+
+            Kuu = self.kernel(self.Z) + self.jitter*self.eyeZ # UxU
+            Kuf = self.kernel(self.Z,self.X) # UxN
+            Kus = self.kernel(self.Z,Xs) # UxM
+
+            Luu = self._cholesky(Kuu)  # UxU
+            v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # NxM
+            Q = v.mm(v.T) # NxN, Q = Kfu * Kuu^(-1) * Kuf
+            L = self._cholesky(Q + self.variance()*self.eyeX)
+
+            a = torch.triangular_solve(Kus,Luu,upper=False)[0]
+            b = torch.triangular_solve(a,L,upper=False)[0]
+            c = torch.triangular_solve(v.mm(y),L,upper=False)[0]
+
+            mu = b.T.mm(c)  # Mx1
+            if self.mean is not None:
+                mu += self.mean(Xs).reshape(-1,1)         # Mx1
+
+            var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
             if not full:
                 var = var.diag().reshape(-1,1)  # Mx1
             if tensor:
