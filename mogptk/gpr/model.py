@@ -287,23 +287,23 @@ class Variational(Model):
         else:
             y = self.y  # Nx1
 
-        Kuu = self.kernel(self.Z) + self.jitter*self.eyeZ # UxU
-        Kuf = self.kernel(self.Z,self.X) # UxN
-        Kff = self.kernel(self.X) # NxN
+        Kmm = self.kernel(self.Z) + self.jitter*self.eyeZ # MxM
+        Kmn = self.kernel(self.Z,self.X) # MxN
+        Knn = self.kernel(self.X) # NxN
 
-        Luu = self._cholesky(Kuu)  # UxU
-        v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # UxN
-        Q = v.mm(v.T) # NxN, Q = Kfu * Kuu^(-1) * Kuf
-        L = self._cholesky(Q + self.variance()*self.eyeX)
-        c = v.mm(y)
+        Lmm = self._cholesky(Kmm)  # MxM;  Lmm = Kmm^(1/2)
+        v = torch.triangular_solve(Kmn,Lmm,upper=False)[0]  # MxN;  v = Kmm^(-1/2) . Kmn
+        Q = v.mm(v.T)  # MxM;  Q = Kmm^(-1/2) . Kmn . Knm . Kmm^(-1/2)
+        L = self._cholesky(Q/self.variance() + self.eyeX)  # MxM;  L = (Q/var + I)^(1/2)
 
-        # TODO verify
+        c = torch.triangular_solve(v.mm(y),L,upper=False)[0]  # Mx1;  c = L^(-1) . Kmm^(-1/2) . Kmn . y
+
         p = -self.log_marginal_likelihood_constant
-        p -= L.diagonal().log().sum()/self.variance() # 0.5 is taken as the square root of L
+        p -= L.diagonal().log().sum() # 0.5 is taken as the square root of L
         p -= 0.5*self.X.shape[0]*self.variance().log()
         p -= 0.5*y.T.mm(y)/self.variance()
-        p -= 0.5*c.T.mm(c)/self.variance()
-        p -= 0.5*(Kff.diagonal - Q.diagonal).sum()/self.variance() # trace
+        p += 0.5*c.T.mm(c)/self.variance()
+        p -= 0.5*(torch.trace(Knn) - torch.trace(Q))/self.variance() # trace
         return p
 
     def log_marginal_likelihood(self):
@@ -318,18 +318,19 @@ class Variational(Model):
             else:
                 y = self.y
 
-            Kuu = self.kernel(self.Z) + self.jitter*self.eyeZ # UxU
-            Kuf = self.kernel(self.Z,self.X) # UxN
-            Kus = self.kernel(self.Z,Xs) # UxM
+            Kmm = self.kernel(self.Z) + self.jitter*self.eyeZ # MxM
+            Kmn = self.kernel(self.Z,self.X) # MxN
+            Kms = self.kernel(self.Z,Xs) # MxS
+            Kss = self.kernel(Xs,Xs) # SxS
 
-            Luu = self._cholesky(Kuu)  # UxU
-            v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # NxM
-            Q = v.mm(v.T) # NxN, Q = Kfu * Kuu^(-1) * Kuf
-            L = self._cholesky(Q + self.variance()*self.eyeX)
+            Lmm = self._cholesky(Kmm)  # MxM;  Lmm = Kmm^(1/2)
+            v = torch.triangular_solve(Kmn,Lmm,upper=False)[0]  # MxN;  v = Kmm^(-1/2) . Kmn
+            Q = v.mm(v.T)  # MxM;  Q = Kmm^(-1/2) . Kmn . Knm . Kmm^(-1/2)
+            L = self._cholesky(Q/self.variance() + self.eyeX)  # MxM;  L = (Q/var + I)^(1/2)
 
-            a = torch.triangular_solve(Kus,Luu,upper=False)[0]
-            b = torch.triangular_solve(a,L,upper=False)[0]
-            c = torch.triangular_solve(v.mm(y),L,upper=False)[0]
+            a = torch.triangular_solve(Kms,Lmm,upper=False)[0]  # MxS;  Kmm^(-1/2) . Kms
+            b = torch.triangular_solve(a,L,upper=False)[0]  # MxS;  L^(-1) . Kmm^(-1/2) . Kms
+            c = torch.triangular_solve(v.mm(y),L,upper=False)[0]  # Mx1;  c = L^(-1) . Kmm^(-1/2) . Kmn . y
 
             mu = b.T.mm(c)  # Mx1
             if self.mean is not None:
