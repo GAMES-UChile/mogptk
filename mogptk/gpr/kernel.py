@@ -1,6 +1,23 @@
 import torch
 import copy
 from . import Parameter, config
+import gc
+import psutil
+import sys
+import os
+
+def memReport():
+    for obj in gc.get_objects():
+        if torch.is_tensor(obj):
+            mb = obj.element_size()*obj.nelement()/1024/1024
+            if 1 < mb:
+                print(obj.size(), mb, "MB")
+    
+def cpuStats():
+        pid = os.getpid()
+        py = psutil.Process(pid)
+        memoryUse = py.memory_info()[0] / 2. ** 30  # memory use in GB...I think
+        print('memory GB:', memoryUse, psutil.virtual_memory().percent,"%")
 
 # TODO: remove superfluous _check_input for each K and diag functions
 
@@ -207,7 +224,7 @@ class MultiOutputKernel(Kernel):
                         res[r1[j],r2[i]] = k.T
 
             # add noise per channel
-            res += torch.index_select(self.noise(), dim=0, index=I1).diagflat()
+            res.diagonal().add_(torch.index_select(self.noise(), dim=0, index=I1))
         else:
             # extract channel mask, get data, and find indices that belong to the channels
             I2 = X2[:,0].long()

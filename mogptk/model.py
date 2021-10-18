@@ -80,7 +80,7 @@ class Model:
 
         self.model = model.build(kernel, x, y, mean, name)
         if issubclass(type(kernel), MultiOutputKernel) and issubclass(type(model), Exact):
-            self.model.noise.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
+            self.model.variance.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
     ################################################################
 

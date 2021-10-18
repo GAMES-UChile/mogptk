@@ -254,6 +254,7 @@ class GPR(Model):
 
             var = Kss - v.T.mm(v)  # MxM
             if not full:
+                # TODO: use K_diag
                 var = var.diag().reshape(-1,1)  # Mx1
             if tensor:
                 return mu, var
@@ -285,7 +286,7 @@ class Variational(Model):
         else:
             y = self.y  # Nx1
 
-        Knn_diag = self.kernel.diag(self.X) # Nx1
+        Knn_diag = self.kernel.K_diag(self.X) # Nx1
         Kmn = self.kernel(self.Z(),self.X) # MxN
         Kmm = self.kernel(self.Z()) + self.jitter*self.eye # MxM
 
@@ -336,6 +337,7 @@ class Variational(Model):
 
             var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
             if not full:
+                # TODO: use K_diag
                 var = var.diag().reshape(-1,1)  # Mx1
             if tensor:
                 return mu, var
