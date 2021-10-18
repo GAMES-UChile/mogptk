@@ -285,7 +285,7 @@ class Variational(Model):
         else:
             y = self.y  # Nx1
 
-        Knn = self.kernel(self.X) # NxN  TODO: get only diagonal
+        Knn_diag = self.kernel.diag(self.X) # Nx1
         Kmn = self.kernel(self.Z(),self.X) # MxN
         Kmm = self.kernel(self.Z()) + self.jitter*self.eye # MxM
 
@@ -301,7 +301,7 @@ class Variational(Model):
         p -= 0.5*self.X.shape[0]*self.variance().log()
         p -= 0.5*y.T.mm(y).squeeze()/self.variance()
         p += 0.5*c.T.mm(c).squeeze()
-        p -= 0.5*(torch.trace(Knn) - torch.trace(Q))/self.variance() # trace
+        p -= 0.5*(Knn_diag.sum() - Q.trace())/self.variance() # trace
         return p
 
     def log_marginal_likelihood(self):

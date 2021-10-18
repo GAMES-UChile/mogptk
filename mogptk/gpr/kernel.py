@@ -2,6 +2,8 @@ import torch
 import copy
 from . import Parameter, config
 
+# TODO: remove superfluous _check_input for each K and diag functions
+
 class Kernel:
     def __init__(self, input_dims=None, active_dims=None, name=None):
         if name is None:
@@ -87,6 +89,10 @@ class Kernel:
     def K(self, X1, X2=None):
         raise NotImplementedError()
 
+    def K_diag(self, X1):
+        # TODO: implement for all kernels
+        return self.K(X1).diagonal()
+
     def distance(self, X1, X2=None):
         # X1 is NxD, X2 is MxD, then ret is NxMxD
         if X2 is None:
@@ -111,6 +117,9 @@ class AddKernel(Kernel):
     def K(self, X1, X2=None):
         return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).sum(dim=2)
 
+    def K_diag(self, X1):
+        return torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1).sum(dim=1)
+
 class MulKernel(Kernel):
     def __init__(self, *kernels, name="Mul"):
         super(MulKernel, self).__init__(name=name)
@@ -121,6 +130,9 @@ class MulKernel(Kernel):
 
     def K(self, X1, X2=None):
         return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).prod(dim=2)
+
+    def K_diag(self, X1):
+        return torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1).prod(dim=1)
 
 class MixtureKernel(AddKernel):
     def __init__(self, kernel, Q, name="Mixture"):
@@ -187,5 +199,26 @@ class MultiOutputKernel(Kernel):
 
         return res
 
+    def K_diag(self, X1):
+        # extract channel mask, get data, and find indices that belong to the channels
+        I1 = X1[:,0].long()
+        m1 = [I1==i for i in range(self.output_dims)]
+        x1 = [X1[m1[i],1:] for i in range(self.output_dims)]  # I is broadcastable with last dimension in X
+        r1 = [torch.nonzero(m1[i], as_tuple=False)[:,0] for i in range(self.output_dims)]  # as_tuple avoids warning
+
+        res = torch.empty(X1.shape[0], device=config.device, dtype=config.dtype)  # N1 x N1
+
+        # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
+        for i in range(self.output_dims):
+            # calculate sub kernel matrix and add to main kernel matrix
+            res[r1[i]] = self.Ksub_diag(i, x1[i])
+
+        # add noise per channel
+        res += torch.index_select(self.noise(), dim=0, index=I1)
+        return res
+
     def Ksub(self, i, j, X1, X2=None):
         raise NotImplementedError()
+
+    def Ksub_diag(self, i, X1):
+        return self.Ksub(i, i, X1).diagonal()
