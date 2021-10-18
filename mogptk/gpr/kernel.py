@@ -62,7 +62,7 @@ class Kernel:
             raise ValueError("must pass at least one kernel")
         elif length is not None and len(kernels) != length:
             if len(kernels) != 1:
-                raise ValueError("must pass %d kernel" % length)
+                raise ValueError("must pass %d kernels" % length)
             for i in range(length - len(kernels)):
                 kernels.append(copy.deepcopy(kernels[0]))
         for i, kernel in enumerate(kernels):
@@ -106,10 +106,25 @@ class Kernel:
         #return (X1.unsqueeze(1) - X2)**2  # slower than cdist for large X
         return torch.cdist(X2.T.unsqueeze(2), X1.T.unsqueeze(2)).T**2
 
+    def __add__(self, other):
+        return AddKernel(self, other)
+
+    def __mul__(self, other):
+        return MulKernel(self, other)
+
 class AddKernel(Kernel):
     def __init__(self, *kernels, name="Add"):
         super(AddKernel, self).__init__(name=name)
-        self.kernels = self._check_kernels(kernels)
+        kernels = self._check_kernels(kernels)
+
+        i = 0
+        while i < len(kernels):
+            if isinstance(kernels[i], AddKernel):
+                subkernels = kernels[i].kernels
+                kernels = kernels[:i] + subkernels + kernels[i+1:]
+                i += len(subkernels) - 1
+            i += 1
+        self.kernels = kernels
 
     def __getitem__(self, key):
         return self.kernels[key]
@@ -123,7 +138,16 @@ class AddKernel(Kernel):
 class MulKernel(Kernel):
     def __init__(self, *kernels, name="Mul"):
         super(MulKernel, self).__init__(name=name)
-        self.kernels = self._check_kernels(kernels)
+        kernels = self._check_kernels(kernels)
+
+        i = 0
+        while i < len(kernels):
+            if isinstance(kernels[i], MulKernel):
+                subkernels = kernels[i].kernels
+                kernels = kernels[:i] + subkernels + kernels[i+1:]
+                i += len(subkernels) - 1
+            i += 1
+        self.kernels = kernels
 
     def __getitem__(self, key):
         return self.kernels[key]
