@@ -221,7 +221,7 @@ class GPR(Model):
         self._register_parameters(self.variance)
 
     def log_marginal_likelihood(self):
-        K = self.kernel(self.X) + self.variance()*self.eye # NxN
+        K = self.kernel(self.X) + self.variance()*self.eye  # NxN
         L = self._cholesky(K)  # NxN
 
         if self.mean is not None:
@@ -238,9 +238,8 @@ class GPR(Model):
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
 
-            K = self.kernel(self.X) + self.variance()*self.eye # NxN
+            K = self.kernel(self.X) + self.variance()*self.eye  # NxN
             Ks = self.kernel(self.X,Xs)  # NxM
-            Kss = self.kernel(Xs) + self.variance()*torch.eye(Xs.shape[0], device=config.device, dtype=config.dtype)  # MxM
 
             L = self._cholesky(K)  # NxN
             v = torch.triangular_solve(Ks,L,upper=False)[0]  # NxM
@@ -248,14 +247,17 @@ class GPR(Model):
             if self.mean is not None:
                 y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
                 mu = Ks.T.mm(torch.cholesky_solve(y,L))  # Mx1
-                mu += self.mean(Xs).reshape(-1,1)         # Mx1
+                mu += self.mean(Xs).reshape(-1,1)  # Mx1
             else:
                 mu = Ks.T.mm(torch.cholesky_solve(self.y,L))  # Mx1
 
-            var = Kss - v.T.mm(v)  # MxM
-            if not full:
-                # TODO: use K_diag
-                var = var.diag().reshape(-1,1)  # Mx1
+            if full:
+                Kss = self.kernel(Xs)  # MxM
+                var = Kss - v.T.mm(v)  # MxM
+            else:
+                Kss_diag = self.kernel.K_diag(Xs)  # Mx1
+                var = Kss_diag - v.T.square().sum(dim=1)  # Mx1
+
             if tensor:
                 return mu, var
             else:
@@ -286,9 +288,9 @@ class Variational(Model):
         else:
             y = self.y  # Nx1
 
-        Knn_diag = self.kernel.K_diag(self.X) # Nx1
-        Kmn = self.kernel(self.Z(),self.X) # MxN
-        Kmm = self.kernel(self.Z()) + self.jitter*self.eye # MxM
+        Knn_diag = self.kernel.K_diag(self.X)  # Nx1
+        Kmn = self.kernel(self.Z(),self.X)  # MxN
+        Kmm = self.kernel(self.Z()) + self.jitter*self.eye  # MxM
 
         Lmm = self._cholesky(Kmm)  # MxM;  Lmm = Kmm^(1/2)
         v = torch.triangular_solve(Kmn,Lmm,upper=False)[0]  # MxN;  v = Kmm^(-1/2) . Kmn
@@ -315,12 +317,11 @@ class Variational(Model):
             if self.mean is not None:
                 y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
             else:
-                y = self.y
+                y = self.y  # Nx1
 
-            Kss = self.kernel(Xs,Xs) # SxS
-            Kms = self.kernel(self.Z(),Xs) # MxS
-            Kmn = self.kernel(self.Z(),self.X) # MxN
-            Kmm = self.kernel(self.Z()) + self.jitter*self.eye # MxM
+            Kms = self.kernel(self.Z(),Xs)  # MxS
+            Kmn = self.kernel(self.Z(),self.X)  # MxN
+            Kmm = self.kernel(self.Z()) + self.jitter*self.eye  # MxM
 
             Lmm = self._cholesky(Kmm)  # MxM;  Lmm = Kmm^(1/2)
             v = torch.triangular_solve(Kmn,Lmm,upper=False)[0]  # MxN;  v = Kmm^(-1/2) . Kmn
@@ -333,12 +334,15 @@ class Variational(Model):
 
             mu = b.T.mm(c)  # Mx1
             if self.mean is not None:
-                mu += self.mean(Xs).reshape(-1,1)         # Mx1
+                mu += self.mean(Xs).reshape(-1,1)  # Mx1
 
-            var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
-            if not full:
-                # TODO: use K_diag
-                var = var.diag().reshape(-1,1)  # Mx1
+            if full:
+                Kss = self.kernel(Xs)  # MxM
+                var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
+            else:
+                Kss_diag = self.kernel.K_diag(Xs)  # Mx1
+                var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # Mx1
+
             if tensor:
                 return mu, var
             else:

@@ -6,21 +6,6 @@ import psutil
 import sys
 import os
 
-def memReport():
-    for obj in gc.get_objects():
-        if torch.is_tensor(obj):
-            mb = obj.element_size()*obj.nelement()/1024/1024
-            if 1 < mb:
-                print(obj.size(), mb, "MB")
-    
-def cpuStats():
-        pid = os.getpid()
-        py = psutil.Process(pid)
-        memoryUse = py.memory_info()[0] / 2. ** 30  # memory use in GB...I think
-        print('memory GB:', memoryUse, psutil.virtual_memory().percent,"%")
-
-# TODO: remove superfluous _check_input for each K and diag functions
-
 class Kernel:
     def __init__(self, input_dims=None, active_dims=None, name=None):
         if name is None:
@@ -33,6 +18,7 @@ class Kernel:
         self.name = name
 
     def __call__(self, X1, X2=None):
+        X1,X2 = self._check_inputs(X1,X2)
         return self.K(X1,X2)
 
     def __setattr__(self, name, val):
@@ -190,6 +176,7 @@ class AutomaticRelevanceDeterminationKernel(MulKernel):
 class MultiOutputKernel(Kernel):
     # The MultiOutputKernel is a base class for multi output kernels. It assumes that the first dimension of X contains channel IDs (integers) and calculate the final kernel matrix accordingly. Concretely, it will call the Ksub method for derived kernels from this class, which should return the kernel matrix between channel i and j, given inputs X1 and X2. This class will automatically split and recombine the input vectors and kernel matrices respectively, in order to create the final kernel matrix of the multi output kernel.
     # Be aware that for implementation of Ksub, i==j is true for the diagonal matrices. X2==None is true when calculating the Gram matrix (i.e. X1==X2) and when i==j. It is thus a subset of the case i==j, and if X2==None than i is always equal to j.
+    # TODO: seems to accumulate a lot of memory in the loops to call Ksub, perhaps it's keeping the computational graph while indexing?
 
     def __init__(self, output_dims, input_dims=None, active_dims=None, name=None):
         super(MultiOutputKernel, self).__init__(input_dims, active_dims, name)
@@ -201,7 +188,6 @@ class MultiOutputKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,1+input_dims) where the first column is the channel ID
-        X1,X2 = self._check_input(X1,X2)
 
         # extract channel mask, get data, and find indices that belong to the channels
         I1 = X1[:,0].long()
