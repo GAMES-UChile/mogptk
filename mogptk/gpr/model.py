@@ -207,16 +207,12 @@ class Model:
             return samples.cpu().numpy()
 
 class GPR(Model):
-    def __init__(self, kernel, X, y, variance=1.0, jitter=1e-8, mean=None, name="GPR"):
+    def __init__(self, kernel, X, y, variance=1.0, mean=None, name="GPR"):
         super(GPR, self).__init__(kernel, X, y, mean, name)
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
 
-        # TODO: has jitter?
-        self.jitter = jitter
-        if variance < jitter:
-            variance = jitter
         self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
         self._register_parameters(self.variance)
 
@@ -231,7 +227,7 @@ class GPR(Model):
 
         p = self.log_marginal_likelihood_constant
         p -= L.diagonal().log().sum() # 0.5 is taken inside the log: L is the square root
-        p = -0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
+        p -= 0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
         return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
     def predict(self, Xs, full=False, tensor=False):
@@ -257,6 +253,7 @@ class GPR(Model):
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # Mx1
                 var = Kss_diag - v.T.square().sum(dim=1)  # Mx1
+                var = var.reshape(-1,1)
 
             if tensor:
                 return mu, var
@@ -342,6 +339,7 @@ class Variational(Model):
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # Mx1
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # Mx1
+                var = var.reshape(-1,1)
 
             if tensor:
                 return mu, var
