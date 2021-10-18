@@ -18,7 +18,7 @@ class Kernel:
         self.name = name
 
     def __call__(self, X1, X2=None):
-        X1,X2 = self._check_inputs(X1,X2)
+        X1,X2 = self._check_input(X1,X2)
         return self.K(X1,X2)
 
     def __setattr__(self, name, val):
