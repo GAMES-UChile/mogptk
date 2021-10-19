@@ -1,10 +1,6 @@
 import torch
 import copy
 from . import Parameter, config
-import gc
-import psutil
-import sys
-import os
 
 class Kernel:
     def __init__(self, input_dims=None, active_dims=None, name=None):
