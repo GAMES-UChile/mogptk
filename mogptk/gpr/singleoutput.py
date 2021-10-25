@@ -100,6 +100,21 @@ class PeriodicKernel(Kernel):
         exp = torch.exp(-2.0 * torch.tensordot(sin**2, self.l()**2, dims=1))  # NxM
         return self.sigma()**2 * exp
 
+class CosineKernel(Kernel):
+    def __init__(self, input_dims, active_dims=None, name="Cosine"):
+        super(CosineKernel, self).__init__(input_dims, active_dims, name)
+
+        l = torch.rand(input_dims)
+        sigma = torch.rand(1)
+
+        self.l = Parameter(l, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
+
+    def K(self, X1, X2=None):
+        # X has shape (data_points,input_dims)
+        cos = 2.0*np.pi * torch.tensordot(self.distance(X1,X2), 1.0/self.l(), dims=1)  # NxMxD
+        return self.sigma()**2 * torch.cos(cos)
+
 class SpectralKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name="SM"):
         super(SpectralKernel, self).__init__(input_dims, active_dims, name)

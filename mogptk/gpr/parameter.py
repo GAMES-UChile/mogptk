@@ -73,9 +73,7 @@ class Parameter:
             if not isinstance(value, torch.Tensor):
                 value = torch.tensor(value, device=config.device, dtype=config.dtype)
             else:
-                value = value.to(config.device, config.dtype)
-                if value.requires_grad:
-                    value = value.detach()
+                value = value.detach().to(config.device, config.dtype)
 
             if self.unconstrained is not None:
                 origshape = value.shape
@@ -87,7 +85,11 @@ class Parameter:
             value = self.unconstrained.detach()
 
         if lower is not None:
-            lower = torch.tensor(lower, device=config.device, dtype=config.dtype)
+            if not isinstance(lower, torch.Tensor):
+                lower = torch.tensor(lower, device=config.device, dtype=config.dtype)
+            else:
+                lower = lower.detach().to(config.device, config.dtype)
+
             if len(lower.shape) != 0:
                 while len(lower.shape) < len(value.shape) and value.shape[len(lower.shape)] == 1:
                     lower = lower.unsqueeze(len(lower.shape))
@@ -97,7 +99,11 @@ class Parameter:
             lower = self.lower
 
         if upper is not None:
-            upper = torch.tensor(upper, device=config.device, dtype=config.dtype)
+            if not isinstance(upper, torch.Tensor):
+                upper = torch.tensor(upper, device=config.device, dtype=config.dtype)
+            else:
+                upper = upper.detach().to(config.device, config.dtype)
+
             if len(upper.shape) != 0:
                 while len(upper.shape) < len(value.shape) and value.shape[len(upper.shape)] == 1:
                     upper = upper.unsqueeze(len(upper.shape))
