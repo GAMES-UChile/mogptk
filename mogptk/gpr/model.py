@@ -350,7 +350,7 @@ class Sparse(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class Variational(Model):
-    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-8,
+    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-6,
                  mean=None, name="Variational"):
         super(Variational, self).__init__(kernel, X, y, mean, name)
 
@@ -358,23 +358,24 @@ class Variational(Model):
         self.eye = torch.eye(X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(len(X),1), name="q_mu")
-        self.q_var = Parameter(torch.eye(len(X)), name="q_var", lower=config.positive_minimum)
+        self.q_sqrt = Parameter(torch.eye(len(X)), name="q_sqrt")
         self.likelihood = likelihood
 
         self._register_parameters(self.q_mu)
-        self._register_parameters(self.q_var)
+        self._register_parameters(self.q_sqrt)
         self._register_parameters(self.likelihood)
 
-    def kl_gaussian(self, q_mu, q_var, p_mu, p_var):
-        Lq = self._cholesky(q_var + self.jitter*self.eye) # NxN
+    def kl_gaussian(self, q_mu, q_sqrt, p_mu, p_var):
+        Lq = q_sqrt.tril() # NxN
         Lp = self._cholesky(p_var + self.jitter*self.eye) # NxN
         v = torch.triangular_solve(p_mu-q_mu,Lp,upper=False)[0]  # Nx1
+        a = torch.triangular_solve(Lq,Lp,upper=False)[0]
 
         kl = -0.5*p_mu.shape[0]
         kl += 0.5*v.T.mm(v)  # Mahalanobis
         kl += Lp.diagonal().log().sum()
-        kl -= Lq.diagonal().log().sum()
-        kl += 0.5*torch.cholesky_solve(q_var,Lp).diagonal().sum()  # trace
+        kl -= 0.5*q_sqrt.diagonal().square().log().sum()
+        kl += 0.5*a.square().sum()  # trace
         return kl
 
     def elbo(self):
@@ -383,12 +384,20 @@ class Variational(Model):
         else:
             y = self.y  # Nx1
 
-        q_var_diag = self.q_var().diagonal().reshape(-1,1)
+        q_var_diag = self.q_sqrt().diagonal().square().reshape(-1,1)
         var_exp = self.likelihood.variational_expectation(y, self.q_mu(), q_var_diag)
 
         p_mu = torch.zeros(len(self.X),1)
         p_var = self.kernel(self.X)
-        return var_exp - self.kl_gaussian(self.q_mu(), self.q_var(), p_mu, p_var)
+        kl = self.kl_gaussian(self.q_mu(), self.q_sqrt(), p_mu, p_var)
+
+        #import gpflow
+        #import tensorflow as tf
+        #yy = gpflow.kullback_leiblers.gauss_kl(tf.convert_to_tensor(self.q_mu().detach().numpy(), dtype=tf.float64), tf.convert_to_tensor(self.q_sqrt().unsqueeze(dim=0).detach().numpy(), dtype=tf.float64), tf.convert_to_tensor((p_var + self.jitter*self.eye).detach().numpy(), dtype=tf.float64))
+        #zz = gpflow.likelihoods.Gaussian(variance=self.likelihood.variance().detach().numpy()).variational_expectations(tf.convert_to_tensor(self.q_mu().detach().numpy(), dtype=tf.float64), tf.convert_to_tensor(q_var_diag.detach().numpy(), dtype=tf.float64), tf.convert_to_tensor(y.detach().numpy(), dtype=tf.float64))
+        #print(yy.numpy(), kl.detach().numpy()[0][0])
+        #print(tf.reduce_sum(zz).numpy(), var_exp.detach().numpy())
+        return var_exp - kl
 
     def log_marginal_likelihood(self):
         # maximize the lower bound
@@ -402,6 +411,7 @@ class Variational(Model):
 
             L = self._cholesky(Knn)  # NxN
             v = torch.triangular_solve(Kns,L,upper=False)[0]  # NxS;  Knn^(-1/2) . Kns
+            w = self.q_sqrt().T.mm(v)
 
             mu = v.T.mm(self.q_mu())  # Sx1
             if self.mean is not None:
@@ -409,10 +419,10 @@ class Variational(Model):
 
             if full:
                 Kss = self.kernel(Xs)  # SxS
-                var = Kss - v.T.mm(v) + v.T.mm(self.q_var()).mm(v)  # SxS
+                var = Kss - v.T.mm(v) + w.T.mm(w)  # SxS
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # Mx1
-                var = Kss_diag - v.T.square().sum(dim=1) + v.T.mm(self.q_var()).mm(v).diagonal()  # Mx1
+                var = Kss_diag - v.T.square().sum(dim=1) + w.T.square().sum(dim=1)  # Mx1
                 var = var.reshape(-1,1)
 
             if tensor:

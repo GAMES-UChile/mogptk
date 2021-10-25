@@ -40,7 +40,6 @@ class GaussianLikelihood(Likelihood):
     def variational_expectation(self, y, mu, var):
         # y,mu,var: Nx1
         p = -0.5 * ((y-mu).square() + var) / self.variance()
-        p = -0.5 * ((y-var-mu).square() + var) / self.variance()
         p -= 0.5 * np.log(2.0 * np.pi)
         p -= 0.5 * self.variance().log()
         return p.sum()  # sum over N
