@@ -217,8 +217,8 @@ class GPR(Model):
         self._register_parameters(self.variance)
 
     def log_marginal_likelihood(self):
-        K = self.kernel(self.X) + self.variance()*self.eye  # NxN
-        L = self._cholesky(K)  # NxN
+        Kff = self.kernel(self.X) + self.variance()*self.eye  # NxN
+        L = self._cholesky(Kff)  # NxN
 
         if self.mean is not None:
             y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
@@ -238,13 +238,13 @@ class GPR(Model):
             else:
                 y = self.y  # Nx1
 
-            K = self.kernel(self.X) + self.variance()*self.eye  # NxN
-            Ks = self.kernel(self.X,Xs)  # NxM
+            Kff = self.kernel(self.X) + self.variance()*self.eye  # NxN
+            Kfs = self.kernel(self.X,Xs)  # NxM
 
-            L = self._cholesky(K)  # NxN
-            v = torch.triangular_solve(Ks,L,upper=False)[0]  # NxM
+            Lff = self._cholesky(Kff)  # NxN
+            v = torch.triangular_solve(Kfs,Lff,upper=False)[0]  # NxM
 
-            mu = Ks.T.mm(torch.cholesky_solve(y,L))  # Mx1
+            mu = Kfs.T.mm(torch.cholesky_solve(y,Lff))  # Mx1
             if self.mean is not None:
                 mu += self.mean(Xs).reshape(-1,1)  # Mx1
 
@@ -288,23 +288,24 @@ class Sparse(Model):
         else:
             y = self.y  # Nx1
 
-        Knn_diag = self.kernel.K_diag(self.X)  # Nx1
-        Kmn = self.kernel(self.Z(),self.X)  # MxN
-        Kmm = self.kernel(self.Z()) + self.jitter*self.eye  # MxM
+        Kff_diag = self.kernel.K_diag(self.X)  # Nx1
+        Kuf = self.kernel(self.Z(),self.X)  # MxN
+        Kuu = self.kernel(self.Z()) + self.jitter*self.eye  # MxM
 
-        Lmm = self._cholesky(Kmm)  # MxM;  Lmm = Kmm^(1/2)
-        v = torch.triangular_solve(Kmn,Lmm,upper=False)[0]  # MxN;  v = Kmm^(-1/2) . Kmn
-        Q = v.mm(v.T)  # MxM;  Q = Kmm^(-1/2) . Kmn . Knm . Kmm^(-1/2)
+        Luu = self._cholesky(Kuu)  # MxM;  Luu = Kuu^(1/2)
+        v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  v = Kuu^(-1/2) . Kuf
+        Q = v.mm(v.T)  # MxM;  Q = Kuu^(-1/2) . Kuf . Kfu . Kuu^(-1/2)
         L = self._cholesky(Q/self.variance() + self.eye)  # MxM;  L = (Q/var + I)^(1/2)
 
-        c = torch.triangular_solve(v.mm(y),L,upper=False)[0]/self.variance()  # Mx1;  c = L^(-1) . Kmm^(-1/2) . Kmn . y
+        c = torch.triangular_solve(v.mm(y),L,upper=False)[0]/self.variance()  # Mx1;  c = L^(-1) . Kuu^(-1/2) . Kuf . y
 
+        # p = log N(0, Kfu.Kuu^(-1).Kuf + I/sigma^2) - 1/(2.sigma^2).Trace(Kff - Kfu.Kuu^(-1).Kuf)
         p = -self.log_marginal_likelihood_constant
         p -= L.diagonal().log().sum() # 0.5 is taken as the square root of L
         p -= 0.5*self.X.shape[0]*self.variance().log()
         p -= 0.5*y.T.mm(y).squeeze()/self.variance()
         p += 0.5*c.T.mm(c).squeeze()
-        p -= 0.5*(Knn_diag.sum() - Q.trace())/self.variance() # trace
+        p -= 0.5*(Kff_diag.sum() - Q.trace())/self.variance() # trace
         return p
 
     def log_marginal_likelihood(self):
@@ -319,23 +320,27 @@ class Sparse(Model):
             else:
                 y = self.y  # Nx1
 
-            Kms = self.kernel(self.Z(),Xs)  # MxS
-            Kmn = self.kernel(self.Z(),self.X)  # MxN
-            Kmm = self.kernel(self.Z()) + self.jitter*self.eye  # MxM
+            Kus = self.kernel(self.Z(),Xs)  # MxS
+            Kuf = self.kernel(self.Z(),self.X)  # MxN
+            Kuu = self.kernel(self.Z()) + self.jitter*self.eye  # MxM
 
-            Lmm = self._cholesky(Kmm)  # MxM;  Lmm = Kmm^(1/2)
-            v = torch.triangular_solve(Kmn,Lmm,upper=False)[0]  # MxN;  v = Kmm^(-1/2) . Kmn
-            Q = v.mm(v.T)  # MxM;  Q = Kmm^(-1/2) . Kmn . Knm . Kmm^(-1/2)
+            Luu = self._cholesky(Kuu)  # MxM;  Luu = Kuu^(1/2)
+            v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  v = Kuu^(-1/2).Kuf
+            Q = v.mm(v.T)  # MxM;  Q = Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)
             L = self._cholesky(Q/self.variance() + self.eye)  # MxM;  L = (Q/var + I)^(1/2)
 
-            a = torch.triangular_solve(Kms,Lmm,upper=False)[0]  # MxS;  Kmm^(-1/2) . Kms
-            b = torch.triangular_solve(a,L,upper=False)[0]  # MxS;  L^(-1) . Kmm^(-1/2) . Kms
-            c = torch.triangular_solve(v.mm(y),L,upper=False)[0]/self.variance()  # Mx1;  c = L^(-1) . Kmm^(-1/2) . Kmn . y
+            a = torch.triangular_solve(Kus,Luu,upper=False)[0]  # MxS;  Kuu^(-1/2).Kus
+            b = torch.triangular_solve(a,L,upper=False)[0]  # MxS;  L^(-1).Kuu^(-1/2).Kus
+            c = torch.triangular_solve(v.mm(y),L,upper=False)[0]/self.variance()  # Mx1;  c = L^(-1).Kuu^(-1/2).Kuf.y
 
+            # mu = sigma^(-2).Ksu.Kuu^(-1/2).(sigma^(-2).Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2) + I)^(-1).Kuu^(-1/2).Kuf.y
             mu = b.T.mm(c)  # Mx1
             if self.mean is not None:
                 mu += self.mean(Xs).reshape(-1,1)  # Mx1
 
+            # var = Kss - Qsf.(Qff + sigma^2 I)^(-1).Qfs
+            # below is the equivalent but more stable version by using the matrix inversion lemma
+            # var = Kss - Ksu.Kuu^(-1).Kus + Ksu.Kuu^(-1/2).(sigma^(-2).Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2) + I)^(-1).Kuu^(-1/2).Kus
             if full:
                 Kss = self.kernel(Xs)  # MxM
                 var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
@@ -349,33 +354,48 @@ class Sparse(Model):
             else:
                 return mu.cpu().numpy(), var.cpu().numpy()
 
-class Variational(Model):
-    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-6,
-                 mean=None, name="Variational"):
-        super(Variational, self).__init__(kernel, X, y, mean, name)
+class SparseVariational(Model):
+    def __init__(self, kernel, X, y, Z=None, likelihood=GaussianLikelihood(variance=1.0),
+                 jitter=1e-6, mean=None, name="SparseVariational"):
+        super(SparseVariational, self).__init__(kernel, X, y, mean, name)
+
+        self.is_sparse = Z is not None
+
+        n = X.shape[0]
+        if self.is_sparse:
+            if isinstance(Z, int):
+                Z = torch.linspace(torch.min(X), torch.max(X), Z)
+            Z = self._check_input(Z)
+            n = Z.shape[0]
 
         self.jitter = jitter
-        self.eye = torch.eye(X.shape[0], device=config.device, dtype=config.dtype)
+        self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
-        self.q_mu = Parameter(torch.zeros(len(X),1), name="q_mu")
-        self.q_sqrt = Parameter(torch.eye(len(X)), name="q_sqrt")
+        self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
+        self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt")
+        if self.is_sparse:
+            self.Z = Parameter(Z, name="induction_points")
+        else:
+            self.Z = Parameter(X, trainable=False)  # don't use inducing points
         self.likelihood = likelihood
 
         self._register_parameters(self.q_mu)
         self._register_parameters(self.q_sqrt)
         self._register_parameters(self.likelihood)
+        if self.is_sparse:
+            self._register_parameters(self.Z)
 
-    def kl_gaussian(self, q_mu, q_sqrt, p_mu, p_var):
+    def kl_gaussian(self, q_mu, q_sqrt, p_var):
         Lq = q_sqrt.tril() # NxN
         Lp = self._cholesky(p_var + self.jitter*self.eye) # NxN
-        v = torch.triangular_solve(p_mu-q_mu,Lp,upper=False)[0]  # Nx1
+        v = torch.triangular_solve(q_mu,Lp,upper=False)[0]  # Nx1
         a = torch.triangular_solve(Lq,Lp,upper=False)[0]
 
-        kl = -0.5*p_mu.shape[0]
+        kl = -0.5*q_mu.shape[0]
         kl += 0.5*v.T.mm(v)  # Mahalanobis
-        kl += Lp.diagonal().log().sum()
-        kl -= 0.5*q_sqrt.diagonal().square().log().sum()
-        kl += 0.5*a.square().sum()  # trace
+        kl += 0.5*Lp.diagonal().square().log().sum()  # determinant of p_var
+        kl -= 0.5*Lq.diagonal().square().log().sum()  # determinant of q_var
+        kl += 0.5*a.square().sum()  # same as Trace(p_var^(-1).q_var)
         return kl
 
     def elbo(self):
@@ -384,48 +404,54 @@ class Variational(Model):
         else:
             y = self.y  # Nx1
 
-        q_var_diag = self.q_sqrt().diagonal().square().reshape(-1,1)
-        var_exp = self.likelihood.variational_expectation(y, self.q_mu(), q_var_diag)
+        if self.is_sparse:
+            qf_mu, qf_var_diag = self._predict(self.X, full=False)
+        else:
+            qf_mu = self.q_mu()
+            qf_var_diag = self.q_sqrt().diagonal().square().reshape(-1,1)
+        p_var = self.kernel(self.Z())
 
-        p_mu = torch.zeros(len(self.X),1)
-        p_var = self.kernel(self.X)
-        kl = self.kl_gaussian(self.q_mu(), self.q_sqrt(), p_mu, p_var)
-
-        #import gpflow
-        #import tensorflow as tf
-        #yy = gpflow.kullback_leiblers.gauss_kl(tf.convert_to_tensor(self.q_mu().detach().numpy(), dtype=tf.float64), tf.convert_to_tensor(self.q_sqrt().unsqueeze(dim=0).detach().numpy(), dtype=tf.float64), tf.convert_to_tensor((p_var + self.jitter*self.eye).detach().numpy(), dtype=tf.float64))
-        #zz = gpflow.likelihoods.Gaussian(variance=self.likelihood.variance().detach().numpy()).variational_expectations(tf.convert_to_tensor(self.q_mu().detach().numpy(), dtype=tf.float64), tf.convert_to_tensor(q_var_diag.detach().numpy(), dtype=tf.float64), tf.convert_to_tensor(y.detach().numpy(), dtype=tf.float64))
-        #print(yy.numpy(), kl.detach().numpy()[0][0])
-        #print(tf.reduce_sum(zz).numpy(), var_exp.detach().numpy())
+        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag)
+        kl = self.kl_gaussian(self.q_mu(), self.q_sqrt(), p_var)
         return var_exp - kl
 
     def log_marginal_likelihood(self):
         # maximize the lower bound
         return self.elbo()
 
+    def _predict(self, Xs, full=False):
+        Kuu = self.kernel(self.Z()) + self.jitter*self.eye  # NxN
+        Kus = self.kernel(self.Z(),Xs)  # NxS
+
+        Luu = self._cholesky(Kuu)  # NxN
+        v = torch.triangular_solve(Kus,Luu,upper=False)[0]  # NxS;  Kuu^(-1/2).Kus
+        w = self.q_sqrt().T.mm(v)
+
+        mu = Kus.T.mm(torch.cholesky_solve(self.q_mu(),Luu))  # Sx1
+        if full:
+            Kss = self.kernel(Xs)  # SxS
+            var = Kss - v.T.mm(v) + w.T.mm(w)  # SxS
+        else:
+            Kss_diag = self.kernel.K_diag(Xs)  # Mx1
+            var = Kss_diag - v.T.square().sum(dim=1) + w.T.square().sum(dim=1)  # Mx1
+            var = var.reshape(-1,1)
+        return mu, var
+
     def predict(self, Xs, full=False, tensor=False):
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
-            Knn = self.kernel(self.X) + self.jitter*self.eye  # NxN
-            Kns = self.kernel(self.X,Xs)  # NxS
 
-            L = self._cholesky(Knn)  # NxN
-            v = torch.triangular_solve(Kns,L,upper=False)[0]  # NxS;  Knn^(-1/2) . Kns
-            w = self.q_sqrt().T.mm(v)
-
-            mu = v.T.mm(self.q_mu())  # Sx1
+            mu, var = self._predict(Xs, full=full)
             if self.mean is not None:
                 mu += self.mean(Xs).reshape(-1,1)  # Sx1
-
-            if full:
-                Kss = self.kernel(Xs)  # SxS
-                var = Kss - v.T.mm(v) + w.T.mm(w)  # SxS
-            else:
-                Kss_diag = self.kernel.K_diag(Xs)  # Mx1
-                var = Kss_diag - v.T.square().sum(dim=1) + w.T.square().sum(dim=1)  # Mx1
-                var = var.reshape(-1,1)
 
             if tensor:
                 return mu, var
             else:
                 return mu.cpu().numpy(), var.cpu().numpy()
+
+class Variational(SparseVariational):
+    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-6,
+                 mean=None, name="Variational"):
+        super(Variational, self).__init__(kernel, X, y, likelihood=likelihood, jitter=jitter,
+                                          mean=mean, name=name)

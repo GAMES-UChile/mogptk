@@ -15,7 +15,7 @@ class IndependentMultiOutputKernel(MultiOutputKernel):
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
         if i == j:
-            return self.kernels[i](X1, X2)
+            return self.kernels[i].K(X1, X2)
         else:
             if X2 is None:
                 X2 = X1
@@ -124,7 +124,7 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
         weight = torch.sum(self.weight()[i] * self.weight()[j], dim=1)  # Q
-        kernels = torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2)  # NxMxQ
+        kernels = torch.stack([kernel.K(X1,X2) for kernel in self.kernels], dim=2)  # NxMxQ
         return torch.tensordot(kernels, weight, dims=1)
 
 class GaussianConvolutionProcessKernel(MultiOutputKernel):
