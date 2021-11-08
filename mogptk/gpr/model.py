@@ -55,9 +55,11 @@ class Model:
             X = torch.tensor(X, device=config.device, dtype=config.dtype)
         else:
             X = X.to(config.device, config.dtype)
-        if len(X.shape) == 1:
+        if len(X.shape) == 0:
+            X = X.reshape(1,1)
+        elif len(X.shape) == 1:
             X = X.reshape(-1,1)
-        if len(X.shape) != 2:
+        elif len(X.shape) != 2:
             raise ValueError("X must have dimensions (data_points,input_dims) with input_dims optional")
         if X.shape[0] == 0 or X.shape[1] == 0:
             raise ValueError("X must not be empty")
@@ -67,9 +69,11 @@ class Model:
                 y = torch.tensor(y, device=config.device, dtype=config.dtype)
             else:
                 y = y.to(config.device, config.dtype)
-            if len(y.shape) == 1:
+            if len(y.shape) == 0:
+                y = y.reshape(1,1)
+            elif len(y.shape) == 1:
                 y = y.reshape(-1,1)
-            if len(y.shape) != 2 or y.shape[1] != 1:
+            elif len(y.shape) != 2 or y.shape[1] != 1:
                 raise ValueError("y must have one dimension (data_points,)")
             if X.shape[0] != y.shape[0]:
                 raise ValueError("number of data points for X and y must match")
@@ -230,7 +234,7 @@ class GPR(Model):
         p -= 0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
         return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
 
-    def predict(self, Xs, full=False, tensor=False):
+    def predict(self, Xs, full=False, tensor=False, predict_y=True):
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
             if self.mean is not None:
@@ -251,9 +255,13 @@ class GPR(Model):
             if full:
                 Kss = self.kernel(Xs)  # MxM
                 var = Kss - v.T.mm(v)  # MxM
+                if predict_y:
+                    var += self.variance()*torch.eye(var.shape[0])
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # Mx1
                 var = Kss_diag - v.T.square().sum(dim=1)  # Mx1
+                if predict_y:
+                    var += self.variance()
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -312,7 +320,7 @@ class Sparse(Model):
         # maximize the lower bound
         return self.elbo()
 
-    def predict(self, Xs, full=False, tensor=False):
+    def predict(self, Xs, full=False, tensor=False, predict_y=True):
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
             if self.mean is not None:
@@ -344,9 +352,13 @@ class Sparse(Model):
             if full:
                 Kss = self.kernel(Xs)  # MxM
                 var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
+                if predict_y:
+                    var += self.variance()*torch.eye(var.shape[0])
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # Mx1
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # Mx1
+                if predict_y:
+                    var += self.variance()
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -368,9 +380,10 @@ class SparseVariational(Model):
             Z = self._check_input(Z)
             n = Z.shape[0]
 
-        self.jitter = jitter
+        self.jitter = jitter # TODO: make jitter 1.e6*mean(diag of tensor)
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
+        self.q_idx = torch.tril_indices(n,n)
         self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
         self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt")
         if self.is_sparse:
@@ -387,16 +400,16 @@ class SparseVariational(Model):
 
     def kl_gaussian(self, q_mu, q_sqrt, p_var):
         Lq = q_sqrt.tril() # NxN
-        Lp = self._cholesky(p_var + self.jitter*self.eye) # NxN
+        Lp = self._cholesky(p_var + self.jitter*p_var.diagonal().mean()*self.eye) # NxN
         v = torch.triangular_solve(q_mu,Lp,upper=False)[0]  # Nx1
         a = torch.triangular_solve(Lq,Lp,upper=False)[0]
 
-        kl = -0.5*q_mu.shape[0]
-        kl += 0.5*v.T.mm(v)  # Mahalanobis
-        kl += 0.5*Lp.diagonal().square().log().sum()  # determinant of p_var
-        kl -= 0.5*Lq.diagonal().square().log().sum()  # determinant of q_var
-        kl += 0.5*a.square().sum()  # same as Trace(p_var^(-1).q_var)
-        return kl
+        kl = -q_mu.shape[0]
+        kl += v.T.mm(v).squeeze()  # Mahalanobis
+        kl += Lp.diagonal().square().log().sum()  # determinant of p_var
+        kl -= Lq.diagonal().square().log().sum()  # determinant of q_var
+        kl += a.square().sum()  # same as Trace(p_var^(-1).q_var)
+        return 0.5*kl
 
     def elbo(self):
         if self.mean is not None:
@@ -408,7 +421,7 @@ class SparseVariational(Model):
             qf_mu, qf_var_diag = self._predict(self.X, full=False)
         else:
             qf_mu = self.q_mu()
-            qf_var_diag = self.q_sqrt().diagonal().square().reshape(-1,1)
+            qf_var_diag = self.q_sqrt().tril().mm(self.q_sqrt().tril().T).diagonal().reshape(-1,1)
         p_var = self.kernel(self.Z())
 
         var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag)
@@ -420,12 +433,13 @@ class SparseVariational(Model):
         return self.elbo()
 
     def _predict(self, Xs, full=False):
-        Kuu = self.kernel(self.Z()) + self.jitter*self.eye  # NxN
+        Kuu = self.kernel(self.Z())
+        Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # NxN
         Kus = self.kernel(self.Z(),Xs)  # NxS
 
         Luu = self._cholesky(Kuu)  # NxN
         v = torch.triangular_solve(Kus,Luu,upper=False)[0]  # NxS;  Kuu^(-1/2).Kus
-        w = self.q_sqrt().T.mm(v)
+        w = self.q_sqrt().tril().T.mm(torch.cholesky_solve(Kus,Luu))
 
         mu = Kus.T.mm(torch.cholesky_solve(self.q_mu(),Luu))  # Sx1
         if full:
@@ -437,11 +451,13 @@ class SparseVariational(Model):
             var = var.reshape(-1,1)
         return mu, var
 
-    def predict(self, Xs, full=False, tensor=False):
+    def predict(self, Xs, full=False, tensor=False, predict_y=True):
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
 
             mu, var = self._predict(Xs, full=full)
+            if predict_y:
+                mu, var = self.likelihood.predict(mu, var, full=full)
             if self.mean is not None:
                 mu += self.mean(Xs).reshape(-1,1)  # Sx1
 
