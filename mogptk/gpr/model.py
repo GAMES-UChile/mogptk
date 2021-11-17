@@ -278,8 +278,6 @@ class Sparse(Model):
         if isinstance(Z, int):
             Z = torch.linspace(torch.min(X), torch.max(X), Z)
         Z = self._check_input(Z)
-        if variance < jitter:
-            variance = jitter
 
         self.jitter = jitter
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
@@ -298,7 +296,7 @@ class Sparse(Model):
 
         Kff_diag = self.kernel.K_diag(self.X)  # Nx1
         Kuf = self.kernel(self.Z(),self.X)  # MxN
-        Kuu = self.kernel(self.Z()) + self.jitter*self.eye  # MxM
+        Kuu = self.kernel(self.Z()) + self.jitter*Kuu.diagonal().mean()*self.eye  # MxM
 
         Luu = self._cholesky(Kuu)  # MxM;  Luu = Kuu^(1/2)
         v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  v = Kuu^(-1/2) . Kuf
@@ -330,7 +328,7 @@ class Sparse(Model):
 
             Kus = self.kernel(self.Z(),Xs)  # MxS
             Kuf = self.kernel(self.Z(),self.X)  # MxN
-            Kuu = self.kernel(self.Z()) + self.jitter*self.eye  # MxM
+            Kuu = self.kernel(self.Z()) + self.jitter*Kuu.diagonal().mean()*self.eye  # MxM
 
             Luu = self._cholesky(Kuu)  # MxM;  Luu = Kuu^(1/2)
             v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  v = Kuu^(-1/2).Kuf
@@ -383,7 +381,7 @@ class SparseHensman(Model):
             Z = self._check_input(Z)
             n = Z.shape[0]
 
-        self.jitter = jitter # TODO: make jitter 1.e6*mean(diag of tensor)
+        self.jitter = jitter
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
@@ -493,7 +491,7 @@ class SparseHensman2(Model):
             Z = self._check_input(Z)
             n = Z.shape[0]
 
-        self.jitter = jitter # TODO: make jitter 1.e6*mean(diag of tensor)
+        self.jitter = jitter
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
