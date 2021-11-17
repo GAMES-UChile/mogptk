@@ -546,12 +546,10 @@ class SparseHensman2(Model):
         Kus = self.kernel(self.Z(),Xs)  # NxS
 
         Luu = self._cholesky(Kuu)  # NxN
-        q_mu = Luu.mm(self.q_mu())
-        q_sqrt = Luu.mm(self.q_sqrt().tril())
         v = torch.triangular_solve(Kus,Luu,upper=False)[0]  # NxS;  Kuu^(-1/2).Kus
-        w = q_sqrt.T.mm(torch.cholesky_solve(Kus,Luu))
+        w = self.q_sqrt().tril().T.mm(torch.triangular_solve(Kus,Luu,upper=False)[0])
 
-        mu = Kus.T.mm(torch.cholesky_solve(q_mu,Luu))  # Sx1
+        mu = Kus.T.mm(torch.triangular_solve(self.q_mu(),Luu.T,upper=True)[0])  # Sx1
         if full:
             Kss = self.kernel(Xs)  # SxS
             var = Kss - v.T.mm(v) + w.T.mm(w)  # SxS
