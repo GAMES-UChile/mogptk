@@ -11,17 +11,13 @@ class GaussHermiteQuadrature:
         self.w = torch.tensor(w/np.sqrt(np.pi), device=config.device, dtype=config.dtype)  # Mx1
         self.deg = deg
 
-    def __call__(self, F):
-        return F(self.t).mm(self.w)  # Nx1
+    def __call__(self, mu, var, F):
+        return F(mu + var.sqrt().mm(self.t.T)).mm(self.w)  # Nx1
 
 class Likelihood:
     def __init__(self, name, quadratures=20):
         self.name = name
         self.quadrature = GaussHermiteQuadrature(deg=quadratures)
-
-    def predict(self, mu, var, full=False):
-        # TODO: implement quadrature approximation
-        raise NotImplementedError()
 
     def log_prob(self, y, f):
         # log(p(y|f)), where p(y|f) is our likelihood
@@ -32,57 +28,84 @@ class Likelihood:
     def variational_expectation(self, y, mu, var):
         # ∫ log(p(y|f)) q(f) df, where q(f) ~ N(mu,var) and p(y|f) is our likelihood
         # y,mu,var: Nx1
-        # t: Mx1
-        q = self.quadrature(lambda t: self.log_prob(y, mu + var.sqrt().mm(t.T)))  # Nx1
+        q = self.quadrature(mu, var, lambda f: self.log_prob(y,f))  # Nx1
         return q.sum()  # sum over N
+
+    def mean(self, f):
+        # f: NxM
+        raise NotImplementedError()
+
+    def variance(self, f):
+        # f: NxM
+        raise NotImplementedError()
+
+    def predict(self, mu, var, full=False):
+        # ∫∫ y p(y|f) q(f) df dy,  ∫∫ y^2 p(y|f) q(f) df dy - (∫∫ y p(y|f) q(f) df dy)^2
+        # where q(f) ~ N(mu,var) and p(y|f) is our likelihood
+        # mu,var: Nx1
+        Ey = self.quadrature(mu, var, self.mean)
+        Eyy = self.quadrature(mu, var, lambda f: self.mean(f).square() + self.variance(f))
+        return Ey, Eyy-Ey**2 
 
 class GaussianLikelihood(Likelihood):
     def __init__(self, variance=1.0, name="GaussianLikelihood", quadratures=20):
         super(GaussianLikelihood, self).__init__(name, quadratures)
 
-        self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
-
-    def predict(self, mu, var, full=False):
-        if full:
-            return mu, var + self.variance()*torch.eye(var.shape[0])
-        else:
-            return mu, var + self.variance()
+        self.sigma = Parameter(variance, name="variance", lower=config.positive_minimum)
 
     def log_prob(self, y, f):
         # y: Nx1
         # f: NxM
-        p = -0.5 * (np.log(2.0 * np.pi) + self.variance().log() + (y-f).square()/self.variance())
+        p = -0.5 * (np.log(2.0 * np.pi) + self.sigma().log() + (y-f).square()/self.sigma())
         return p  # NxM
 
     def variational_expectation(self, y, mu, var):
         # y,mu,var: Nx1
-        p = -((y-mu).square() + var) / self.variance()
+        p = -((y-mu).square() + var) / self.sigma()
         p -= np.log(2.0 * np.pi)
-        p -= self.variance().log()
+        p -= self.sigma().log()
         return 0.5*p.sum()  # sum over N
-
-class StudentTLikelihood(Likelihood):
-    def __init__(self, dof, scale=1.0, name="StudentTLikelihood", quadratures=20):
-        super(StudentTLikelihood, self).__init__(name, quadratures)
-
-        self.dof = dof
-        self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
 
     def mean(self, f):
         return f
 
     def variance(self, f):
-        return self.scale()**2 * self.dof / (self.dof-2.0)
+        return torch.full(f.shape, self.sigma(), device=config.device, dtype=config.dtype)
+
+    def predict(self, mu, var, full=False):
+        print(super().predict(mu,var,full))
+        if full:
+            return mu, var + self.sigma().diagflat()
+        else:
+            print(mu, var + self.sigma())
+            return mu, var + self.sigma()
+
+class StudentTLikelihood(Likelihood):
+    def __init__(self, dof, scale=1.0, name="StudentTLikelihood", quadratures=20):
+        super(StudentTLikelihood, self).__init__(name, quadratures)
+
+        self.dof = torch.tensor(dof, device=config.device, dtype=config.dtype)
+        self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
 
     def log_prob(self, y, f):
         # y: Nx1
         # f: NxM
-        p = torch.lgamma((self.dof+1.0)/2.0)
+        p = 0.5 * (self.dof+1.0)*torch.log(1.0 + ((y-f)/self.scale()).square()/self.dof)
+        p += torch.lgamma((self.dof+1.0)/2.0)
+        p -= torch.lgamma(self.dof/2.0)
         p -= 0.5 * torch.log(self.dof * np.pi)
         p -= torch.log(self.scale())
-        p -= torch.lgamma(self.dof/2.0)
-        p -= 0.5 * (self.dof+1.0)*torch.log(1.0 + ((y-f)/self.scale()).square()/self.dof)
         return p  # NxM
+
+    def mean(self, f):
+        return f
+
+    def variance(self, f):
+        if self.dof < 2.0:
+            var = np.nan
+        else:
+            var = self.scale()**2 * self.dof/(self.dof-2.0)
+        return torch.full(f.shape, var, device=config.device, dtype=config.dtype)
 
 class LaplaceLikelihood(Likelihood):
     def __init__(self, scale=1.0, name="LaplaceLikelihood", quadratures=20):
@@ -95,15 +118,6 @@ class LaplaceLikelihood(Likelihood):
         # f: NxM
         p = -torch.log(2.0*self.scale()) - (y-f).abs()/self.scale()
         return p  # NxM
-
-    def variational_expectation(self, y, mu, var):
-        # y,mu,var: Nx1
-        p = -0.5 * ((y-mu).square() + var) / self.variance()
-        p -= 0.5 * np.log(2.0 * np.pi)
-        p -= 0.5 * self.variance().log()
-        print("Laplace:", super().variational_expectation(y, mu, var), p.sum())
-        return p.sum()  # sum over N
-    
 
 # TODO: implement log_prob: Beta, Softmax
 # TODO: implement log_prob and var_exp: Bernoulli, Gamma, Laplace, Poisson
