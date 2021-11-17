@@ -366,10 +366,13 @@ class Sparse(Model):
             else:
                 return mu.cpu().numpy(), var.cpu().numpy()
 
-class SparseVariational(Model):
+class SparseHensman(Model):
+    # See:
+    #  J. Hensman, et al., "Gaussian Processes for Big Data", 2013
+    #  J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015
     def __init__(self, kernel, X, y, Z=None, likelihood=GaussianLikelihood(variance=1.0),
-                 jitter=1e-6, mean=None, name="SparseVariational"):
-        super(SparseVariational, self).__init__(kernel, X, y, mean, name)
+                 jitter=1e-6, mean=None, name="SparseHensman"):
+        super(SparseHensman, self).__init__(kernel, X, y, mean, name)
 
         self.is_sparse = Z is not None
 
@@ -383,7 +386,6 @@ class SparseVariational(Model):
         self.jitter = jitter # TODO: make jitter 1.e6*mean(diag of tensor)
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
-        self.q_idx = torch.tril_indices(n,n)
         self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
         self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt")
         if self.is_sparse:
@@ -466,8 +468,118 @@ class SparseVariational(Model):
             else:
                 return mu.cpu().numpy(), var.cpu().numpy()
 
-class Variational(SparseVariational):
+class Hensman(SparseHensman):
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-6,
-                 mean=None, name="Variational"):
-        super(Variational, self).__init__(kernel, X, y, likelihood=likelihood, jitter=jitter,
+                 mean=None, name="Hensman"):
+        super(Hensman, self).__init__(kernel, X, y, likelihood=likelihood, jitter=jitter,
+                                          mean=mean, name=name)
+
+class SparseHensman2(Model):
+    # See:
+    #  J. Hensman, et al., "Gaussian Processes for Big Data", 2013
+    #  J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015
+    # This version replaces mu_q by L.mu_q and sigma_q by L.sigma_q.L^T, where LL^T = Kuu
+    # So that p(u) ~ N(0,1) and q(u) ~ N(L.mu_q, L.sigma_q.L^T)
+    def __init__(self, kernel, X, y, Z=None, likelihood=GaussianLikelihood(variance=1.0),
+                 jitter=1e-6, mean=None, name="SparseHensman2"):
+        super(SparseHensman2, self).__init__(kernel, X, y, mean, name)
+
+        self.is_sparse = Z is not None
+
+        n = X.shape[0]
+        if self.is_sparse:
+            if isinstance(Z, int):
+                Z = torch.linspace(torch.min(X), torch.max(X), Z)
+            Z = self._check_input(Z)
+            n = Z.shape[0]
+
+        self.jitter = jitter # TODO: make jitter 1.e6*mean(diag of tensor)
+        self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
+        self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
+        self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
+        self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt")
+        if self.is_sparse:
+            self.Z = Parameter(Z, name="induction_points")
+        else:
+            self.Z = Parameter(X, trainable=False)  # don't use inducing points
+        self.likelihood = likelihood
+
+        self._register_parameters(self.q_mu)
+        self._register_parameters(self.q_sqrt)
+        self._register_parameters(self.likelihood)
+        if self.is_sparse:
+            self._register_parameters(self.Z)
+
+    def kl_gaussian(self, q_mu, q_sqrt):
+        Lq = q_sqrt.tril() # NxN
+        kl = -q_mu.shape[0]
+        kl += q_mu.T.mm(q_mu).squeeze()  # Mahalanobis
+        kl -= Lq.diagonal().square().log().sum()  # determinant of q_var
+        kl += Lq.square().sum()  # same as Trace(p_var^(-1).q_var)
+        return 0.5*kl
+
+    def elbo(self):
+        if self.mean is not None:
+            y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
+        else:
+            y = self.y  # Nx1
+
+        if self.is_sparse:
+            qf_mu, qf_var_diag = self._predict(self.X, full=False)
+        else:
+            Kuu = self.kernel(self.Z())
+            Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # NxN
+            Luu = self._cholesky(Kuu)  # NxN
+            qf_mu = Luu.mm(self.q_mu())
+            qf_sqrt = Luu.mm(self.q_sqrt().tril())
+            qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
+
+        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag)
+        kl = self.kl_gaussian(self.q_mu(), self.q_sqrt())
+        return var_exp - kl
+
+    def log_marginal_likelihood(self):
+        # maximize the lower bound
+        return self.elbo()
+
+    def _predict(self, Xs, full=False):
+        Kuu = self.kernel(self.Z())
+        Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # NxN
+        Kus = self.kernel(self.Z(),Xs)  # NxS
+
+        Luu = self._cholesky(Kuu)  # NxN
+        q_mu = Luu.mm(self.q_mu())
+        q_sqrt = Luu.mm(self.q_sqrt().tril())
+        v = torch.triangular_solve(Kus,Luu,upper=False)[0]  # NxS;  Kuu^(-1/2).Kus
+        w = q_sqrt.T.mm(torch.cholesky_solve(Kus,Luu))
+
+        mu = Kus.T.mm(torch.cholesky_solve(q_mu,Luu))  # Sx1
+        if full:
+            Kss = self.kernel(Xs)  # SxS
+            var = Kss - v.T.mm(v) + w.T.mm(w)  # SxS
+        else:
+            Kss_diag = self.kernel.K_diag(Xs)  # Mx1
+            var = Kss_diag - v.T.square().sum(dim=1) + w.T.square().sum(dim=1)  # Mx1
+            var = var.reshape(-1,1)
+        return mu, var
+
+    def predict(self, Xs, full=False, tensor=False, predict_y=True):
+        with torch.no_grad():
+            Xs = self._check_input(Xs)  # MxD
+
+            mu, var = self._predict(Xs, full=full)
+            if predict_y:
+                mu, var = self.likelihood.predict(mu, var, full=full)
+            if self.mean is not None:
+                mu += self.mean(Xs).reshape(-1,1)  # Sx1
+
+            if tensor:
+                return mu, var
+            else:
+                return mu.cpu().numpy(), var.cpu().numpy()
+
+class Hensman2(SparseHensman2):
+    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-6,
+                 mean=None, name="Hensman2"):
+        super(Hensman2, self).__init__(kernel, X, y, likelihood=likelihood, jitter=jitter,
                                           mean=mean, name=name)
