@@ -296,7 +296,8 @@ class Sparse(Model):
 
         Kff_diag = self.kernel.K_diag(self.X)  # Nx1
         Kuf = self.kernel(self.Z(),self.X)  # MxN
-        Kuu = self.kernel(self.Z()) + self.jitter*Kuu.diagonal().mean()*self.eye  # MxM
+        Kuu = self.kernel(self.Z())  # MxM
+        Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # MxM
 
         Luu = self._cholesky(Kuu)  # MxM;  Luu = Kuu^(1/2)
         v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  v = Kuu^(-1/2) . Kuf
@@ -328,7 +329,8 @@ class Sparse(Model):
 
             Kus = self.kernel(self.Z(),Xs)  # MxS
             Kuf = self.kernel(self.Z(),self.X)  # MxN
-            Kuu = self.kernel(self.Z()) + self.jitter*Kuu.diagonal().mean()*self.eye  # MxM
+            Kuu = self.kernel(self.Z())  # MxM
+            Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # MxM
 
             Luu = self._cholesky(Kuu)  # MxM;  Luu = Kuu^(1/2)
             v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  v = Kuu^(-1/2).Kuf
@@ -439,7 +441,7 @@ class SparseHensman(Model):
 
         Luu = self._cholesky(Kuu)  # NxN
         v = torch.triangular_solve(Kus,Luu,upper=False)[0]  # NxS;  Kuu^(-1/2).Kus
-        w = self.q_sqrt().tril().T.mm(torch.cholesky_solve(Kus,Luu))
+        w = self.q_sqrt().tril().T.mm(torch.cholesky_solve(Kus,Luu))  # sigma_q^T.Kuu^(-1).Kus
 
         mu = Kus.T.mm(torch.cholesky_solve(self.q_mu(),Luu))  # Sx1
         if full:
