@@ -9,9 +9,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+from . import gpr
 from .serie import Serie
 from .dataset import DataSet
-from .gpr import GPR, Titsias, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
 from .errors import mean_absolute_error, mean_absolute_percentage_error, symmetric_mean_absolute_percentage_error, mean_squared_error, root_mean_squared_error
 
 logger = logging.getLogger('mogptk')
@@ -38,7 +38,7 @@ class Exact:
         self.variance = variance
 
     def build(self, kernel, x, y, mean=None, name=None):
-        return GPR(kernel, x, y, variance=self.variance, mean=mean, name=name)
+        return gpr.Exact(kernel, x, y, variance=self.variance, mean=mean, name=name)
 
 class Sparse:
     """
@@ -50,7 +50,7 @@ class Sparse:
         self.jitter = jitter
 
     def build(self, kernel, x, y, mean=None, name=None):
-        return Titsias(kernel, x, y, self.z, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+        return gpr.Titsias(kernel, x, y, self.z, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class Model:
     def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None, rescale_x=False):
@@ -94,7 +94,7 @@ class Model:
         x, y = self._to_kernel_format(X, Y)
 
         self.model = model.build(kernel, x, y, mean, name)
-        if issubclass(type(kernel), MultiOutputKernel) and issubclass(type(model), Exact):
+        if issubclass(type(kernel), gpr.MultiOutputKernel) and issubclass(type(model), Exact):
             self.model.variance.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
     ################################################################

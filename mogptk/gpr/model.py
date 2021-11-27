@@ -210,9 +210,9 @@ class Model:
                 samples = samples.squeeze()
             return samples.cpu().numpy()
 
-class GPR(Model):
-    def __init__(self, kernel, X, y, variance=1.0, mean=None, name="GPR"):
-        super(GPR, self).__init__(kernel, X, y, mean, name)
+class Exact(Model):
+    def __init__(self, kernel, X, y, variance=1.0, mean=None, name="Exact"):
+        super(Exact, self).__init__(kernel, X, y, mean, name)
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
@@ -292,6 +292,8 @@ def init_inducing_points(Z, X, kernel):
 
 
 class Snelson(Model):
+    # See:
+    #  E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005
     def __init__(self, kernel, X, y, Z=10, variance=1.0, jitter=1e-6, mean=None, name="Snelson"):
         super(Snelson, self).__init__(kernel, X, y, mean, name)
 
@@ -371,6 +373,86 @@ class Snelson(Model):
                 if predict_y:
                     var += self.variance()
                 var = var.reshape(-1,1)
+
+            if tensor:
+                return mu, var
+            else:
+                return mu.cpu().numpy(), var.cpu().numpy()
+
+class OpperArchambeau(Model):
+    # See:
+    #  M. Opper, C. Archambeau, "The Variational Gaussian Approximation Revisited", 2009
+    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0),
+                 jitter=1e-6, mean=None, name="OpperArchambeau"):
+        super(OpperArchambeau, self).__init__(kernel, X, y, mean, name)
+
+        n = X.shape[0]
+        self.jitter = jitter
+        self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
+        self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
+        self.q_nu = Parameter(torch.zeros(n,1), name="q_nu")
+        self.q_lambda = Parameter(torch.ones(n,1), name="q_lambda", lower=config.positive_minimum)
+        self.likelihood = likelihood
+
+        self._register_parameters(self.q_nu)
+        self._register_parameters(self.q_lambda)
+        self._register_parameters(self.likelihood)
+
+    def elbo(self):
+        if self.mean is not None:
+            y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
+        else:
+            y = self.y  # Nx1
+
+        q_nu = self.q_nu()
+        q_lambda = self.q_lambda()
+        invLambda = 1.0/q_lambda.square()
+
+        Kff = self.kernel(self.X)
+        L = self._cholesky(q_lambda.T * q_lambda * Kff + self.eye)  # NxN
+        v = torch.triangular_solve(self.eye,L,upper=False)[0]
+
+        qf_mu = Kff.mm(q_nu)
+        qf_var_diag = invLambda - v.T.square().mm(invLambda).sum(dim=1)
+        if self.mean is not None:
+            qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
+
+        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag)
+
+        kl = -q_nu.shape[0]
+        kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
+        kl += 2.0*L.diagonal().log().sum()  # determinant
+        kl += v.square().sum()  # trace
+        return var_exp - 0.5*kl
+
+    def log_marginal_likelihood(self):
+        # maximize the lower bound
+        return self.elbo()
+
+    def predict(self, Xs, full=False, tensor=False, predict_y=True):
+        with torch.no_grad():
+            Xs = self._check_input(Xs)  # MxD
+
+            Kff = self.kernel(self.X)
+            Kfs = self.kernel(self.X,Xs)  # NxS
+
+            L = self._cholesky(Kff + (1.0/self.q_lambda().square()).diagflat())  # NxN
+            a = torch.triangular_solve(Kfs,L,upper=False)[0]  # NxS;  Kuu^(-1/2).Kus
+
+            mu = Kfs.T.mm(self.q_nu())  # Sx1
+            if self.mean is not None:
+                mu += self.mean(Xs).reshape(-1,1)  # Sx1
+
+            if full:
+                Kss = self.kernel(Xs)  # SxS
+                var = Kss - a.T.mm(a)  # SxS
+            else:
+                Kss_diag = self.kernel.K_diag(Xs)  # Mx1
+                var = Kss_diag - a.T.square().sum(dim=1)  # Mx1
+                var = var.reshape(-1,1)
+
+            if predict_y:
+                mu, var = self.likelihood.predict(mu, var, full=full)
 
             if tensor:
                 return mu, var
@@ -476,7 +558,6 @@ class Titsias(Model):
 
 class SparseHensman(Model):
     # See:
-    #  J. Hensman, et al., "Gaussian Processes for Big Data", 2013
     #  J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015
     # This version replaces mu_q by L.mu_q and sigma_q by L.sigma_q.L^T, where LL^T = Kuu
     # So that p(u) ~ N(0,1) and q(u) ~ N(L.mu_q, L.sigma_q.L^T)
@@ -512,7 +593,7 @@ class SparseHensman(Model):
         Lq = q_sqrt.tril() # NxN
         kl = -q_mu.shape[0]
         kl += q_mu.T.mm(q_mu).squeeze()  # Mahalanobis
-        kl -= Lq.diagonal().square().log().sum()  # determinant of q_var
+        kl -= 2.0*Lq.diagonal().log().sum()  # determinant of q_var
         kl += Lq.square().sum()  # same as Trace(p_var^(-1).q_var)
         return 0.5*kl
 
@@ -525,11 +606,15 @@ class SparseHensman(Model):
         if self.is_sparse:
             qf_mu, qf_var_diag = self._predict(self.X, full=False)
         else:
-            Kuu = self.kernel(self.Z())
-            Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # NxN
-            Luu = self._cholesky(Kuu)  # NxN
-            qf_mu = Luu.mm(self.q_mu())
-            qf_sqrt = Luu.mm(self.q_sqrt().tril())
+            Kff = self.kernel(self.X)
+            Kff += self.jitter*Kff.diagonal().mean()*self.eye  # NxN
+            Lff = self._cholesky(Kff)  # NxN
+
+            qf_mu = Lff.mm(self.q_mu())
+            if self.mean is not None:
+                qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
+
+            qf_sqrt = Lff.mm(self.q_sqrt().tril())
             qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
 
         var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag)
@@ -546,16 +631,16 @@ class SparseHensman(Model):
         Kus = self.kernel(self.Z(),Xs)  # NxS
 
         Luu = self._cholesky(Kuu)  # NxN
-        v = torch.triangular_solve(Kus,Luu,upper=False)[0]  # NxS;  Kuu^(-1/2).Kus
-        w = self.q_sqrt().tril().T.mm(torch.triangular_solve(Kus,Luu,upper=False)[0])
+        a = torch.triangular_solve(Kus,Luu,upper=False)[0]  # NxS;  Kuu^(-1/2).Kus
+        b = self.q_sqrt().tril().T.mm(torch.triangular_solve(Kus,Luu,upper=False)[0])
 
         mu = Kus.T.mm(torch.triangular_solve(self.q_mu(),Luu.T,upper=True)[0])  # Sx1
         if full:
             Kss = self.kernel(Xs)  # SxS
-            var = Kss - v.T.mm(v) + w.T.mm(w)  # SxS
+            var = Kss - a.T.mm(a) + b.T.mm(b)  # SxS
         else:
             Kss_diag = self.kernel.K_diag(Xs)  # Mx1
-            var = Kss_diag - v.T.square().sum(dim=1) + w.T.square().sum(dim=1)  # Mx1
+            var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # Mx1
             var = var.reshape(-1,1)
         return mu, var
 
