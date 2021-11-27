@@ -11,7 +11,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from .serie import Serie
 from .dataset import DataSet
-from .gpr import GPR, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
+from .gpr import GPR, Titsias, CholeskyException, Kernel, MultiOutputKernel, IndependentMultiOutputKernel
 from .errors import mean_absolute_error, mean_absolute_percentage_error, symmetric_mean_absolute_percentage_error, mean_squared_error, root_mean_squared_error
 
 logger = logging.getLogger('mogptk')
@@ -34,8 +34,23 @@ class Exact:
     """
     Exact inference for Gaussian process regression.
     """
+    def __init__(self, variance=1.0):
+        self.variance = variance
+
     def build(self, kernel, x, y, mean=None, name=None):
-        return GPR(kernel, x, y, mean=mean, name=name)
+        return GPR(kernel, x, y, variance=self.variance, mean=mean, name=name)
+
+class Sparse:
+    """
+    Sparse inference using Titsias 2009 for Gaussian process regression.
+    """
+    def __init__(self, z=10, variance=1.0, jitter=1e-6):
+        self.z = z
+        self.variance = variance
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, mean=None, name=None):
+        return Titsias(kernel, x, y, self.z, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class Model:
     def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None, rescale_x=False):

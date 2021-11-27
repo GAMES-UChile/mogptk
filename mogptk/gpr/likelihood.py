@@ -73,11 +73,9 @@ class GaussianLikelihood(Likelihood):
         return torch.full(f.shape, self.sigma(), device=config.device, dtype=config.dtype)
 
     def predict(self, mu, var, full=False):
-        print(super().predict(mu,var,full))
         if full:
             return mu, var + self.sigma().diagflat()
         else:
-            print(mu, var + self.sigma())
             return mu, var + self.sigma()
 
 class StudentTLikelihood(Likelihood):
