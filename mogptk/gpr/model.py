@@ -229,10 +229,10 @@ class GPR(Model):
         else:
             y = self.y  # Nx1
 
-        p = self.log_marginal_likelihood_constant
+        p = -self.log_marginal_likelihood_constant
         p -= L.diagonal().log().sum() # 0.5 is taken inside the log: L is the square root
         p -= 0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
-        return p#/self.X.shape[0]  # dividing by the number of data points normalizes the learning rate
+        return p
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
         with torch.no_grad():
