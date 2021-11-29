@@ -389,7 +389,6 @@ class OpperArchambeau(Model):
         n = X.shape[0]
         self.jitter = jitter
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
-        self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
         self.q_nu = Parameter(torch.zeros(n,1), name="q_nu")
         self.q_lambda = Parameter(torch.ones(n,1), name="q_lambda", lower=config.positive_minimum)
         self.likelihood = likelihood
@@ -404,16 +403,15 @@ class OpperArchambeau(Model):
         else:
             y = self.y  # Nx1
 
-        q_nu = self.q_nu()
+        q_nu = self.q_nu()  # Nx1
         q_lambda = self.q_lambda()
-        invLambda = 1.0/q_lambda.square()
 
-        Kff = self.kernel(self.X)
-        L = self._cholesky(q_lambda.T * q_lambda * Kff + self.eye)  # NxN
-        v = torch.triangular_solve(self.eye,L,upper=False)[0]
+        Kff = self.kernel(self.X)  # NxN
+        L = self._cholesky(q_lambda*q_lambda.T*Kff + self.eye)
+        invL = torch.triangular_solve(self.eye,L,upper=False)[0]  # NxN
 
         qf_mu = Kff.mm(q_nu)
-        qf_var_diag = invLambda - v.T.square().mm(invLambda).sum(dim=1)
+        qf_var_diag = (1.0/q_lambda.square()) - (invL.T.mm(invL)/q_lambda/q_lambda.T).diagonal().reshape(-1,1)
         if self.mean is not None:
             qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
 
@@ -422,7 +420,7 @@ class OpperArchambeau(Model):
         kl = -q_nu.shape[0]
         kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
         kl += 2.0*L.diagonal().log().sum()  # determinant
-        kl += v.square().sum()  # trace
+        kl += invL.square().sum()  # trace
         return var_exp - 0.5*kl
 
     def log_marginal_likelihood(self):
@@ -436,7 +434,7 @@ class OpperArchambeau(Model):
             Kff = self.kernel(self.X)
             Kfs = self.kernel(self.X,Xs)  # NxS
 
-            L = self._cholesky(Kff + (1.0/self.q_lambda().square()).diagflat())  # NxN
+            L = self._cholesky(Kff + (1.0/self.q_lambda()).square().diagflat())  # NxN
             a = torch.triangular_solve(Kfs,L,upper=False)[0]  # NxS;  Kuu^(-1/2).Kus
 
             mu = Kfs.T.mm(self.q_nu())  # Sx1
