@@ -27,7 +27,7 @@ class Kernel:
             raise AttributeError("parameter is read-only, use Parameter.assign()")
         if isinstance(val, Parameter) and val.name is None:
             val.name = name
-        super(Kernel,self).__setattr__(name, val)
+        super().__setattr__(name, val)
 
     def _check_input(self, X1, X2=None):
         if len(X1.shape) != 2:
@@ -113,7 +113,7 @@ class Kernel:
 
 class AddKernel(Kernel):
     def __init__(self, *kernels, name="Add"):
-        super(AddKernel, self).__init__(name=name)
+        super().__init__(name=name)
         kernels = self._check_kernels(kernels)
 
         i = 0
@@ -136,7 +136,7 @@ class AddKernel(Kernel):
 
 class MulKernel(Kernel):
     def __init__(self, *kernels, name="Mul"):
-        super(MulKernel, self).__init__(name=name)
+        super().__init__(name=name)
         kernels = self._check_kernels(kernels)
 
         i = 0
@@ -175,7 +175,7 @@ class MultiOutputKernel(Kernel):
     # TODO: seems to accumulate a lot of memory in the loops to call Ksub, perhaps it's keeping the computational graph while indexing?
 
     def __init__(self, output_dims, input_dims=None, active_dims=None, name=None):
-        super(MultiOutputKernel, self).__init__(input_dims, active_dims, name)
+        super().__init__(input_dims, active_dims, name)
 
         noise = torch.ones(output_dims)
 

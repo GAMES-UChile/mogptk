@@ -167,17 +167,17 @@ class Serie(np.ndarray):
         self.transformers = copy.deepcopy(getattr(obj, 'transformers', None))
     
     def __getitem__(self, index):
-        ret = super(Serie, self).__getitem__(index)
+        ret = super().__getitem__(index)
         if isinstance(ret, Serie):
             ret.transformed = ret.transformed.__getitem__(index)
         return ret
 
     def __reduce__(self):
-        parent = super(Serie, self).__reduce__()
+        parent = super().__reduce__()
         return (parent[0], parent[1], parent[2] + (self.transformed,self.transformers))
 
     def __setstate__(self, data):
-        super(Serie, self).__setstate__(data[:-2])
+        super().__setstate__(data[:-2])
         self.transformed = data[-2]
         self.transformers = data[-1]
 

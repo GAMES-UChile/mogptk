@@ -6,7 +6,7 @@ class IndependentMultiOutputKernel(MultiOutputKernel):
     def __init__(self, *kernels, output_dims=None, name="IMO"):
         if output_dims is None:
             output_dims = len(kernels)
-        super(IndependentMultiOutputKernel, self).__init__(output_dims, name=name)
+        super().__init__(output_dims, name=name)
         self.kernels = self._check_kernels(kernels, output_dims)
 
     def __getitem__(self, key):
@@ -23,7 +23,7 @@ class IndependentMultiOutputKernel(MultiOutputKernel):
 
 class MultiOutputSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, active_dims=None, name="MOSM"):
-        super(MultiOutputSpectralKernel, self).__init__(output_dims, input_dims, active_dims, name)
+        super().__init__(output_dims, input_dims, active_dims, name)
 
         # TODO: incorporate mixtures?
         # TODO: allow different input_dims per channel
@@ -70,7 +70,7 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
 
 class CrossSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, Rq=1, active_dims=None, name="CSM"):
-        super(CrossSpectralKernel, self).__init__(output_dims, input_dims, active_dims, name)
+        super().__init__(output_dims, input_dims, active_dims, name)
 
         amplitude = torch.rand(output_dims, Rq)
         mean = torch.rand(input_dims)
@@ -108,7 +108,7 @@ class CrossSpectralKernel(MultiOutputKernel):
 
 class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
     def __init__(self, *kernels, output_dims, input_dims, Q=None, Rq=1, name="LMC"):
-        super(LinearModelOfCoregionalizationKernel, self).__init__(output_dims, input_dims, name=name)
+        super().__init__(output_dims, input_dims, name=name)
 
         if Q is None:
             Q = len(kernels)
@@ -129,7 +129,7 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
 
 class GaussianConvolutionProcessKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims, active_dims=None, name="CONV"):
-        super(GaussianConvolutionProcessKernel, self).__init__(output_dims, input_dims, active_dims, name)
+        super().__init__(output_dims, input_dims, active_dims, name)
 
         weight = torch.rand(output_dims)
         variance = torch.rand(output_dims, input_dims)

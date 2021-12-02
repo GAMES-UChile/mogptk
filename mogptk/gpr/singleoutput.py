@@ -4,7 +4,7 @@ from . import Kernel, Parameter, config
 
 class LinearKernel(Kernel):
     def __init__(self, input_dims=None, active_dims=None, name="Linear"):
-        super(LinearKernel, self).__init__(input_dims, active_dims, name)
+        super().__init__(input_dims, active_dims, name)
 
         constant = torch.rand(1)
 
@@ -18,7 +18,7 @@ class LinearKernel(Kernel):
 
 class PolynomialKernel(Kernel):
     def __init__(self, degree, input_dims=None, active_dims=None, name="Polynomial"):
-        super(PolynomialKernel, self).__init__(input_dims, active_dims, name)
+        super().__init__(input_dims, active_dims, name)
 
         offset = torch.rand(1)
 
@@ -33,7 +33,7 @@ class PolynomialKernel(Kernel):
 
 class PhiKernel(Kernel):
     def __init__(self, phi, input_dims, active_dims=None, name="Phi"):
-        super(PhiKernel, self).__init__(input_dims, active_dims, name)
+        super().__init__(input_dims, active_dims, name)
 
         feature_dims = phi(torch.ones(input_dims,1)).shape[1]
         variance = torch.ones(feature_dims)
@@ -51,7 +51,7 @@ class PhiKernel(Kernel):
 
 class SquaredExponentialKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name="SE"):
-        super(SquaredExponentialKernel, self).__init__(input_dims, active_dims, name)
+        super().__init__(input_dims, active_dims, name)
 
         l = torch.rand(input_dims)
         sigma = torch.rand(1)
@@ -67,7 +67,7 @@ class SquaredExponentialKernel(Kernel):
 
 class RationalQuadraticKernel(Kernel):
     def __init__(self, alpha, input_dims, active_dims=None, name="RQ"):
-        super(RationalQuadraticKernel, self).__init__(input_dims, active_dims, name)
+        super().__init__(input_dims, active_dims, name)
 
         l = torch.rand(input_dims)
         sigma = torch.rand(1)
@@ -84,7 +84,7 @@ class RationalQuadraticKernel(Kernel):
 
 class PeriodicKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name="Periodic"):
-        super(PeriodicKernel, self).__init__(input_dims, active_dims, name)
+        super().__init__(input_dims, active_dims, name)
 
         l = torch.rand(input_dims)
         p = torch.rand(1)
@@ -102,7 +102,7 @@ class PeriodicKernel(Kernel):
 
 class CosineKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name="Cosine"):
-        super(CosineKernel, self).__init__(input_dims, active_dims, name)
+        super().__init__(input_dims, active_dims, name)
 
         l = torch.rand(input_dims)
         sigma = torch.rand(1)
@@ -117,7 +117,7 @@ class CosineKernel(Kernel):
 
 class SpectralKernel(Kernel):
     def __init__(self, input_dims, active_dims=None, name="SM"):
-        super(SpectralKernel, self).__init__(input_dims, active_dims, name)
+        super().__init__(input_dims, active_dims, name)
 
         weight = torch.rand(1)
         mean = torch.rand(input_dims)
@@ -136,7 +136,7 @@ class SpectralKernel(Kernel):
 
 class MaternKernel(Kernel):
     def __init__(self, nu=0.5, input_dims=None, active_dims=None, name="Matérn"):
-        super(MaternKernel, self).__init__(input_dims, active_dims, name)
+        super().__init__(input_dims, active_dims, name)
 
         if nu not in [0.5, 1.5, 2.5]:
             raise ValueError("nu parameter must be 0.5, 1.5, or 2.5")

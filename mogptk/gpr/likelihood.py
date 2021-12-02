@@ -50,8 +50,8 @@ class Likelihood:
         #return Ey, Eyy-Ey**2 
 
 class GaussianLikelihood(Likelihood):
-    def __init__(self, variance=1.0, name="GaussianLikelihood", quadratures=20):
-        super(GaussianLikelihood, self).__init__(name, quadratures)
+    def __init__(self, variance=1.0, name="Gaussian", quadratures=20):
+        super().__init__(name, quadratures)
 
         self.sigma = Parameter(variance, name="variance", lower=config.positive_minimum)
 
@@ -75,8 +75,8 @@ class GaussianLikelihood(Likelihood):
             return mu, var + self.sigma()
 
 class StudentTLikelihood(Likelihood):
-    def __init__(self, dof, scale=1.0, name="StudentTLikelihood", quadratures=20):
-        super(StudentTLikelihood, self).__init__(name, quadratures)
+    def __init__(self, dof, scale=1.0, name="StudentT", quadratures=20):
+        super().__init__(name, quadratures)
 
         self.dof = torch.tensor(dof, device=config.device, dtype=config.dtype)
         self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
@@ -102,8 +102,8 @@ class StudentTLikelihood(Likelihood):
     #    return torch.full(f.shape, var, device=config.device, dtype=config.dtype)
 
 class LaplaceLikelihood(Likelihood):
-    def __init__(self, scale=1.0, name="LaplaceLikelihood", quadratures=20):
-        super(LaplaceLikelihood, self).__init__(name, quadratures)
+    def __init__(self, scale=1.0, name="Laplace", quadratures=20):
+        super().__init__(name, quadratures)
 
         self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
 
@@ -121,8 +121,8 @@ def logistic(x):
     return 1.0/(1.0+torch.exp(-x))
 
 class BernoulliLikelihood(Likelihood):
-    def __init__(self, scale=1.0, link=inv_probit, name="BernoulliLikelihood", quadratures=20):
-        super(BernoulliLikelihood, self).__init__(name, quadratures)
+    def __init__(self, scale=1.0, link=inv_probit, name="Bernoulli", quadratures=20):
+        super().__init__(name, quadratures)
 
         self.link = link
 

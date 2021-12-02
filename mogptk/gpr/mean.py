@@ -21,4 +21,4 @@ class Mean:
             raise AttributeError("parameter is read-only, use Parameter.assign()")
         if isinstance(val, Parameter) and val.name is None:
             val.name = name
-        super(Mean,self).__setattr__(name, val)        
+        super().__setattr__(name, val)        

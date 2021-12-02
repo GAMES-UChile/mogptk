@@ -48,7 +48,7 @@ class Model:
             raise AttributeError("parameter is read-only, use Parameter.assign()")
         if isinstance(val, Parameter) and val.name is None:
             val.name = name
-        super(Model,self).__setattr__(name, val)        
+        super().__setattr__(name, val)        
 
     def _check_input(self, X, y=None):
         if not isinstance(X, torch.Tensor):
@@ -212,7 +212,7 @@ class Model:
 
 class Exact(Model):
     def __init__(self, kernel, X, y, variance=1.0, mean=None, name="Exact"):
-        super(Exact, self).__init__(kernel, X, y, mean, name)
+        super().__init__(kernel, X, y, mean, name)
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
@@ -295,7 +295,7 @@ class Snelson(Model):
     # See:
     #  E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005
     def __init__(self, kernel, X, y, Z=10, variance=1.0, jitter=1e-6, mean=None, name="Snelson"):
-        super(Snelson, self).__init__(kernel, X, y, mean, name)
+        super().__init__(kernel, X, y, mean, name)
 
         Z = init_inducing_points(Z, X, kernel)
         Z = self._check_input(Z)
@@ -384,7 +384,7 @@ class OpperArchambeau(Model):
     #  M. Opper, C. Archambeau, "The Variational Gaussian Approximation Revisited", 2009
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0),
                  jitter=1e-6, mean=None, name="OpperArchambeau"):
-        super(OpperArchambeau, self).__init__(kernel, X, y, mean, name)
+        super().__init__(kernel, X, y, mean, name)
 
         n = X.shape[0]
         self.jitter = jitter
@@ -463,7 +463,7 @@ class Titsias(Model):
     #  http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
     def __init__(self, kernel, X, y, Z, variance=1.0, jitter=1e-6,
                  mean=None, name="Titsias"):
-        super(Titsias, self).__init__(kernel, X, y, mean, name)
+        super().__init__(kernel, X, y, mean, name)
 
         Z = init_inducing_points(Z, X, kernel)
         Z = self._check_input(Z)
@@ -561,7 +561,7 @@ class SparseHensman(Model):
     # So that p(u) ~ N(0,1) and q(u) ~ N(L.mu_q, L.sigma_q.L^T)
     def __init__(self, kernel, X, y, Z=None, likelihood=GaussianLikelihood(variance=1.0),
                  jitter=1e-6, mean=None, name="SparseHensman"):
-        super(SparseHensman, self).__init__(kernel, X, y, mean, name)
+        super().__init__(kernel, X, y, mean, name)
 
         n = X.shape[0]
         self.is_sparse = Z is not None
@@ -660,5 +660,5 @@ class SparseHensman(Model):
 class Hensman(SparseHensman):
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-6,
                  mean=None, name="Hensman"):
-        super(Hensman, self).__init__(kernel, X, y, likelihood=likelihood, jitter=jitter,
-                                          mean=mean, name=name)
+        super().__init__(kernel, X, y, likelihood=likelihood, jitter=jitter,
+                         mean=mean, name=name)
