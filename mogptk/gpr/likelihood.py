@@ -31,48 +31,52 @@ class Likelihood:
         q = self.quadrature(mu, var, lambda f: self.log_prob(y,f))  # Nx1
         return q.sum()  # sum over N
 
-    #def mean(self, f):
-    #    # f: NxM
-    #    raise NotImplementedError()
+    def predictive_y(self, f):
+        # f: NxM
+        raise NotImplementedError()
 
-    #def variance(self, f):
-    #    # f: NxM
-    #    raise NotImplementedError()
+    def predictive_yy2(self, f):
+        # f: NxM
+        raise NotImplementedError()
 
     def predict(self, mu, var, full=False):
-        # mu,var: Nx1
-        raise NotImplementedError()
         # ∫∫ y p(y|f) q(f) df dy,  ∫∫ y^2 p(y|f) q(f) df dy - (∫∫ y p(y|f) q(f) df dy)^2
         # where q(f) ~ N(mu,var) and p(y|f) is our likelihood
         # mu,var: Nx1
-        #Ey = self.quadrature(mu, var, self.mean)
-        #Eyy = self.quadrature(mu, var, lambda f: self.mean(f).square() + self.variance(f))
-        #return Ey, Eyy-Ey**2 
+        Ey = self.quadrature(mu, var, self.predictive_y)
+        Eyy = self.quadrature(mu, var, self.predictive_yy)
+        return Ey, Eyy-Ey**2 
 
 class GaussianLikelihood(Likelihood):
     def __init__(self, variance=1.0, name="Gaussian", quadratures=20):
         super().__init__(name, quadratures)
 
-        self.sigma = Parameter(variance, name="variance", lower=config.positive_minimum)
+        self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
 
     def log_prob(self, y, f):
         # y: Nx1
         # f: NxM
-        p = -0.5 * (np.log(2.0 * np.pi) + self.sigma().log() + (y-f).square()/self.sigma())
+        p = -0.5 * (np.log(2.0 * np.pi) + self.variance().log() + (y-f).square()/self.variance())
         return p  # NxM
 
     def variational_expectation(self, y, mu, var):
         # y,mu,var: Nx1
-        p = -((y-mu).square() + var) / self.sigma()
+        p = -((y-mu).square() + var) / self.variance()
         p -= np.log(2.0 * np.pi)
-        p -= self.sigma().log()
+        p -= self.variance().log()
         return 0.5*p.sum()  # sum over N
+
+    def predictive_y(self, f):
+        return f
+
+    def predictive_yy(self, f):
+        return f.square() + self.variance()
 
     def predict(self, mu, var, full=False):
         if full:
-            return mu, var + self.sigma()*torch.eye(var.shape[0])
+            return mu, var + self.variance()*torch.eye(var.shape[0])
         else:
-            return mu, var + self.sigma()
+            return mu, var + self.variance()
 
 class StudentTLikelihood(Likelihood):
     def __init__(self, dof, scale=1.0, name="StudentT", quadratures=20):
@@ -91,10 +95,10 @@ class StudentTLikelihood(Likelihood):
         p -= torch.log(self.scale())
         return p  # NxM
 
-    #def mean(self, f):
-    #    return f
+    #def predictive_y(self, f):
+    #    return self.dof*self.scale()**2 + -f
 
-    #def variance(self, f):
+    #def predictive_yy(self, f):
     #    if self.dof < 2.0:
     #        var = np.nan
     #    else:
@@ -113,6 +117,12 @@ class LaplaceLikelihood(Likelihood):
         p = -torch.log(2.0*self.scale()) - (y-f).abs()/self.scale()
         return p  # NxM
 
+    def predictive_y(self, f):
+        return f
+
+    def predictive_yy(self, f):
+        return f.square() + 2.0*self.scale()**2
+
 def inv_probit(x):
     jitter = 1e-3
     return 0.5*(1.0+torch.erf(x/np.sqrt(2.0))) * (1.0-2.0*jitter) + jitter
@@ -130,15 +140,21 @@ class BernoulliLikelihood(Likelihood):
         # y: Nx1
         # f: NxM
         p = self.link(f)
-        return torch.log(torch.where(y == 1.0, p, 1.0-p))  # NxM
+        return torch.log(torch.where(0.5 <= y, p, 1.0-p))  # NxM
 
-    def predict(self, mu, var, full=False):
-        if self.link == inv_probit:
-            p = self.link(mu / torch.sqrt(1.0 + var))
-            return p, torch.zeros(var.shape)
-        else:
-            p = self.quadrature(mu, var, self.link)
-            return p, torch.zeros(var.shape)
+    def predictive_y(self, f):
+        return self.link(f)
+
+    def predictive_yy(self, f):
+        return self.link(f)
+
+    # TODO
+    #def predict(self, mu, var, full=False):
+    #    if self.link == inv_probit:
+    #        p = self.link(mu / torch.sqrt(1.0 + var))
+    #        return p, torch.zeros(var.shape)
+    #    else:
+    #        return super().predict(mu, var, full=full)
 
 # TODO: implement log_prob: Beta, Softmax
 # TODO: implement log_prob and var_exp: Gamma, Laplace, Poisson
