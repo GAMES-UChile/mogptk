@@ -79,7 +79,7 @@ class GaussianLikelihood(Likelihood):
             return mu, var + self.variance()
 
 class StudentTLikelihood(Likelihood):
-    def __init__(self, dof, scale=1.0, name="StudentT", quadratures=20):
+    def __init__(self, dof=3, scale=1.0, name="StudentT", quadratures=20):
         super().__init__(name, quadratures)
 
         self.dof = torch.tensor(dof, device=config.device, dtype=config.dtype)
@@ -88,22 +88,21 @@ class StudentTLikelihood(Likelihood):
     def log_prob(self, y, f):
         # y: Nx1
         # f: NxM
-        p = 0.5 * (self.dof+1.0)*torch.log(1.0 + ((y-f)/self.scale()).square()/self.dof)
+        p = -0.5 * (self.dof+1.0)*torch.log(1.0 + ((y-f)/self.scale()).square()/self.dof)
         p += torch.lgamma((self.dof+1.0)/2.0)
         p -= torch.lgamma(self.dof/2.0)
-        p -= 0.5 * torch.log(self.dof * np.pi)
-        p -= torch.log(self.scale())
+        p -= 0.5 * torch.log(self.dof*np.pi*self.scale()**2)
         return p  # NxM
 
-    #def predictive_y(self, f):
-    #    return self.dof*self.scale()**2 + -f
+    def predictive_y(self, f):
+        if self.dof <= 1.0:
+            return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
+        return f
 
-    #def predictive_yy(self, f):
-    #    if self.dof < 2.0:
-    #        var = np.nan
-    #    else:
-    #        var = self.scale()**2 * self.dof/(self.dof-2.0)
-    #    return torch.full(f.shape, var, device=config.device, dtype=config.dtype)
+    def predictive_yy(self, f):
+        if self.dof <= 2.0:
+            return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
+        return f.square() + self.scale()**2 * self.dof/(self.dof-2.0)
 
 class LaplaceLikelihood(Likelihood):
     def __init__(self, scale=1.0, name="Laplace", quadratures=20):
@@ -148,13 +147,12 @@ class BernoulliLikelihood(Likelihood):
     def predictive_yy(self, f):
         return self.link(f)
 
-    # TODO
-    #def predict(self, mu, var, full=False):
-    #    if self.link == inv_probit:
-    #        p = self.link(mu / torch.sqrt(1.0 + var))
-    #        return p, torch.zeros(var.shape)
-    #    else:
-    #        return super().predict(mu, var, full=full)
+    def predict(self, mu, var, full=False):
+        if self.link == inv_probit:
+            p = self.link(mu / torch.sqrt(1.0 + var))
+            return p, torch.zeros(var.shape)
+        else:
+            return super().predict(mu, var, full=full)
 
 # TODO: implement log_prob: Beta, Softmax
 # TODO: implement log_prob and var_exp: Gamma, Laplace, Poisson
