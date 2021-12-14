@@ -68,7 +68,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
             X2, Y2 = model.dataset.get_test_data(transformed=transformed)
             if len(X) != len(X2) or not all(np.array_equal(X[j],X2[j]) for j in range(len(X))) or not all(np.array_equal(Y[j],Y2[j]) for j in range(len(X))):
                 raise ValueError("all models must have the same data set for testing, otherwise explicitly provide X and Y")
-        if sum(x.shape[0] for x in X) == 0:
+        if sum(x.shape[0] for Xc in X for x in Xc) == 0:
             raise ValueError("models have no test data")
 
     elif X is None and Y is not None or X is not None and Y is None:
