@@ -150,7 +150,7 @@ class BernoulliLikelihood(Likelihood):
     def predict(self, mu, var, full=False):
         if self.link == inv_probit:
             p = self.link(mu / torch.sqrt(1.0 + var))
-            return p, torch.zeros(var.shape)
+            return p, p*(1-p)
         else:
             return super().predict(mu, var, full=full)
 
