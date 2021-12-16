@@ -155,4 +155,4 @@ class Parameter:
     def log_prior(self):
         if self.prior is None:
             return 0.0
-        return self.prior.log_p(self()).sum()
+        return self.prior.log_prob(self()).sum()
