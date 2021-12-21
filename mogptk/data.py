@@ -261,7 +261,7 @@ class Data:
         self.Y = Serie(Y) # shape (n)
         self.mask = np.array([True] * Y.shape[0])
         self.F = None
-        self.X_pred = self.X
+        self.X_pred = None
         self.Y_mu_pred = {}
         self.Y_var_pred = {}
         self.removed_ranges = [[]] * input_dims
@@ -714,6 +714,8 @@ class Data:
         Examples:
             >>> x = data.get_prediction_x()
         """
+        if self.X_pred is None:
+            return self.X.copy()
         return self.X_pred.copy()
     
     def get_prediction(self, name, sigma=2.0, transformed=False):
@@ -737,7 +739,10 @@ class Data:
         if name not in self.Y_mu_pred:
             raise ValueError("prediction name '%s' does not exist" % (name))
        
-        X = self.X_pred.copy()
+        if self.X_pred is None:
+            X = self.X.copy()
+        else:
+            X = self.X_pred.copy()
         mu = self.Y_mu_pred[name]
         lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
         upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
@@ -1054,8 +1059,12 @@ class Data:
                 legends.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
 
         if self.F is not None:
-            xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
-            xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
+            if self.X_pred is None:
+                xmin = np.min(self.X[0])
+                xmax = np.max(self.X[0])
+            else:
+                xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
+                xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
 
             if np.issubdtype(self.X[0].dtype, np.datetime64):
                 dt = np.timedelta64(1,self.X[0].get_time_unit())
@@ -1099,8 +1108,12 @@ class Data:
                 (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
             ))
 
-        xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
-        xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
+        if self.X_pred is None:
+            xmin = np.min(self.X[0])
+            xmax = np.max(self.X[0])
+        else:
+            xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
+            xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
         ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
 
         ax.set_xlabel(self.X_labels[0])
