@@ -270,24 +270,27 @@ class Exact(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 def init_inducing_points(Z, X, kernel):
-    output_dims = None
+    # TODO: instead of linspace, use quantile space or k-means to initialize positions
     if issubclass(type(kernel), MultiOutputKernel):
         output_dims = kernel.output_dims
-    if isinstance(Z, int):
-        if output_dims is not None:
-            M = int(Z/output_dims)
-            Z = torch.zeros((M*output_dims,X.shape[1]))
-            for j in range(output_dims):
-                Z[j*M:j*M+M,0] = j
+        if isinstance(Z, int) or all(isinstance(z, int) for z in Z) and len(Z) == output_dims:
+            if isinstance(Z, int):
+                Z = [Z] * output_dims
+            M = Z
+            Z = torch.zeros((sum(M)*output_dims,X.shape[1]))
+            for j in range(len(M)):
+                m0 = sum(M[:j])
+                m = M[j]
+                Z[m0:m0+m,0] = j
                 for i in range(X.shape[1])[1:]:
                     x = X[X[:,0] == j,:]
-                    Z[j*M:j*M+M,i] = torch.linspace(torch.min(x[:,i]), torch.max(x[:,i]), M)
-        else:
-            M = Z
-            Z = torch.zeros((M,X.shape[1]))
-            # TODO: this puts values "diagonal", better to use grid?
-            for i in range(X.shape[1]):
-                Z[:,i] = torch.linspace(torch.min(X[:,i]), torch.max(X[:,i]), M)
+                    Z[m0:m0+m,i] = torch.linspace(torch.min(x[:,i]), torch.max(x[:,i]), m)
+    elif isinstance(Z, int):
+        M = Z
+        Z = torch.zeros((M,X.shape[1]))
+        # TODO: this puts values "diagonal", better to use grid?
+        for i in range(X.shape[1]):
+            Z[:,i] = torch.linspace(torch.min(X[:,i]), torch.max(X[:,i]), M)
     return Z
 
 
