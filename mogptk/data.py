@@ -129,7 +129,7 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
         N_repeat = math.prod(n[i+1:])
         x[i] = np.tile(np.repeat(x[i], N_repeat), N_tile)
 
-    y = f(x)
+    y = f(*x)
     if y.ndim == 2 and y.shape[1] == 1:
         y = y[:,0]
     N = math.prod(n)
@@ -546,9 +546,9 @@ class Data:
         """
         X = [x[~self.mask] for x in self.X]
         if self.F is not None:
-            if X.shape[0] == 0:
+            if X[0].shape[0] == 0:
                 X, _ = self.get_data()
-            Y = self.F(X)
+            Y = self.F(*X)
             if transformed:
                 Y = self.Y.transform(Y, X)
             return X, Y
@@ -1075,11 +1075,11 @@ class Data:
                 x = np.linspace(xmin, xmax, n)
 
             x = [x]
-            y = self.F(x)
+            y = self.F(*x)
             if transformed:
                 y = self.Y.transform(y, x)
 
-            ax.plot(x[:,0], y, 'r--', lw=1)
+            ax.plot(x[0], y, 'r--', lw=1)
             legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
         _, Y = self.get_data(transformed=transformed)
@@ -1248,16 +1248,16 @@ def _is_homogeneous_type(seq):
 
 def _check_function(f, input_dims, is_datetime64):
     if not inspect.isfunction(f):
-        raise ValueError("function must take X as a parameter")
+        raise ValueError("must pass a function with input dimensions as parameters")
 
     sig = inspect.signature(f)
-    if not len(sig.parameters) == 1:
-        raise ValueError("function must take X as a parameter")
+    if len(sig.parameters) != input_dims:
+        raise ValueError("must pass a function with input dimensions as parameters")
 
     x = [np.array([np.datetime64('2000', 'us')]) if is_datetime64[i] else np.ones((1,)) for i in range(input_dims)]
-    y = f(x)
+    y = f(*x)
     if len(y.shape) != 1 or y.shape[0] != 1:
-        raise ValueError("function must return Y with shape (n,), note that X is a list where each element is an input dimension of shape (n,)")
+        raise ValueError("function must return Y with shape (n,), note that all inputs are of shape (n,)")
 
 _datetime64_unit_names = {
     'Y': 'year',
