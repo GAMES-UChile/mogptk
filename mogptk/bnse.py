@@ -70,7 +70,7 @@ class bse:
 
     def train(self):
         hypers0 = np.array([np.log(self.sigma), np.log(self.gamma), np.log(self.theta), np.log(self.sigma_n)])
-        res = optimize.minimize(self.nlogp, hypers0, args=(), method='L-BFGS-B', jac = self.dnlogp, options={'maxiter': 500, 'disp': True})
+        res = optimize.minimize(self.nlogp, hypers0, args=(), method='L-BFGS-B', jac = self.dnlogp, options={'maxiter': 500, 'disp': False})
         self.sigma = np.exp(res.x[0])
         self.gamma = np.exp(res.x[1])
         self.theta = np.exp(res.x[2])
