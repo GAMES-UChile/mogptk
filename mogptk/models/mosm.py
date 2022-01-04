@@ -40,7 +40,7 @@ class MOSM(Model):
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
-    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="MOSM", rescale_x=True):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="MOSM", rescale_x=True):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -49,7 +49,7 @@ class MOSM(Model):
             input_dims=dataset.get_input_dims()[0],
         )
         kernel = MixtureKernel(spectral, Q)
-        super(MOSM, self).__init__(dataset, kernel, model, mean, name, rescale_x)
+        super().__init__(dataset, kernel, inference, mean, name, rescale_x)
 
         self.Q = Q
         nyquist = self.dataset.get_nyquist_estimation()

@@ -40,9 +40,32 @@ class Exact:
     def build(self, kernel, x, y, mean=None, name=None):
         return gpr.Exact(kernel, x, y, variance=self.variance, mean=mean, name=name)
 
-class Sparse:
+class Snelson:
     """
-    Sparse inference using Titsias 2009 for Gaussian process regression.
+    Inference using Snelson and Ghahramani 2005 for Gaussian process regression.
+    """
+    def __init__(self, z=10, variance=1.0, jitter=1e-6):
+        self.z = z
+        self.variance = variance
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, mean=None, name=None):
+        return gpr.Snelson(kernel, x, y, self.z, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+
+class OpperArchambeau:
+    """
+    Inference using Opper and Archambeau 2009 for Gaussian process regression.
+    """
+    def __init__(self, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
+        self.likelihood = likelihood
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, mean=None, name=None):
+        return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)
+
+class Titsias:
+    """
+    Inference using Titsias 2009 for Gaussian process regression.
     """
     def __init__(self, z=10, variance=1.0, jitter=1e-6):
         self.z = z
@@ -52,8 +75,22 @@ class Sparse:
     def build(self, kernel, x, y, mean=None, name=None):
         return gpr.Titsias(kernel, x, y, self.z, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
+class Hensman:
+    """
+    Inference using Hensman 2015 for Gaussian process regression.
+    """
+    def __init__(self, z=None, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
+        self.z = z
+        self.variance = variance
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, mean=None, name=None):
+        if self.z is None:
+            return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+        return gpr.SparseHensman(kernel, x, y, self.z, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+
 class Model:
-    def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None, rescale_x=False):
+    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None, rescale_x=False):
         """
         Model is the base class for multi-output Gaussian process models.
 
@@ -93,7 +130,7 @@ class Model:
         Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset]
         x, y = self._to_kernel_format(X, Y)
 
-        self.model = model.build(kernel, x, y, mean, name)
+        self.model = inference.build(kernel, x, y, mean, name)
         if issubclass(type(kernel), gpr.MultiOutputKernel) and issubclass(type(model), Exact):
             self.model.variance.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
@@ -162,7 +199,7 @@ class Model:
         """
         return self.model.loss().detach().cpu().item()
 
-    def error(self, method='MAE'):
+    def error(self, method='MAE', use_all_data=False):
         """
         Returns the error of the kernel prediction with the removed data points in the data set.
 

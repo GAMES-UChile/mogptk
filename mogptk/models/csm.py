@@ -40,7 +40,7 @@ class CSM(Model):
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name="CSM", rescale_x=True):
+    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name="CSM", rescale_x=True):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -50,7 +50,7 @@ class CSM(Model):
             Rq=Rq,
         )
         kernel = MixtureKernel(spectral, Q)
-        super(CSM, self).__init__(dataset, kernel, model, mean, name, rescale_x)
+        super().__init__(dataset, kernel, inference, mean, name, rescale_x)
 
         self.Q = Q
         self.Rq = Rq

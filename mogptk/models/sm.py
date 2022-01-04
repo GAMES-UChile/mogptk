@@ -39,7 +39,7 @@ class SM(Model):
 
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
     """
-    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="SM", rescale_x=True):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="SM", rescale_x=True):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -47,7 +47,7 @@ class SM(Model):
             [MixtureKernel(SpectralKernel(dataset[i].get_input_dims()), Q) for i in range(dataset.get_output_dims())],
             output_dims=dataset.get_output_dims(),
         )
-        super(SM, self).__init__(dataset, kernel, model, mean, name, rescale_x)
+        super().__init__(dataset, kernel, inference, mean, name, rescale_x)
 
         self.Q = Q
         nyquist = self.dataset.get_nyquist_estimation()

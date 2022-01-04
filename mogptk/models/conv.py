@@ -39,7 +39,7 @@ class CONV(Model):
 
     [1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009
     """
-    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="CONV", rescale_x=True):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="CONV", rescale_x=True):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -53,7 +53,7 @@ class CONV(Model):
             input_dims=dataset.get_input_dims()[0],
         )
         kernel = MixtureKernel(conv, Q)
-        super(CONV, self).__init__(dataset, kernel, model, mean, name, rescale_x)
+        super().__init__(dataset, kernel, inference, mean, name, rescale_x)
 
         self.Q = Q
 
