@@ -212,7 +212,10 @@ class Model:
         Examples:
             >>> model.error()
         """
-        X, Y_true = self.dataset.get_test_data()
+        if use_all_data:
+            X, Y_true = self.dataset.get_data()
+        else:
+            X, Y_true = self.dataset.get_test_data()
         x, y_true  = self._to_kernel_format(X, Y_true)
         y_pred, _ = self.model.predict(x)
         if method.lower() == 'mae':
@@ -258,8 +261,9 @@ class Model:
             
             >>> model.train(method='adam', lr=0.5)
         """
+        error_use_all_data = False
         if error is not None and all(not channel.has_test_data() for channel in self.dataset):
-            raise ValueError("data set must have test points (such as removed ranges) when error is specified")
+            error_use_all_data = True
 
         if method.lower() in ('l-bfgs', 'lbfgs', 'l-bfgs-b', 'lbfgsb'):
             method = 'LBFGS'
@@ -282,7 +286,7 @@ class Model:
             print('‣ Parameters: {}'.format(parameters))
             print('‣ Initial loss: {:.3g}'.format(self.loss()))
             if error is not None:
-                print('‣ Initial error: {:.3g}'.format(self.error(error)))
+                print('‣ Initial error: {:.3g}'.format(self.error(error, error_use_all_data)))
             inital_time = time.time()
 
         losses = np.empty((iters+1,))
@@ -299,7 +303,7 @@ class Model:
                 i = int(optimizer.state_dict()['state'][0]['func_evals'])
                 losses[i] = self.loss()
                 if error is not None:
-                    errors[i] = self.error(error)
+                    errors[i] = self.error(error, error_use_all_data)
                     if i % (kwargs['max_iter']/100) == 0:
                         sys.__stdout__.write("% 5d/%d  loss=%10g  error=%10g\n" % (i, kwargs['max_iter'], losses[i], errors[i]))
                 elif i % (kwargs['max_iter']/100) == 0:
@@ -322,7 +326,7 @@ class Model:
             for i in range(iters):
                 losses[i] = self.loss()
                 if error is not None:
-                    errors[i] = self.error(error)
+                    errors[i] = self.error(error, error_use_all_data)
                     if i % (iters/100) == 0:
                         sys.__stdout__.write("% 5d/%d  loss=%10g  error=%10g\n" % (i, iters, losses[i], errors[i]))
                 elif i % (iters/100) == 0:
@@ -330,7 +334,7 @@ class Model:
                 optimizer.step()
         losses[iters] = self.loss()
         if error is not None:
-            errors[iters] = self.error(error)
+            errors[iters] = self.error(error, error_use_all_data)
             sys.__stdout__.write("% 5d/%d  loss=%10g  error=%10g\n" % (iters, iters, losses[iters], errors[iters]))
         else:
             sys.__stdout__.write("% 5d/%d  loss=%10g\n" % (iters, iters, losses[iters]))
@@ -415,7 +419,7 @@ class Model:
                 raise ValueError("Y must be a list of shape (n,) for each channel")
             if channel_y.shape[0] != X[j].shape[0]:
                 raise ValueError("Y must have the same number of data points per channel as X")
-            Y[j] = self.dataset[j].Y.transform(channel_y, x=X_orig[j])
+            Y[j] = self.dataset[j].Y.transform(channel_y, X_orig[j])
         if len(Y) == 0:
             y = np.array([])
         else:
