@@ -393,7 +393,7 @@ class Data:
             t = copy.deepcopy(t)
         t.set_data(self)
 
-        self.Y.apply(t, np.array([x for x in self.X]).T)
+        self.Y.apply(t, self.X)
     
     def filter(self, start, end, dim=None):
         """
