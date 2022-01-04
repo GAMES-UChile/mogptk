@@ -215,7 +215,7 @@ class Exact(Model):
         super().__init__(kernel, X, y, mean, name)
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
-        self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
+        self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
 
         self._register_parameters(self.variance)
@@ -300,12 +300,12 @@ class Snelson(Model):
     def __init__(self, kernel, X, y, Z=10, variance=1.0, jitter=1e-6, mean=None, name="Snelson"):
         super().__init__(kernel, X, y, mean, name)
 
-        Z = init_inducing_points(Z, X, kernel)
+        Z = init_inducing_points(Z, self.X, kernel)
         Z = self._check_input(Z)
         
         self.jitter = jitter
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
-        self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
+        self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name="induction_points")
         self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
 
@@ -389,7 +389,7 @@ class OpperArchambeau(Model):
                  jitter=1e-6, mean=None, name="OpperArchambeau"):
         super().__init__(kernel, X, y, mean, name)
 
-        n = X.shape[0]
+        n = self.X.shape[0]
         self.jitter = jitter
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.q_nu = Parameter(torch.zeros(n,1), name="q_nu")
@@ -468,12 +468,12 @@ class Titsias(Model):
                  mean=None, name="Titsias"):
         super().__init__(kernel, X, y, mean, name)
 
-        Z = init_inducing_points(Z, X, kernel)
+        Z = init_inducing_points(Z, self.X, kernel)
         Z = self._check_input(Z)
 
         self.jitter = jitter
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
-        self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
+        self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name="induction_points")
         self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
 
@@ -566,22 +566,22 @@ class SparseHensman(Model):
                  jitter=1e-6, mean=None, name="SparseHensman"):
         super().__init__(kernel, X, y, mean, name)
 
-        n = X.shape[0]
+        n = self.X.shape[0]
         self.is_sparse = Z is not None
         if self.is_sparse:
-            Z = init_inducing_points(Z, X, kernel)
+            Z = init_inducing_points(Z, self.X, kernel)
             Z = self._check_input(Z)
             n = Z.shape[0]
 
         self.jitter = jitter
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
-        self.log_marginal_likelihood_constant = 0.5*X.shape[0]*np.log(2.0*np.pi)
+        self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
         self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt")
         if self.is_sparse:
             self.Z = Parameter(Z, name="induction_points")
         else:
-            self.Z = Parameter(X, trainable=False)  # don't use inducing points
+            self.Z = Parameter(self.X, trainable=False)  # don't use inducing points
         self.likelihood = likelihood
 
         self._register_parameters(self.q_mu)
