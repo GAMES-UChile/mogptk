@@ -40,7 +40,7 @@ class Kernel:
             if X2.shape[0] == 0:
                 raise ValueError("X must not be empty")
             if X1.shape[1] != X2.shape[1]:
-                raise ValueError("input_dims for X1 and X2 must match")
+                raise ValueError("input dimensions for X1 and X2 must match")
 
         if self.active_dims is not None:
             X1 = torch.index_select(X1, dim=1, index=self.active_dims)
@@ -67,6 +67,10 @@ class Kernel:
         for i, kernel in enumerate(kernels):
             if not issubclass(type(kernel), Kernel):
                 raise ValueError("must pass kernels")
+        if any(kernel.input_dims != kernels[0].input_dims for kernel in kernels[1:]):
+            raise ValueError("kernels must have same input dimensions")
+        if any(kernel.output_dims != kernels[0].output_dims for kernel in kernels[1:]):
+            raise ValueError("kernels must have same output dimensions")
         return kernels
 
     @property
@@ -82,8 +86,12 @@ class Kernel:
                 raise ValueError("active dimensions must be a list of integers")
             active_dims = torch.tensor(active_dims, device=config.device, dtype=torch.long)
             if self.input_dims is not None and self.input_dims != active_dims.shape[0]:
-                raise ValueError("input dimensions must match the number of actived dimensions")
+                raise ValueError("input dimensions must match the number of active dimensions")
         self._active_dims = active_dims
+
+    @property
+    def output_dims(self):
+        return 1
 
     def K(self, X1, X2=None):
         raise NotImplementedError()
@@ -128,6 +136,10 @@ class AddKernel(Kernel):
     def __getitem__(self, key):
         return self.kernels[key]
 
+    @property
+    def output_dims(self):
+        return max([kernel.output_dims for kernel in self.kernels])
+
     def K(self, X1, X2=None):
         return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).sum(dim=2)
 
@@ -150,6 +162,10 @@ class MulKernel(Kernel):
 
     def __getitem__(self, key):
         return self.kernels[key]
+
+    @property
+    def output_dims(self):
+        return max([kernel.output_dims for kernel in self.kernels])
 
     def K(self, X1, X2=None):
         return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).prod(dim=2)
@@ -179,8 +195,12 @@ class MultiOutputKernel(Kernel):
 
         noise = torch.ones(output_dims)
 
-        self.output_dims = output_dims
+        self._output_dims = output_dims
         self.noise = Parameter(noise, lower=config.positive_minimum)
+
+    @property
+    def output_dims(self):
+        return self._output_dims
 
     def K(self, X1, X2=None):
         # X has shape (data_points,1+input_dims) where the first column is the channel ID

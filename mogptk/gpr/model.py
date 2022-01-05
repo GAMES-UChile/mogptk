@@ -271,13 +271,13 @@ class Exact(Model):
 
 def init_inducing_points(Z, X, kernel):
     # TODO: instead of linspace, use quantile space or k-means to initialize positions
-    if issubclass(type(kernel), MultiOutputKernel):
-        output_dims = kernel.output_dims
+    output_dims = kernel.output_dims
+    if 1 < output_dims:
         if isinstance(Z, int) or all(isinstance(z, int) for z in Z) and len(Z) == output_dims:
             if isinstance(Z, int):
                 Z = [Z] * output_dims
             M = Z
-            Z = torch.zeros((sum(M)*output_dims,X.shape[1]))
+            Z = torch.zeros((sum(M),X.shape[1]))
             for j in range(len(M)):
                 m0 = sum(M[:j])
                 m = M[j]

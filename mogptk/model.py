@@ -44,13 +44,13 @@ class Snelson:
     """
     Inference using Snelson and Ghahramani 2005 for Gaussian process regression.
     """
-    def __init__(self, z=10, variance=1.0, jitter=1e-6):
-        self.z = z
+    def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
+        self.inducing_points = inducing_points
         self.variance = variance
         self.jitter = jitter
 
     def build(self, kernel, x, y, mean=None, name=None):
-        return gpr.Snelson(kernel, x, y, self.z, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+        return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class OpperArchambeau:
     """
@@ -67,27 +67,27 @@ class Titsias:
     """
     Inference using Titsias 2009 for Gaussian process regression.
     """
-    def __init__(self, z=10, variance=1.0, jitter=1e-6):
-        self.z = z
+    def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
+        self.inducing_points = inducing_points
         self.variance = variance
         self.jitter = jitter
 
     def build(self, kernel, x, y, mean=None, name=None):
-        return gpr.Titsias(kernel, x, y, self.z, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+        return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class Hensman:
     """
     Inference using Hensman 2015 for Gaussian process regression.
     """
-    def __init__(self, z=None, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
-        self.z = z
+    def __init__(self, inducing_points=None, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
+        self.inducing_points = inducing_points
         self.variance = variance
         self.jitter = jitter
 
     def build(self, kernel, x, y, mean=None, name=None):
-        if self.z is None:
+        if self.inducing_points is None:
             return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
-        return gpr.SparseHensman(kernel, x, y, self.z, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+        return gpr.SparseHensman(kernel, x, y, self.inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Model:
     def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None, rescale_x=False):
