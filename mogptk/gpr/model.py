@@ -389,6 +389,9 @@ class OpperArchambeau(Model):
                  jitter=1e-6, mean=None, name="OpperArchambeau"):
         super().__init__(kernel, X, y, mean, name)
 
+        if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
+            raise ValueError("kernel and likelihood must have matching output dimensions")
+
         n = self.X.shape[0]
         self.jitter = jitter
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
@@ -418,7 +421,8 @@ class OpperArchambeau(Model):
         if self.mean is not None:
             qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
 
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag)
+        c = None if self.likelihood.output_dims == 1 else self.X[:,0].long()
+        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, c=c)
 
         kl = -q_nu.shape[0]
         kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
@@ -453,7 +457,8 @@ class OpperArchambeau(Model):
                 var = var.reshape(-1,1)
 
             if predict_y:
-                mu, var = self.likelihood.predict(mu, var, full=full)
+                c = None if self.likelihood.output_dims == 1 else Xs[:,0].long()
+                mu, var = self.likelihood.predict(mu, var, full=full, c=c)
 
             if tensor:
                 return mu, var
@@ -566,6 +571,9 @@ class SparseHensman(Model):
                  jitter=1e-6, mean=None, name="SparseHensman"):
         super().__init__(kernel, X, y, mean, name)
 
+        if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
+            raise ValueError("kernel and likelihood must have matching output dimensions")
+
         n = self.X.shape[0]
         self.is_sparse = Z is not None
         if self.is_sparse:
@@ -618,7 +626,8 @@ class SparseHensman(Model):
             qf_sqrt = Lff.mm(self.q_sqrt().tril())
             qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
 
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag)
+        c = None if self.likelihood.output_dims == 1 else self.X[:,0].long()
+        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, c=c)
         kl = self.kl_gaussian(self.q_mu(), self.q_sqrt())
         return var_exp - kl
 
@@ -651,7 +660,8 @@ class SparseHensman(Model):
 
             mu, var = self._predict(Xs, full=full)
             if predict_y:
-                mu, var = self.likelihood.predict(mu, var, full=full)
+                c = None if self.likelihood.output_dims == 1 else Xs[:,0].long()
+                mu, var = self.likelihood.predict(mu, var, full=full, c=c)
             if self.mean is not None:
                 mu += self.mean(Xs).reshape(-1,1)  # Sx1
 

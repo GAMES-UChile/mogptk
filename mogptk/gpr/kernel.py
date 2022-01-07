@@ -206,9 +206,9 @@ class MultiOutputKernel(Kernel):
         # X has shape (data_points,1+input_dims) where the first column is the channel ID
 
         # extract channel mask, get data, and find indices that belong to the channels
-        I1 = X1[:,0].long()
-        m1 = [I1==i for i in range(self.output_dims)]
-        x1 = [X1[m1[i],1:] for i in range(self.output_dims)]  # I is broadcastable with last dimension in X
+        c1 = X1[:,0].long()
+        m1 = [c1==i for i in range(self.output_dims)]
+        x1 = [X1[m1[i],1:] for i in range(self.output_dims)]
         r1 = [torch.nonzero(m1[i], as_tuple=False) for i in range(self.output_dims)]  # as_tuple avoids warning
 
         if X2 is None:
@@ -226,12 +226,12 @@ class MultiOutputKernel(Kernel):
                         res[r1[j],r2[i]] = k.T
 
             # add noise per channel
-            res.diagonal().add_(torch.index_select(self.noise(), dim=0, index=I1))
+            res.diagonal().add_(torch.index_select(self.noise(), dim=0, index=c1))
         else:
             # extract channel mask, get data, and find indices that belong to the channels
-            I2 = X2[:,0].long()
-            m2 = [I2==j for j in range(self.output_dims)]
-            x2 = [X2[m2[j],1:] for j in range(self.output_dims)]  # I is broadcastable with last dimension in X
+            c2 = X2[:,0].long()
+            m2 = [c2==j for j in range(self.output_dims)]
+            x2 = [X2[m2[j],1:] for j in range(self.output_dims)]
             r2 = [torch.nonzero(m2[j], as_tuple=False).reshape(1,-1) for j in range(self.output_dims)]  # as_tuple avoids warning
 
             res = torch.empty(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)  # N1 x N2
@@ -244,8 +244,8 @@ class MultiOutputKernel(Kernel):
 
     def K_diag(self, X1):
         # extract channel mask, get data, and find indices that belong to the channels
-        I1 = X1[:,0].long()
-        m1 = [I1==i for i in range(self.output_dims)]
+        c1 = X1[:,0].long()
+        m1 = [c1==i for i in range(self.output_dims)]
         x1 = [X1[m1[i],1:] for i in range(self.output_dims)]  # I is broadcastable with last dimension in X
         r1 = [torch.nonzero(m1[i], as_tuple=False)[:,0] for i in range(self.output_dims)]  # as_tuple avoids warning
 
@@ -257,7 +257,7 @@ class MultiOutputKernel(Kernel):
             res[r1[i]] = self.Ksub_diag(i, x1[i])
 
         # add noise per channel
-        res += torch.index_select(self.noise(), dim=0, index=I1)
+        res += torch.index_select(self.noise(), dim=0, index=c1)
         return res
 
     def Ksub(self, i, j, X1, X2=None):
