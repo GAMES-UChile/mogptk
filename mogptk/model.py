@@ -387,17 +387,21 @@ class Model:
         X_orig = X
         X = X.copy()
         for j, channel_x in enumerate(X):
+            if channel_x is None or len(channel_x) == 0:
+                X[j] = np.empty((0, input_dims))
+                continue
+
             input_dims = self.dataset.get_input_dims()[j]
             if isinstance(channel_x, np.ndarray):
                 if channel_x.ndim == 1:
                     channel_x = channel_x.reshape(-1, 1)
                 if channel_x.ndim != 2 or channel_x.shape[1] != input_dims:
-                    raise ValueError("X must be a list of shape (n,input_dims) or [(n,)] * input_dims for each channel")
+                    raise ValueError("X must be of shape (n,input_dims) or a list [(n,)] * input_dims for each channel")
                 channel_x = [channel_x[:,i] for i in range(input_dims)]
             elif not isinstance(channel_x, list):
                 raise ValueError("X must be a list of lists or numpy.ndarrays")
-            if not all(isinstance(x, np.ndarray) for x in channel_x):
-                raise ValueError("X must be a list of shape (n,input_dims) or [(n,)] * input_dims for each channel")
+            if not all(isinstance(x, np.ndarray) for x in channel_x) or len(channel_x) != input_dims:
+                raise ValueError("X must be of shape (n,input_dims) or a list [(n,)] * input_dims for each channel")
             X[j] = np.array([self.dataset[j].X[i].transform(channel_x[i]) for i in range(input_dims)]).T
 
         chan = [i * np.ones(len(X[i])) for i in range(len(X))]
@@ -439,9 +443,9 @@ class Model:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            numpy.ndarray: Y mean prediction of shape (n,).
-            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
-            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
+            numpy.ndarray: Y mean prediction of shape (n,) for each channel.
+            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,) for each channel.
+            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,) for each channel.
 
         Examples:
             >>> model.predict(plot=True)
@@ -473,14 +477,77 @@ class Model:
                 self.dataset[j].Y_mu_pred[self.name] = Mu[j]
                 self.dataset[j].Y_var_pred[self.name] = Var[j]
 
-        if transformed:
-            return Mu, Lower, Upper
-        else:
+        if not transformed:
             for j in range(self.dataset.get_output_dims()):
                 Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
                 Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
                 Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
-            return Mu, Lower, Upper
+        return Mu, Lower, Upper
+
+    def K(self, X1, X2=None):
+        """
+        Evaluate the kernel at K(X1,X2).
+
+        Args:
+            X1 (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            X2 (list, dict): Same as X1 if None.
+
+        Returns:
+            numpy.ndarray: kernel evaluated at X1 and X2 of shape (n1,n2).
+
+        Examples:
+            >>> channel0 = np.array(['1987-05-20', '1987-05-21'])
+            >>> channel1 = np.array([[2.5, 534.6], [3.5, 898.22], [4.5, 566.98]])
+            >>> model.K([channel0,channel1])
+        """
+        x1, _ = self._to_kernel_format(X1)
+        if X2 is None:
+            return self.model.K(x1)
+        else:
+            x2, _ = self._to_kernel_format(X2)
+            return self.model.K(x1, x2)
+
+    def sample(self, X=None, n=None, transformed=False):
+        """
+        Sample n times from the kernel at input X .
+
+        Args:
+            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            n (int): Number of samples.
+            transformed (boolean): Return transformed data as used for training.
+
+        Returns:
+            list: samples of shape len(X) for each channel.
+            numpy.ndarray: sample of shape len(X) for each channel if n is None.
+
+        Examples:
+            >>> model.sample(n=10)
+        """
+        if X is None:
+            X = self.dataset.get_prediction_x()
+        x, X = self._to_kernel_format(X)
+
+        samples = self.model.sample(Z=x, n=n)
+
+        i = 0
+        Samples = []
+        for j in range(self.dataset.get_output_dims()):
+            N = X[j][0].shape[0]
+            if n is None:
+                sample = np.squeeze(samples[i:i+N])
+                if not transformed:
+                    sample = self.dataset[j].Y.detransform(sample, X[j])
+                Samples.append(sample)
+            else:
+                ss = []
+                for k in range(n):
+                    sample = np.squeeze(samples[i:i+N,k])
+                    if not transformed:
+                        sample = self.dataset[j].Y.detransform(sample, X[j])
+                    ss.append(sample)
+                Samples.append(ss)
+            i += N
+        return Samples
 
     def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
         if not hasattr(self, 'losses'):
