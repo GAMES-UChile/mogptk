@@ -19,7 +19,7 @@ class CholeskyException(Exception):
         return self.message
 
 class Model:
-    def __init__(self, kernel, X, y, mean=None, name=None):
+    def __init__(self, kernel, X, y, jitter=1e-8, mean=None, name=None):
         if not issubclass(type(kernel), Kernel):
             raise ValueError("kernel must derive from mogptk.gpr.Kernel")
         X, y = self._check_input(X, y)
@@ -33,6 +33,7 @@ class Model:
         self.kernel = kernel
         self.X = X
         self.y = y
+        self.jitter = jitter
         self.mean = mean
         self.name = name
         self.input_dims = X.shape[1]
@@ -194,25 +195,30 @@ class Model:
                 X2 = self._check_input(X2)  # MxD
             return self.kernel(X1,X2).cpu().numpy() # does cpu().numpy() detach? check memory usage
 
-    def sample(self, Z, n=None):
+    def sample(self, Z, n=None, noise=True, predict_y=True):
         with torch.no_grad():
             S = n
             if n is None:
                 S = 1
 
-            mu, var = self.predict(Z, full=True, tensor=True)  # MxD and MxMxD
-            u = torch.normal(
-                    torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
-                    torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
-            L = torch.linalg.cholesky(var + 1e-6*torch.ones(Z.shape[0]).diagflat())  # MxM
-            samples = mu + L.mm(u)  # MxS
+            # TODO: predict_y and non-Gaussian likelihoods
+            mu, var = self.predict(Z, full=True, tensor=True)#, predict_y=predict_y)  # MxD and MxMxD
+            if noise:
+                var += self.jitter*var.diagonal().mean().diagflat()  # MxM
+                u = torch.normal(
+                        torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
+                        torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
+                L = torch.linalg.cholesky(var)  # MxM
+                samples = mu + L.mm(u)  # MxS
+            else:
+                samples = mu
             if n is None:
                 samples = samples.squeeze()
             return samples.cpu().numpy()
 
 class Exact(Model):
-    def __init__(self, kernel, X, y, variance=1.0, mean=None, name="Exact"):
-        super().__init__(kernel, X, y, mean, name)
+    def __init__(self, kernel, X, y, variance=1.0, jitter=1e-8, mean=None, name="Exact"):
+        super().__init__(kernel, X, y, jitter, mean, name)
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
@@ -256,7 +262,7 @@ class Exact(Model):
                 Kss = self.kernel(Xs)  # MxM
                 var = Kss - v.T.mm(v)  # MxM
                 if predict_y:
-                    var += self.variance()*torch.eye(var.shape[0])
+                    var += self.variance()*torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # Mx1
                 var = Kss_diag - v.T.square().sum(dim=1)  # Mx1
@@ -297,13 +303,12 @@ def init_inducing_points(Z, X, kernel):
 class Snelson(Model):
     # See:
     #  E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005
-    def __init__(self, kernel, X, y, Z=10, variance=1.0, jitter=1e-6, mean=None, name="Snelson"):
-        super().__init__(kernel, X, y, mean, name)
+    def __init__(self, kernel, X, y, Z=10, variance=1.0, jitter=1e-8, mean=None, name="Snelson"):
+        super().__init__(kernel, X, y, jitter, mean, name)
 
         Z = init_inducing_points(Z, self.X, kernel)
         Z = self._check_input(Z)
         
-        self.jitter = jitter
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name="induction_points")
@@ -321,7 +326,7 @@ class Snelson(Model):
         Kff_diag = self.kernel.K_diag(self.X)  # Nx1
         Kuf = self.kernel(self.Z(),self.X)  # MxN
         Kuu = self.kernel(self.Z())  # MxM
-        Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # MxM
+        Kuu += self.jitter*Kuu.diagonal().mean().diagflat()  # MxM
 
         Luu = self._cholesky(Kuu)  # MxM;  Luu = Kuu^(1/2)
         v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  Kuu^(-1/2).Kuf
@@ -349,7 +354,7 @@ class Snelson(Model):
             Kff_diag = self.kernel.K_diag(self.X)  # Nx1
             Kuf = self.kernel(self.Z(),self.X)  # MxN
             Kuu = self.kernel(self.Z())  # MxM
-            Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # MxM
+            Kuu += self.jitter*Kuu.diagonal().mean().diagflat()  # MxM
             Kus = self.kernel(self.Z(),Xs)  # MxS
 
             Luu = self._cholesky(Kuu)  # MxM;  Kuu^(1/2)
@@ -369,7 +374,7 @@ class Snelson(Model):
                 Kss = self.kernel(Xs)  # MxM
                 var = Kss - a.T.mm(w) + b.T.mm(u)  # MxM
                 if predict_y:
-                    var += self.variance()*torch.eye(var.shape[0])
+                    var += self.variance()*torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # Mx1
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # Mx1
@@ -386,14 +391,13 @@ class OpperArchambeau(Model):
     # See:
     #  M. Opper, C. Archambeau, "The Variational Gaussian Approximation Revisited", 2009
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0),
-                 jitter=1e-6, mean=None, name="OpperArchambeau"):
-        super().__init__(kernel, X, y, mean, name)
+                 jitter=1e-8, mean=None, name="OpperArchambeau"):
+        super().__init__(kernel, X, y, jitter, mean, name)
 
         if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
             raise ValueError("kernel and likelihood must have matching output dimensions")
 
         n = self.X.shape[0]
-        self.jitter = jitter
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.q_nu = Parameter(torch.zeros(n,1), name="q_nu")
         self.q_lambda = Parameter(torch.ones(n,1), name="q_lambda", lower=config.positive_minimum)
@@ -469,14 +473,13 @@ class Titsias(Model):
     # See:
     #  Titsias, "Variational learning of induced variables in sparse Gaussian processes", 2009
     #  http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
-    def __init__(self, kernel, X, y, Z, variance=1.0, jitter=1e-6,
+    def __init__(self, kernel, X, y, Z, variance=1.0, jitter=1e-8,
                  mean=None, name="Titsias"):
-        super().__init__(kernel, X, y, mean, name)
+        super().__init__(kernel, X, y, jitter, mean, name)
 
         Z = init_inducing_points(Z, self.X, kernel)
         Z = self._check_input(Z)
 
-        self.jitter = jitter
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name="induction_points")
@@ -494,7 +497,7 @@ class Titsias(Model):
         Kff_diag = self.kernel.K_diag(self.X)  # Nx1
         Kuf = self.kernel(self.Z(),self.X)  # MxN
         Kuu = self.kernel(self.Z())  # MxM
-        Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # MxM
+        Kuu += self.jitter*Kuu.diagonal().mean().diagflat()  # MxM
 
         Luu = self._cholesky(Kuu)  # MxM;  Kuu^(1/2)
         v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  Kuu^(-1/2).Kuf
@@ -527,7 +530,7 @@ class Titsias(Model):
             Kus = self.kernel(self.Z(),Xs)  # MxS
             Kuf = self.kernel(self.Z(),self.X)  # MxN
             Kuu = self.kernel(self.Z())  # MxM
-            Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # MxM
+            Kuu += self.jitter*Kuu.diagonal().mean().diagflat()  # MxM
 
             Luu = self._cholesky(Kuu)  # MxM;  Kuu^(1/2)
             v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  Kuu^(-1/2).Kuf
@@ -549,7 +552,7 @@ class Titsias(Model):
                 Kss = self.kernel(Xs)  # MxM
                 var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
                 if predict_y:
-                    var += self.variance()*torch.eye(var.shape[0])
+                    var += self.variance()*torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # Mx1
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # Mx1
@@ -568,8 +571,8 @@ class SparseHensman(Model):
     # This version replaces mu_q by L.mu_q and sigma_q by L.sigma_q.L^T, where LL^T = Kuu
     # So that p(u) ~ N(0,1) and q(u) ~ N(L.mu_q, L.sigma_q.L^T)
     def __init__(self, kernel, X, y, Z=None, likelihood=GaussianLikelihood(variance=1.0),
-                 jitter=1e-6, mean=None, name="SparseHensman"):
-        super().__init__(kernel, X, y, mean, name)
+                 jitter=1e-8, mean=None, name="SparseHensman"):
+        super().__init__(kernel, X, y, jitter, mean, name)
 
         if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
             raise ValueError("kernel and likelihood must have matching output dimensions")
@@ -581,8 +584,6 @@ class SparseHensman(Model):
             Z = self._check_input(Z)
             n = Z.shape[0]
 
-        self.jitter = jitter
-        self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
         self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt")
@@ -616,7 +617,7 @@ class SparseHensman(Model):
             qf_mu, qf_var_diag = self._predict(self.X, full=False)
         else:
             Kff = self.kernel(self.X)
-            Kff += self.jitter*Kff.diagonal().mean()*self.eye  # NxN
+            Kff += self.jitter*Kff.diagonal().mean().diagflat()  # NxN
             Lff = self._cholesky(Kff)  # NxN
 
             qf_mu = Lff.mm(self.q_mu())
@@ -637,7 +638,7 @@ class SparseHensman(Model):
 
     def _predict(self, Xs, full=False):
         Kuu = self.kernel(self.Z())
-        Kuu += self.jitter*Kuu.diagonal().mean()*self.eye  # NxN
+        Kuu += self.jitter*Kuu.diagonal().mean().diagflat()  # NxN
         Kus = self.kernel(self.Z(),Xs)  # NxS
 
         Luu = self._cholesky(Kuu)  # NxN
@@ -671,7 +672,6 @@ class SparseHensman(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class Hensman(SparseHensman):
-    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-6,
+    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-8,
                  mean=None, name="Hensman"):
-        super().__init__(kernel, X, y, likelihood=likelihood, jitter=jitter,
-                         mean=mean, name=name)
+        super().__init__(kernel, X, y, likelihood, jitter, mean, name)
