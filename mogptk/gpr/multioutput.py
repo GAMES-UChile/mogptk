@@ -65,6 +65,52 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
 
             alpha = magnitude * self.twopi * variance.prod().sqrt()  # scalar
             exp = torch.exp(-0.5 * torch.tensordot((tau+delay)**2, variance, dims=1))  # NxM
+            cos = torch.cos(2.0*np.pi * (torch.tensordot(tau+delay, mean, dims=1) + phase))  # NxM
+            return alpha * exp * cos
+
+class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
+    def __init__(self, output_dims, input_dims, active_dims=None, name="uMOSM"):
+        super().__init__(output_dims, input_dims, active_dims, name)
+
+        magnitude = torch.rand(output_dims, output_dims).tril()
+        mean = torch.rand(output_dims, input_dims)
+        variance = torch.rand(output_dims, input_dims)
+        delay = torch.zeros(output_dims, input_dims)
+        phase = torch.zeros(output_dims)
+
+        self.input_dims = input_dims
+        self.magnitude = Parameter(magnitude)#, lower=0.0)
+        self.mean = Parameter(mean, lower=config.positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
+        if 1 < output_dims:
+            self.delay = Parameter(delay)
+            self.phase = Parameter(phase)
+
+        self.twopi = np.power(2.0*np.pi,float(self.input_dims)/2.0)
+
+    def Ksub(self, i, j, X1, X2=None):
+        # X has shape (data_points,input_dims)
+        tau = self.distance(X1,X2)  # NxMxD
+        magnitude = self.magnitude().tril().mm(self.magnitude().tril().T)
+        if i == j:
+            variance = self.variance()[i]
+            alpha = magnitude[i,i] * self.twopi * variance.prod().sqrt()  # scalar
+            exp = torch.exp(-0.5*torch.tensordot(tau**2, variance, dims=1))  # NxM
+            cos = torch.cos(2.0*np.pi * torch.tensordot(tau, self.mean()[i], dims=1))  # NxM
+            return alpha * exp * cos
+        else:
+            inv_variances = 1.0/(self.variance()[i] + self.variance()[j])  # D
+
+            diff_mean = self.mean()[i] - self.mean()[j]  # D
+            magnitude = magnitude[i,j] * torch.exp(-np.pi**2 * diff_mean.dot(inv_variances*diff_mean))  # scalar
+
+            mean = inv_variances * (self.variance()[i]*self.mean()[j] + self.variance()[j]*self.mean()[i])  # D
+            variance = 2.0 * self.variance()[i] * inv_variances * self.variance()[j]  # D
+            delay = self.delay()[i] - self.delay()[j]  # D
+            phase = self.phase()[i] - self.phase()[j]  # scalar
+
+            alpha = magnitude * self.twopi * variance.prod().sqrt()  # scalar
+            exp = torch.exp(-0.5 * torch.tensordot((tau+delay)**2, variance, dims=1))  # NxM
             cos = torch.cos(2.0*np.pi * torch.tensordot(tau+delay, mean, dims=1) + phase)  # NxM
             return alpha * exp * cos
 
@@ -112,10 +158,9 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
 
         if Q is None:
             Q = len(kernels)
-        kernels = self._check_kernels(kernels, Q)
         weight = torch.rand(output_dims, Q, Rq)
 
-        self.kernels = kernels
+        self.kernels = self._check_kernels(kernels, Q)
         self.weight = Parameter(weight, lower=config.positive_minimum)
 
     def __getitem__(self, key):
