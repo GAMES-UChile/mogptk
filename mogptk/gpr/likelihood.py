@@ -1,23 +1,11 @@
 import torch
 import numpy as np
-from . import config, Parameter
-
-class GaussHermiteQuadrature:
-    def __init__(self, deg=20):
-        t, w = np.polynomial.hermite.hermgauss(deg)
-        t = t.reshape(-1,1)
-        w = w.reshape(-1,1)
-        self.t = torch.tensor(t*np.sqrt(2), device=config.device, dtype=config.dtype)  # Mx1
-        self.w = torch.tensor(w/np.sqrt(np.pi), device=config.device, dtype=config.dtype)  # Mx1
-        self.deg = deg
-
-    def __call__(self, mu, var, F):
-        return F(mu + var.sqrt().mm(self.t.T)).mm(self.w)  # Nx1
+from . import config, Parameter, GaussHermiteQuadrature
 
 class Likelihood:
     def __init__(self, name="Likelihood", quadratures=20):
         self.name = name
-        self.quadrature = GaussHermiteQuadrature(deg=quadratures)
+        self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = 1
 
     def log_prob(self, y, f, c=None):

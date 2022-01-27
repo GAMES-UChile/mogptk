@@ -1,3 +1,4 @@
+from .util import *
 from .config import *
 from .parameter import *
 from .likelihood import *
