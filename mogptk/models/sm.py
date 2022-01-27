@@ -44,7 +44,9 @@ class SM(Model):
             dataset = DataSet(dataset)
 
         kernel = IndependentMultiOutputKernel(
-            [MixtureKernel(SpectralKernel(dataset[i].get_input_dims()), Q) for i in range(dataset.get_output_dims())],
+            [MixtureKernel(
+                [SpectralKernel(dataset[j].get_input_dims()) for q in range(Q)],
+             Q) for j in range(dataset.get_output_dims())],
             output_dims=dataset.get_output_dims(),
         )
         super().__init__(dataset, kernel, inference, mean, name, rescale_x)

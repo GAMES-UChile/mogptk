@@ -45,7 +45,7 @@ class SM_LMC(Model):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        spectral = SpectralKernel(dataset.get_input_dims()[0])
+        spectral = [SpectralKernel(dataset.get_input_dims()[0]) for q in range(Q)]
         kernel = LinearModelOfCoregionalizationKernel(
             spectral,
             output_dims=dataset.get_output_dims(),
