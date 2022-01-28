@@ -1091,12 +1091,8 @@ class Data:
         legends.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
         x, y = self.get_train_data(transformed=transformed)
-        if 1000 < x[0].shape[0]:
-            ax.plot(x[0], y, 'k-')
-            legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Training Points'))
-        else:
-            ax.plot(x[0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
-            legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
+        ax.plot(x[0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
+        legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
 
         if self.has_test_data():
             for removed_range in self.removed_ranges[0]:
