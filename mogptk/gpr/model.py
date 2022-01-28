@@ -190,12 +190,9 @@ class Model:
 
     def K(self, X1, X2=None):
         with torch.no_grad():
-            X1 = self._check_input(X1)  # MxD
-            if X2 is not None:
-                X2 = self._check_input(X2)  # MxD
-            return self.kernel(X1,X2).cpu().numpy() # does cpu().numpy() detach? check memory usage
+            return self.kernel(X1, X2).cpu().numpy() # does cpu().numpy() detach? check memory usage
 
-    def sample(self, Z, n=None, noise=True, predict_y=True):
+    def sample(self, Z, n=None, stochastic=False, predict_y=True):
         with torch.no_grad():
             S = n
             if n is None:
@@ -203,7 +200,7 @@ class Model:
 
             # TODO: predict_y and non-Gaussian likelihoods
             mu, var = self.predict(Z, full=True, tensor=True)#, predict_y=predict_y)  # MxD and MxMxD
-            if noise:
+            if stochastic:
                 var += self.jitter*var.diagonal().mean().diagflat()  # MxM
                 u = torch.normal(
                         torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
@@ -227,7 +224,7 @@ class Exact(Model):
         self._register_parameters(self.variance)
 
     def log_marginal_likelihood(self):
-        Kff = self.kernel(self.X) + self.variance()*self.eye  # NxN
+        Kff = self.kernel.K(self.X) + self.variance()*self.eye  # NxN
         L = self._cholesky(Kff)  # NxN
 
         if self.mean is not None:
@@ -248,8 +245,8 @@ class Exact(Model):
             else:
                 y = self.y  # Nx1
 
-            Kff = self.kernel(self.X) + self.variance()*self.eye  # NxN
-            Kfs = self.kernel(self.X,Xs)  # NxM
+            Kff = self.kernel.K(self.X) + self.variance()*self.eye  # NxN
+            Kfs = self.kernel.K(self.X,Xs)  # NxM
 
             Lff = self._cholesky(Kff)  # NxN
             v = torch.triangular_solve(Kfs,Lff,upper=False)[0]  # NxM
@@ -259,7 +256,7 @@ class Exact(Model):
                 mu += self.mean(Xs).reshape(-1,1)  # Mx1
 
             if full:
-                Kss = self.kernel(Xs)  # MxM
+                Kss = self.kernel.K(Xs)  # MxM
                 var = Kss - v.T.mm(v)  # MxM
                 if predict_y:
                     var += self.variance()*torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
@@ -324,8 +321,8 @@ class Snelson(Model):
             y = self.y  # Nx1
 
         Kff_diag = self.kernel.K_diag(self.X)  # Nx1
-        Kuf = self.kernel(self.Z(),self.X)  # MxN
-        Kuu = self.kernel(self.Z())  # MxM
+        Kuf = self.kernel.K(self.Z(),self.X)  # MxN
+        Kuu = self.kernel.K(self.Z())  # MxM
         Kuu += self.jitter*Kuu.diagonal().mean().diagflat()  # MxM
 
         Luu = self._cholesky(Kuu)  # MxM;  Luu = Kuu^(1/2)
@@ -352,10 +349,10 @@ class Snelson(Model):
                 y = self.y  # Nx1
 
             Kff_diag = self.kernel.K_diag(self.X)  # Nx1
-            Kuf = self.kernel(self.Z(),self.X)  # MxN
-            Kuu = self.kernel(self.Z())  # MxM
+            Kuf = self.kernel.K(self.Z(),self.X)  # MxN
+            Kuu = self.kernel.K(self.Z())  # MxM
             Kuu += self.jitter*Kuu.diagonal().mean().diagflat()  # MxM
-            Kus = self.kernel(self.Z(),Xs)  # MxS
+            Kus = self.kernel.K(self.Z(),Xs)  # MxS
 
             Luu = self._cholesky(Kuu)  # MxM;  Kuu^(1/2)
             v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  Kuu^(-1/2).Kuf

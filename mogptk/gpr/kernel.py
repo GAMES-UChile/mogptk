@@ -14,8 +14,8 @@ class Kernel:
         self.name = name
 
     def __call__(self, X1, X2=None):
-        X1,X2 = self._check_input(X1,X2)
-        return self.K(X1,X2)
+        X1, X2 = self._check_input(X1, X2)
+        return self.K(X1, X2)
 
     def __setattr__(self, name, val):
         if name == 'trainable':
@@ -71,6 +71,8 @@ class Kernel:
             raise ValueError("kernels must have same input dimensions")
         if any(kernel.output_dims != kernels[0].output_dims for kernel in kernels[1:]):
             raise ValueError("kernels must have same output dimensions")
+        if any(issubclass(type(kernel), MultiOutputKernel) != issubclass(type(kernels[0]), MultiOutputKernel) for kernel in kernels[1:]):
+            raise ValueError("kernels must all inherit either Kernel or MultiOutputKernel")
         return kernels
 
     @property
@@ -88,6 +90,9 @@ class Kernel:
             if self.input_dims is not None and self.input_dims != active_dims.shape[0]:
                 raise ValueError("input dimensions must match the number of active dimensions")
         self._active_dims = active_dims
+
+    def iterkernels(self):
+        yield self
 
     @property
     def output_dims(self):
@@ -119,14 +124,14 @@ class Kernel:
     def __mul__(self, other):
         return MulKernel(self, other)
 
-class AddKernel(Kernel):
-    def __init__(self, *kernels, name="Add"):
+class Kernels(Kernel):
+    def __init__(self, *kernels, name="Kernels"):
         super().__init__(name=name)
         kernels = self._check_kernels(kernels)
 
         i = 0
         while i < len(kernels):
-            if isinstance(kernels[i], AddKernel):
+            if isinstance(kernels[i], self.__class__):
                 subkernels = kernels[i].kernels
                 kernels = kernels[:i] + subkernels + kernels[i+1:]
                 i += len(subkernels) - 1
@@ -136,54 +141,47 @@ class AddKernel(Kernel):
     def __getitem__(self, key):
         return self.kernels[key]
 
+    def iterkernels(self):
+        yield self
+        for kernel in self.kernels:
+            yield kernel
+
     @property
     def output_dims(self):
-        return max([kernel.output_dims for kernel in self.kernels])
+        # _check_kernels make sure it's the same for all kernels
+        return self.kernels[0].output_dims
+
+class AddKernel(Kernels):
+    def __init__(self, *kernels, name="Add"):
+        super().__init__(*kernels, name=name)
 
     def K(self, X1, X2=None):
-        return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).sum(dim=2)
+        return torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=2).sum(dim=2)
 
     def K_diag(self, X1):
         return torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1).sum(dim=1)
 
-class MulKernel(Kernel):
+class MulKernel(Kernels):
     def __init__(self, *kernels, name="Mul"):
-        super().__init__(name=name)
-        kernels = self._check_kernels(kernels)
-
-        i = 0
-        while i < len(kernels):
-            if isinstance(kernels[i], MulKernel):
-                subkernels = kernels[i].kernels
-                kernels = kernels[:i] + subkernels + kernels[i+1:]
-                i += len(subkernels) - 1
-            i += 1
-        self.kernels = kernels
-
-    def __getitem__(self, key):
-        return self.kernels[key]
-
-    @property
-    def output_dims(self):
-        return max([kernel.output_dims for kernel in self.kernels])
+        super().__init__(*kernels, name=name)
 
     def K(self, X1, X2=None):
-        return torch.stack([kernel(X1,X2) for kernel in self.kernels], dim=2).prod(dim=2)
+        return torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=2).prod(dim=2)
 
     def K_diag(self, X1):
         return torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1).prod(dim=1)
 
 class MixtureKernel(AddKernel):
-    def __init__(self, kernel, Q, name="Mixture"):
-        Kernel.__init__(self, name=name)
-        self.kernels = self._check_kernels(kernel, Q)
+    def __init__(self, kernels, Q, name="Mixture"):
+        kernels = self._check_kernels(kernels, Q)
+        super().__init__(*kernels, name=name)
 
 class AutomaticRelevanceDeterminationKernel(MulKernel):
-    def __init__(self, kernel, input_dims, name="ARD"):
-        Kernel.__init__(self, name=name)
-        self.kernels = self._check_kernels(kernel, input_dims)
-        for i, kernel in enumerate(self.kernels):
+    def __init__(self, kernels, input_dims, name="ARD"):
+        kernels = self._check_kernels(kernels, input_dims)
+        for i, kernel in enumerate(kernels):
             kernel.set_active_dims(i)
+        super().__init__(*kernels, name=name)
 
 class MultiOutputKernel(Kernel):
     # The MultiOutputKernel is a base class for multi output kernels. It assumes that the first dimension of X contains channel IDs (integers) and calculate the final kernel matrix accordingly. Concretely, it will call the Ksub method for derived kernels from this class, which should return the kernel matrix between channel i and j, given inputs X1 and X2. This class will automatically split and recombine the input vectors and kernel matrices respectively, in order to create the final kernel matrix of the multi output kernel.
