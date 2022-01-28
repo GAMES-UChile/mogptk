@@ -569,7 +569,7 @@ class Model:
         if legend:
             ax.legend(handles=legends)
 
-    def plot_prediction(self, title=None, figsize=None, legend=True, transformed=False):
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False):
         """
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -586,6 +586,11 @@ class Model:
         Examples:
             >>> fig, axes = dataset.plot(title='Title')
         """
+        if X is not None:
+            self.dataset.set_prediction_x(X)
+            self.predict()
+        elif not self.name in self.dataset[0].Y_mu_pred:
+            self.predict()
         return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
 
     def get_gram_matrix(self, start=None, end=None, n=31):
