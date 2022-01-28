@@ -373,17 +373,6 @@ class Model:
             numpy.ndarray: Y data.
             numpy.ndarray: Original but normalized X data. Only if no Y is passed.
         """
-        if isinstance(X, dict):
-            x_dict = X
-            X = self.dataset.get_prediction()
-            for name, channel_x in x_dict.items():
-                X[self.dataset.get_index(name)] = channel_x
-        elif isinstance(X, np.ndarray):
-            X = list(X)
-        elif not isinstance(X, list):
-            raise ValueError("X must be a list, dict or numpy.ndarray")
-        if len(X) != len(self.dataset.channels):
-            raise ValueError("X must be a list of shape [(n,)] * input_dims for each channel")
         X_orig = X
         X = X.copy()
         for j, channel_x in enumerate(X):
@@ -412,7 +401,7 @@ class Model:
             x = np.concatenate(X, axis=0)
             x = np.concatenate([chan, x], axis=1)
         if Y is None:
-            return x, X_orig
+            return x
 
         if isinstance(Y, np.ndarray):
             Y = list(Y)
@@ -448,14 +437,16 @@ class Model:
             numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,) for each channel.
 
         Examples:
-            >>> model.predict(plot=True)
+            >>> model.predict(X)
         """
         save = X is None
         if save and transformed:
             raise ValueError('must pass an X range explicitly in order to return transformed data')
         if save:
             X = self.dataset.get_prediction_x()
-        x, X = self._to_kernel_format(X)
+        else:
+            X = self.dataset._format_prediction_x(X)
+        x = self._to_kernel_format(X)
 
         mu, var = self.model.predict(x)
 
@@ -500,11 +491,11 @@ class Model:
             >>> channel1 = np.array([[2.5, 534.6], [3.5, 898.22], [4.5, 566.98]])
             >>> model.K([channel0,channel1])
         """
-        x1, _ = self._to_kernel_format(X1)
+        x1 = self._to_kernel_format(X1)
         if X2 is None:
             return self.model.K(x1)
         else:
-            x2, _ = self._to_kernel_format(X2)
+            x2 = self._to_kernel_format(X2)
             return self.model.K(x1, x2)
 
     def sample(self, X=None, n=None, transformed=False):
@@ -525,7 +516,9 @@ class Model:
         """
         if X is None:
             X = self.dataset.get_prediction_x()
-        x, X = self._to_kernel_format(X)
+        else:
+            X = self.dataset._format_prediction_x(X)
+        x = self._to_kernel_format(X)
 
         samples = self.model.sample(Z=x, n=n)
 

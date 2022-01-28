@@ -465,29 +465,46 @@ class DataSet:
             upper.append(cupper)
         return x, mu, lower, upper
 
-    def set_prediction_x(self, x):
+    def _format_prediction_x(self, X):
+        if isinstance(X, dict):
+            x_dict = X
+            X = self.dataset.get_prediction()
+            for name, channel_x in x_dict.items():
+                X[self.dataset.get_index(name)] = channel_x
+        elif isinstance(X, np.ndarray):
+            X = [np.array(X) for j in range(self.dataset.get_output_dims())]
+        elif not isinstance(X, list):
+            raise ValueError("X must be a list, dict or numpy.ndarray")
+        if len(X) != self.dataset.get_output_dims():
+            raise ValueError("X must be a list of shape [(n,)] * input_dims for each channel")
+
+        for i, channel in enumerate(self.channels):
+            X[j] = channel._format_prediction_x(X[j])
+        return X
+
+    def set_prediction_x(self, X):
         """
         Set the prediction range directly for saved predictions per channel. This will clear old predictions.
 
         Args:
-            x (list, dict): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
+            X (list, dict): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
             >>> dataset.set_prediction_x([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
             >>> dataset.set_prediction_x({'A': [5.0, 5.5, 6.0, 6.5, 7.0], 'B': [0.1, 0.2, 0.3]})
         """
-        if isinstance(x, list):
-            if len(x) != len(self.channels):
+        if isinstance(X, list):
+            if len(X) != len(self.channels):
                 raise ValueError("prediction x expected to be a list of shape (output_dims,n)")
 
             for i, channel in enumerate(self.channels):
-                channel.set_prediction_x(x[i])
-        elif isinstance(x, dict):
-            for name in x:
-                self.get(name).set_prediction_x(x[name])
+                channel.set_prediction_x(X[i])
+        elif isinstance(X, dict):
+            for name in X:
+                self.get(name).set_prediction_x(X[name])
         else:
             for i, channel in enumerate(self.channels):
-                channel.set_prediction_x(x)
+                channel.set_prediction_x(X)
 
     def set_prediction_range(self, start, end, n=None, step=None):
         """

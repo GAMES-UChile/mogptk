@@ -754,7 +754,21 @@ class Data:
         lower = Serie(self.Y.detransform(lower, X), self.Y.transformers, transformed=lower)
         upper = Serie(self.Y.detransform(upper, X), self.Y.transformers, transformed=upper)
         return X, mu, lower, upper
-    
+
+    def _format_prediction_x(self, X):
+        if isinstance(X, np.ndarray):
+            if X.ndim == 1:
+                X = X.reshape(-1,1)
+            if X.ndim != 2 or X.shape[1] != self.get_input_dims():
+                raise ValueError("X shape must be (n,input_dims) for each channel")
+            X = [X[:,i] for i in range(self.get_input_dims())]
+        elif not isinstance(X, list):
+            raise ValueError("X expected to be a list or numpy.ndarray for each channel")
+        if not all(x.ndim == 1 for x in X) or len(X) != self.get_input_dims():
+            raise ValueError("X shape must be (n,), (n,input_dims), or [(n,)] * input_dims for each channel")
+        X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
+        return X
+
     def set_prediction_x(self, X):
         """
         Set the prediction range directly for saved predictions. This will clear old predictions.
@@ -765,18 +779,7 @@ class Data:
         Examples:
             >>> data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
         """
-        if isinstance(X, np.ndarray):
-            if X.ndim == 1:
-                X = X.reshape(-1,1)
-            if X.ndim != 2 or X.shape[1] != self.get_input_dims():
-                raise ValueError("X shape must be (n,input_dims)")
-            X = [X[:,i] for i in range(self.get_input_dims())]
-        elif not isinstance(X, list):
-            raise ValueError("X expected to be a list or numpy.ndarray")
-        if not all(x.ndim == 1 for x in X) or len(X) != self.get_input_dims():
-            raise ValueError("X shape must be (n,), (n,input_dims), or [(n,)] * input_dims")
-
-        X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
+        X = self._format_prediction_x(X)
         self.X_pred = [Serie(X[i], self.X[i].transformers) for i in range(self.get_input_dims())]
 
         # clear old prediction data now that X_pred has been updated
