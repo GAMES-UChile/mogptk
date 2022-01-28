@@ -1,6 +1,22 @@
 import torch
 import numpy as np
-from . import config, Parameter, GaussHermiteQuadrature
+from . import config, Parameter
+
+class GaussHermiteQuadrature:
+    def __init__(self, deg=20, t_scale=None, w_scale=None):
+        t, w = np.polynomial.hermite.hermgauss(deg)
+        t = t.reshape(-1,1)
+        w = w.reshape(-1,1)
+        if t_scale is not None:
+            t *= t_scale
+        if w_scale is not None:
+            w *= w_scale
+        self.t = torch.tensor(t, device=config.device, dtype=config.dtype)  # Mx1
+        self.w = torch.tensor(w, device=config.device, dtype=config.dtype)  # Mx1
+        self.deg = deg
+
+    def __call__(self, mu, var, F):
+        return F(mu + var.sqrt().mm(self.t.T)).mm(self.w)  # Nx1
 
 class Likelihood:
     def __init__(self, name="Likelihood", quadratures=20):
