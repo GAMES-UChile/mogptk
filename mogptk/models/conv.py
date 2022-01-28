@@ -39,7 +39,7 @@ class CONV(Model):
 
     [1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009
     """
-    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="CONV", rescale_x=True):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="CONV", rescale_x=False):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 

@@ -41,7 +41,7 @@ class SM_LMC(Model):
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
-    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name="SM-LMC", rescale_x=True):
+    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name="SM-LMC", rescale_x=False):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
