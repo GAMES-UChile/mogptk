@@ -261,8 +261,8 @@ class Exact(Model):
                 if predict_y:
                     var += self.variance()*torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             else:
-                Kss_diag = self.kernel.K_diag(Xs)  # Mx1
-                var = Kss_diag - v.T.square().sum(dim=1)  # Mx1
+                Kss_diag = self.kernel.K_diag(Xs)  # M
+                var = Kss_diag - v.T.square().sum(dim=1)  # M
                 if predict_y:
                     var += self.variance()
                 var = var.reshape(-1,1)
@@ -320,15 +320,15 @@ class Snelson(Model):
         else:
             y = self.y  # Nx1
 
-        Kff_diag = self.kernel.K_diag(self.X)  # Nx1
+        Kff_diag = self.kernel.K_diag(self.X)  # N
         Kuf = self.kernel.K(self.Z(),self.X)  # MxN
         Kuu = self.kernel.K(self.Z())  # MxM
         Kuu += self.jitter*Kuu.diagonal().mean().diagflat()  # MxM
 
         Luu = self._cholesky(Kuu)  # MxM;  Luu = Kuu^(1/2)
         v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  Kuu^(-1/2).Kuf
-        g = Kff_diag - v.T.square().sum(dim=1) + self.variance()  # NxN;  diag(Kff-Qff) + sigma^2.I
-        G = torch.diagflat(1.0/g)  # NxN
+        g = Kff_diag - v.T.square().sum(dim=1) + self.variance()  # N;  diag(Kff-Qff) + sigma^2.I
+        G = torch.diagflat(1.0/g)  # N
         L = self._cholesky(v.mm(G).mm(v.T) + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.G.Kfu.Kuu^(-1/2) + I)^(1/2)
 
         c = torch.triangular_solve(v.mm(G).mm(y),L,upper=False)[0]  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.G.y
@@ -348,7 +348,7 @@ class Snelson(Model):
             else:
                 y = self.y  # Nx1
 
-            Kff_diag = self.kernel.K_diag(self.X)  # Nx1
+            Kff_diag = self.kernel.K_diag(self.X)  # N
             Kuf = self.kernel.K(self.Z(),self.X)  # MxN
             Kuu = self.kernel.K(self.Z())  # MxM
             Kuu += self.jitter*Kuu.diagonal().mean().diagflat()  # MxM
@@ -356,7 +356,7 @@ class Snelson(Model):
 
             Luu = self._cholesky(Kuu)  # MxM;  Kuu^(1/2)
             v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  Kuu^(-1/2).Kuf
-            G = torch.diagflat(1.0/(Kff_diag - v.T.square().sum(dim=1) + self.variance()))
+            G = torch.diagflat(1.0/(Kff_diag - v.T.square().sum(dim=1) + self.variance()))  # N
             L = self._cholesky(v.mm(G).mm(v.T) + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.G.Kfu.Kuu^(-1/2) + I)^(1/2)
 
             a = torch.triangular_solve(Kus,Luu,upper=False)[0]  # NxM
@@ -373,8 +373,8 @@ class Snelson(Model):
                 if predict_y:
                     var += self.variance()*torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             else:
-                Kss_diag = self.kernel.K_diag(Xs)  # Mx1
-                var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # Mx1
+                Kss_diag = self.kernel.K_diag(Xs)  # M
+                var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
                 if predict_y:
                     var += self.variance()
                 var = var.reshape(-1,1)
@@ -453,8 +453,8 @@ class OpperArchambeau(Model):
                 Kss = self.kernel(Xs)  # SxS
                 var = Kss - a.T.mm(a)  # SxS
             else:
-                Kss_diag = self.kernel.K_diag(Xs)  # Mx1
-                var = Kss_diag - a.T.square().sum(dim=1)  # Mx1
+                Kss_diag = self.kernel.K_diag(Xs)  # M
+                var = Kss_diag - a.T.square().sum(dim=1)  # M
                 var = var.reshape(-1,1)
 
             if predict_y:
@@ -491,7 +491,7 @@ class Titsias(Model):
         else:
             y = self.y  # Nx1
 
-        Kff_diag = self.kernel.K_diag(self.X)  # Nx1
+        Kff_diag = self.kernel.K_diag(self.X)  # N
         Kuf = self.kernel(self.Z(),self.X)  # MxN
         Kuu = self.kernel(self.Z())  # MxM
         Kuu += self.jitter*Kuu.diagonal().mean().diagflat()  # MxM
@@ -551,8 +551,8 @@ class Titsias(Model):
                 if predict_y:
                     var += self.variance()*torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             else:
-                Kss_diag = self.kernel.K_diag(Xs)  # Mx1
-                var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # Mx1
+                Kss_diag = self.kernel.K_diag(Xs)  # M
+                var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
                 if predict_y:
                     var += self.variance()
                 var = var.reshape(-1,1)
@@ -647,8 +647,8 @@ class SparseHensman(Model):
             Kss = self.kernel(Xs)  # SxS
             var = Kss - a.T.mm(a) + b.T.mm(b)  # SxS
         else:
-            Kss_diag = self.kernel.K_diag(Xs)  # Mx1
-            var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # Mx1
+            Kss_diag = self.kernel.K_diag(Xs)  # M
+            var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
             var = var.reshape(-1,1)
         return mu, var
 

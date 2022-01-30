@@ -14,6 +14,7 @@ class IndependentMultiOutputKernel(MultiOutputKernel):
     
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         if i == j:
             return self.kernels[i].K(X1, X2)
         else:
@@ -22,7 +23,7 @@ class IndependentMultiOutputKernel(MultiOutputKernel):
             return torch.zeros(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)
 
 class MultiOutputSpectralKernel(MultiOutputKernel):
-    def __init__(self, output_dims, input_dims, active_dims=None, name="MOSM"):
+    def __init__(self, output_dims, input_dims=1, active_dims=None, name="MOSM"):
         super().__init__(output_dims, input_dims, active_dims, name)
 
         # TODO: incorporate mixtures?
@@ -45,6 +46,7 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
 
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)  # NxMxD
         if i == j:
             variance = self.variance()[i]
@@ -69,7 +71,7 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
             return alpha * exp * cos
 
 class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
-    def __init__(self, output_dims, input_dims, active_dims=None, name="uMOSM"):
+    def __init__(self, output_dims, input_dims=1, active_dims=None, name="uMOSM"):
         super().__init__(output_dims, input_dims, active_dims, name)
 
         magnitude = torch.rand(output_dims, output_dims).tril()
@@ -90,6 +92,7 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
 
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)  # NxMxD
         magnitude = self.magnitude().tril().mm(self.magnitude().tril().T)
         if i == j:
@@ -115,7 +118,7 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
             return alpha * exp * cos
 
 class CrossSpectralKernel(MultiOutputKernel):
-    def __init__(self, output_dims, input_dims, Rq=1, active_dims=None, name="CSM"):
+    def __init__(self, output_dims, input_dims=1, Rq=1, active_dims=None, name="CSM"):
         super().__init__(output_dims, input_dims, active_dims, name)
 
         amplitude = torch.rand(output_dims, Rq)
@@ -132,6 +135,7 @@ class CrossSpectralKernel(MultiOutputKernel):
 
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)  # NxMxD
         if i == j:
             # put Rq into third dimension and sum at the end
@@ -153,7 +157,7 @@ class CrossSpectralKernel(MultiOutputKernel):
             return torch.sum(amplitude * exp * cos, dim=2)
 
 class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
-    def __init__(self, *kernels, output_dims, input_dims, Q=None, Rq=1, name="LMC"):
+    def __init__(self, *kernels, output_dims, input_dims=1, Q=None, Rq=1, name="LMC"):
         super().__init__(output_dims, input_dims, name=name)
 
         if Q is None:
@@ -168,12 +172,13 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
 
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         weight = torch.sum(self.weight()[i] * self.weight()[j], dim=1)  # Q
         kernels = torch.stack([kernel.K(X1,X2) for kernel in self.kernels], dim=2)  # NxMxQ
         return torch.tensordot(kernels, weight, dims=1)
 
 class GaussianConvolutionProcessKernel(MultiOutputKernel):
-    def __init__(self, output_dims, input_dims, active_dims=None, name="CONV"):
+    def __init__(self, output_dims, input_dims=1, active_dims=None, name="CONV"):
         super().__init__(output_dims, input_dims, active_dims, name)
 
         weight = torch.rand(output_dims)
@@ -187,6 +192,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         tau = self.squared_distance(X1,X2)  # NxMxD
 
         # differences with the thesis from Parra is that it lacks a multiplication of 2*pi, lacks a minus in the exponencial function, and doesn't write the variance matrices as inverted

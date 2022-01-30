@@ -3,7 +3,7 @@ import numpy as np
 from . import Kernel, Parameter, config
 
 class ConstantKernel(Kernel):
-    def __init__(self, input_dims=None, active_dims=None, name="Constant"):
+    def __init__(self, input_dims=1, active_dims=None, name="Constant"):
         super().__init__(input_dims, active_dims, name)
 
         sigma = torch.rand(1)
@@ -12,12 +12,18 @@ class ConstantKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         if X2 is None:
             X2 = X1
-        return self.sigma()**2 * torch.ones(X1.shape[0], X2.shape[0], dtype=X1.dtype, device=X1.device)
+        return self.sigma()**2 * torch.ones(X1.shape[0], X2.shape[0], dtype=config.dtype, device=config.device)
+
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class WhiteKernel(Kernel):
-    def __init__(self, input_dims=None, active_dims=None, name="White"):
+    def __init__(self, input_dims=1, active_dims=None, name="White"):
         super().__init__(input_dims, active_dims, name)
 
         sigma = torch.rand(1)
@@ -26,12 +32,18 @@ class WhiteKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         if X2 is None:
-            return self.sigma()**2 * torch.eye(X1.shape[0], X1.shape[0], dtype=X1.dtype, device=X1.device)
-        return torch.zeros(X1.shape[0], X2.shape[0], dtype=X1.dtype, device=X1.device)
+            return self.sigma()**2 * torch.eye(X1.shape[0], X1.shape[0], dtype=config.dtype, device=config.device)
+        return torch.zeros(X1.shape[0], X2.shape[0], dtype=config.dtype, device=config.device)
+
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class LinearKernel(Kernel):
-    def __init__(self, input_dims=None, active_dims=None, name="Linear"):
+    def __init__(self, input_dims=1, active_dims=None, name="Linear"):
         super().__init__(input_dims, active_dims, name)
 
         constant = torch.rand(1)
@@ -42,12 +54,18 @@ class LinearKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         if X2 is None:
             X2 = X1
         return self.sigma()**2 * X1.mm(X2.T) + self.constant()
 
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * X1.square().sum(dim=1) + self.constant()
+
 class PolynomialKernel(Kernel):
-    def __init__(self, degree, input_dims=None, active_dims=None, name="Polynomial"):
+    def __init__(self, degree, input_dims=1, active_dims=None, name="Polynomial"):
         super().__init__(input_dims, active_dims, name)
 
         offset = torch.rand(1)
@@ -59,30 +77,46 @@ class PolynomialKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         if X2 is None:
             X2 = X1
         return (self.sigma()**2 * X1.mm(X2.T) + self.offset())**self.degree
 
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return (self.sigma()**2 * X1.square().sum(dim=1) + self.offset())**self.degree
+
 class PhiKernel(Kernel):
-    def __init__(self, phi, input_dims, active_dims=None, name="Phi"):
+    def __init__(self, phi, input_dims=1, active_dims=None, name="Phi"):
         super().__init__(input_dims, active_dims, name)
 
-        feature_dims = phi(torch.ones(input_dims,1)).shape[1]
-        variance = torch.ones(feature_dims)
+        out = phi(torch.ones(42, input_dims, dtype=config.dtype, device=config.device))
+        if not torch.is_tensor(out) or out.dtype != config.dtype or out.device != config.device:
+            raise ValueError("phi must return a tensor of the same dtype and device as the input")
+        if len(out.shape) != 2 or out.shape[0] != 42:
+            raise ValueError("phi must take (data_points,input_dims) as input, and return (data_points,feature_dims) as output")
+
+        feature_dims = out.shape[1]
+        sigma = torch.ones(feature_dims)
 
         self.phi = phi
-        self.variance = Parameter(variance, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
+        variance = self.sigma()**2
         if X2 is None:
-            X = self.phi(X1)
-            return X.mm(self.variance().diagflat().mm(X.T))
+            X1 = self.phi(X1)
+            return X1.mm(variance.diagflat().mm(X1.T))
         else:
-            return self.phi(X1).mm(self.variance().diagflat().mm(self.phi(X2).T))
+            return self.phi(X1).mm(variance.diagflat().mm(self.phi(X2).T))
+
+    # TODO: K_diag
 
 class ExponentialKernel(Kernel):
-    def __init__(self, input_dims, active_dims=None, name="Exponential"):
+    def __init__(self, input_dims=1, active_dims=None, name="Exponential"):
         super().__init__(input_dims, active_dims, name)
 
         l = torch.rand(input_dims)
@@ -93,12 +127,18 @@ class ExponentialKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         dist = torch.abs(self.distance(X1,X2))  # NxMxD
         exp = -0.5*torch.tensordot(dist, 1.0/self.l(), dims=1)  # NxM
         return self.sigma()**2 * torch.exp(exp)
 
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
+
 class SquaredExponentialKernel(Kernel):
-    def __init__(self, input_dims, active_dims=None, name="SE"):
+    def __init__(self, input_dims=1, active_dims=None, name="SE"):
         super().__init__(input_dims, active_dims, name)
 
         l = torch.rand(input_dims)
@@ -109,12 +149,18 @@ class SquaredExponentialKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         sqdist = self.squared_distance(X1,X2)  # NxMxD
         exp = -0.5*torch.tensordot(sqdist, 1.0/self.l()**2, dims=1)  # NxM
         return self.sigma()**2 * torch.exp(exp)
 
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
+
 class RationalQuadraticKernel(Kernel):
-    def __init__(self, alpha, input_dims, active_dims=None, name="RQ"):
+    def __init__(self, alpha=1.0, input_dims=1, active_dims=None, name="RQ"):
         super().__init__(input_dims, active_dims, name)
 
         l = torch.rand(input_dims)
@@ -126,13 +172,20 @@ class RationalQuadraticKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         sqdist = self.squared_distance(X1,X2)  # NxMxD
         power = 1.0+0.5*torch.tensordot(sqdist, 1.0/self.l()**2, dims=1)/self.alpha  # NxM
         return self.sigma()**2 * torch.pow(power,-self.alpha)
 
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
+
 class PeriodicKernel(Kernel):
-    def __init__(self, input_dims, active_dims=None, name="Periodic"):
+    def __init__(self, input_dims=1, active_dims=None, name="Periodic"):
         super().__init__(input_dims, active_dims, name)
+        # TODO: make nested by SE
 
         l = torch.rand(input_dims)
         p = torch.rand(1)
@@ -144,12 +197,19 @@ class PeriodicKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
-        sin = torch.sin(np.pi * self.distance(X1,X2) / self.p())  # NxMxD
+        X1, X2 = self._active_input(X1, X2)
+        tau = self.distance(X1,X2)
+        sin = torch.sin(np.pi * tau / self.p())  # NxMxD
         exp = -2.0 * torch.tensordot(sin**2, 1.0/self.l()**2, dims=1)  # NxM
         return self.sigma()**2 * torch.exp(exp)
 
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
+
 class LocallyPeriodicKernel(Kernel):
-    def __init__(self, input_dims, active_dims=None, name="LocallyPeriodic"):
+    def __init__(self, input_dims=1, active_dims=None, name="LocallyPeriodic"):
         super().__init__(input_dims, active_dims, name)
 
         l = torch.rand(input_dims)
@@ -162,13 +222,21 @@ class LocallyPeriodicKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
-        sin = torch.sin(np.pi * self.distance(X1,X2) / self.p())  # NxMxD
+        X1, X2 = self._active_input(X1, X2)
+        tau = self.distance(X1,X2)
+        sqdist = self.squared_distance(X1,X2)
+        sin = torch.sin(np.pi * tau / self.p())  # NxMxD
         exp1 = -2.0 * torch.tensordot(sin**2, 1.0/self.l()**2, dims=1)  # NxM
-        exp2 = -0.5 * torch.tensordot(self.squared_distance(X1,X2), 1.0/self.l()**2, dims=1)  # NxM
+        exp2 = -0.5 * torch.tensordot(sqdist, 1.0/self.l()**2, dims=1)  # NxM
         return self.sigma()**2 * torch.exp(exp1) * torch.exp(exp2)
 
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
+
 class CosineKernel(Kernel):
-    def __init__(self, input_dims, active_dims=None, name="Cosine"):
+    def __init__(self, input_dims=1, active_dims=None, name="Cosine"):
         super().__init__(input_dims, active_dims, name)
 
         l = torch.rand(input_dims)
@@ -179,30 +247,42 @@ class CosineKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
-        cos = 2.0*np.pi * torch.tensordot(self.distance(X1,X2), 1.0/self.l(), dims=1)  # NxM
+        X1, X2 = self._active_input(X1, X2)
+        tau = self.distance(X1,X2)
+        cos = 2.0*np.pi * torch.tensordot(tau, 1.0/self.l(), dims=1)  # NxM
         return self.sigma()**2 * torch.cos(cos)
 
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
+
 class SincKernel(Kernel):
-    def __init__(self, input_dims, active_dims=None, name="Sinc"):
+    def __init__(self, bandwidth=1.0, input_dims=1, active_dims=None, name="Sinc"):
         super().__init__(input_dims, active_dims, name)
 
-        self.bandwidth = 1.0#torch.rand(input_dims)
-        frequency = torch.zeros(input_dims)
+        frequency = torch.rand(input_dims)
         sigma = torch.rand(1)
 
+        self.bandwidth = bandwidth * torch.ones(input_dims, dtype=config.dtype, device=config.device)
         self.frequency = Parameter(frequency, lower=config.positive_minimum)
-        #self.bandwidth = Parameter(bandwidth, lower=config.positive_minimum)
         self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)  # NxMxD
-        sinc = tau * self.bandwidth  # NxM
+        sinc = torch.tensordot(tau, self.bandwidth, dims=1)  # NxM
         cos = 2.0*np.pi * torch.tensordot(tau, self.frequency(), dims=1)  # NxM
         return self.sigma()**2 * torch.sinc(sinc) * torch.cos(cos)
 
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
+
 class SpectralKernel(Kernel):
-    def __init__(self, input_dims, active_dims=None, name="SM"):
+    def __init__(self, input_dims=1, active_dims=None, name="SM"):
         super().__init__(input_dims, active_dims, name)
 
         weight = torch.rand(1)
@@ -215,13 +295,19 @@ class SpectralKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)  # NxMxD
         exp = -2.0*np.pi**2 * tau**2 * self.variance().reshape(1,1,-1)  # NxMxD
         cos = 2.0*np.pi * tau * self.mean().reshape(1,1,-1)  # NxMxD
         return self.weight() * torch.prod(torch.exp(exp) * torch.cos(cos), dim=2)
 
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.weight() * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
+
 class MaternKernel(Kernel):
-    def __init__(self, nu=0.5, input_dims=None, active_dims=None, name="Matérn"):
+    def __init__(self, nu=0.5, input_dims=1, active_dims=None, name="Matérn"):
         super().__init__(input_dims, active_dims, name)
 
         if nu not in [0.5, 1.5, 2.5]:
@@ -236,6 +322,7 @@ class MaternKernel(Kernel):
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
         if X2 is None:
             X2 = X1
 
@@ -249,3 +336,8 @@ class MaternKernel(Kernel):
         dist = torch.abs(self.distance(X1,X2))
         exp = -np.sqrt(self.nu*2.0) * torch.tensordot(dist, 1.0/self.l(), dims=1)
         return self.sigma()**2 * constant * torch.exp(exp)
+
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)

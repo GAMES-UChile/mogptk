@@ -29,6 +29,13 @@ class Kernel:
             val.name = name
         super().__setattr__(name, val)
 
+    def _active_input(self, X1, X2=None):
+        if self.active_dims is not None:
+            X1 = torch.index_select(X1, dim=1, index=self.active_dims)
+            if X2 is not None:
+                X2 = torch.index_select(X2, dim=1, index=self.active_dims)
+        return X1, X2
+
     def _check_input(self, X1, X2=None):
         if len(X1.shape) != 2:
             raise ValueError("X should have two dimensions (data_points,input_dims)")
@@ -41,12 +48,6 @@ class Kernel:
                 raise ValueError("X must not be empty")
             if X1.shape[1] != X2.shape[1]:
                 raise ValueError("input dimensions for X1 and X2 must match")
-
-        if self.active_dims is not None:
-            X1 = torch.index_select(X1, dim=1, index=self.active_dims)
-            if X2 is not None:
-                X2 = torch.index_select(X2, dim=1, index=self.active_dims)
-
         return X1, X2
 
     def _check_kernels(self, kernels, length=None):
@@ -99,9 +100,11 @@ class Kernel:
         return 1
 
     def K(self, X1, X2=None):
+        # X1 is NxD, X2 is MxD, then ret is NxM
         raise NotImplementedError()
 
     def K_diag(self, X1):
+        # X1 is NxD, then ret is N
         # TODO: implement for all kernels
         return self.K(X1).diagonal()
 
