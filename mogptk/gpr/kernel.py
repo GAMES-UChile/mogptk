@@ -70,10 +70,14 @@ class Kernel:
                 raise ValueError("must pass kernels")
         if any(kernel.input_dims != kernels[0].input_dims for kernel in kernels[1:]):
             raise ValueError("kernels must have same input dimensions")
-        if any(kernel.output_dims != kernels[0].output_dims for kernel in kernels[1:]):
-            raise ValueError("kernels must have same output dimensions")
-        if any(issubclass(type(kernel), MultiOutputKernel) != issubclass(type(kernels[0]), MultiOutputKernel) for kernel in kernels[1:]):
-            raise ValueError("kernels must all inherit either Kernel or MultiOutputKernel")
+        output_dims = [kernel.output_dims for kernel in kernels if issubclass(type(kernel), MultiOutputKernel)]
+        if any(output_dim != output_dims[0] for output_dim in output_dims[1:]):
+            raise ValueError("MultiOutput kernels must have same output dimensions")
+        if len(output_dims) != 0:
+            for kernel in kernels:
+                if kernel.active_dims is None and not issubclass(type(kernel), MultiOutputKernel):
+                    input_dims = kernel.input_dims if kernel.input_dims is not None else 1
+                    kernel.active_dims = [input_dim+1 for input_dim in range(input_dims)]
         return kernels
 
     @property
