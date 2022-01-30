@@ -193,11 +193,7 @@ class MultiOutputKernel(Kernel):
 
     def __init__(self, output_dims, input_dims=None, active_dims=None, name=None):
         super().__init__(input_dims, active_dims, name)
-
-        noise = torch.ones(output_dims)
-
         self._output_dims = output_dims
-        self.noise = Parameter(noise, lower=config.positive_minimum)
 
     @property
     def output_dims(self):
@@ -225,9 +221,6 @@ class MultiOutputKernel(Kernel):
                         k = self.Ksub(i, j, x1[i], x1[j])
                         res[r1[i],r2[j]] = k
                         res[r1[j],r2[i]] = k.T
-
-            # add noise per channel
-            res.diagonal().add_(torch.index_select(self.noise(), dim=0, index=c1))
         else:
             # extract channel mask, get data, and find indices that belong to the channels
             c2 = X2[:,0].long()
@@ -256,9 +249,6 @@ class MultiOutputKernel(Kernel):
         for i in range(self.output_dims):
             # calculate sub kernel matrix and add to main kernel matrix
             res[r1[i]] = self.Ksub_diag(i, x1[i])
-
-        # add noise per channel
-        res += torch.index_select(self.noise(), dim=0, index=c1)
         return res
 
     def Ksub(self, i, j, X1, X2=None):

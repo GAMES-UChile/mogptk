@@ -131,8 +131,6 @@ class Model:
         x, y = self._to_kernel_format(X, Y)
 
         self.model = inference.build(kernel, x, y, mean, name)
-        if issubclass(type(kernel), gpr.MultiOutputKernel) and issubclass(type(inference), Exact):
-            self.model.variance.assign(0.0, lower=0.0, trainable=False)  # handled by MultiOutputKernel
 
     ################################################################
 
