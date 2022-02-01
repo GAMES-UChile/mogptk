@@ -262,19 +262,24 @@ class SincKernel(Kernel):
         super().__init__(input_dims, active_dims, name)
 
         frequency = torch.rand(input_dims)
+        bandwidth = bandwidth * torch.ones(input_dims, dtype=config.dtype, device=config.device)
         sigma = torch.rand(1)
 
-        self.bandwidth = bandwidth * torch.ones(input_dims, dtype=config.dtype, device=config.device)
-        self.frequency = Parameter(frequency, lower=config.positive_minimum)
-        self.sigma = Parameter(sigma, lower=config.positive_minimum)
+        self.frequency = Parameter(frequency)
+        self.bandwidth = Parameter(bandwidth)
+        self.sigma = Parameter(sigma)
+
+    def _sinc(self, x):
+        x = torch.where(x == 0.0, 1e-20 * torch.ones_like(x), x)
+        return torch.sin(np.pi*x) / (np.pi*x)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)  # NxMxD
-        sinc = torch.tensordot(tau, self.bandwidth, dims=1)  # NxM
+        sinc = torch.tensordot(tau, self.bandwidth(), dims=1)  # NxM
         cos = 2.0*np.pi * torch.tensordot(tau, self.frequency(), dims=1)  # NxM
-        return self.sigma()**2 * torch.sinc(sinc) * torch.cos(cos)
+        return self.sigma()**2 * self._sinc(sinc) * torch.cos(cos)
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
