@@ -265,9 +265,9 @@ class SincKernel(Kernel):
         bandwidth = bandwidth * torch.ones(input_dims, dtype=config.dtype, device=config.device)
         sigma = torch.rand(1)
 
-        self.frequency = Parameter(frequency)
-        self.bandwidth = Parameter(bandwidth)
-        self.sigma = Parameter(sigma)
+        self.frequency = Parameter(frequency, lower=config.positive_minimum)
+        self.bandwidth = Parameter(bandwidth, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
 
     def _sinc(self, x):
         x = torch.where(x == 0.0, 1e-20 * torch.ones_like(x), x)
