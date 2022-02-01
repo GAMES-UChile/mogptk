@@ -442,8 +442,7 @@ class OpperArchambeau(Model):
         if self.mean is not None:
             qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
 
-        c = None if self.likelihood.output_dims == 1 else self.X[:,0].long()
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, c=c)
+        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
 
         kl = -q_nu.shape[0]
         kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
@@ -478,8 +477,7 @@ class OpperArchambeau(Model):
                 var = var.reshape(-1,1)
 
             if predict_y:
-                c = None if self.likelihood.output_dims == 1 else Xs[:,0].long()
-                mu, var = self.likelihood.predict(mu, var, full=full, c=c)
+                mu, var = self.likelihood.predict(mu, var, full=full, X=Xs)
 
             if tensor:
                 return mu, var
@@ -647,8 +645,7 @@ class SparseHensman(Model):
             qf_sqrt = Lff.mm(self.q_sqrt().tril())
             qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
 
-        c = None if self.likelihood.output_dims == 1 else self.X[:,0].long()
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, c=c)
+        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
         kl = self.kl_gaussian(self.q_mu(), self.q_sqrt())
         return var_exp - kl
 
@@ -681,8 +678,7 @@ class SparseHensman(Model):
 
             mu, var = self._predict(Xs, full=full)
             if predict_y:
-                c = None if self.likelihood.output_dims == 1 else Xs[:,0].long()
-                mu, var = self.likelihood.predict(mu, var, full=full, c=c)
+                mu, var = self.likelihood.predict(mu, var, full=full, X=Xs)
             if self.mean is not None:
                 mu += self.mean(Xs).reshape(-1,1)  # Sx1
 
