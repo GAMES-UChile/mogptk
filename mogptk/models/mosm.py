@@ -113,12 +113,13 @@ class MOSM(Model):
         for q in range(self.Q):
             self.model.kernel[q].magnitude.assign(magnitude[:,q])
 
-        noise = np.empty((output_dims,))
-        for j, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            noise[j] = y.var() / 30.0
-        for q in range(self.Q):
-            self.model.kernel[q].noise.assign(noise)
+        # TODO
+        #noise = np.empty((output_dims,))
+        #for j, channel in enumerate(self.dataset):
+        #    _, y = channel.get_train_data(transformed=True)
+        #    noise[j] = y.var() / 30.0
+        #for q in range(self.Q):
+        #    self.model.kernel[q].noise.assign(noise)
 
     def check(self):
         """

@@ -1005,7 +1005,7 @@ class Data:
         if plot:
             nyquist = self.get_nyquist_estimation()
             means = np.array([sm.model.kernel[0][q].mean.numpy() for q in range(Q)])
-            weights = np.array([sm.model.kernel[0][q].weight.numpy() for q in range(Q)])
+            weights = np.array([sm.model.kernel[0][q].sigma.numpy()**2 for q in range(Q)])
             scales = np.array([sm.model.kernel[0][q].variance.numpy() for q in range(Q)])
             nyquist = np.expand_dims(nyquist, 0)
             means = np.expand_dims(means, 1)
@@ -1013,7 +1013,7 @@ class Data:
             plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
         for q in range(Q):
-            A[q,:] = sm.kernel[0][q].weight.numpy()  # TODO: weight is not per input_dims
+            A[q,:] = sm.kernel[0][q].sigma.numpy()**2  # TODO: weight is not per input_dims
             B[q,:] = sm.kernel[0][q].mean.numpy()
             C[q,:] = sm.kernel[0][q].variance.numpy()
         return A, B, C
@@ -1255,7 +1255,7 @@ def _check_function(f, input_dims, is_datetime64):
 
     x = [np.array([np.datetime64('2000', 'us')]) if is_datetime64[i] else np.ones((1,)) for i in range(input_dims)]
     y = f(*x)
-    if len(y.shape) != 1 or y.shape[0] != 1:
+    if y.ndim != 1 or y.shape[0] != 1:
         raise ValueError("function must return Y with shape (n,), note that all inputs are of shape (n,)")
 
 _datetime64_unit_names = {

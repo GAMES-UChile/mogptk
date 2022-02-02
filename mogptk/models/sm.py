@@ -88,7 +88,7 @@ class SM(Model):
                 variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
 
                 for q in range(self.Q):
-                    self.model.kernel[j][q].weight.assign(weights[q])
+                    self.model.kernel[j][q].sigma.assign(np.sqrt(weights[q]))
                     self.model.kernel[j][q].mean.assign(means[q,:])
                     self.model.kernel[j][q].variance.assign(variances[q,:])
             return
@@ -131,7 +131,7 @@ class SM(Model):
                 mixture_weights /= amplitudes[j].sum()
             mixture_weights *= 2.0 * y.std()
             for q in range(self.Q):
-                self.model.kernel[j][q].weight.assign(mixture_weights[q])
+                self.model.kernel[j][q].sigma.assign(np.sqrt(mixture_weights[q]))
                 self.model.kernel[j][q].mean.assign(means[j][q,:])
                 self.model.kernel[j][q].variance.assign(variances[j][q,:])
 
@@ -145,6 +145,6 @@ class SM(Model):
 
         means = np.array([[self.model.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
         scales = np.array([[self.model.kernel[j][q].variance.numpy() for j in range(output_dims)] for q in range(self.Q)])
-        weights = np.array([[self.model.kernel[j][q].weight.numpy()[0] for j in range(output_dims)] for q in range(self.Q)])
+        weights = np.array([[self.model.kernel[j][q].sigma.numpy()[0]**2 for j in range(output_dims)] for q in range(self.Q)])
 
         return plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names, title=title)

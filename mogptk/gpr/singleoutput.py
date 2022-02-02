@@ -290,11 +290,11 @@ class SpectralKernel(Kernel):
     def __init__(self, input_dims=1, active_dims=None, name="SM"):
         super().__init__(input_dims, active_dims, name)
 
-        weight = torch.rand(1)
+        sigma = torch.rand(1)
         mean = torch.rand(input_dims)
         variance = torch.ones(input_dims)
 
-        self.weight = Parameter(weight, lower=config.positive_minimum)
+        self.sigma = Parameter(sigma, lower=config.positive_minimum)
         self.mean = Parameter(mean, lower=config.positive_minimum)
         self.variance = Parameter(variance, lower=config.positive_minimum)
 
@@ -304,12 +304,12 @@ class SpectralKernel(Kernel):
         tau = self.distance(X1,X2)  # NxMxD
         exp = -2.0*np.pi**2 * tau**2 * self.variance().reshape(1,1,-1)  # NxMxD
         cos = 2.0*np.pi * tau * self.mean().reshape(1,1,-1)  # NxMxD
-        return self.weight() * torch.prod(torch.exp(exp) * torch.cos(cos), dim=2)
+        return self.sigma()**2 * torch.prod(torch.exp(exp) * torch.cos(cos), dim=2)
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
         X1, _ = self._active_input(X1)
-        return self.weight() * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
+        return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class MaternKernel(Kernel):
     def __init__(self, nu=0.5, input_dims=1, active_dims=None, name="Matérn"):
