@@ -77,9 +77,9 @@ class Parameter:
 
             if self.unconstrained is not None:
                 origshape = value.shape
-                while len(value.shape) < len(self.unconstrained.shape) and self.unconstrained.shape[len(value.shape)] == 1:
+                while value.ndim < self.unconstrained.ndim and self.unconstrained.shape[value.ndim] == 1:
                     value = value.unsqueeze(-1)
-                while len(self.unconstrained.shape) < len(value.shape) and value.shape[-1] == 1:
+                while self.unconstrained.ndim < value.ndim and value.shape[-1] == 1:
                     value = value.squeeze(-1)
                 if value.shape != self.unconstrained.shape:
                     raise ValueError("parameter shape must match: %s != %s" % (origshape, self.unconstrained.shape))
@@ -92,10 +92,10 @@ class Parameter:
             else:
                 lower = lower.detach().to(config.device, config.dtype)
 
-            if len(lower.shape) != 0:
-                while len(lower.shape) < len(value.shape) and value.shape[len(lower.shape)] == 1:
+            if lower.ndim != 0:
+                while lower.ndim < value.ndim and value.shape[lower.ndim] == 1:
                     lower = lower.unsqueeze(-1)
-                while len(value.shape) < len(lower.shape) and lower.shape[-1] == 1:
+                while value.ndim < lower.ndim and lower.shape[-1] == 1:
                     lower = lower.squeeze(-1)
                 if lower.shape != value.shape:
                     raise ValueError("lower and value must match shapes: %s != %s" % (lower.shape, value.shape))
@@ -108,10 +108,10 @@ class Parameter:
             else:
                 upper = upper.detach().to(config.device, config.dtype)
 
-            if len(upper.shape) != 0:
-                while len(upper.shape) < len(value.shape) and value.shape[len(upper.shape)] == 1:
+            if upper.ndim != 0:
+                while upper.ndim < value.ndim and value.shape[upper.ndim] == 1:
                     upper = upper.unsqueeze(-1)
-                while len(value.shape) < len(upper.shape) and upper.shape[-1] == 1:
+                while value.ndim < upper.ndim and upper.shape[-1] == 1:
                     upper = upper.squeeze(-1)
                 if upper.shape != value.shape:
                     raise ValueError("upper and value must match shapes: %s != %s" % (upper.shape, value.shape))

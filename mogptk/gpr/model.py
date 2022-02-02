@@ -56,11 +56,11 @@ class Model:
             X = torch.tensor(X, device=config.device, dtype=config.dtype)
         else:
             X = X.to(config.device, config.dtype)
-        if len(X.shape) == 0:
+        if X.ndim == 0:
             X = X.reshape(1,1)
-        elif len(X.shape) == 1:
+        elif X.ndim == 1:
             X = X.reshape(-1,1)
-        elif len(X.shape) != 2:
+        elif X.ndim != 2:
             raise ValueError("X must have dimensions (data_points,input_dims) with input_dims optional")
         if X.shape[0] == 0 or X.shape[1] == 0:
             raise ValueError("X must not be empty")
@@ -70,11 +70,11 @@ class Model:
                 y = torch.tensor(y, device=config.device, dtype=config.dtype)
             else:
                 y = y.to(config.device, config.dtype)
-            if len(y.shape) == 0:
+            if y.ndim == 0:
                 y = y.reshape(1,1)
-            elif len(y.shape) == 1:
+            elif y.ndim == 1:
                 y = y.reshape(-1,1)
-            elif len(y.shape) != 2 or y.shape[1] != 1:
+            elif y.ndim != 2 or y.shape[1] != 1:
                 raise ValueError("y must have one dimension (data_points,)")
             if X.shape[0] != y.shape[0]:
                 raise ValueError("number of data points for X and y must match")

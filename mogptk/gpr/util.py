@@ -40,7 +40,7 @@ def merge_data(xs, ys=None):
     return N, X
 
 def split_data(N, *Xs):
-    if not all(len(X.shape) == 2 for X in Xs):
+    if not all(X.ndim == 2 for X in Xs):
         raise ValueError("inputs must have shape (data_points,dimensions)")
     if not all(X.shape[0] == sum(N) for X in Xs):
         raise ValueError("inputs must have number of data points that correspond to N")

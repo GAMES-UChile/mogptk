@@ -94,7 +94,7 @@ class PhiKernel(Kernel):
         out = phi(torch.ones(42, input_dims, dtype=config.dtype, device=config.device))
         if not torch.is_tensor(out) or out.dtype != config.dtype or out.device != config.device:
             raise ValueError("phi must return a tensor of the same dtype and device as the input")
-        if len(out.shape) != 2 or out.shape[0] != 42:
+        if out.ndim != 2 or out.shape[0] != 42:
             raise ValueError("phi must take (data_points,input_dims) as input, and return (data_points,feature_dims) as output")
 
         feature_dims = out.shape[1]

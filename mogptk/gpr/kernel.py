@@ -37,12 +37,20 @@ class Kernel:
         return X1, X2
 
     def _check_input(self, X1, X2=None):
-        if len(X1.shape) != 2:
+        if not torch.is_tensor(X1):
+            X1 = torch.tensor(X1, device=config.device, dtype=config.dtype)
+        elif X1.device != config.device or X1.dtype != config.dtype:
+            X1 = X1.to(device, dtype)
+        if X1.ndim != 2:
             raise ValueError("X should have two dimensions (data_points,input_dims)")
         if X1.shape[0] == 0 or X1.shape[1] == 0:
             raise ValueError("X must not be empty")
         if X2 is not None:
-            if len(X2.shape) != 2:
+            if not torch.is_tensor(X2):
+                X2 = torch.tensor(X2, device=config.device, dtype=config.dtype)
+            elif X2.device != config.device or X2.dtype != config.dtype:
+                X2 = X2.to(device, dtype)
+            if X2.ndim != 2:
                 raise ValueError("X should have two dimensions (data_points,input_dims)")
             if X2.shape[0] == 0:
                 raise ValueError("X must not be empty")
@@ -111,6 +119,12 @@ class Kernel:
         # X1 is NxD, then ret is N
         # TODO: implement for all kernels
         return self.K(X1).diagonal()
+
+    def average(self, X1, X2=None):
+        # X1 is NxD, X2 is MxD, then ret is NxMxD
+        if X2 is None:
+            X2 = X1
+        return 0.5 * (X1.unsqueeze(1) + X2)
 
     def distance(self, X1, X2=None):
         # X1 is NxD, X2 is MxD, then ret is NxMxD
