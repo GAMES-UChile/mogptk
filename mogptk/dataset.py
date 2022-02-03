@@ -478,7 +478,7 @@ class DataSet:
         if len(X) != self.get_output_dims():
             raise ValueError("X must be a list of shape [(n,)] * input_dims for each channel")
 
-        for i, channel in enumerate(self.channels):
+        for j, channel in enumerate(self.channels):
             X[j] = channel._format_prediction_x(X[j])
         return X
 

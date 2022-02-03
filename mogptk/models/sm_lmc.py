@@ -58,7 +58,7 @@ class SM_LMC(Model):
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
         for q in range(Q):
-            self.model.kernel[q].weight.assign(1.0, trainable=False)  # handled by LMCKernel
+            self.model.kernel[q].sigma.assign(1.0, trainable=False)  # handled by LMCKernel
             self.model.kernel[q].mean.assign(upper=nyquist)
 
     def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
@@ -116,7 +116,7 @@ class SM_LMC(Model):
             _, y = channel.get_train_data(transformed=True)
             if 0.0 < constant[i,:,:].sum():
                 constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
-        self.model.kernel.sigma.assign(np.sqrt(constant))
+        self.model.kernel.weight.assign(constant)
 
         # TODO
         #noise = np.empty((output_dims,))
