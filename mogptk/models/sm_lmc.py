@@ -116,7 +116,7 @@ class SM_LMC(Model):
             _, y = channel.get_train_data(transformed=True)
             if 0.0 < constant[i,:,:].sum():
                 constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
-        self.model.kernel.weight.assign(constant)
+        self.model.kernel.sigma.assign(np.sqrt(constant))
 
         # TODO
         #noise = np.empty((output_dims,))

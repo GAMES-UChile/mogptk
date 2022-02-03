@@ -468,14 +468,14 @@ class DataSet:
     def _format_prediction_x(self, X):
         if isinstance(X, dict):
             x_dict = X
-            X = self.dataset.get_prediction()
+            X = self.get_prediction()
             for name, channel_x in x_dict.items():
-                X[self.dataset.get_index(name)] = channel_x
+                X[self.get_index(name)] = channel_x
         elif isinstance(X, np.ndarray):
-            X = [np.array(X) for j in range(self.dataset.get_output_dims())]
+            X = [np.array(X) for j in range(self.get_output_dims())]
         elif not isinstance(X, list):
             raise ValueError("X must be a list, dict or numpy.ndarray")
-        if len(X) != self.dataset.get_output_dims():
+        if len(X) != self.get_output_dims():
             raise ValueError("X must be a list of shape [(n,)] * input_dims for each channel")
 
         for i, channel in enumerate(self.channels):
