@@ -70,6 +70,8 @@ class Parameter:
 
     def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
         if value is not None:
+            if isinstance(value, Parameter):
+                value = value.constrained.detach()
             if not isinstance(value, torch.Tensor):
                 value = torch.tensor(value, device=config.device, dtype=config.dtype)
             else:
@@ -84,7 +86,7 @@ class Parameter:
                 if value.shape != self.unconstrained.shape:
                     raise ValueError("parameter shape must match: %s != %s" % (origshape, self.unconstrained.shape))
         else:
-            value = self.unconstrained.detach()
+            value = self.constrained.detach()
 
         if lower is not None:
             if not isinstance(lower, torch.Tensor):

@@ -14,7 +14,7 @@ class Mean:
     def __setattr__(self, name, val):
         if name == 'trainable':
             from .util import _find_parameters
-            for p in _find_parameters(self):
+            for _, p in _find_parameters(self):
                 p.trainable = val
             return
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):

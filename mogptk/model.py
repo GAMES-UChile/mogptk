@@ -155,6 +155,15 @@ class Model:
         """
         self.model.parameters()
 
+    def copy_parameters(self, other):
+        """
+        Copy the kernel parameters from another model.
+        """
+        if not isinstance(other, Model):
+            raise ValueError("other must be of type Model")
+
+        self.kernel.copy_parameters(other.kernel)
+
     def save(self, filename):
         """
         Save the model to a given file that can then be loaded using `LoadModel()`.

@@ -1,19 +1,33 @@
+import inspect
 import torch
 
 from .config import *
 from .parameter import Parameter
 from .mean import Mean
 from .kernel import Kernel
+from .likelihood import Likelihood
 
-def _find_parameters(obj):
+def _find_parameters(obj, names=[]):
     if isinstance(obj, Parameter):
-        yield obj
+        yield names, obj
     elif isinstance(obj, list):
         for i, v in enumerate(obj):
-            yield from _find_parameters(v)
-    elif issubclass(type(obj), Kernel) or issubclass(type(obj), Mean):
-        for v in obj.__dict__.values():
-            yield from _find_parameters(v)
+            yield from _find_parameters(v, names + [i])
+    elif issubclass(type(obj), (Kernel, Mean, Likelihood)):
+        for i, v in obj.__dict__.items():
+            yield from _find_parameters(v, names + [i])
+
+def _copy_parameters(obj, other):
+    if not type(obj) is type(other):
+        raise ValueError("other must be of type %s" % (type(self),))
+
+    for names, p in _find_parameters(obj):
+        po = other
+        for name in names:
+            if not isinstance(po, list):
+                po = po.__dict__
+            po = po[name]
+        p.assign(po)
 
 def merge_data(xs, ys=None):
     if not isinstance(xs, list) or ys is not None and not isinstance(ys, list):
