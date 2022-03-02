@@ -1,227 +1,98 @@
+import torch
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy import optimize, signal
+from . import gpr
 
-class bse:
-    def __init__(self, space_input, space_output):
-        self.offset = np.median(space_input)
-        self.x = space_input - self.offset
-        self.y = space_output
-        self.Nx = len(self.x)
-        self.alpha = 1/2/((np.max(self.x)-np.min(self.x))/2)**2
-        self.sigma = np.std(self.y)
-        self.gamma = 1/2/((np.max(self.x)-np.min(self.x))/self.Nx)**2
-        self.theta = 0.01
-        self.sigma_n = np.std(self.y)/10
-        self.time = np.linspace(np.min(self.x), np.max(self.x), 500)
-        self.w = np.linspace(0, self.Nx/(np.max(self.x)-np.min(self.x))/16, 500)
-        self.post_mean = None
-        self.post_cov = None
-        self.post_mean_r = None
-        self.post_cov_r = None
-        self.post_mean_i = None
-        self.post_cov_i = None
-        self.time_label = None
-        self.signal_label = None
+def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
+    x -= np.median(x)
 
-    def neg_log_likelihood(self):
-        Y = self.y
-        Gram = Spec_Mix(self.x,self.x,self.gamma,self.theta,self.sigma) + 1e-8*np.eye(self.Nx)
-        K = Gram + self.sigma_n**2*np.eye(self.Nx)
-        (sign, logdet) = np.linalg.slogdet(K)
-        return 0.5*( Y.T@np.linalg.solve(K,Y) + logdet + self.Nx*np.log(2*np.pi))
+    x_range = np.max(x)-np.min(x)
+    x_dist = x_range/len(x)
+    if max_freq is None:
+        max_freq = 0.5/x_dist
 
+    x = torch.tensor(x, device=gpr.config.device, dtype=gpr.config.dtype)
+    if x.ndim == 0:
+        x = x.reshape(1,1)
+    elif x.ndim == 1:
+        x = x.reshape(-1,1)
+    y = torch.tensor(y, device=gpr.config.device, dtype=gpr.config.dtype).reshape(-1,1)
 
-    def nlogp(self, hypers):
-        sigma = np.exp(hypers[0])
-        gamma = np.exp(hypers[1])
-        theta = np.exp(hypers[2])
-        sigma_n = np.exp(hypers[3])
+    kernel = gpr.SpectralKernel()
+    model = gpr.Exact(kernel, x, y)
 
-        Y = self.y
-        Gram = Spec_Mix(self.x,self.x,gamma,theta,sigma)
-        K = Gram + sigma_n**2*np.eye(self.Nx) + 1e-5*np.eye(self.Nx)
-        (sign, logdet) = np.linalg.slogdet(K)
-        return 0.5*( Y.T@np.linalg.solve(K,Y) + logdet + self.Nx*np.log(2*np.pi))
+    # initialize parameters
+    sigma = y.std()
+    mean = 0.01
+    variance = 0.25 / np.pi**2 / x_dist**2
+    noise = y.std()/10.0
+    kernel.sigma.assign(sigma)
+    kernel.mean.assign(mean)
+    kernel.variance.assign(variance)
+    model.variance.assign(noise)
 
-    def dnlogp(self, hypers):
-        sigma = np.exp(hypers[0])
-        gamma = np.exp(hypers[1])
-        theta = np.exp(hypers[2])
-        sigma_n = np.exp(hypers[3])
+    # train model
+    optimizer = torch.optim.LBFGS(model.parameters(), max_iter=iters)
+    loss = optimizer.step(model.loss)
+    #optimizer = torch.optim.Adam(model.parameters(), lr=0.001, iters=500)
+    #for i in range(iters):
+    #    loss = optimizer.step(model.loss)
 
-        Y = self.y
-        Gram = Spec_Mix(self.x,self.x,gamma,theta,sigma)
-        K = Gram + sigma_n**2*np.eye(self.Nx) + 1e-5*np.eye(self.Nx)
-        h = np.linalg.solve(K,Y).T
+    alpha = 2.0/x_range**2  # TODO: divide by 4?
+    w = torch.linspace(0.0, max_freq, n, device=gpr.config.device, dtype=gpr.config.dtype).reshape(-1,1)
 
-        dKdsigma = 2*Gram/sigma
-        dKdgamma = -Gram*(outersum(self.x,-self.x)**2)
-        dKdtheta = -2*np.pi*Spec_Mix_sine(self.x,self.x, gamma, theta, sigma)*outersum(self.x,-self.x)
-        dKdsigma_n = 2*sigma_n*np.eye(self.Nx)
+    def kernel_ff(f1, f2, sigma, mean, variance, alpha):
+        # f1,f2: MxD,  mean,variance: D
+        const = 0.5 * np.pi * sigma**2 / torch.sqrt(alpha**2 + 4.0*np.pi**2*alpha*variance.prod())
+        mean = mean.reshape(1,1,-1)
+        variance = variance.reshape(1,1,-1)
+        exp1 = -0.5 * np.pi**2 / alpha * gpr.Kernel.squared_distance(f1,f2)  # MxMxD
 
-        H = (np.outer(h,h) - np.linalg.inv(K))
-        dlogp_dsigma = sigma * 0.5*np.trace(H@dKdsigma)
-        dlogp_dgamma = gamma * 0.5*np.trace(H@dKdgamma)
-        dlogp_dtheta = theta * 0.5*np.trace(H@dKdtheta)
-        dlogp_dsigma_n = sigma_n * 0.5*np.trace(H@dKdsigma_n)
-        return np.array([-dlogp_dsigma, -dlogp_dgamma, -dlogp_dtheta, -dlogp_dsigma_n])
+        # TODO: change to np.pi**2
+        exp2a = -2.0 * np.pi*2 / (alpha+4.0*np.pi**2*variance) * (gpr.Kernel.average(f1,f2)-mean)**2  # MxMxD
+        exp2b = -2.0 * np.pi*2 / (alpha+4.0*np.pi**2*variance) * (gpr.Kernel.average(f1,f2)+mean)**2  # MxMxD
+        return const * (torch.exp(exp1+exp2a) + torch.exp(exp1+exp2b)).sum(dim=2)
 
-    def train(self):
-        hypers0 = np.array([np.log(self.sigma), np.log(self.gamma), np.log(self.theta), np.log(self.sigma_n)])
-        res = optimize.minimize(self.nlogp, hypers0, args=(), method='L-BFGS-B', jac = self.dnlogp, options={'maxiter': 500, 'disp': False})
-        self.sigma = np.exp(res.x[0])
-        self.gamma = np.exp(res.x[1])
-        self.theta = np.exp(res.x[2])
-        self.sigma_n = np.exp(res.x[3])
+    def kernel_tf(t, f, sigma, mean, variance, alpha):
+        # t: NxD,  f: MxD,  mean,variance: D
+        mean = mean.reshape(1,-1)
+        variance = variance.reshape(1,-1)
+        gamma = 2.0*np.pi**2*variance
+        Lq_inv = np.pi**2 * (1.0/alpha + 1.0/gamma)  # 1xD
+        Lq_inv = 1.0/Lq_inv # TODO: remove line
 
-    def compute_moments(self):
-        #posterior moments for time
-        cov_space = Spec_Mix(self.x,self.x,self.gamma,self.theta,self.sigma) + 1e-5*np.eye(self.Nx) + self.sigma_n**2*np.eye(self.Nx)
-        cov_time = Spec_Mix(self.time,self.time, self.gamma, self.theta, self.sigma)
-        cov_star = Spec_Mix(self.time,self.x, self.gamma, self.theta, self.sigma)
-        self.post_mean = np.squeeze(cov_star@np.linalg.solve(cov_space,self.y))
-        self.post_cov = cov_time - (cov_star@np.linalg.solve(cov_space,cov_star.T))
+        a = 0.5 * torch.sqrt(np.pi/(alpha+gamma.prod()))  # 1
+        exp1 = -np.pi**2 * torch.tensordot(t**2, Lq_inv.T, dims=1)  # Nx1
+        exp2a = -np.pi**2 * torch.tensordot(1.0/(alpha+gamma), (f-mean).T**2, dims=1)  # 1xM
+        exp2b = -np.pi**2 * torch.tensordot(1.0/(alpha+gamma), (f+mean).T**2, dims=1)  # 1xM
+        exp3a = -2.0*np.pi * torch.tensordot(t.mm(Lq_inv), np.pi**2 * (f/alpha + mean/gamma).T, dims=1)  # NxM
+        exp3b = -2.0*np.pi * torch.tensordot(t.mm(Lq_inv), np.pi**2 * (f/alpha - mean/gamma).T, dims=1)  # NxM
 
-        #posterior moment for frequency
-        cov_real, cov_imag = freq_covariances(self.w,self.w,self.alpha,self.gamma,self.theta,self.sigma, kernel = 'sm')
-        xcov_real, xcov_imag = time_freq_covariances(self.w, self.x, self.alpha,self.gamma,self.theta,self.sigma, kernel = 'sm')
-        self.post_mean_r = np.squeeze(xcov_real@np.linalg.solve(cov_space,self.y))
-        self.post_cov_r = cov_real - (xcov_real@np.linalg.solve(cov_space,xcov_real.T))
-        self.post_mean_i = np.squeeze(xcov_imag@np.linalg.solve(cov_space,self.y))
-        self.post_cov_i = cov_imag - (xcov_imag@np.linalg.solve(cov_space,xcov_imag.T))
-        self.posterior_mean_psd = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
-        return cov_real, xcov_real, cov_space, self.w, self.posterior_mean_psd
+        real = torch.exp(exp2a)*torch.cos(exp3a) + torch.exp(exp2b)*torch.cos(exp3b)
+        imag = torch.exp(exp2a)*torch.sin(exp3a) + torch.exp(exp2b)*torch.sin(exp3b)
+        return sigma**2 * a * torch.exp(exp1) * real, sigma**2 * a * torch.exp(exp1) * imag
 
-    def get_freq_peaks(self):
-        x = self.w
-        dx = x[1]-x[0]
+    with torch.no_grad():
+        Ktt = kernel(x)
+        Ktt += model.variance() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
+        Ltt = torch.linalg.cholesky(Ktt)
 
-        y = self.post_mean_r**2 + self.post_mean_i**2 + np.diag(self.post_cov_r + self.post_cov_r)
-        ind, _ = signal.find_peaks(y)
-        if len(ind) == 0:
-            return np.array([]), np.array([]), np.array([])
-        ind = ind[np.argsort(y[ind])[::-1]] # sort by biggest peak first
+        Kff = kernel_ff(w, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
+        Pff = kernel_ff(w, -w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
+        Kff_real = 0.5 * (Kff + Pff)
+        Kff_imag = 0.5 * (Kff - Pff)
 
-        widths, width_heights, _, _ = signal.peak_widths(y, ind, rel_height=0.5)
-        widths *= dx
+        Ktf_real, Ktf_imag = kernel_tf(x, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
 
-        positions = x[ind]
-        amplitudes = y[ind]
-        variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
-        return amplitudes, positions, variances
+        a = torch.cholesky_solve(y,Ltt)
+        b = torch.triangular_solve(Ktf_real,Ltt,upper=False)[0]
+        c = torch.triangular_solve(Ktf_imag,Ltt,upper=False)[0]
 
-    def plot_time_posterior(self, flag=None):
-        #posterior moments for time
-        plt.figure(figsize=(18,6))
-        plt.plot(self.x,self.y,'.r', label='observations')
-        plt.plot(self.time,self.post_mean, color='blue', label='posterior mean')
-        error_bars = 2 * np.sqrt(np.diag(self.post_cov))
-        plt.fill_between(self.time, self.post_mean - error_bars, self.post_mean + error_bars, color='blue',alpha=0.1, label='95% error bars')
-        if flag == 'with_window':
-            plt.plot(self.time, 2*self.sigma*np.exp(-self.alpha*self.time**2))
-        plt.title('Observations and posterior interpolation')
-        plt.xlabel(self.time_label)
-        plt.ylabel(self.signal_label)
-        plt.legend()
-        plt.xlim([min(self.x),max(self.x)])
-        plt.tight_layout()
-        plt.show()
+        mu_real = Ktf_real.T.mm(a)
+        mu_imag = Ktf_imag.T.mm(a)
+        var_real = Kff_real - b.T.mm(b)
+        var_imag = Kff_imag - c.T.mm(c)
 
-    def plot_freq_posterior(self):
-        #posterior moments for frequency
-        plt.figure(figsize=(18,6))
-        plt.plot(self.w,self.post_mean_r, color='blue', label='posterior mean')
-        error_bars = 2 * np.sqrt((np.diag(self.post_cov_r)))
-        plt.fill_between(self.w, self.post_mean_r - error_bars, self.post_mean_r + error_bars, color='blue',alpha=0.1, label='95% error bars')
-        plt.title('Posterior spectrum (real part)')
-        plt.xlabel('frequency')
-        plt.legend()
-        plt.xlim([min(self.w),max(self.w)])
-        plt.tight_layout()
-        plt.show()
-
-
-        plt.figure(figsize=(18,6))
-        plt.plot(self.w,self.post_mean_i, color='blue', label='posterior mean')
-        error_bars = 2 * np.sqrt((np.diag(self.post_cov_i)))
-        plt.fill_between(self.w, self.post_mean_i - error_bars, self.post_mean_i + error_bars, color='blue',alpha=0.1, label='95% error bars')
-        plt.title('Posterior spectrum (imaginary part)')
-        plt.xlabel('frequency')
-        plt.legend()
-        plt.xlim([min(self.w),max(self.w)])
-        plt.tight_layout()
-
-    def plot_power_spectral_density(self, how_many, flag=None):
-        #posterior moments for frequency
-        plt.figure(figsize=(18,6))
-        freqs = len(self.w)
-        samples = np.zeros((freqs,how_many))
-        for i in range(how_many):
-            sample_r = np.random.multivariate_normal(self.post_mean_r,(self.post_cov_r+self.post_cov_r.T)/2 + 1e-5*np.eye(freqs))
-            sample_i = np.random.multivariate_normal(self.post_mean_i,(self.post_cov_i+self.post_cov_i.T)/2 + 1e-5*np.eye(freqs))
-            samples[:,i] = sample_r**2 + sample_i**2
-        plt.plot(self.w,samples, color='red', alpha=0.35)
-        plt.plot(self.w,samples[:,0], color='red', alpha=0.35, label='posterior samples')
-        plt.plot(self.w,self.posterior_mean_psd, color='black', label = '(analytical) posterior mean')
-        if flag == 'show peaks':
-            peaks, _  = signal.find_peaks(self.posterior_mean_psd)
-            plt.stem(self.w[peaks],self.posterior_mean_psd[peaks], markerfmt='ko', label='peaks')
-        plt.title('Sample posterior power spectral density')
-        plt.xlabel('frequency')
-        plt.legend()
-        plt.xlim([min(self.w),max(self.w)])
-        plt.tight_layout()
-        plt.show()
-
-    def set_labels(self, time_label, signal_label):
-        self.time_label = time_label
-        self.signal_label = signal_label
-
-    def set_freqspace(self, max_freq, dimension=500):
-        self.w = np.linspace(0, max_freq, dimension)
-
-
-def outersum(a,b):
-    # equivalent to np.outer(a,np.ones_like(b))+np.outer(np.ones_like(a),b) when a and b are arrays
-    # speedup approximately 25%
-    return np.add.outer(a,b)
-
-def Spec_Mix(x,y, gamma, theta, sigma=1):
-    return sigma**2 * np.exp(-gamma*outersum(x,-y)**2)*np.cos(2*np.pi*theta*outersum(x,-y))
-
-def Spec_Mix_sine(x,y, gamma, theta, sigma=1):
-    return sigma**2 * np.exp(-gamma*outersum(x,-y)**2)*np.sin(2*np.pi*theta*outersum(x,-y))
-
-def Spec_Mix_spectral(x, y, alpha, gamma, theta, sigma=1):
-    magnitude = np.pi * sigma**2 / (np.sqrt(alpha*(alpha + 2*gamma)))
-    return magnitude * np.exp(-np.pi**2/(2*alpha)*outersum(x,-y)**2 - 2*np.pi*2/(alpha + 2*gamma)*(outersum(x,y)/2-theta)**2)
-
-def freq_covariances(x, y, alpha, gamma, theta, sigma=1, kernel = 'sm'):
-    if kernel == 'sm':
-        N = len(x)
-        #compute kernels
-        K = 1/2*(Spec_Mix_spectral(x, y, alpha, gamma, theta, sigma) + Spec_Mix_spectral(x, y, alpha, gamma, -theta, sigma))
-        P = 1/2*(Spec_Mix_spectral(x, -y, alpha, gamma, theta, sigma) + Spec_Mix_spectral(x, -y, alpha, gamma, -theta, sigma))
-        real_cov = 1/2*(K + P) + 1e-8*np.eye(N)
-        imag_cov = 1/2*(K - P) + 1e-8*np.eye(N)
-    return real_cov, imag_cov
-
-def time_freq_SM_re(x, y, alpha, gamma, theta, sigma=1):
-    at = alpha/(np.pi**2)
-    gt = gamma/(np.pi**2)
-    L = 1/at + 1/gt
-    return (sigma**2)/(np.sqrt(np.pi*(at+gt))) * np.exp(outersum(-(x-theta)**2/(at+gt), -y**2*np.pi**2/L) ) *np.cos(-np.outer(2*np.pi*(x/at+theta/gt)/(1/at + 1/gt),y))
-
-def time_freq_SM_im(x, y, alpha, gamma, theta, sigma=1):
-    at = alpha/(np.pi**2)
-    gt = gamma/(np.pi**2)
-    L = 1/at + 1/gt
-    return (sigma**2)/(np.sqrt(np.pi*(at+gt))) * np.exp(outersum(-(x-theta)**2/(at+gt), -y**2*np.pi**2/L) ) *np.sin(-np.outer(2*np.pi*(x/at+theta/gt)/(1/at + 1/gt),y))
-
-def time_freq_covariances(x, t, alpha, gamma, theta, sigma, kernel = 'sm'):
-    if kernel == 'sm':
-        tf_real_cov = 1/2*(time_freq_SM_re(x, t, alpha, gamma, theta, sigma) + time_freq_SM_re(x, t, alpha, gamma, -theta, sigma))
-        tf_imag_cov = 1/2*(time_freq_SM_im(x, t, alpha, gamma, theta, sigma) + time_freq_SM_im(x, t, alpha, gamma, -theta, sigma))
-    return tf_real_cov, tf_imag_cov
+        psd = mu_real**2 + mu_imag**2 + (var_real + var_real).diagonal().reshape(-1,1)  # TODO: use var_imag?
+        w = w.cpu().numpy()
+        psd = psd.cpu().numpy()
+    return w, psd

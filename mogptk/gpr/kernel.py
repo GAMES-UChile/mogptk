@@ -124,19 +124,22 @@ class Kernel:
         # TODO: implement for all kernels
         return self.K(X1).diagonal()
 
-    def average(self, X1, X2=None):
+    @staticmethod
+    def average(X1, X2=None):
         # X1 is NxD, X2 is MxD, then ret is NxMxD
         if X2 is None:
             X2 = X1
         return 0.5 * (X1.unsqueeze(1) + X2)
 
-    def distance(self, X1, X2=None):
+    @staticmethod
+    def distance(X1, X2=None):
         # X1 is NxD, X2 is MxD, then ret is NxMxD
         if X2 is None:
             X2 = X1
         return X1.unsqueeze(1) - X2
 
-    def squared_distance(self, X1, X2=None):
+    @staticmethod
+    def squared_distance(X1, X2=None):
         # X1 is NxD, X2 is MxD, then ret is NxMxD
         if X2 is None:
             X2 = X1

@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from pandas.plotting import register_matplotlib_converters
 
-from .bnse import bse
+from .bnse import BNSE
 from .serie import Serie, TransformLinear
 from .plot import plot_spectrum
 
@@ -867,6 +867,20 @@ class Data:
             nyquist[i] = 0.5/dist
         return nyquist
 
+    def _get_psd_peaks(self, w, psd):
+        peaks, _ = signal.find_peaks(psd)
+        if len(peaks) == 0:
+            return np.array([]), np.array([]), np.array([])
+        peaks = peaks[np.argsort(psd[peaks])[::-1]] # sort by biggest peak first
+
+        widths, width_heights, _, _ = signal.peak_widths(psd, peaks, rel_height=0.5)
+        widths *= w[1]-w[0]
+
+        positions = w[peaks]
+        amplitudes = psd[peaks]
+        variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
+        return amplitudes, positions, variances
+
     def get_lombscargle_estimation(self, Q=1, n=10000):
         """
         Peak estimation of the spectrum using Lomb-Scargle.
@@ -894,21 +908,12 @@ class Data:
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
             x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
-            freq = np.linspace(0.0, nyquist[i], n+1)[1:]
-            psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, freq)
+            w = np.linspace(0.0, nyquist[i], n+1)[1:]
+            psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, w)
 
-            ind, _ = signal.find_peaks(psd)
-            ind = ind[np.argsort(psd[ind])[::-1]]  # sort by biggest peak first
-
-            widths, width_heights, _, _ = signal.peak_widths(psd, ind, rel_height=0.5)
-            widths *= freq[1]-freq[0]
-
-            positions = freq[ind]
-            amplitudes = psd[ind]
-            # from full-width half-maximum to Gaussian sigma
-            # note that amplitudes / width_heights is near 2 when the base of the peak is near zero
-            stddevs = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) 
-
+            amplitudes, positions, variances = self._get_psd_peaks(w, psd)
+            if len(positions) == 0:
+                continue
             if Q < len(amplitudes):
                 amplitudes = amplitudes[:Q]
                 positions = positions[:Q]
@@ -947,12 +952,8 @@ class Data:
         nyquist = self.get_nyquist_estimation()
         for i in range(input_dims):
             x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
-            bnse = bse(x[:,i], y)
-            bnse.set_freqspace(nyquist[i], dimension=n)
-            bnse.train()
-            bnse.compute_moments()
-
-            amplitudes, positions, variances = bnse.get_freq_peaks()
+            w, psd = BNSE(x[:,i], y, max_freq=nyquist[i], n=n)
+            amplitudes, positions, variances = self._get_psd_peaks(w[:,0], psd[:,0])
             if len(positions) == 0:
                 continue
 
@@ -962,7 +963,7 @@ class Data:
                 variances = variances[:Q]
 
             num = len(amplitudes)
-            # division by 100 makes it similar to other estimators (emperically found)
+            # division by 100 makes it similar to other estimators (emperically found) TODO: remove?
             A[:num,i] = np.sqrt(amplitudes) / 100
             B[:num,i] = positions
             C[:num,i] = variances
