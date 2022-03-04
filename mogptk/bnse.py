@@ -26,7 +26,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
     variance = 0.25 / np.pi**2 / x_dist**2
     noise = y.std()/10.0
     kernel.sigma.assign(sigma)
-    kernel.mean.assign(mean)
+    kernel.mean.assign(mean, upper=max_freq)
     kernel.variance.assign(variance)
     model.variance.assign(noise)
 
