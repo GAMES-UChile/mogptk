@@ -39,7 +39,6 @@ class Model:
         self.input_dims = X.shape[1]
 
         self._params = []
-        self._param_names = []
         self._register_parameters(kernel)
         if mean is not None and issubclass(type(mean), Mean):
             self._register_parameters(mean)
@@ -47,8 +46,6 @@ class Model:
     def __setattr__(self, name, val):
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
-        if isinstance(val, Parameter) and val.name is None:
-            val.name = name
         super().__setattr__(name, val)        
 
     def _check_input(self, X, y=None):
@@ -99,8 +96,8 @@ class Model:
                     name += "." + obj.name
             elif name is None:
                 name = ""
+            obj.name = name
             self._params.append(obj)
-            self._param_names.append(name)
         elif isinstance(obj, list):
             for i, v in enumerate(obj):
                 self._register_parameters(v, (name if name is not None else "")+"["+str(i)+"]")
@@ -122,6 +119,9 @@ class Model:
         for p in self._params:
             if p.trainable:
                 yield p.unconstrained
+
+    def get_parameters(self):
+        return self._params
     
     def print_parameters(self, file=None):
         def param_range(lower, upper, trainable=True):
@@ -150,8 +150,8 @@ class Model:
             try:
                 get_ipython  # fails if we're not in a notebook
                 table = '<table><tr><th style="text-align:left">Name</th><th>Range</th><th>Value</th></tr>'
-                for name, p in zip(self._param_names, self._params):
-                    table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (name, param_range(p.lower, p.upper, p.trainable), p.numpy())
+                for p in self._params:
+                    table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (p.name, param_range(p.lower, p.upper, p.trainable), p.numpy())
                 table += '</table>'
                 display(HTML(table))
                 return
@@ -159,8 +159,8 @@ class Model:
                 pass
 
         vals = [["Name", "Range", "Value"]]
-        for name, p in zip(self._param_names, self._params):
-            vals.append([name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
+        for p in self._params:
+            vals.append([p.name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
 
         nameWidth = max([len(val[0]) for val in vals])
         rangeWidth = max([len(val[1]) for val in vals])

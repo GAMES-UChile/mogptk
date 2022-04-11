@@ -153,7 +153,7 @@ class Model:
         Examples:
             >>> params = model.get_parameters()
         """
-        self.model.parameters()
+        return self.model.get_parameters()
 
     def copy_parameters(self, other):
         """
@@ -254,7 +254,7 @@ class Model:
             iters (int): Number of iterations, or maximum in case of LBFGS optimizer.
             verbose (bool): Print verbose output about the state of the optimizer.
             error (str): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.
-            plot (bool): Plot the negative log likelihood.
+            plot (bool): Plot the loss and, if error is data set, the error of the test data points.
             **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
 
         Returns:
