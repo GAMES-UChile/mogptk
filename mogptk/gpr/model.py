@@ -124,7 +124,7 @@ class Model:
         return self._params
     
     def print_parameters(self, file=None):
-        def param_range(lower, upper, trainable=True):
+        def param_range(lower, upper, trainable=True, pegged=False):
             if lower is not None:
                 if prod(lower.shape) == 1:
                     lower = lower.item()
@@ -136,7 +136,9 @@ class Model:
                 else:
                     upper = upper.tolist()
 
-            if not trainable:
+            if pegged:
+                return "pegged"
+            elif not trainable:
                 return "fixed"
             if lower is None and upper is None:
                 return "(-∞, ∞)"
@@ -151,7 +153,7 @@ class Model:
                 get_ipython  # fails if we're not in a notebook
                 table = '<table><tr><th style="text-align:left">Name</th><th>Range</th><th>Value</th></tr>'
                 for p in self._params:
-                    table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (p.name, param_range(p.lower, p.upper, p.trainable), p.numpy())
+                    table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (p.name, param_range(p.lower, p.upper, p.trainable, p.pegged), p.numpy())
                 table += '</table>'
                 display(HTML(table))
                 return
@@ -160,7 +162,7 @@ class Model:
 
         vals = [["Name", "Range", "Value"]]
         for p in self._params:
-            vals.append([p.name, param_range(p.lower, p.upper, p.trainable), str(p.numpy())])
+            vals.append([p.name, param_range(p.lower, p.upper, p.trainable, p.pegged), str(p.numpy())])
 
         nameWidth = max([len(val[0]) for val in vals])
         rangeWidth = max([len(val[1]) for val in vals])

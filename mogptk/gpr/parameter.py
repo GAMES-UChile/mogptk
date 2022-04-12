@@ -41,7 +41,7 @@ class Sigmoid(Transform):
         return torch.log(y) - torch.log(1-y)
 
 class Parameter:
-    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True):
+    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True, peg=False, transform=None):
         self.name = name
         self.lower = None
         self.upper = None
@@ -49,10 +49,19 @@ class Parameter:
         self.trainable = trainable
         self.transform = None
         self.unconstrained = None
-        self.assign(value, lower=lower, upper=upper)
+        self.pegged_parameter = None
+        self.pegged_transform = None
+
+        if peg:
+            self.peg(value, transform)
+        else:
+            self.assign(value, lower=lower, upper=upper)
 
     def __repr__(self):
-        if self.name is None:
+        name = self.name
+        if self.pegged:
+            name = self.pegged_parameter.name
+        if name is None:
             return '{}'.format(self.constrained.tolist())
         return '{}={}'.format(self.name, self.constrained.tolist())
     
@@ -60,7 +69,16 @@ class Parameter:
         return self.constrained
 
     @property
+    def pegged(self):
+        return self.pegged_parameter is not None
+
+    @property
     def constrained(self):
+        if self.pegged:
+            other = self.pegged_parameter.constrained
+            if self.pegged_transform is not None:
+                other = self.pegged_transform(other)
+            return other
         if self.transform is not None:
             return self.transform.forward(self.unconstrained)
         return self.unconstrained
@@ -122,10 +140,17 @@ class Parameter:
 
         if name is None:
             name = self.name
+        else:
+            idx = self.name.rfind('.')
+            if idx != -1:
+                name = self.name[:idx+1] + name
         if prior is None:
             prior = self.prior
         if trainable is None:
-            trainable = self.trainable
+            if self.pegged:
+                trainable = True
+            else:
+                trainable = self.trainable
 
         transform = None
         if lower is not None and upper is not None:
@@ -153,6 +178,17 @@ class Parameter:
         self.trainable = trainable
         self.transform = transform
         self.unconstrained = value
+        self.pegged_parameter = None
+        self.pegged_transform = None
+
+    def peg(self, other, transform=None):
+        if not isinstance(other, Parameter):
+            raise ValueError("parameter must be pegged to other parameter object")
+        elif other.pegged:
+            raise ValueError("cannot peg parameter to another pegged parameter")
+        self.pegged_parameter = other
+        self.pegged_transform = transform
+        self.trainable = False
 
     def log_prior(self):
         if self.prior is None:
