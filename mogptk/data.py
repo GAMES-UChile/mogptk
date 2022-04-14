@@ -917,12 +917,12 @@ class Data:
             if Q < len(amplitudes):
                 amplitudes = amplitudes[:Q]
                 positions = positions[:Q]
-                stddevs = stddevs[:Q]
+                variances = variances[:Q]
 
             n = len(amplitudes)
             A[:n,i] = np.sqrt(amplitudes)
             B[:n,i] = positions
-            C[:n,i] = stddevs
+            C[:n,i] = variances
         return A, B, C
 
     def get_bnse_estimation(self, Q=1, n=1000):
