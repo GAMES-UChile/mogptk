@@ -444,6 +444,7 @@ class OpperArchambeau(Model):
 
         if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
             raise ValueError("kernel and likelihood must have matching output dimensions")
+        likelihood.validate_y(y)
 
         n = self.X.shape[0]
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
@@ -622,6 +623,7 @@ class SparseHensman(Model):
 
         if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
             raise ValueError("kernel and likelihood must have matching output dimensions")
+        likelihood.validate_y(y)
 
         n = self.X.shape[0]
         self.is_sparse = Z is not None

@@ -2,6 +2,17 @@ import torch
 import numpy as np
 from . import config, Parameter
 
+def exp(x):
+    return torch.exp(x)
+
+def inv_probit(x):
+    jitter = 1e-3
+    return 0.5*(1.0+torch.erf(x/np.sqrt(2.0))) * (1.0-2.0*jitter) + jitter
+
+# also inv_logit or sigmoid
+def logistic(x):
+    return 1.0/(1.0+torch.exp(-x))
+
 class GaussHermiteQuadrature:
     def __init__(self, deg=20, t_scale=None, w_scale=None):
         t, w = np.polynomial.hermite.hermgauss(deg)
@@ -23,6 +34,9 @@ class Likelihood:
         self.name = name
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = 1
+
+    def validate_y(self, y):
+        pass
 
     def log_prob(self, y, f, X=None):
         # log(p(y|f)), where p(y|f) is our likelihood
@@ -79,6 +93,10 @@ class MultiOutputLikelihood(Likelihood):
         m = [c==j for j in range(self.output_dims)]
         r = [torch.nonzero(m[j], as_tuple=False).reshape(-1) for j in range(self.output_dims)]  # as_tuple avoids warning
         return r
+
+    def validate_y(self, y):
+        for likelihood in likelihoods:
+            likelihood.validate_y(y)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -202,6 +220,24 @@ class StudentTLikelihood(Likelihood):
             return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
         return f.square() + self.scale()**2 * self.dof/(self.dof-2.0)
 
+class ExponentialLikelihood(Likelihood):
+    def __init__(self, link=exp, name="Exponential", quadratures=20):
+        super().__init__(name, quadratures)
+
+        self.link = link
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        p = -y/self.link(f) - torch.log(self.link(f))
+        return p  # NxM
+
+    def predictive_y(self, f, X=None):
+        return self.link(f)
+
+    def predictive_yy(self, f, X=None):
+        return 2.0*self.link(f)**2
+
 class LaplaceLikelihood(Likelihood):
     def __init__(self, scale=1.0, name="Laplace", quadratures=20):
         super().__init__(name, quadratures)
@@ -220,18 +256,15 @@ class LaplaceLikelihood(Likelihood):
     def predictive_yy(self, f, X=None):
         return f.square() + 2.0*self.scale()**2
 
-def inv_probit(x):
-    jitter = 1e-3
-    return 0.5*(1.0+torch.erf(x/np.sqrt(2.0))) * (1.0-2.0*jitter) + jitter
-
-def logistic(x):
-    return 1.0/(1.0+torch.exp(-x))
-
 class BernoulliLikelihood(Likelihood):
     def __init__(self, scale=1.0, link=inv_probit, name="Bernoulli", quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
+
+    def validate_y(self, y):
+        if torch.all((y == 0.0) | (y == 1.0))
+            raise ValueError("y must have only 0.0 and 1.0")
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -254,5 +287,63 @@ class BernoulliLikelihood(Likelihood):
         else:
             return super().predict(mu, var, X=X, full=full)
 
-# TODO: implement log_prob: Beta, Softmax
-# TODO: implement log_prob and var_exp: Gamma, Laplace, Poisson
+class BetaLikelihood(Likelihood):
+    def __init__(self, scale=1.0, link=inv_probit, name="Beta", quadratures=20):
+        super().__init__(name, quadratures)
+
+        self.link = link
+        self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
+
+    def validate_y(self, y):
+        if not torch.all((0.0 < y) & (y < 1.0))
+            raise ValueError("y must be in the range (0.0,1.0)")
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        mixture = self.link(f)
+        alpha = mixture * self.scale()
+        beta = (1.0-mixture) * self.scale()
+
+        p = (alpha-1.0)*torch.log(y)
+        p += (beta-1.0)*torch.log(1.0-y)
+        p += torch.lgamma(alpha+beta)
+        p -= torch.lgamma(alpha)
+        p -= torch.lgamma(beta)
+        return p  # NxM
+
+    def predictive_y(self, f, X=None):
+        return self.link(f)
+
+    def predictive_yy(self, f, X=None):
+        mixture = self.link(f)
+        return (mixture + mixture.square()*self.scale()) / (self.scale() + 1.0)
+
+class GammaLikelihood(Likelihood):
+    def __init__(self, shape=1.0, link=exp, name="Gamma", quadratures=20):
+        super().__init__(name, quadratures)
+
+        self.link = link
+        self.shape = Parameter(shape, name="shape", lower=config.positive_minimum)
+
+    def validate_y(self, y):
+        if not torch.all(0.0 < y)
+            raise ValueError("y must be in the range (0.0,inf)")
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        p = -y/self.link(f)
+        p += (self.shape()-1.0)*torch.log(y)
+        p -= torch.lgamma(self.shape())
+        p -= self.shape()*torch.log(self.link(f))
+        return p  # NxM
+
+    def predictive_y(self, f, X=None):
+        return self.shape()*self.link(f)
+
+    def predictive_yy(self, f, X=None):
+        t = self.shape()*self.link(f)
+        return t + t.square()
+
+# TODO: implement: Softmax and Poisson likelihoods?
