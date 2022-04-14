@@ -2,7 +2,7 @@ import sys
 import torch
 import numpy as np
 from IPython.display import display, HTML
-from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, GaussianLikelihood, config
+from . import Parameter, Kernel, MultiOutputKernel, Likelihood, GaussianLikelihood, config
 from functools import reduce
 import operator
 
@@ -17,6 +17,29 @@ class CholeskyException(Exception):
 
     def __str__(self):
         return self.message
+
+class Mean:
+    def __init__(self, name=None):
+        if name is None:
+            name = self.__class__.__name__
+            if name.endswith('Mean') and name != 'Mean':
+                name = name[:-4]
+        self.name = name
+
+    def __call__(self, X):
+        raise NotImplementedError()
+
+    def __setattr__(self, name, val):
+        if name == 'trainable':
+            from .util import _find_parameters
+            for _, p in _find_parameters(self):
+                p.trainable = val
+            return
+        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
+            raise AttributeError("parameter is read-only, use Parameter.assign()")
+        if isinstance(val, Parameter) and val.name is None:
+            val.name = name
+        super().__setattr__(name, val)
 
 class Model:
     def __init__(self, kernel, X, y, jitter=1e-8, mean=None, name=None):
@@ -169,7 +192,9 @@ class Model:
         for val in vals:
             print("%-*s  %-*s  %s" % (nameWidth, val[0], rangeWidth, val[1], val[2]), file=file)
 
-    def _cholesky(self, K):
+    def _cholesky(self, K, add_jitter=False):
+        if add_jitter:
+            K += (self.jitter * K.diagonal().mean()).repeat(K.shape[0]).diagflat()
         try:
             return torch.linalg.cholesky(K)
         except RuntimeError as e:
@@ -238,8 +263,11 @@ class Exact(Model):
 
     def log_marginal_likelihood(self):
         Kff = self.kernel.K(self.X)
-        Kff += self._index_channel(self.variance(), self.X) * self.eye  # NxN
-        L = self._cholesky(Kff)  # NxN
+        if self.variance_per_data:
+            Kff += self.variance().diagflat()
+        else:
+            Kff += self._index_channel(self.variance(), self.X) * self.eye  # NxN
+        L = self._cholesky(Kff, add_jitter=self.variance_per_data)  # NxN
 
         if self.mean is not None:
             y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
@@ -260,10 +288,13 @@ class Exact(Model):
                 y = self.y  # Nx1
 
             Kff = self.kernel.K(self.X)
-            Kff += self._index_channel(self.variance(), self.X) * self.eye  # NxN
+            if self.variance_per_data:
+                Kff += self.variance().diagflat()
+            else:
+                Kff += self._index_channel(self.variance(), self.X) * self.eye  # NxN
             Kfs = self.kernel.K(self.X,Xs)  # NxM
 
-            Lff = self._cholesky(Kff)  # NxN
+            Lff = self._cholesky(Kff, add_jitter=self.variance_per_data)  # NxN
             v = torch.triangular_solve(Kfs,Lff,upper=False)[0]  # NxM
 
             mu = Kfs.T.mm(torch.cholesky_solve(y,Lff))  # Mx1
@@ -343,9 +374,8 @@ class Snelson(Model):
         Kff_diag = self.kernel.K_diag(self.X)  # N
         Kuf = self.kernel.K(self.Z(),self.X)  # MxN
         Kuu = self.kernel.K(self.Z())  # MxM
-        Kuu += self.jitter * Kuu.diagonal().mean() * self.eye  # MxM
 
-        Luu = self._cholesky(Kuu)  # MxM;  Luu = Kuu^(1/2)
+        Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Luu = Kuu^(1/2)
         v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  Kuu^(-1/2).Kuf
         g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.variance(), self.X)  # N;  diag(Kff-Qff) + sigma^2.I
         G = torch.diagflat(1.0/g)  # N
@@ -371,10 +401,9 @@ class Snelson(Model):
             Kff_diag = self.kernel.K_diag(self.X)  # N
             Kuf = self.kernel.K(self.Z(),self.X)  # MxN
             Kuu = self.kernel.K(self.Z())  # MxM
-            Kuu += self.jitter * Kuu.diagonal().mean() * self.eye  # MxM
             Kus = self.kernel.K(self.Z(),Xs)  # MxS
 
-            Luu = self._cholesky(Kuu)  # MxM;  Kuu^(1/2)
+            Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
             v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  Kuu^(-1/2).Kuf
             g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.variance(), self.X)
             G = torch.diagflat(1.0/g)  # N
@@ -515,9 +544,8 @@ class Titsias(Model):
         Kff_diag = self.kernel.K_diag(self.X)  # N
         Kuf = self.kernel(self.Z(),self.X)  # MxN
         Kuu = self.kernel(self.Z())  # MxM
-        Kuu += self.jitter * Kuu.diagonal().mean() * self.eye  # MxM
 
-        Luu = self._cholesky(Kuu)  # MxM;  Kuu^(1/2)
+        Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
         v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  Kuu^(-1/2).Kuf
         Q = v.mm(v.T)  # MxM;  Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)
         L = self._cholesky(Q/self.variance() + self.eye)  # MxM;  (Q/sigma^2 + I)^(1/2)
@@ -548,9 +576,8 @@ class Titsias(Model):
             Kus = self.kernel(self.Z(),Xs)  # MxS
             Kuf = self.kernel(self.Z(),self.X)  # MxN
             Kuu = self.kernel(self.Z())  # MxM
-            Kuu += self.jitter * Kuu.diagonal().mean() * self.eye  # MxM
 
-            Luu = self._cholesky(Kuu)  # MxM;  Kuu^(1/2)
+            Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
             v = torch.triangular_solve(Kuf,Luu,upper=False)[0]  # MxN;  Kuu^(-1/2).Kuf
             L = self._cholesky(v.mm(v.T)/self.variance() + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)/sigma^2 + I)^(1/2)
 
@@ -637,8 +664,7 @@ class SparseHensman(Model):
             qf_mu, qf_var_diag = self._predict(self.X, full=False)
         else:
             Kff = self.kernel(self.X)
-            Kff += self.jitter * Kff.diagonal().mean() * self.eye  # NxN
-            Lff = self._cholesky(Kff)  # NxN
+            Lff = self._cholesky(Kff, add_jitter=True)  # NxN
 
             qf_mu = Lff.mm(self.q_mu())
             if self.mean is not None:
@@ -657,10 +683,9 @@ class SparseHensman(Model):
 
     def _predict(self, Xs, full=False):
         Kuu = self.kernel(self.Z())
-        Kuu += self.jitter * Kuu.diagonal().mean() * self.eye  # NxN
         Kus = self.kernel(self.Z(),Xs)  # NxS
 
-        Luu = self._cholesky(Kuu)  # NxN
+        Luu = self._cholesky(Kuu, add_jitter=True)  # NxN
         a = torch.triangular_solve(Kus,Luu,upper=False)[0]  # NxS;  Kuu^(-1/2).Kus
         b = self.q_sqrt().tril().T.mm(torch.triangular_solve(Kus,Luu,upper=False)[0])
 

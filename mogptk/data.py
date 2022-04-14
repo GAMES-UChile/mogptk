@@ -744,8 +744,8 @@ class Data:
         else:
             X = self.X_pred.copy()
         mu = self.Y_mu_pred[name]
-        lower = mu - sigma * np.sqrt(self.Y_var_pred[name])
-        upper = mu + sigma * np.sqrt(self.Y_var_pred[name])
+        lower = mu - sigma*np.sqrt(self.Y_var_pred[name])
+        upper = mu + sigma*np.sqrt(self.Y_var_pred[name])
 
         if transformed:
             return X, mu, lower, upper

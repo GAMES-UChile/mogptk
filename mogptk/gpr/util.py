@@ -3,7 +3,7 @@ import torch
 
 from .config import *
 from .parameter import Parameter
-from .mean import Mean
+from .model import Mean
 from .kernel import Kernel
 from .likelihood import Likelihood
 
