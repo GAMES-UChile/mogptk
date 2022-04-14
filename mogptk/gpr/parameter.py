@@ -86,15 +86,19 @@ class Parameter:
     def numpy(self):
         return self.constrained.detach().cpu().numpy()
 
+    @staticmethod
+    def to_tensor(value):
+        if isinstance(value, Parameter):
+            value = value.constrained.detach()
+        if not isinstance(value, torch.Tensor):
+            value = torch.tensor(value, device=config.device, dtype=config.dtype)
+        else:
+            value = value.detach().to(config.device, config.dtype)
+        return value
+
     def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
         if value is not None:
-            if isinstance(value, Parameter):
-                value = value.constrained.detach()
-            if not isinstance(value, torch.Tensor):
-                value = torch.tensor(value, device=config.device, dtype=config.dtype)
-            else:
-                value = value.detach().to(config.device, config.dtype)
-
+            value = Parameter.to_tensor(value)
             if self.unconstrained is not None:
                 origshape = value.shape
                 while value.ndim < self.unconstrained.ndim and self.unconstrained.shape[value.ndim] == 1:

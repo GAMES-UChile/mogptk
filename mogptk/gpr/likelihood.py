@@ -263,7 +263,7 @@ class BernoulliLikelihood(Likelihood):
         self.link = link
 
     def validate_y(self, y):
-        if torch.all((y == 0.0) | (y == 1.0))
+        if not torch.all((y == 0.0) | (y == 1.0)):
             raise ValueError("y must have only 0.0 and 1.0")
 
     def log_prob(self, y, f, X=None):
@@ -295,7 +295,7 @@ class BetaLikelihood(Likelihood):
         self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
 
     def validate_y(self, y):
-        if not torch.all((0.0 < y) & (y < 1.0))
+        if not torch.all((0.0 < y) & (y < 1.0)):
             raise ValueError("y must be in the range (0.0,1.0)")
 
     def log_prob(self, y, f, X=None):
@@ -327,7 +327,7 @@ class GammaLikelihood(Likelihood):
         self.shape = Parameter(shape, name="shape", lower=config.positive_minimum)
 
     def validate_y(self, y):
-        if not torch.all(0.0 < y)
+        if not torch.all(0.0 < y):
             raise ValueError("y must be in the range (0.0,inf)")
 
     def log_prob(self, y, f, X=None):

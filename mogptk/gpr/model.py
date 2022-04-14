@@ -106,9 +106,9 @@ class Model:
             return X
 
     def _index_channel(self, value, X):
-        if value.ndim == 1:
+        if 1 < self.kernel.output_dims and 0 < value.ndim and value.shape[0] == self.kernel.output_dims:
             return torch.index_select(value, dim=0, index=X[:,0].long())
-        return self.variance()
+        return value
 
     def _register_parameters(self, obj, name=None):
         if isinstance(obj, Parameter):
@@ -253,11 +253,18 @@ class Exact(Model):
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
-        if 1 < kernel.output_dims:
-            # turn on Gaussian likelihood variance per channel
-            self.variance = Parameter([variance] * kernel.output_dims, name="variance", lower=config.positive_minimum)
-        else:
-            self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
+
+        # turn on Gaussian likelihood variance per channel and or per data point
+        # variance shape will be (channels,data_points), where if either is unity, the variance will be equal amonst all channels or data points respectively
+        variance = Parameter.to_tensor(variance).squeeze()
+        self.variance_per_data = False
+        if variance.ndim == 1 and variance.shape[0] == self.X.shape[0]:
+            self.variance_per_data = True
+        elif variance.ndim == 0 or variance.ndim == 1 and variance.shape[0] == 1:
+            variance = variance.repeat(self.kernel.output_dims)
+        elif variance.ndim != 1 or variance.shape[0] != self.kernel.output_dims:
+            raise ValueError("variance must have shape (channels,) or (data_points,)")
+        self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
 
         self._register_parameters(self.variance)
 
@@ -280,6 +287,9 @@ class Exact(Model):
         return p
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
+        if self.variance_per_data and predict_y:
+            raise ValueError("can only predict f when data point variances are given, set predict_y=False")
+
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
             if self.mean is not None:

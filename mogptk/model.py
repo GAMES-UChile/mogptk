@@ -429,7 +429,7 @@ class Model:
             y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
-    def predict(self, X=None, sigma=2.0, transformed=False):
+    def predict(self, X=None, sigma=2.0, transformed=False, predict_y=True):
         """
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
@@ -455,7 +455,7 @@ class Model:
             X = self.dataset._format_prediction_x(X)
         x = self._to_kernel_format(X)
 
-        mu, var = self.model.predict(x)
+        mu, var = self.model.predict(x, predict_y=predict_y)
 
         i = 0
         Mu = []
@@ -576,7 +576,7 @@ class Model:
         if legend:
             ax.legend(handles=legends)
 
-    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False):
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
         """
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -597,7 +597,7 @@ class Model:
             self.dataset.set_prediction_x(X)
             self.predict()
         elif not self.name in self.dataset[0].Y_mu_pred:
-            self.predict()
+            self.predict(predict_y=predict_y)
         return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
 
     def get_gram_matrix(self, start=None, end=None, n=31):
