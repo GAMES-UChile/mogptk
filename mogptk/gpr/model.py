@@ -274,9 +274,9 @@ class Exact(Model):
             variance = variance.repeat(kernel.output_dims)
         elif variance.ndim != 1 or variance.shape[0] != kernel.output_dims:
             raise ValueError("variance must have shape (channels,) or (data_points,)")
-        variance = Parameter(variance, name="variance", lower=config.positive_minimum)
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
+        self.likelihood.variance.trainable = not self.variance_per_data
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
