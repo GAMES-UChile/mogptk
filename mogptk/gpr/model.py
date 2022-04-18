@@ -653,7 +653,7 @@ class SparseHensman(Model):
         Lq = q_sqrt.tril() # NxN
         kl = -q_mu.shape[0]
         kl += q_mu.T.mm(q_mu).squeeze()  # Mahalanobis
-        kl -= 2.0*Lq.diagonal().log().sum()  # determinant of q_var
+        kl -= Lq.diagonal().square().log().sum()  # determinant of q_var
         kl += Lq.square().sum()  # same as Trace(p_var^(-1).q_var)
         return 0.5*kl
 
@@ -706,7 +706,7 @@ class SparseHensman(Model):
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
 
-            mu, var = self._predict(Xs, full=full)
+            mu, var = self._predict(Xs, full=full and not predict_y)
             if predict_y:
                 mu, var = self.likelihood.predict(mu, var, full=full, X=Xs)
             if self.mean is not None:
