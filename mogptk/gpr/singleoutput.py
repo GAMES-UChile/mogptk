@@ -331,16 +331,14 @@ class MaternKernel(Kernel):
         if X2 is None:
             X2 = X1
 
+        dist = torch.abs(torch.tensordot(self.distance(X1,X2), 1.0/self.l(), dims=1))
         if self.nu == 0.5:
             constant = 1.0
         elif self.nu == 1.5:
             constant = 1.0 + np.sqrt(3.0)*dist
         elif self.nu == 2.5:
             constant = 1.0 + np.sqrt(5.0)*dist + 5.0/3.0*dist**2
-
-        dist = torch.abs(self.distance(X1,X2))
-        exp = -np.sqrt(self.nu*2.0) * torch.tensordot(dist, 1.0/self.l(), dims=1)
-        return self.sigma()**2 * constant * torch.exp(exp)
+        return self.sigma()**2 * constant * torch.exp(-np.sqrt(self.nu*2.0) * dist)
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)

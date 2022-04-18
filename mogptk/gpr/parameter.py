@@ -158,9 +158,8 @@ class Parameter:
 
         transform = None
         if lower is not None and upper is not None:
-            lower_tmp = torch.min(lower, upper)
-            upper = torch.max(lower, upper)
-            lower = lower_tmp
+            if upper < lower:
+                raise ValueError("lower limit %s must be lower than upper limit %s" % (lower, upper))
             transform = Sigmoid(lower=lower, upper=upper)
         elif lower is not None:
             transform = Softplus(lower=lower)

@@ -807,7 +807,7 @@ class Data:
         if start is None:
             start = [x[0] for x in self.X]
         if end is None:
-            start = [x[-1] for x in self.X]
+            end = [x[-1] for x in self.X]
         
         start = self._normalize_x_val(start)
         end = self._normalize_x_val(end)

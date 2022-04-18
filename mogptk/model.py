@@ -224,7 +224,7 @@ class Model:
         else:
             X, Y_true = self.dataset.get_test_data()
         x, y_true  = self._to_kernel_format(X, Y_true)
-        y_pred, _ = self.model.predict(x)
+        y_pred, _ = self.model.predict(x, predict_y=False)
         if method.lower() == 'mae':
             return mean_absolute_error(y_true, y_pred)
         elif method.lower() == 'mape':
@@ -301,6 +301,8 @@ class Model:
         inital_time = time.time()
         sys.__stdout__.write("\nStart %s:\n" % (method,))
         if method == 'LBFGS':
+            if 'lr' not in kwargs:
+                kwargs['lr'] = 0.1
             if not 'max_iter' in kwargs:
                 kwargs['max_iter'] = iters
                 iters = 0
@@ -313,11 +315,11 @@ class Model:
                 if error is not None:
                     errors[i] = self.error(error, error_use_all_data)
                     if i % (kwargs['max_iter']/100) == 0:
-                        sys.__stdout__.write("% 5d/%d %s  loss=%10g  error=%10g\n" % (i, kwargs['max_iter'], losses[i], _format_time(elapsed_time), errors[i]))
+                        sys.__stdout__.write("% 5d/%d %s  loss=%10g  error=%10g\n" % (i, kwargs['max_iter'], _format_time(elapsed_time), losses[i], errors[i]))
                 elif i % (kwargs['max_iter']/100) == 0:
                     sys.__stdout__.write("% 5d/%d %s  loss=%10g\n" % (i, kwargs['max_iter'], _format_time(elapsed_time), losses[i]))
                 return losses[i]
-            optimizer.step(lambda: loss())
+            optimizer.step(loss)
             iters = int(optimizer.state_dict()['state'][0]['func_evals'])
         else:
             if method == 'Adam':
@@ -342,8 +344,8 @@ class Model:
                     sys.__stdout__.write("% 5d/%d %s  loss=%10g\n" % (i, iters, _format_time(elapsed_time), losses[i]))
                 optimizer.step()
         losses[iters] = self.loss()
+        elapsed_time = time.time() - inital_time
         if error is not None:
-            elapsed_time = time.time() - inital_time
             errors[iters] = self.error(error, error_use_all_data)
             sys.__stdout__.write("% 5d/%d %s  loss=%10g  error=%10g\n" % (iters, iters, _format_time(elapsed_time), losses[iters], errors[iters]))
         else:
