@@ -2,6 +2,9 @@ import torch
 import numpy as np
 from . import config, Parameter
 
+def identity(x):
+    return x
+
 def exp(x):
     return torch.exp(x)
 
@@ -56,6 +59,11 @@ class Likelihood:
 
     def predictive_yy(self, f, X=None):
         # f: NxM
+        raise NotImplementedError()
+
+    def quantile(self, p, mu, var):
+        # p: scalar
+        # mu,var: Nx1
         raise NotImplementedError()
 
     def predict(self, mu, var, X=None, full=False):
@@ -188,6 +196,9 @@ class GaussianLikelihood(Likelihood):
     def predictive_yy(self, f, X=None):
         return f.square() + self.variance()
 
+    def quantile(self, p, mu, var):
+        return mu + torch.sqrt(2.0*var)*torch.erfinv(2.0*p - 1.0)
+
     def predict(self, mu, var, X=None, full=False):
         if full:
             return mu, var + self.variance()*torch.eye(var.shape[0])
@@ -242,6 +253,9 @@ class ExponentialLikelihood(Likelihood):
     def predictive_yy(self, f, X=None):
         return 2.0*self.link(f)**2
 
+    def quantile(self, p, mu, var):
+        return -torch.log(1.0 - p) * mu
+
 class LaplaceLikelihood(Likelihood):
     def __init__(self, scale=1.0, name="Laplace", quadratures=20):
         super().__init__(name, quadratures)
@@ -259,6 +273,11 @@ class LaplaceLikelihood(Likelihood):
 
     def predictive_yy(self, f, X=None):
         return f.square() + 2.0*self.scale()**2
+
+    def quantile(self, p, mu, var):
+        if p < 0.5:
+            return mu + self.scale()*torch.log(2.0*p)
+        return mu - self.scale()*torch.log(2.0 - 2.0*p)
 
 class BernoulliLikelihood(Likelihood):
     def __init__(self, scale=1.0, link=inv_probit, name="Bernoulli", quadratures=20):
@@ -281,6 +300,9 @@ class BernoulliLikelihood(Likelihood):
 
     def predictive_yy(self, f, X=None):
         return self.link(f)
+
+    def quantile(self, p, mu, var):
+        return torch.where(p <= 1.0-mu, 0.0, 1.0)
 
     def predict(self, mu, var, X=None, full=False):
         if self.link == inv_probit:

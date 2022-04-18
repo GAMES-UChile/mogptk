@@ -429,13 +429,13 @@ class Model:
             y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
-    def predict(self, X=None, sigma=2.0, transformed=False, predict_y=True):
+    def predict(self, X=None, sigma=None, q=[0.025, 0.975], transformed=False, predict_y=True):
         """
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
             X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
-            sigma (float): The confidence interval's number of standard deviations.
+            q (list of float): The quantiles for the confidence interval's lower and upper ends.
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
@@ -455,7 +455,24 @@ class Model:
             X = self.dataset._format_prediction_x(X)
         x = self._to_kernel_format(X)
 
-        mu, var = self.model.predict(x, predict_y=predict_y)
+        mu, var = self.model.predict(x, predict_y=predict_y, tensor=True)
+        # TODO: quantiles
+        #if predict_y:
+            #lower = self.model.quantile(q[0], mu, var)
+            #upper = self.model.quantile(q[1], mu, var)
+        if sigma is not None:
+            lower = mu - sigma*torch.sqrt(var)
+            upper = mu + sigma*torch.sqrt(var)
+        else:
+            ql = torch.tensor(q[0], device=gpr.config.device, dtype=gpr.config.dtype)
+            qu = torch.tensor(q[1], device=gpr.config.device, dtype=gpr.config.dtype)
+            lower = mu + torch.sqrt(var)*np.sqrt(2)*torch.special.erfinv(2.0*ql - 1.0)
+            upper = mu + torch.sqrt(var)*np.sqrt(2)*torch.special.erfinv(2.0*qu - 1.0)
+
+        mu = mu.cpu().numpy()
+        var = var.cpu().numpy()
+        lower = lower.cpu().numpy()
+        upper = upper.cpu().numpy()
 
         i = 0
         Mu = []
@@ -466,8 +483,8 @@ class Model:
             N = X[j][0].shape[0]
             Mu.append(np.squeeze(mu[i:i+N]))
             Var.append(np.squeeze(var[i:i+N]))
-            Lower.append(Mu[j] - sigma*np.sqrt(Var[j]))
-            Upper.append(Mu[j] + sigma*np.sqrt(Var[j]))
+            Lower.append(np.squeeze(lower[i:i+N]))
+            Upper.append(np.squeeze(upper[i:i+N]))
             i += N
 
         if save:
