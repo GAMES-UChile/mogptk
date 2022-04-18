@@ -144,7 +144,7 @@ class Kernel:
         if X2 is None:
             X2 = X1
         #return (X1.unsqueeze(1) - X2)**2  # slower than cdist for large X
-        return torch.cdist(X2.T.unsqueeze(2), X1.T.unsqueeze(2)).T**2
+        return torch.cdist(X2.T.unsqueeze(2), X1.T.unsqueeze(2)).permute((2,1,0))**2
 
     def __add__(self, other):
         return AddKernel(self, other)
