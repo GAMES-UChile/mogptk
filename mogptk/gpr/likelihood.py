@@ -64,7 +64,7 @@ class Likelihood:
         # mu,var: Nx1
         Ey = self.quadrature(mu, var, lambda f: self.predictive_y(f,X=X))
         Eyy = self.quadrature(mu, var, lambda f: self.predictive_yy(f,X=X))
-        return Ey, Eyy-Ey**2 
+        return Ey, Eyy-Ey**2
 
 class MultiOutputLikelihood(Likelihood):
     def __init__(self, *likelihoods, name="MultiOutputLikelihood", quadratures=20):
@@ -226,6 +226,10 @@ class ExponentialLikelihood(Likelihood):
 
         self.link = link
 
+    def validate_y(self, y):
+        if torch.any(y < 0.0):
+            raise ValueError("y must be positive")
+
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
@@ -263,7 +267,7 @@ class BernoulliLikelihood(Likelihood):
         self.link = link
 
     def validate_y(self, y):
-        if not torch.all((y == 0.0) | (y == 1.0)):
+        if torch.any((y != 0.0) & (y != 1.0)):
             raise ValueError("y must have only 0.0 and 1.0")
 
     def log_prob(self, y, f, X=None):
@@ -295,7 +299,7 @@ class BetaLikelihood(Likelihood):
         self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
 
     def validate_y(self, y):
-        if not torch.all((0.0 < y) & (y < 1.0)):
+        if torch.any((y <= 0.0) | (1.0 <= y)):
             raise ValueError("y must be in the range (0.0,1.0)")
 
     def log_prob(self, y, f, X=None):
@@ -327,7 +331,7 @@ class GammaLikelihood(Likelihood):
         self.shape = Parameter(shape, name="shape", lower=config.positive_minimum)
 
     def validate_y(self, y):
-        if not torch.all(0.0 < y):
+        if torch.any(y <= 0.0):
             raise ValueError("y must be in the range (0.0,inf)")
 
     def log_prob(self, y, f, X=None):

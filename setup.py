@@ -7,8 +7,7 @@ requirements = [
     'pandas',
     'python-dateutil',
     'scipy>=0.18',
-    'seaborn',  # only used by bnse.py
-    'torch',
+    'torch>=1.11.0',
 ]
 
 this_directory = path.abspath(path.dirname(__file__))

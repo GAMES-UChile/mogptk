@@ -28,7 +28,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
     kernel.sigma.assign(sigma)
     kernel.mean.assign(mean, upper=max_freq)
     kernel.variance.assign(variance)
-    model.variance.assign(noise)
+    model.likelihood.variance.assign(noise)
 
     # train model
     optimizer = torch.optim.LBFGS(model.parameters(), max_iter=iters)
@@ -73,7 +73,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
 
     with torch.no_grad():
         Ktt = kernel(x)
-        Ktt += model.variance() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
+        Ktt += model.likelihood.variance() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
         Ltt = torch.linalg.cholesky(Ktt)
 
         Kff = kernel_ff(w, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
@@ -84,8 +84,8 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
         Ktf_real, Ktf_imag = kernel_tf(x, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
 
         a = torch.cholesky_solve(y,Ltt)
-        b = torch.triangular_solve(Ktf_real,Ltt,upper=False)[0]
-        c = torch.triangular_solve(Ktf_imag,Ltt,upper=False)[0]
+        b = torch.linalg.solve_triangular(Ltt,Ktf_real,upper=False)
+        c = torch.linalg.solve_triangular(Ltt,Ktf_imag,upper=False)
 
         mu_real = Ktf_real.T.mm(a)
         mu_imag = Ktf_imag.T.mm(a)

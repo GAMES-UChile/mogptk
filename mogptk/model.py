@@ -81,7 +81,7 @@ class Hensman:
     """
     def __init__(self, inducing_points=None, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
         self.inducing_points = inducing_points
-        self.variance = variance
+        self.likelihood = likelihood
         self.jitter = jitter
 
     def build(self, kernel, x, y, mean=None, name=None):
