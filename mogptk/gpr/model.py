@@ -2,7 +2,7 @@ import sys
 import torch
 import numpy as np
 from IPython.display import display, HTML
-from . import Parameter, Kernel, MultiOutputKernel, Likelihood, GaussianLikelihood, config
+from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, GaussianLikelihood, config
 from functools import reduce
 import operator
 
@@ -41,29 +41,6 @@ class CholeskyException(Exception):
 
     def __str__(self):
         return self.message
-
-class Mean:
-    def __init__(self, name=None):
-        if name is None:
-            name = self.__class__.__name__
-            if name.endswith('Mean') and name != 'Mean':
-                name = name[:-4]
-        self.name = name
-
-    def __call__(self, X):
-        raise NotImplementedError()
-
-    def __setattr__(self, name, val):
-        if name == 'trainable':
-            from .util import _find_parameters
-            for _, p in _find_parameters(self):
-                p.trainable = val
-            return
-        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
-            raise AttributeError("parameter is read-only, use Parameter.assign()")
-        if isinstance(val, Parameter) and val.name is None:
-            val.name = name
-        super().__setattr__(name, val)
 
 class Model:
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0), jitter=1e-8, mean=None, name=None):
