@@ -130,7 +130,7 @@ class Model:
         Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset]
         x, y = self._to_kernel_format(X, Y)
 
-        self.model = inference.build(kernel, x, y, mean, name)
+        self.gpr = inference.build(kernel, x, y, mean, name)
 
     ################################################################
 
@@ -141,7 +141,7 @@ class Model:
         Examples:
             >>> model.print_parameters()
         """
-        self.model.print_parameters()
+        self.gpr.print_parameters()
 
     def get_parameters(self):
         """
@@ -153,7 +153,7 @@ class Model:
         Examples:
             >>> params = model.get_parameters()
         """
-        return self.model.get_parameters()
+        return self.gpr.get_parameters()
 
     def copy_parameters(self, other):
         """
@@ -192,7 +192,7 @@ class Model:
         Examples:
             >>> model.log_marginal_likelihood()
         """
-        return self.model.log_marginal_likelihood().detach().cpu().item()
+        return self.gpr.log_marginal_likelihood().detach().cpu().item()
 
     def loss(self):
         """
@@ -204,7 +204,7 @@ class Model:
         Examples:
             >>> model.loss()
         """
-        return self.model.loss().detach().cpu().item()
+        return self.gpr.loss().detach().cpu().item()
 
     def error(self, method='MAE', use_all_data=False):
         """
@@ -224,7 +224,7 @@ class Model:
         else:
             X, Y_true = self.dataset.get_test_data()
         x, y_true  = self._to_kernel_format(X, Y_true)
-        y_pred, _ = self.model.predict(x, predict_y=False)
+        y_pred, _ = self.gpr.predict(x, predict_y=False)
         if method.lower() == 'mae':
             return mean_absolute_error(y_true, y_pred)
         elif method.lower() == 'mape':
@@ -283,7 +283,7 @@ class Model:
 
         if verbose:
             training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
-            parameters = sum([int(np.prod(param.shape)) for param in self.model.parameters()])
+            parameters = sum([int(np.prod(param.shape)) for param in self.gpr.parameters()])
             print('\nStarting optimization using', method)
             print('‣ Model: {}'.format(self.name))
             print('‣ Channels: {}'.format(len(self.dataset)))
@@ -306,7 +306,7 @@ class Model:
             if not 'max_iter' in kwargs:
                 kwargs['max_iter'] = iters
                 iters = 0
-            optimizer = torch.optim.LBFGS(self.model.parameters(), **kwargs)
+            optimizer = torch.optim.LBFGS(self.gpr.parameters(), **kwargs)
 
             def loss():
                 i = int(optimizer.state_dict()['state'][0]['func_evals'])
@@ -325,11 +325,11 @@ class Model:
             if method == 'Adam':
                 if 'lr' not in kwargs:
                     kwargs['lr'] = 0.1
-                optimizer = torch.optim.Adam(self.model.parameters(), **kwargs)
+                optimizer = torch.optim.Adam(self.gpr.parameters(), **kwargs)
             elif method == 'SGD':
-                optimizer = torch.optim.SGD(self.model.parameters(), **kwargs)
+                optimizer = torch.optim.SGD(self.gpr.parameters(), **kwargs)
             elif method == 'AdaGrad':
-                optimizer = torch.optim.Adagrad(self.model.parameters(), **kwargs)
+                optimizer = torch.optim.Adagrad(self.gpr.parameters(), **kwargs)
             else:
                 print("Unknown optimizer:", method)
 
@@ -457,11 +457,11 @@ class Model:
             X = self.dataset._format_prediction_x(X)
         x = self._to_kernel_format(X)
 
-        mu, var = self.model.predict(x, predict_y=predict_y, tensor=True)
+        mu, var = self.gpr.predict(x, predict_y=predict_y, tensor=True)
         # TODO: quantiles
         #if predict_y:
-            #lower = self.model.quantile(q[0], mu, var)
-            #upper = self.model.quantile(q[1], mu, var)
+            #lower = self.gpr.quantile(q[0], mu, var)
+            #upper = self.gpr.quantile(q[1], mu, var)
         if sigma is not None:
             lower = mu - sigma*torch.sqrt(var)
             upper = mu + sigma*torch.sqrt(var)
@@ -519,12 +519,12 @@ class Model:
         """
         x1 = self._to_kernel_format(X1)
         if X2 is None:
-            return self.model.K(x1)
+            return self.gpr.K(x1)
         else:
             x2 = self._to_kernel_format(X2)
-            return self.model.K(x1, x2)
+            return self.gpr.K(x1, x2)
 
-    def sample(self, X=None, n=None, transformed=False):
+    def sample(self, X=None, n=None, predict_y=True, transformed=False):
         """
         Sample n times from the kernel at input X .
 
@@ -534,7 +534,7 @@ class Model:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            list: samples of shape len(X) for each channel.
+            list: samples of shape len(X) for each channel if n is given.
             numpy.ndarray: sample of shape len(X) for each channel if n is None.
 
         Examples:
@@ -546,7 +546,7 @@ class Model:
             X = self.dataset._format_prediction_x(X)
         x = self._to_kernel_format(X)
 
-        samples = self.model.sample(Z=x, n=n)
+        samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
 
         i = 0
         Samples = []
@@ -653,7 +653,7 @@ class Model:
             else:
                 X[m*n:(m+1)*n,1] = np.linspace(start[m], end[m], n)
 
-        return self.model.K(X)
+        return self.gpr.K(X)
 
     def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         """

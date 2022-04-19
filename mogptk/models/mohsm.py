@@ -56,8 +56,8 @@ class MOHSM(Model):
             
             for q in range(self.Q):
                 if self.P!=1:
-                    self.model.kernel[p*self.Q+q].center.assign((1000*p/(self.P-1))*np.ones(input_dims[0]))
-                    self.model.kernel[p*self.Q+q].lengthscale.assign(((self.P+1)/1000)*np.ones(output_dims))    
+                    self.gpr.kernel[p*self.Q+q].center.assign((1000*p/(self.P-1))*np.ones(input_dims[0]))
+                    self.gpr.kernel[p*self.Q+q].lengthscale.assign(((self.P+1)/1000)*np.ones(output_dims))
 
             dataset = self.dataset.copy()
             
@@ -98,8 +98,8 @@ class MOHSM(Model):
                         mean[j,:] = means[j][q,:]
                         # maybe will have problems with higher input dimensions
                         variance[j,:] = variances[j][q,:] * (4 + 20 * (max(input_dims) - 1)) # 20
-                self.model.kernel[p*self.Q+q].mean.assign(mean)
-                self.model.kernel[p*self.Q+q].variance.assign(variance)
+                self.gpr.kernel[p*self.Q+q].mean.assign(mean)
+                self.gpr.kernel[p*self.Q+q].variance.assign(variance)
 
             # normalize proportional to channels variances
             for j, channel in enumerate(dataset):
@@ -109,7 +109,7 @@ class MOHSM(Model):
                     magnitude[j,:] = (np.sqrt(magnitude[j,:] / magnitude[j,:].sum() * y.var())) * 2
 
             for q in range(self.Q):
-                self.model.kernel[p*self.Q+q].magnitude.assign(magnitude[:,q]/np.sqrt(self.model.kernel[p*self.Q+q].lengthscale().cpu().detach().numpy()))
+                self.gpr.kernel[p*self.Q+q].magnitude.assign(magnitude[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale().cpu().detach().numpy()))
 
             # TODO
             # noise = np.empty((output_dims,))
@@ -117,4 +117,4 @@ class MOHSM(Model):
             #     _, y = channel.get_train_data(transformed=self.rescale_x)
             #     noise[j] = y.var() / 30.0
             # for q in range(self.Q):
-            #     self.model.kernel[p*self.Q+q].noise.assign(noise)
+            #     self.gpr.kernel[p*self.Q+q].noise.assign(noise)

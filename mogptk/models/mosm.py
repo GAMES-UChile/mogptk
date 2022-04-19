@@ -54,7 +54,7 @@ class MOSM(Model):
         self.Q = Q
         nyquist = self.dataset.get_nyquist_estimation()
         for q in range(Q):
-            self.model.kernel[q].mean.assign(upper=nyquist)
+            self.gpr.kernel[q].mean.assign(upper=nyquist)
 
     def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
         """
@@ -101,8 +101,8 @@ class MOSM(Model):
                     mean[j,:] = means[j][q,:]
                     # maybe will have problems with higher input dimensions
                     variance[j,:] = variances[j][q,:] * (4 + 20 * (max(input_dims) - 1)) # 20
-            self.model.kernel[q].mean.assign(mean)
-            self.model.kernel[q].variance.assign(variance)
+            self.gpr.kernel[q].mean.assign(mean)
+            self.gpr.kernel[q].variance.assign(variance)
 
         # normalize proportional to channels variances
         for j, channel in enumerate(self.dataset):
@@ -111,7 +111,7 @@ class MOSM(Model):
                 magnitude[j,:] = np.sqrt(magnitude[j,:] / magnitude[j,:].sum() * y.var()) * 2
         
         for q in range(self.Q):
-            self.model.kernel[q].magnitude.assign(magnitude[:,q])
+            self.gpr.kernel[q].magnitude.assign(magnitude[:,q])
 
         # TODO
         #noise = np.empty((output_dims,))
@@ -119,7 +119,7 @@ class MOSM(Model):
         #    _, y = channel.get_train_data(transformed=True)
         #    noise[j] = y.var() / 30.0
         #for q in range(self.Q):
-        #    self.model.kernel[q].noise.assign(noise)
+        #    self.gpr.kernel[q].noise.assign(noise)
 
     def check(self):
         """
@@ -127,8 +127,8 @@ class MOSM(Model):
         """
         for j in range(self.dataset.get_output_dims()):
             for q in range(self.Q):
-                mean = self.model.kernel[q].mean.numpy()[j,:]
-                var = self.model.kernel[q].variance.numpy()[j,:]
+                mean = self.gpr.kernel[q].mean.numpy()[j,:]
+                var = self.gpr.kernel[q].variance.numpy()[j,:]
                 if np.linalg.norm(mean) < np.linalg.norm(var):
                     print("‣ MOSM approaches RBF kernel for q=%d in channel='%s'" % (q, self.dataset[j].name))
 
@@ -139,9 +139,9 @@ class MOSM(Model):
         names = self.dataset.get_names()
         nyquist = self.dataset.get_nyquist_estimation()
 
-        means = np.array([self.model.kernel[q].mean.numpy() for q in range(self.Q)])
-        scales = np.array([np.sqrt(self.model.kernel[q].variance.numpy()) for q in range(self.Q)])
-        weights = np.array([self.model.kernel[q].magnitude.numpy() for q in range(self.Q)])**2
+        means = np.array([self.gpr.kernel[q].mean.numpy() for q in range(self.Q)])
+        scales = np.array([np.sqrt(self.gpr.kernel[q].variance.numpy()) for q in range(self.Q)])
+        weights = np.array([self.gpr.kernel[q].magnitude.numpy() for q in range(self.Q)])**2
 
         return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, titles=names, title=title)
 
@@ -246,9 +246,9 @@ class MOSM(Model):
         for q in range(Q):
             for i in range(m):
                 for j in range(m):
-                    magnitude = self.model.kernel[q].magnitude.numpy()
-                    mean = self.model.kernel[q].mean.numpy()
-                    variance = self.model.kernel[q].variance.numpy()
+                    magnitude = self.gpr.kernel[q].magnitude.numpy()
+                    mean = self.gpr.kernel[q].mean.numpy()
+                    variance = self.gpr.kernel[q].variance.numpy()
 
                     w_i = magnitude[i]
                     w_j = magnitude[j]
@@ -268,11 +268,11 @@ class MOSM(Model):
                     cross_params['magnitude'][i, j, q] = w_i * w_j * np.exp(exp_term)
             if m>1:
                 # cross phase
-                phase_q = self.model.kernel[q].phase.numpy()
+                phase_q = self.gpr.kernel[q].phase.numpy()
                 cross_params['phase'][:, :, q] = np.subtract.outer(phase_q, phase_q)
                 for n in range(d):
                     # cross delay        
-                    delay_n_q = self.model.kernel[q].delay.numpy()[:,n]
+                    delay_n_q = self.gpr.kernel[q].delay.numpy()[:,n]
                     cross_params['delay'][:, :, n, q] = np.subtract.outer(delay_n_q, delay_n_q)
 
         return cross_params

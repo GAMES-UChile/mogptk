@@ -55,7 +55,7 @@ class SM(Model):
         nyquist = self.dataset.get_nyquist_estimation()
         for j in range(self.dataset.get_output_dims()):
             for q in range(Q):
-                self.model.kernel[j][q].mean.assign(upper=nyquist[j])
+                self.gpr.kernel[j][q].mean.assign(upper=nyquist[j])
 
     def init_parameters(self, method='LS'):
         """
@@ -87,9 +87,9 @@ class SM(Model):
                 variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
 
                 for q in range(self.Q):
-                    self.model.kernel[j][q].sigma.assign(np.sqrt(weights[q]))
-                    self.model.kernel[j][q].mean.assign(means[q,:])
-                    self.model.kernel[j][q].variance.assign(variances[q,:])
+                    self.gpr.kernel[j][q].sigma.assign(np.sqrt(weights[q]))
+                    self.gpr.kernel[j][q].mean.assign(means[q,:])
+                    self.gpr.kernel[j][q].variance.assign(variances[q,:])
             return
         elif method.lower() == 'ls':
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
@@ -125,9 +125,9 @@ class SM(Model):
                 mixture_weights /= amplitudes[j].sum()
             mixture_weights *= 2.0 * y.std()
             for q in range(self.Q):
-                self.model.kernel[j][q].sigma.assign(np.sqrt(mixture_weights[q]))
-                self.model.kernel[j][q].mean.assign(means[j][q,:])
-                self.model.kernel[j][q].variance.assign(variances[j][q,:])
+                self.gpr.kernel[j][q].sigma.assign(np.sqrt(mixture_weights[q]))
+                self.gpr.kernel[j][q].mean.assign(means[j][q,:])
+                self.gpr.kernel[j][q].variance.assign(variances[j][q,:])
 
     def plot_spectrum(self, title=None):
         """
@@ -137,8 +137,8 @@ class SM(Model):
         nyquist = self.dataset.get_nyquist_estimation()
         output_dims = self.dataset.get_output_dims()
 
-        means = np.array([[self.model.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
-        scales = np.array([[np.sqrt(self.model.kernel[j][q].variance.numpy()) for j in range(output_dims)] for q in range(self.Q)])
-        weights = np.array([[self.model.kernel[j][q].sigma.numpy()[0]**2 for j in range(output_dims)] for q in range(self.Q)])
+        means = np.array([[self.gpr.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
+        scales = np.array([[np.sqrt(self.gpr.kernel[j][q].variance.numpy()) for j in range(output_dims)] for q in range(self.Q)])
+        weights = np.array([[self.gpr.kernel[j][q].sigma.numpy()[0]**2 for j in range(output_dims)] for q in range(self.Q)])
 
         return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, titles=names, title=title)

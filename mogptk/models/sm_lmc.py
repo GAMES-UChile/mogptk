@@ -58,8 +58,8 @@ class SM_LMC(Model):
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
         for q in range(Q):
-            self.model.kernel[q].sigma.assign(1.0, trainable=False)  # handled by LMCKernel
-            self.model.kernel[q].mean.assign(upper=nyquist)
+            self.gpr.kernel[q].sigma.assign(1.0, trainable=False)  # handled by LMCKernel
+            self.gpr.kernel[q].mean.assign(upper=nyquist)
 
     def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
         """
@@ -108,19 +108,19 @@ class SM_LMC(Model):
             channel = channels[i]
             constant[channel,q % self.Q,:] = amplitudes[i].mean()
             if q < self.Q:
-                self.model.kernel[q].mean.assign(means[i])
-                self.model.kernel[q].variance.assign(variances[i] * 2.0)
+                self.gpr.kernel[q].mean.assign(means[i])
+                self.gpr.kernel[q].variance.assign(variances[i] * 2.0)
 
         # normalize proportional to channel variance
         for i, channel in enumerate(self.dataset):
             _, y = channel.get_train_data(transformed=True)
             if 0.0 < constant[i,:,:].sum():
                 constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
-        self.model.kernel.weight.assign(constant)
+        self.gpr.kernel.weight.assign(constant)
 
         # TODO
         #noise = np.empty((output_dims,))
         #for i, channel in enumerate(self.dataset):
         #    _, y = channel.get_train_data(transformed=True)
         #    noise[i] = y.var() / 30.0
-        #self.model.kernel.noise.assign(noise)
+        #self.gpr.kernel.noise.assign(noise)

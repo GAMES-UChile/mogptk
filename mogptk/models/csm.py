@@ -56,7 +56,7 @@ class CSM(Model):
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
         for q in range(Q):
-            self.model.kernel[q].mean.assign(upper=nyquist)
+            self.gpr.kernel[q].mean.assign(upper=nyquist)
     
     def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
         """
@@ -105,8 +105,8 @@ class CSM(Model):
             channel = channels[i]
             constant[channel,q % self.Q,:] = amplitudes[i].mean()
             if q < self.Q:
-                self.model.kernel[q].mean.assign(means[i])
-                self.model.kernel[q].variance.assign(variances[i] * 5.0)
+                self.gpr.kernel[q].mean.assign(means[i])
+                self.gpr.kernel[q].variance.assign(variances[i] * 5.0)
 
         # normalize proportional to channel variance
         for i, channel in enumerate(self.dataset):
@@ -115,7 +115,7 @@ class CSM(Model):
                 constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
 
         for q in range(self.Q):
-            self.model.kernel[q].amplitude.assign(constant[:,q,:])
+            self.gpr.kernel[q].amplitude.assign(constant[:,q,:])
 
         # TODO: noise
         #noise = np.empty((output_dims,))
@@ -123,4 +123,4 @@ class CSM(Model):
         #    _, y = channel.get_train_data(transformed=True)
         #    noise[i] = y.var() / 30.0
         #for q in range(self.Q):
-        #    self.model.kernel[q].noise.assign(noise)
+        #    self.gpr.kernel[q].noise.assign(noise)

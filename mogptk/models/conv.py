@@ -96,7 +96,7 @@ class CONV(Model):
         constant = np.empty((output_dims, self.Q))
         for q in range(self.Q):
             constant[:,q] = np.array([amplitude[q,:] for amplitude in amplitudes]).mean(axis=1)
-            self.model.kernel[q].variance.assign([variance[q,:] * 10.0 for variance in variances])
+            self.gpr.kernel[q].variance.assign([variance[q,:] * 10.0 for variance in variances])
 
         for i, channel in enumerate(self.dataset):
             _, y = channel.get_train_data(transformed=True)
@@ -104,7 +104,7 @@ class CONV(Model):
                 constant[i,:] = constant[i,:] / constant[i,:].sum() * y.var()
 
         for q in range(self.Q):
-            self.model.kernel[q].weight.assign(constant[:,q])
+            self.gpr.kernel[q].weight.assign(constant[:,q])
 
         # TODO
         #noise = np.empty((output_dims,))
@@ -112,4 +112,4 @@ class CONV(Model):
         #    _, y = channel.get_train_data(transformed=True)
         #    noise[i] = y.var() / 30.0
         #for q in range(self.Q):
-        #    self.model.kernel[q].noise.assign(noise)
+        #    self.gpr.kernel[q].noise.assign(noise)
