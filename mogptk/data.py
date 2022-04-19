@@ -1043,7 +1043,7 @@ class Data:
             C[q,:] = sm.kernel[0][q].variance.numpy()
         return A, B, C
 
-    def plot(self, pred=None, title=None, ax=None, legend=True, transformed=False):
+    def plot(self, pred=None, title=None, ax=None, legend=True, errorbars=True, transformed=False):
         """
         Plot the data including removed observations, latent function, and predictions.
 
@@ -1119,14 +1119,13 @@ class Data:
         ax.plot(x[0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
         legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
 
-        if self.Y_err is not None:
-            ye = self.Y_err[self.mask]
-            yl = y-ye
-            yu = y+ye
+        if errorbars and self.Y_err is not None:
+            yl = self.Y[self.mask] - self.Y_err[self.mask]
+            yu = self.Y[self.mask] + self.Y_err[self.mask]
             if transformed:
                 yl = self.Y.transform(yl, x)
                 yu = self.Y.transform(yu, x)
-            plt.errorbar(x[0], y, [yl, yu], elinewidth=0.5, ecolor='k', capsize=1)
+            plt.errorbar(x[0], y, [y-yl, yu-y], elinewidth=0.5, ecolor='k', capsize=2)
 
         if self.has_test_data():
             for removed_range in self.removed_ranges[0]:
