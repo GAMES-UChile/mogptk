@@ -581,6 +581,8 @@ class Model:
                     ss.append(sample)
                 Samples.append(ss)
             i += N
+        if self.dataset.get_output_dims() == 1:
+            return Samples[0]
         return Samples
 
     def plot_losses(self, title=None, figsize=None, legend=True, errors=True):

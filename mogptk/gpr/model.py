@@ -239,25 +239,23 @@ class Model:
                 raise ValueError("quantile must be scalar")
             return self.likelihood.quantile(p, mu, var)
 
-    def sample(self, Z, n=None, stochastic=False, predict_y=True):
+    def sample(self, Z, n=None, predict_y=True):
         with torch.no_grad():
             S = n
             if n is None:
                 S = 1
 
             # TODO: predict_y and non-Gaussian likelihoods
-            mu, var = self.predict(Z, full=True, tensor=True)#, predict_y=predict_y)  # MxD and MxMxD
-            if stochastic:
-                eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                var += self.jitter * var.diagonal().mean() * eye  # MxM
+            mu, var = self.predict(Z, full=True, tensor=True, predict_y=predict_y)  # MxD and MxMxD
+            eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
+            var += self.jitter * var.diagonal().mean() * eye  # MxM
 
-                u = torch.normal(
-                        torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
-                        torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
-                L = torch.linalg.cholesky(var)  # MxM
-                samples = mu + L.mm(u)  # MxS
-            else:
-                samples = mu
+            u = torch.normal(
+                    torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
+                    torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
+            L = torch.linalg.cholesky(var)  # MxM
+            samples = mu + L.mm(u)  # MxS
+
             if n is None:
                 samples = samples.squeeze()
             return samples.cpu().numpy()
