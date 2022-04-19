@@ -34,8 +34,9 @@ class Exact:
     """
     Exact inference for Gaussian process regression.
     """
-    def __init__(self, variance=None):
+    def __init__(self, variance=None, jitter=1e-8):
         self.variance = variance
+        self.jitter = jitter
 
     def build(self, kernel, x, y, y_err=None, mean=None, name=None):
         variance = self.variance
@@ -44,7 +45,7 @@ class Exact:
                 variance = y_err
             else:
                 variance = 1.0
-        return gpr.Exact(kernel, x, y, variance=variance, mean=mean, name=name)
+        return gpr.Exact(kernel, x, y, variance=variance, jitter=self.jitter, mean=mean, name=name)
 
 class Snelson:
     """
