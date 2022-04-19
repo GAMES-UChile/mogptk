@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from .data import Data, _is_iterable
 
-def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
+def LoadCSV(filename, x_col=0, y_col=1, y_err_col=None, name=None, **kwargs):
     """
     LoadCSV loads a dataset from a given CSV file. It loads in `x_col` as the names of the input dimension columns, and `y_col` as the names of the output columns.
 
@@ -29,9 +29,9 @@ def LoadCSV(filename, x_col=0, y_col=1, name=None, **kwargs):
 
     df = pd.read_csv(filename, **kwargs)
 
-    return LoadDataFrame(df, x_col, y_col, name)
+    return LoadDataFrame(df, x_col, y_col, y_err_col, name)
 
-def LoadDataFrame(df, x_col=0, y_col=1, name=None):
+def LoadDataFrame(df, x_col=0, y_col=1, y_err_col=None, name=None):
     """
     LoadDataFrame loads a DataFrame from pandas. It loads in `x_col` as the names of the input dimension columns, and `y_col` the names of the output columns.
 
@@ -39,6 +39,7 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
         df (pandas.DataFrame): The pandas DataFrame.
         x_col (int, str, list of int or str): Names or indices of X column(s) in DataFrame.
         y_col (int, str, list of int or str): Names or indices of Y column(s) in DataFrame.
+        y_err_col (int, str, list of int or str): Names or indices of Y error column(s) in DataFrame.
         name (str, list of str): Name or names of data channels.
 
     Returns:
@@ -58,11 +59,20 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
         raise ValueError("x_col must be integer, string or list of integers or strings")
     if (not isinstance(y_col, list) or not all(isinstance(item, int) for item in y_col) and not all(isinstance(item, str) for item in y_col)) and not isinstance(y_col, int) and not isinstance(y_col, str):
         raise ValueError("y_col must be integer, string or list of integers or strings")
-
     if not isinstance(x_col, list):
         x_col = [x_col]
     if not isinstance(y_col, list):
         y_col = [y_col]
+
+    if y_err_col is not None:
+        if _is_iterable(y_err_col):
+            y_col = list(y_err_col)
+        if (not isinstance(y_err_col, list) or not all(isinstance(item, int) for item in y_err_col) and not all(isinstance(item, str) for item in y_err_col)) and not isinstance(y_err_col, int) and not isinstance(y_err_col, str):
+            raise ValueError("y_err_col must be integer, string or list of integers or strings")
+        if not isinstance(y_err_col, list):
+            y_err_col = [y_err_col]
+        if len(y_col) != len(y_err_col):
+            raise ValueError("y_err_col and y_col must be of the same length")
 
     if name is None:
         name = [None] * len(y_col)
@@ -79,8 +89,13 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
         x_col = [df.columns[item] for item in x_col]
     if all(isinstance(item, int) for item in y_col):
         y_col = [df.columns[item] for item in y_col]
+    if y_err_col is not None and all(isinstance(item, int) for item in y_err_col):
+        y_err_col = [df.columns[item] for item in y_err_col]
 
-    df = df[x_col + y_col]
+    cols = x_col + y_col
+    if y_err_col is not None:
+        cols += y_err_col
+    df = df[cols]
     if len(df.index) == 0:
         raise ValueError("dataframe cannot be empty")
 
@@ -90,11 +105,19 @@ def LoadDataFrame(df, x_col=0, y_col=1, name=None):
 
     dataset = DataSet()
     for i in range(len(y_col)):
-        channel = df[x_col + [y_col[i]]].dropna()
+        cols = x_col + [y_col[i]]
+        if y_err_col is not None:
+            cols += [y_err_col[i]]
+        channel = df[cols].dropna()
+
+        y_err = None
+        if y_err_col is not None:
+            y_err = channel[y_err_col[i]].values
 
         dataset.append(Data(
             channel[x_col].values,
             channel[y_col[i]].values,
+            Y_err=y_err,
             name=name[i],
             x_labels=x_labels,
             y_label=str(y_col[i]),

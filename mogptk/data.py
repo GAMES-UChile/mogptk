@@ -144,7 +144,7 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
 ################################################################
 
 class Data:
-    def __init__(self, X, Y, name=None, x_labels=None, y_label=None):
+    def __init__(self, X, Y, Y_err=None, name=None, x_labels=None, y_label=None):
         """
         Data class that holds all observations, latent functions and predicted data.
 
@@ -242,10 +242,31 @@ class Data:
         except:
             raise ValueError("Y data must have a number data type")
 
+        if Y_err is not None:
+            # check if Y_err is correct
+            if isinstance(Y_err, list):
+                if not all(isinstance(y, (int, float)) for y in Y_err):
+                    raise ValueError("Y_err list items must all be numbers")
+                elif not _is_homogeneous_type(Y_err):
+                    raise ValueError("Y_err list items must all have elements of the same type")
+                Y_err = np.array(Y_err)
+            elif not isinstance(Y_err, np.ndarray):
+                raise ValueError("Y_err must be list or numpy array")
+            if Y.shape != Y_err.shape:
+                raise ValueError("Y and Y_err must have the same shape")
+
+            # try to cast unknown data types, Y becomes np.float64
+            try:
+                Y_err = Y_err.astype(np.float64)
+            except:
+                raise ValueError("Y_err data must have a number data type")
+
         # convert meshgrids to flat arrays
         if 1 < X[0].ndim and 1 < Y.ndim and X[0].shape == Y.shape:
             X = [np.ravel(x) for x in X]
             Y = np.ravel(Y)
+            if Y_err is not None:
+                Y_err = np.ravel(Y_err)
 
         if any(x.ndim != 1 for x in X):
             raise ValueError("X must be a one dimensional array of data for every input dimension")
@@ -259,6 +280,9 @@ class Data:
 
         self.X = [Serie(X[i]) for i in range(input_dims)] # [shape (n)] * input_dims
         self.Y = Serie(Y) # shape (n)
+        self.Y_err = None
+        if Y_err is not None:
+            self.Y_err = Y_err # shape (n)
         self.mask = np.array([True] * Y.shape[0])
         self.F = None
         self.X_pred = None
@@ -1094,6 +1118,15 @@ class Data:
         x, y = self.get_train_data(transformed=transformed)
         ax.plot(x[0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
         legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
+
+        if self.Y_err is not None:
+            ye = self.Y_err[self.mask]
+            yl = y-ye
+            yu = y+ye
+            if transformed:
+                yl = self.Y.transform(yl, x)
+                yu = self.Y.transform(yu, x)
+            plt.errorbar(x[0], y, [yl, yu], elinewidth=0.5, ecolor='k', capsize=1)
 
         if self.has_test_data():
             for removed_range in self.removed_ranges[0]:

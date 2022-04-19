@@ -34,11 +34,17 @@ class Exact:
     """
     Exact inference for Gaussian process regression.
     """
-    def __init__(self, variance=1.0):
+    def __init__(self, variance=None):
         self.variance = variance
 
-    def build(self, kernel, x, y, mean=None, name=None):
-        return gpr.Exact(kernel, x, y, variance=self.variance, mean=mean, name=name)
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        variance = self.variance
+        if variance is None:
+            if y_err is not None:
+                variance = y_err
+            else:
+                variance = 1.0
+        return gpr.Exact(kernel, x, y, variance=variance, mean=mean, name=name)
 
 class Snelson:
     """
@@ -49,7 +55,7 @@ class Snelson:
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, mean=None, name=None):
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
         return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class OpperArchambeau:
@@ -60,7 +66,7 @@ class OpperArchambeau:
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def build(self, kernel, x, y, mean=None, name=None):
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
         return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Titsias:
@@ -72,7 +78,7 @@ class Titsias:
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, mean=None, name=None):
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
         return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class Hensman:
@@ -84,7 +90,7 @@ class Hensman:
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def build(self, kernel, x, y, mean=None, name=None):
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
         if self.inducing_points is None:
             return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
         return gpr.SparseHensman(kernel, x, y, self.inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
@@ -130,7 +136,16 @@ class Model:
         Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset]
         x, y = self._to_kernel_format(X, Y)
 
-        self.gpr = inference.build(kernel, x, y, mean, name)
+        y_err = None
+        if all(channel.Y_err is not None for channel in self.dataset):
+            # TODO: doesn't transform...
+            Y_err = [np.array(channel.Y_err[channel.mask]) for channel in self.dataset]
+            Y_err_lower = [self.dataset[j].Y.transform(Y[j] - Y_err[j], X[j]) for j in range(len(self.dataset))]
+            Y_err_upper = [self.dataset[j].Y.transform(Y[j] + Y_err[j], X[j]) for j in range(len(self.dataset))]
+            y_err_lower = np.concatenate(Y_err_lower, axis=0)
+            y_err_upper = np.concatenate(Y_err_upper, axis=0)
+            y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
+        self.gpr = inference.build(kernel, x, y, y_err, mean, name)
 
     ################################################################
 
