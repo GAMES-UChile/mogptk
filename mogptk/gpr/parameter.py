@@ -158,7 +158,7 @@ class Parameter:
 
         transform = None
         if lower is not None and upper is not None:
-            if upper < lower:
+            if torch.any(upper < lower):
                 raise ValueError("lower limit %s must be lower than upper limit %s" % (lower, upper))
             transform = Sigmoid(lower=lower, upper=upper)
         elif lower is not None:

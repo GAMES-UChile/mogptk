@@ -52,7 +52,7 @@ class MOSM(Model):
         super().__init__(dataset, kernel, inference, mean, name, rescale_x)
 
         self.Q = Q
-        nyquist = self.dataset.get_nyquist_estimation()
+        nyquist = np.array(self.dataset.get_nyquist_estimation())
         for q in range(Q):
             self.gpr.kernel[q].mean.assign(upper=nyquist)
 

@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
+from .serie import TransformLinear
 
 def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None):
     """
@@ -40,10 +41,12 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, title
     
     for j in range(output_dims):
         for i in range(input_dims):
+            if dataset is not None and len(dataset[j].X[i].transformers) == 1 and isinstance(dataset[j].X[i].transformers[0], TransformLinear):
+                means[:,j,:] /= dataset[j].X[i].transformers[0].slope
+                scales[:,j,:] /= dataset[j].X[i].transformers[0].slope
+
             x_low = max(0.0, norm.ppf(0.01, loc=means[:,j,i], scale=scales[:,j,i]).min())
             x_high = norm.ppf(0.99, loc=means[:,j,i], scale=scales[:,j,i]).max()
-            if isinstance(nyquist, np.ndarray):
-                x_high = min(x_high, nyquist[j,i])
 
             if dataset is not None:
                 X = dataset[j].X[i].astype(np.float)
@@ -53,8 +56,10 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, title
                 nyquist_data = 0.5 / np.average(dist)
 
                 x_low = min(0.0, x_low)
-                x_high = max(nyquist_data, x_high)
-                dataset[j].plot_spectrum(ax=axes[j,i], method='ls')
+                x_high = nyquist_data
+                dataset[j].plot_spectrum(ax=axes[j,i], method='ls', transformed=False)
+            elif isinstance(nyquist, np.ndarray):
+                x_high = min(x_high, nyquist[j,i])
 
             x = np.linspace(x_low, x_high, 1001)
             psd = np.zeros(x.shape)

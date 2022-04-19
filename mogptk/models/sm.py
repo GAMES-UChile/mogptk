@@ -52,7 +52,7 @@ class SM(Model):
         super().__init__(dataset, kernel, inference, mean, name, rescale_x)
 
         self.Q = Q
-        nyquist = self.dataset.get_nyquist_estimation()
+        nyquist = np.array(self.dataset.get_nyquist_estimation())
         for j in range(self.dataset.get_output_dims()):
             for q in range(Q):
                 self.gpr.kernel[j][q].mean.assign(upper=nyquist[j])
