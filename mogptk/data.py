@@ -1150,6 +1150,7 @@ class Data:
         if self.get_input_dims() == 2:
             raise NotImplementedError("two dimensional input data not yet implemented") # TODO
 
+        ax_set = ax is not None
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
         
@@ -1199,16 +1200,20 @@ class Data:
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
+        # normalize
+        Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
+
         ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
         if len(Y_freq_err) != 0:
             ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
         ax.set_title((self.name + ' Spectrum' if self.name is not None else '') if title is None else title, fontsize=14)
 
-        xmin = X_freq.min()
-        xmax = X_freq.max()
-        ax.set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
-        ax.set_yticks([])
-        ax.set_ylim(0, None)
+        if not ax_set:
+            xmin = X_freq.min()
+            xmax = X_freq.max()
+            ax.set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
+            ax.set_yticks([])
+            ax.set_ylim(0, None)
         return ax
 
     def _normalize_val(self, val):

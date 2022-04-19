@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 
-def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None):
+def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None):
     """
     Plot spectral Gaussians of given means, scales and weights.
     """
@@ -19,6 +19,8 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
         raise ValueError('means and scales must have shape (mixtures,output_dims,input_dims)')
     if means.shape != scales.shape:
         raise ValueError('means and scales must have the same shape (mixtures,output_dims,input_dims)')
+    if dataset is not None and len(dataset) != means.shape[1]:
+        raise ValueError('means and scales must have %d output dimensions' % len(dataset))
 
     mixtures = means.shape[0]
     output_dims = means.shape[1]
@@ -43,17 +45,31 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
             if isinstance(nyquist, np.ndarray):
                 x_high = min(x_high, nyquist[j,i])
 
-            x = np.linspace(x_low, x_high, 1000)
-            psd = np.zeros(x.shape)
+            if dataset is not None:
+                X = dataset[j].X[i].astype(np.float)
+                idx = np.argsort(X)
+                X = X[idx]
+                dist = np.abs(X[1:]-X[:-1])
+                nyquist_data = 0.5 / np.average(dist)
 
+                x_low = min(0.0, x_low)
+                x_high = max(nyquist_data, x_high)
+                dataset[j].plot_spectrum(ax=axes[j,i], method='ls')
+
+            x = np.linspace(x_low, x_high, 1001)
+            psd = np.zeros(x.shape)
             for q in range(mixtures):
                 single_psd = weights[q,j] * norm.pdf(x, loc=means[q,j,i], scale=scales[q,j,i])
                 #single_psd = np.log(single_psd+1)
-                axes[j,i].plot(x, single_psd, ls='--', c='k', zorder=2)
-                axes[j,i].axvline(means[q,j,i], ymin=0.001, ymax=0.1, lw=2, color='silver')
+                #axes[j,i].plot(x, single_psd, ls='--', c='k', zorder=2)
+                axes[j,i].axvline(means[q,j,i], ymin=0.001, ymax=0.05, lw=3, color='C1')
                 psd += single_psd
+
+            # normalize
+            psd /= psd.sum() * (x[1]-x[0])
            
-            axes[j,i].plot(x, psd, ls='-', c='k', zorder=1)
+            axes[j,i].plot(x, psd, ls='-', c='C0')
+            axes[j,i].set_xlim(x_low, x_high)
             axes[j,i].set_yticks([])
             axes[j,i].set_ylim(0, None)
             if titles is not None:
@@ -62,10 +78,12 @@ def plot_spectrum(means, scales, weights=None, nyquist=None, titles=None, show=T
     axes[output_dims-1,i].set_xlabel('Frequency')
 
     legends = []
-    legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Total'))
-    legends.append(plt.Line2D([0], [0], ls='--', color='k', label='Mixture'))
-    legends.append(plt.Line2D([0], [0], ls='-', lw=2, color='silver', label='Peak location'))
-    fig.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(h+0.4)/h), ncol=3)
+    if dataset is not None:
+        legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Data (LombScargle)'))
+    legends.append(plt.Line2D([0], [0], ls='-', color='C0', label='Model'))
+    #legends.append(plt.Line2D([0], [0], ls='--', color='k', label='Mixture'))
+    legends.append(plt.Line2D([0], [0], ls='-', color='C1', label='Peak location'))
+    fig.legend(handles=legends)#, loc="upper center", bbox_to_anchor=(0.5,(h+0.4)/h), ncol=3)
 
     if filename is not None:
         plt.savefig(filename+'.pdf', dpi=300)

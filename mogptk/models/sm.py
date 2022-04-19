@@ -138,7 +138,7 @@ class SM(Model):
         output_dims = self.dataset.get_output_dims()
 
         means = np.array([[self.model.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
-        scales = np.array([[self.model.kernel[j][q].variance.numpy() for j in range(output_dims)] for q in range(self.Q)])
+        scales = np.array([[np.sqrt(self.model.kernel[j][q].variance.numpy()) for j in range(output_dims)] for q in range(self.Q)])
         weights = np.array([[self.model.kernel[j][q].sigma.numpy()[0]**2 for j in range(output_dims)] for q in range(self.Q)])
 
-        return plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names, title=title)
+        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, titles=names, title=title)

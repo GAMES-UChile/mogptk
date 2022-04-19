@@ -140,10 +140,10 @@ class MOSM(Model):
         nyquist = self.dataset.get_nyquist_estimation()
 
         means = np.array([self.model.kernel[q].mean.numpy() for q in range(self.Q)])
-        scales = np.array([self.model.kernel[q].variance.numpy() for q in range(self.Q)])
+        scales = np.array([np.sqrt(self.model.kernel[q].variance.numpy()) for q in range(self.Q)])
         weights = np.array([self.model.kernel[q].magnitude.numpy() for q in range(self.Q)])**2
 
-        return plot_spectrum(means, scales, weights=weights, nyquist=nyquist, titles=names, title=title)
+        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, titles=names, title=title)
 
     def plot_cross_spectrum(self, title=None, figsize=(12,12)):
         """
