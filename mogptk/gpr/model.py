@@ -2,7 +2,7 @@ import sys
 import torch
 import numpy as np
 from IPython.display import display, HTML
-from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, GaussianLikelihood, config
+from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, GaussianLikelihood, config, plot_gram
 from functools import reduce
 import operator
 
@@ -217,6 +217,7 @@ class Model:
             if K.isinf().any():
                 print("ERROR: kernel matrix has infinities!", file=sys.__stdout__)
             self.print_parameters()
+            plot_gram(K)
             raise CholeskyException(e.args[0], K, self)
 
     def log_marginal_likelihood(self):

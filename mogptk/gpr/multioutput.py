@@ -248,7 +248,7 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
             exp1 = torch.exp(-0.5 * torch.tensordot(tau**2, variance, dims=1))  # NxM
             exp2 = torch.exp(-0.5 * torch.tensordot((avg-self.center())**2, lengthscale*torch.ones(self.input_dims, device=config.device, dtype=config.dtype), dims=1))  # NxM
             cos = torch.cos(2.0 * np.pi * torch.tensordot(tau, self.mean()[i], dims=1))  # NxM
-            return alpha * exp1 * cos * exp2 
+            return alpha * exp1 * cos * exp2
         else:
             lengthscale_i = self.lengthscale()[i]**2
             lengthscale_j = self.lengthscale()[j]**2

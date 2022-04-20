@@ -1,4 +1,5 @@
 from .config import *
+from .plot import plot_gram
 from .parameter import *
 from .likelihood import *
 from .mean import *
