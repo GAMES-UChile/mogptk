@@ -293,7 +293,7 @@ class Exact(Model):
             Kff += self.likelihood.variance().diagflat()
         else:
             Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
-        L = self._cholesky(Kff, add_jitter=self.variance_per_data)  # NxN
+        L = self._cholesky(Kff, add_jitter=True)  # NxN
 
         if self.mean is not None:
             y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
@@ -323,7 +323,7 @@ class Exact(Model):
                 Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
             Kfs = self.kernel.K(self.X,Xs)  # NxM
 
-            Lff = self._cholesky(Kff, add_jitter=self.variance_per_data)  # NxN
+            Lff = self._cholesky(Kff, add_jitter=True)  # NxN
             v = torch.linalg.solve_triangular(Lff,Kfs,upper=False)  # NxM
 
             mu = Kfs.T.mm(torch.cholesky_solve(y,Lff))  # Mx1
