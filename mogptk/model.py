@@ -131,7 +131,6 @@ class Model:
 
         self.name = name
         self.dataset = dataset
-        self.kernel = kernel
 
         X = [[x[channel.mask] for x in channel.X] for channel in self.dataset]
         Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset]
@@ -178,7 +177,7 @@ class Model:
         if not isinstance(other, Model):
             raise ValueError("other must be of type Model")
 
-        self.kernel.copy_parameters(other.kernel)
+        self.gpr.kernel.copy_parameters(other.kernel)
 
     def save(self, filename):
         """

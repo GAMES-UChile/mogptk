@@ -58,6 +58,12 @@ class Model:
             raise ValueError("kernel and likelihood must have matching output dimensions")
         likelihood.validate_y(y)
 
+        # limit to number of significant digits
+        if config.dtype == torch.float32:
+            jitter = max(jitter, 1e-6)
+        elif config.dtype == torch.float64:
+            jitter = max(jitter, 1e-15)
+
         self.kernel = kernel
         self.X = X
         self.y = y
