@@ -81,7 +81,7 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
         phase = torch.zeros(output_dims)
 
         self.input_dims = input_dims
-        self.magnitude = Parameter(magnitude)#, lower=0.0)
+        self.magnitude = Parameter(magnitude)
         self.mean = Parameter(mean, lower=config.positive_minimum)
         self.variance = Parameter(variance, lower=config.positive_minimum)
         if 1 < output_dims:
@@ -290,4 +290,4 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
             
             cos = torch.cos(2.0*np.pi * torch.tensordot(tau+delay, mean, dims=1)+phase) # NxM
 
-            return alpha * exp_1 * cos * exp_2 
+            return alpha * exp_1 * cos * exp_2

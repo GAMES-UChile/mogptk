@@ -210,6 +210,7 @@ class Model:
                 print("ERROR: kernel matrix has NaNs!", file=sys.__stdout__)
             if K.isinf().any():
                 print("ERROR: kernel matrix has infinities!", file=sys.__stdout__)
+            self.print_parameters()
             raise CholeskyException(e.args[0], K, self)
 
     def log_marginal_likelihood(self):

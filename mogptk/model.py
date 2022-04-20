@@ -637,43 +637,7 @@ class Model:
             self.predict(predict_y=predict_y)
         return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
 
-    def get_gram_matrix(self, start=None, end=None, n=31):
-        """
-        Returns the gram matrix evaluated between `start` and `end` with `n` number of points. If `start` and `end` are not set, the minimum and maximum X points of the data are used.
-
-        Args:
-            start (float, list, array): Interval minimum.
-            end (float, list, array): Interval maximum.
-            n (int): Number of points per channel.
-
-        Returns:
-            numpy.ndarray: Array of shape (n,n).
-
-        Examples:
-            >>> model.get_gram_matrix()
-        """
-        if start is None:
-            start = [np.array(data.X[0].transformed).min() for data in self.dataset]
-        if end is None:
-            end = [np.array(data.X[0].transformed).max() for data in self.dataset]
-
-        M = len(self.dataset)
-        if not isinstance(start, (list, np.ndarray)):
-            start = [start] * M
-        if not isinstance(end, (list, np.ndarray)):
-            end = [end] * M
-
-        X = np.zeros((M*n, 2))
-        X[:,0] = np.repeat(np.arange(M), n)
-        for m in range(M):
-            if n== 1:
-                X[m*n:(m+1)*n,1] = np.array((start[m]+end[m])/2.0)
-            else:
-                X[m*n:(m+1)*n,1] = np.linspace(start[m], end[m], n)
-
-        return self.gpr.K(X)
-
-    def plot(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
+    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         """
         Plot the gram matrix of associated kernel.
 
@@ -688,24 +652,44 @@ class Model:
             figure: Matplotlib figure.
             axis: Matplotlib axis.
         """
-        K_gram = self.get_gram_matrix(start, end, n)
+        if not all(channel.get_input_dims() == 1 for channel in self.dataset):
+            raise ValueError("cannot plot for more than one input dimension")
+
+        if start is None:
+            start = [channel.X[0].transformed.min() for channel in self.dataset]
+        if end is None:
+            end = [channel.X[0].transformed.max() for channel in self.dataset]
+
+        output_dims = len(self.dataset)
+        if not isinstance(start, (list, np.ndarray)):
+            start = [start] * output_dims
+        if not isinstance(end, (list, np.ndarray)):
+            end = [end] * output_dims
+
+        X = np.zeros((output_dims*n, 2))
+        X[:,0] = np.repeat(np.arange(output_dims), n)
+        for j in range(output_dims):
+            if n== 1:
+                X[j*n:(j+1)*n,1] = np.array((start[j]+end[j])/2.0)
+            else:
+                X[j*n:(j+1)*n,1] = np.linspace(start[j], end[j], n)
+        k = self.gpr.K(X)
             
         fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
         if title is not None:
             fig.suptitle(title, fontsize=18)
 
-        color_range = np.abs(K_gram).max()
+        color_range = np.abs(k).max()
         norm = matplotlib.colors.Normalize(vmin=-color_range, vmax=color_range)
-        im = ax.matshow(K_gram, cmap='coolwarm', norm=norm)
+        im = ax.matshow(k, cmap='coolwarm', norm=norm)
 
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.3)
         fig.colorbar(im, cax=cax)
 
         # Major ticks every 20, minor ticks every 5
-        M = len(self.dataset)
-        major_ticks = np.arange(-0.5, M * n, n)
-        minor_ticks = np.arange(-0.5, M * n, 2)
+        major_ticks = np.arange(-0.5, output_dims*n, n)
+        minor_ticks = np.arange(-0.5, output_dims*n, 2)
 
         ax.set_xticks(major_ticks)
         ax.set_yticks(major_ticks)
@@ -713,6 +697,36 @@ class Model:
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.tick_params(axis='both', which='both', length=0)
+        return fig, ax
+
+    def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
+        if not all(channel.get_input_dims() == 1 for channel in self.dataset):
+            raise ValueError("cannot plot for more than one input dimension")
+
+        if dist is None:
+            dist = [(channel.X[0].transformed.max()-channel.X[0].transformed.min())/4.0 for channel in self.dataset]
+
+        output_dims = len(self.dataset)
+        if not isinstance(dist, (list, np.ndarray)):
+            dist = [dist] * output_dims
+
+        fig, ax = plt.subplots(output_dims, output_dims, figsize=figsize, constrained_layout=True, squeeze=False, sharex=True)
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        channel = np.ones((n,1))
+        for j in range(output_dims):
+            tau = np.linspace(-dist[j], dist[j], num=n).reshape(-1,1)
+            X1 = np.array([[j,0.0]])
+            for i in range(output_dims):
+                if j < i:
+                    ax[j,i].set_axis_off()
+                    continue
+
+                X0 = np.concatenate((i*channel,tau), axis=1)
+                k = self.gpr.K(X0,X1)
+                ax[j,i].plot(tau, k, color='k')
+                ax[j,i].set_yticks([])
         return fig, ax
 
 def _format_duration(s):
