@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 from .serie import TransformLinear
 
-def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, titles=None, show=True, filename=None, title=None):
+def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noises=None, log=False, titles=None, show=True, filename=None, title=None):
     """
     Plot spectral Gaussians of given means, scales and weights.
     """
@@ -20,6 +20,8 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, title
         raise ValueError('means and scales must have shape (mixtures,output_dims,input_dims)')
     if means.shape != scales.shape:
         raise ValueError('means and scales must have the same shape (mixtures,output_dims,input_dims)')
+    if noises is not None and (noises.ndim != 1 or noises.shape[0] != means.shape[1]):
+        raise ValueError('noises must have shape (output_dims,)')
     if dataset is not None and len(dataset) != means.shape[1]:
         raise ValueError('means and scales must have %d output dimensions' % len(dataset))
 
@@ -55,9 +57,9 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, title
                 dist = np.abs(X[1:]-X[:-1])
                 nyquist_data = 0.5 / np.average(dist)
 
-                x_low = min(0.0, x_low)
+                x_low = 0.5 / np.abs(X[-1]-X[0])
                 x_high = nyquist_data
-                dataset[j].plot_spectrum(ax=axes[j,i], method='ls', transformed=False)
+                dataset[j].plot_spectrum(ax=axes[j,i], method='ls', transformed=False, log=False)
             elif isinstance(nyquist, np.ndarray):
                 x_high = min(x_high, nyquist[j,i])
 
@@ -69,16 +71,26 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, title
                 #axes[j,i].plot(x, single_psd, ls='--', c='k', zorder=2)
                 axes[j,i].axvline(means[q,j,i], ymin=0.001, ymax=0.05, lw=3, color='C1')
                 psd += single_psd
+            if noises is not None:
+                psd += noises[j]
 
             # normalize
             psd /= psd.sum() * (x[1]-x[0])
+
+            y_low = 0.0
+            if log:
+                x_low = max(x_low, 1e-8)
+                y_low = 1e-8
            
             axes[j,i].plot(x, psd, ls='-', c='C0')
             axes[j,i].set_xlim(x_low, x_high)
+            axes[j,i].set_ylim(y_low, None)
             axes[j,i].set_yticks([])
-            axes[j,i].set_ylim(0, None)
             if titles is not None:
                 axes[j,i].set_title(titles[j])
+            if log:
+                axes[j,i].set_xscale('log')
+                axes[j,i].set_yscale('log')
 
     axes[output_dims-1,i].set_xlabel('Frequency')
 

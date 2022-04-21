@@ -273,24 +273,23 @@ class Exact(Model):
         # turn on Gaussian likelihood variance per channel and or per data point
         # variance shape will be (channels,data_points), where if either is unity, the variance will be equal amonst all channels or data points respectively
         variance = Parameter.to_tensor(variance).squeeze()
-        self.variance_per_data = False
         if variance.ndim == 1 and 0 < X.ndim and variance.shape[0] == X.shape[0]:
-            self.variance_per_data = True
+            variance = variance.reshape(1,-1)
         elif variance.ndim == 0 or variance.ndim == 1 and variance.shape[0] == 1:
             variance = variance.repeat(kernel.output_dims)
         elif variance.ndim != 1 or variance.shape[0] != kernel.output_dims:
             raise ValueError("variance must have shape (channels,) or (data_points,)")
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
-        self.likelihood.variance.trainable = not self.variance_per_data
+        self.likelihood.variance.trainable = variance.ndim == 1
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
 
     def log_marginal_likelihood(self):
         Kff = self.kernel.K(self.X)
-        if self.variance_per_data:
-            Kff += self.likelihood.variance().diagflat()
+        if self.likelihood.variance().ndim == 2:
+            Kff += self.likelihood.variance()[0,:].diagflat()
         else:
             Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
         L = self._cholesky(Kff, add_jitter=True)  # NxN
@@ -306,7 +305,7 @@ class Exact(Model):
         return p
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
-        if self.variance_per_data and predict_y:
+        if self.likelihood.variance().ndim == 2 and predict_y:
             raise ValueError("can only predict f when data point variances are given, set predict_y=False")
 
         with torch.no_grad():
@@ -317,8 +316,8 @@ class Exact(Model):
                 y = self.y  # Nx1
 
             Kff = self.kernel.K(self.X)
-            if self.variance_per_data:
-                Kff += self.likelihood.variance().diagflat()
+            if self.likelihood.variance().ndim == 2:
+                Kff += self.likelihood.variance()[0,:].diagflat()
             else:
                 Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
             Kfs = self.kernel.K(self.X,Xs)  # NxM

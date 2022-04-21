@@ -2,7 +2,7 @@ import numpy as np
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import SpectralKernel, IndependentMultiOutputKernel, MixtureKernel
+from ..gpr import SpectralKernel, IndependentMultiOutputKernel, MixtureKernel, GaussianLikelihood
 from ..plot import plot_spectrum
 
 class SM(Model):
@@ -129,7 +129,7 @@ class SM(Model):
                 self.gpr.kernel[j][q].mean.assign(means[j][q,:])
                 self.gpr.kernel[j][q].variance.assign(variances[j][q,:])
 
-    def plot_spectrum(self, title=None):
+    def plot_spectrum(self, log=False, noise=False, title=None):
         """
         Plot spectrum of kernel.
         """
@@ -141,4 +141,12 @@ class SM(Model):
         scales = np.array([[np.sqrt(self.gpr.kernel[j][q].variance.numpy()) for j in range(output_dims)] for q in range(self.Q)])
         weights = np.array([[self.gpr.kernel[j][q].sigma.numpy()[0]**2 for j in range(output_dims)] for q in range(self.Q)])
 
-        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, titles=names, title=title)
+        noises = None
+        if noise:
+            if not isinstance(self.gpr.likelihood, GaussianLikelihood):
+                raise ValueError("likelihood must be Gaussian to enable spectral noise")
+            if self.gpr.likelihood.variance().ndim == 2:
+                raise ValueError("likelihood variance must not be per data point to enable spectral noise")
+            noises = self.gpr.likelihood.variance.numpy()
+
+        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, log=log, titles=names, title=title)

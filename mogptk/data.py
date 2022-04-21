@@ -155,6 +155,7 @@ class Data:
         Args:
             X (list, numpy.ndarray, dict): Independent variable data of shape (n,) or (n,input_dims), or a list with elements of shape (n,) for each input dimension.
             Y (list, numpy.ndarray): Dependent variable data of shape (n,).
+            Y_err (list, numpy.ndarray): Standard deviation of the dependent variable data of shape (n,).
             name (str): Name of data.
             x_labels (str, list of str): Name or names of input dimensions.
             y_label (str): Name of output dimension.
@@ -1070,6 +1071,15 @@ class Data:
             _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
 
         legends = []
+        if errorbars and self.Y_err is not None:
+            x, y = self.get_train_data(transformed=transformed)
+            yl = self.Y[self.mask] - self.Y_err[self.mask]
+            yu = self.Y[self.mask] + self.Y_err[self.mask]
+            if transformed:
+                yl = self.Y.transform(yl, x)
+                yu = self.Y.transform(yu, x)
+            plt.errorbar(x[0], y, [y-yl, yu-y], elinewidth=0.5, ecolor='k', capsize=0, ls='', marker='')
+
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
             if self.Y_mu_pred[name].size != 0 and (pred is None or name.lower() == pred.lower()):
@@ -1116,16 +1126,8 @@ class Data:
         legends.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
 
         x, y = self.get_train_data(transformed=transformed)
-        ax.plot(x[0], y, 'k.', mew=1, ms=13, markeredgecolor='white')
+        ax.plot(x[0], y, 'k.', mew=0.5, ms=10, markeredgecolor='white')
         legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
-
-        if errorbars and self.Y_err is not None:
-            yl = self.Y[self.mask] - self.Y_err[self.mask]
-            yu = self.Y[self.mask] + self.Y_err[self.mask]
-            if transformed:
-                yl = self.Y.transform(yl, x)
-                yu = self.Y.transform(yu, x)
-            plt.errorbar(x[0], y, [y-yl, yu-y], elinewidth=0.5, ecolor='k', capsize=2)
 
         if self.has_test_data():
             for removed_range in self.removed_ranges[0]:
@@ -1158,7 +1160,7 @@ class Data:
 
         return ax
 
-    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, transformed=True):
+    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, log=False, transformed=True):
         """
         Plot the spectrum of the data.
 
@@ -1168,6 +1170,7 @@ class Data:
             ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
             per (str, float, numpy.timedelta64): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.
             maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            log (boolean): Show X and Y axis in log-scale.
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
@@ -1239,6 +1242,10 @@ class Data:
         if len(Y_freq_err) != 0:
             ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
         ax.set_title((self.name + ' Spectrum' if self.name is not None else '') if title is None else title, fontsize=14)
+
+        if log:
+            ax.set_xscale('log')
+            ax.set_yscale('log')
 
         if not ax_set:
             xmin = X_freq.min()

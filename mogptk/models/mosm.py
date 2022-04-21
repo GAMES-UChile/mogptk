@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import MultiOutputSpectralKernel, MixtureKernel
+from ..gpr import MultiOutputSpectralKernel, MixtureKernel, GaussianLikelihood
 from ..plot import plot_spectrum
 
 class MOSM(Model):
@@ -132,7 +132,7 @@ class MOSM(Model):
                 if np.linalg.norm(mean) < np.linalg.norm(var):
                     print("‣ MOSM approaches RBF kernel for q=%d in channel='%s'" % (q, self.dataset[j].name))
 
-    def plot_spectrum(self, title=None):
+    def plot_spectrum(self, log=False, noise=False, title=None):
         """
         Plot spectrum of kernel.
         """
@@ -143,7 +143,15 @@ class MOSM(Model):
         scales = np.array([np.sqrt(self.gpr.kernel[q].variance.numpy()) for q in range(self.Q)])
         weights = np.array([self.gpr.kernel[q].magnitude.numpy() for q in range(self.Q)])**2
 
-        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, titles=names, title=title)
+        noises = None
+        if noise:
+            if not isinstance(self.gpr.likelihood, GaussianLikelihood):
+                raise ValueError("likelihood must be Gaussian to enable spectral noise")
+            if self.gpr.likelihood.variance().ndim == 2:
+                raise ValueError("likelihood variance must not be per data point to enable spectral noise")
+            noises = self.gpr.likelihood.variance.numpy()
+
+        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, log=log, titles=names, title=title)
 
     def plot_cross_spectrum(self, title=None, figsize=(12,12)):
         """

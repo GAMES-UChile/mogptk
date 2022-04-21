@@ -42,7 +42,7 @@ class Exact:
         variance = self.variance
         if variance is None:
             if y_err is not None:
-                variance = y_err
+                variance = y_err**2
             else:
                 variance = 1.0
         return gpr.Exact(kernel, x, y, variance=variance, jitter=self.jitter, mean=mean, name=name)
