@@ -4,7 +4,6 @@ __pycache__/
 *.npy
 build/
 dist/
-!docs/dist/
 mogptk.egg-info/
 examples/test*
 examples/experiments
