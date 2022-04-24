@@ -45,33 +45,33 @@ See [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://doi.org/10.1016/
 
 ## Tutorials
 
-**[00 - Quick Start](https://github.com/GAMES-UChile/mogptk/blob/master/examples/00_Quick_Start.ipynb)**: Short notebook showing the basic use of the toolkit.
+**[00 - Quick Start](https://games-uchile.github.io/mogptk/examples.html?q=00_Quick_Start)**: Short notebook showing the basic use of the toolkit.
 
-**[01 - Data Loading](https://github.com/GAMES-UChile/mogptk/blob/master/examples/01_Data_Loading.ipynb)**: Functionality to load CSVs and DataFrames while using formatters for dates.
+**[01 - Data Loading](https://games-uchile.github.io/mogptk/examples.html?q=01_Data_Loading)**: Functionality to load CSVs and DataFrames while using formatters for dates.
 
-**[02 - Data Preparation](https://github.com/GAMES-UChile/mogptk/blob/master/examples/02_Data_Preparation.ipynb)**: Handle data, removing observations to simulate sensor failure and apply tranformations to the data.
+**[02 - Data Preparation](https://games-uchile.github.io/mogptk/examples.html?q=02_Data_Preparation)**: Handle data, removing observations to simulate sensor failure and apply tranformations to the data.
 
-**[03 - Parameter Initialization](https://github.com/GAMES-UChile/mogptk/blob/master/examples/03_Parameter_Initialization.ipynb)**: Parameter initialization using different methods, for single output regression using spectral mixture kernel and multioutput case using MOSM kernel.
+**[03 - Parameter Initialization](https://games-uchile.github.io/mogptk/examples.html?q=03_Parameter_Initialization)**: Parameter initialization using different methods, for single output regression using spectral mixture kernel and multioutput case using MOSM kernel.
 
-**[04 - Model Training](https://github.com/GAMES-UChile/mogptk/blob/master/examples/04_Model_Training.ipynb)**: Training of models while keeping certain parameters fixed.
+**[04 - Model Training](https://games-uchile.github.io/mogptk/examples.html?q=04_Model_Training)**: Training of models while keeping certain parameters fixed.
 
-**[05 - Error Metrics](https://github.com/GAMES-UChile/mogptk/blob/master/examples/05_Error_Metrics.ipynb)** Obtain different metrics in order to compare models.
+**[05 - Error Metrics](https://games-uchile.github.io/mogptk/examples.html?q=05_Error_Metrics)** Obtain different metrics in order to compare models.
 
-**[06 - Custom Kernels and Mean Functions](https://github.com/GAMES-UChile/mogptk/blob/master/examples/06_Custom_Kernels_and_Mean_Functions.ipynb)** Use or create custom kernels as well as training custom mean functions.
+**[06 - Custom Kernels and Mean Functions](https://games-uchile.github.io/mogptk/examples.html?q=06_Custom_Kernels_and_Mean_Functions)** Use or create custom kernels as well as training custom mean functions.
 
 ## Examples
 
-**[Airline passangers](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_airline_passengers.ipynb)**: Regression using a single output spectral mixture on the yearly number of passengers of an airline.
+**[Airline passengers](https://games-uchile.github.io/mogptk/examples.html?q=example_airline_passengers)**: Regression using a single output spectral mixture on the yearly number of passengers of an airline.
 
-**[Seasonal CO2 of Mauna-Loa](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_mauna_loa.ipynb)**: Regression using a single output spectral mixture on the CO2 concentration at Mauna-Loa throughout many years.
+**[Seasonal CO2 of Mauna-Loa](https://games-uchile.github.io/mogptk/examples.html?q=example_mauna_loa)**: Regression using a single output spectral mixture on the CO2 concentration at Mauna-Loa throughout many years.
 
-**[Currency Exchange](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_currency_exchange.ipynb)**: Model training, interpretation and comparison on a dataset of 11 currency exchange rates (against the dollar) from 2017 and 2018. These 11 channels are fitted with the MOSM, SM-LMC, CSM, and CONV kernels and their results are compared and interpreted.
+**[Currency Exchange](https://games-uchile.github.io/mogptk/examples.html?q=example_currency_exchange)**: Model training, interpretation and comparison on a dataset of 11 currency exchange rates (against the dollar) from 2017 and 2018. These 11 channels are fitted with the MOSM, SM-LMC, CSM, and CONV kernels and their results are compared and interpreted.
 
-**[Gold, Oil, NASDAQ, USD-index](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_gold_oil_NASDAQ_USD.ipynb)**: The commodity indices for gold and oil, together with the indices for the NASDAQ and the USD against a basket of other currencies, we train multiple models to find correlations between the macro economic indicators.
+**[Gold, Oil, NASDAQ, USD-index](https://games-uchile.github.io/mogptk/examples.html?q=example_gold_oil_NASDAQ_USD)**: The commodity indices for gold and oil, together with the indices for the NASDAQ and the USD against a basket of other currencies, we train multiple models to find correlations between the macro economic indicators.
 
-**[Human Activity Recognition](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_human_activity_recognition.ipynb)**: Using the Inertial Measurement Unit (IMU) of an Apple iPhone 4, the accelerometer, gyroscope and magnetometer 3D data were recorded for different activities resulting in nine channels.
+**[Human Activity Recognition](https://games-uchile.github.io/mogptk/examples.html?q=example_human_activity_recognition)**: Using the Inertial Measurement Unit (IMU) of an Apple iPhone 4, the accelerometer, gyroscope and magnetometer 3D data were recorded for different activities resulting in nine channels.
 
-**[Bramblemet tidal waves](https://github.com/GAMES-UChile/mogptk/blob/master/examples/example_bramblemet.ipynb)**: Tidal wave data set of four locations in the south of England. We model the tidal wave periods of approximately 12.5 hours using different multi-output Gaussian processes.
+**[Bramblemet tidal waves](https://games-uchile.github.io/mogptk/examples.html?q=example_bramblemet)**: Tidal wave data set of four locations in the south of England. We model the tidal wave periods of approximately 12.5 hours using different multi-output Gaussian processes.
 
 ## Documentation
 See the [API documentation](https://games-uchile.github.io/mogptk/) for documentation of our toolkit, including usage and examples of functions and classes.

@@ -358,22 +358,26 @@
     % endif
 
     % if not supermodule:
+    <li><h3><a href="#header-tutorials">Tutorials</a></h3>
+      <ul>
+        <li><a href="examples.html?q=00_Quick_Start">00 Quick Start</a></li>
+        <li><a href="examples.html?q=01_Data_Loading">01 Data Loading</a></li>
+        <li><a href="examples.html?q=02_Data_Preparation">02 Data Preparation</a></li>
+        <li><a href="examples.html?q=03_Parameter_Initialization">03 Parameter Initialization</a></li>
+        <li><a href="examples.html?q=04_Model_Training">04 Model Training</a></li>
+        <li><a href="examples.html?q=05_Error_Metrics">05 Error Metrics</a></li>
+        <li><a href="examples.html?q=06_Custom_Kernels_and_Mean_Functions">06 Custom Kernels and Mean Functions</a></li>
+      </ul>
+    </li>
     <li><h3><a href="#header-examples">Examples</a></h3>
       <ul>
-        <li><a href="examples.html?q=00_Quick_Start">00_Quick_Start</a></li>
-        <li><a href="examples.html?q=01_Data_Loading">01_Data_Loading</a></li>
-        <li><a href="examples.html?q=02_Data_Preparation">02_Data_Preparation</a></li>
-        <li><a href="examples.html?q=03_Parameter_Initialization">03_Parameter_Initialization</a></li>
-        <li><a href="examples.html?q=04_Model_Training">04_Model_Training</a></li>
-        <li><a href="examples.html?q=05_Error_Metrics">05_Error_Metrics</a></li>
-        <li><a href="examples.html?q=06_Custom_Kernels_and_Mean_Functions">06_Custom_Kernels_and_Mean_Functions</a></li>
         <li><a href="examples.html?q=example_airline_passengers">Airline passengers</a></li>
-        <li><a href="examples.html?q=example_bramblemet">Bramblemet</a></li>
-        <li><a href="examples.html?q=example_currency_exchange">Currency exchange</a></li>
-        <li><a href="examples.html?q=example_eeg">EEG</a></li>
-        <li><a href="examples.html?q=example_gold_oil_NASDAQ_USD">Gold, Oil, NASDAQ, USD</a></li>
-        <li><a href="examples.html?q=example_human_activity_recognition">HAR</a></li>
         <li><a href="examples.html?q=example_mauna_loa">Mauna Loa</a></li>
+        <li><a href="examples.html?q=example_currency_exchange">Currencies</a></li>
+        <li><a href="examples.html?q=example_gold_oil_NASDAQ_USD">Financial</a></li>
+        <li><a href="examples.html?q=example_human_activity_recognition">HAR</a></li>
+        <li><a href="examples.html?q=example_bramblemet">Bramblemet</a></li>
+        <li><a href="examples.html?q=example_eeg">EEG</a></li>
       </ul>
     </li>
     % endif
