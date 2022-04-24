@@ -1,0 +1,1049 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>mogptk.serie API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>mogptk.serie</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L1-L218" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">import copy
+import numpy as np
+
+class TransformBase:
+    &#34;&#34;&#34;
+    TransformBase is a base class for transformations. Each derived class must at least implement the `forward()` and `backward()` functions.
+
+    &#34;&#34;&#34;
+    def set_data(self, data):
+        pass
+
+    def forward(self, y, x=None):
+        raise NotImplementedError
+    
+    def backward(self, y, x=None):
+        raise NotImplementedError
+
+class TransformDetrend(TransformBase):
+    &#34;&#34;&#34;
+    TransformDetrend is a transformer that detrends the data. It uses `numpy.polyfit` to find a polynomial of given degree that best fits the data and thus removes the trend.
+
+    Args:
+        degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
+    &#34;&#34;&#34;
+    # TODO: add regression?
+    def __init__(self, degree=1, dim=0):
+        self.degree = degree
+        self.dim = dim
+
+    def __repr__(self):
+        return &#39;TransformDetrend(degree=%g)&#39; % (self.degree,)
+
+    def set_data(self, data):
+        if data.get_input_dims() != 1:
+            raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
+
+        x = np.array(data.X[self.dim][data.mask]).astype(np.float64)
+        self.coef = np.polyfit(x, data.Y.transformed[data.mask], self.degree)
+
+    def forward(self, y, x):
+        if x is None:
+            raise ValueError(&#34;must set X for transformation&#34;)
+        x = x[self.dim].astype(np.float64)
+        return y - np.polyval(self.coef, x)
+    
+    def backward(self, y, x):
+        if x is None:
+            raise ValueError(&#34;must set X for transformation&#34;)
+        x = x[self.dim].astype(np.float64)
+        return y + np.polyval(self.coef, x)
+
+class TransformLinear(TransformBase):
+    &#34;&#34;&#34;
+    TransformLinear transforms the data linearly so that y =&gt; (y-bias)/slope.
+    &#34;&#34;&#34;
+    def __init__(self, bias=0.0, slope=1.0):
+        self.bias = bias
+        self.slope = slope
+
+    def __repr__(self):
+        return &#39;TransformLinear(bias=%g, slope=%g)&#39; % (self.bias, self.slope)
+
+    def set_data(self, data):
+        pass
+
+    def forward(self, y, x=None):
+        return (y-self.bias)/self.slope
+
+    def backward(self, y, x=None):
+        return self.bias + self.slope*y
+
+class TransformNormalize(TransformBase):
+    &#34;&#34;&#34;
+    TransformNormalize is a transformer that normalizes the data so that the Y axis is between -1 and 1.
+    &#34;&#34;&#34;
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return &#39;TransformNormalize(min=%g, max=%g)&#39; % (self.ymin, self.ymax)
+
+    def set_data(self, data):
+        self.ymin = np.amin(data.Y.transformed[data.mask])
+        self.ymax = np.amax(data.Y.transformed[data.mask])
+
+    def forward(self, y, x=None):
+        return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
+    
+    def backward(self, y, x=None):
+        return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin
+
+class TransformLog(TransformBase):
+    &#34;&#34;&#34;
+    TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the Y axis so that all values are greater than or equal to 1.
+    &#34;&#34;&#34;
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return &#39;TransformLog(shift=%g, mean=%g)&#39; % (self.shift, self.mean)
+
+    def set_data(self, data):
+        self.shift = 1 - data.Y.transformed.min()
+        self.mean = np.log(data.Y.transformed + self.shift).mean()
+
+    def forward(self, y, x=None):
+        return np.log(y + self.shift) - self.mean
+    
+    def backward(self, y, x=None):
+        return np.exp(y + self.mean) - self.shift
+
+class TransformStandard(TransformBase):
+    &#34;&#34;&#34;
+    TransformStandard is a transformer that whitens the data. That is, it transform the data so it has zero mean and unit variance.
+    &#34;&#34;&#34;
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return &#39;TransformStandard(mean=%g, std=%g)&#39; % (self.mean, self.std)
+    
+    def set_data(self, data):
+        # take only the non-removed observations
+        self.mean = data.Y.transformed[data.mask].mean()
+        self.std = data.Y.transformed[data.mask].std()
+        
+    def forward(self, y, x=None):
+        return (y - self.mean) / self.std
+    
+    def backward(self, y, x=None):
+        return (y * self.std) + self.mean
+
+# TODO: add TransformFunction with a given mean function
+
+################################################################
+################################################################
+################################################################
+
+class Serie(np.ndarray):
+    &#34;&#34;&#34;
+    Serie is an extension to the `numpy.ndarray` data type and includes transformations for the array. That is, it maintains the original data array, but also keeps a transformed data array to improve training using e.g. Gaussian processes. By storing the chain of transformations, it is possible to detransform predictions done in the transformed space to the original space and thus allows analysis or plotting in the original domain. Automatic conversions is performed for `numpy.datetime64` arrays to `numpy.float` arrays.
+    &#34;&#34;&#34;
+    def __new__(cls, array, transformers=[], x=None, transformed=None):
+        array = np.asarray(array)
+        #if array.ndim != 1 or array.shape[0] == 0:
+        #    raise ValueError(&#39;Serie must have one dimension and a length greater than zero&#39;)
+        if not np.issubdtype(array.dtype, np.float64) and not np.issubdtype(array.dtype, np.datetime64):
+            raise ValueError(&#39;Serie must have a float64 or datetime64 data type&#39;)
+
+        obj = np.asarray(array).view(cls)
+        if transformed is None:
+            obj.transformed = array.astype(np.float64)
+            obj.transformers = []
+            obj.apply(transformers, x)
+        else:
+            obj.transformed = transformed
+            obj.transformers = obj.transformers
+
+        obj.flags[&#39;WRITEABLE&#39;] = False
+        obj.transformed.flags[&#39;WRITEABLE&#39;] = False
+        return obj
+
+    def __array_finalize__(self, obj):
+        if obj is None:
+            return
+        self.transformed = copy.deepcopy(getattr(obj, &#39;transformed&#39;, None))
+        self.transformers = copy.deepcopy(getattr(obj, &#39;transformers&#39;, None))
+    
+    def __getitem__(self, index):
+        ret = super().__getitem__(index)
+        if isinstance(ret, Serie):
+            ret.transformed = ret.transformed.__getitem__(index)
+        return ret
+
+    def __reduce__(self):
+        parent = super().__reduce__()
+        return (parent[0], parent[1], parent[2] + (self.transformed,self.transformers))
+
+    def __setstate__(self, data):
+        super().__setstate__(data[:-2])
+        self.transformed = data[-2]
+        self.transformers = data[-1]
+
+    def apply(self, transformers, x=None):
+        if not isinstance(transformers, list):
+            transformers = [transformers]
+        if not all(issubclass(type(t), TransformBase) for t in transformers):
+            raise ValueError(&#39;transformers must derive from TransformBase&#39;)
+        #if x is not None and (x.ndim != 2 or x.shape[0] != self.shape[0]):
+        #    raise ValueError(&#39;x must have two dimensions and a length equal to the series&#39;)
+
+        for t in transformers:
+            self.transformed = np.array(t.forward(self.transformed, x))
+            self.transformers.append(t)
+
+    def is_datetime64(self):
+        return np.issubdtype(self.dtype, np.datetime64)
+
+    def get_time_unit(self):
+        if not self.is_datetime64():
+            raise ValueError(&#39;Serie must have a datetime64 data type&#39;)
+
+        unit = str(self.dtype)
+        locBracket = unit.find(&#39;[&#39;)
+        if locBracket == -1:
+            return &#39;&#39;
+        return unit[locBracket+1:-1]
+
+    def transform(self, array, x=None):
+        array = array.astype(self.dtype).astype(np.float64)
+        for t in self.transformers:
+            array = np.array(t.forward(array, x))
+        return array
+
+    def detransform(self, array, x=None):
+        for t in self.transformers[::-1]:
+            array = np.array(t.backward(array, x))
+        return array.astype(self.dtype)</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="mogptk.serie.Serie"><code class="flex name class">
+<span>class <span class="ident">Serie</span></span>
+<span>(</span><span>array, transformers=[], x=None, transformed=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Serie is an extension to the <code>numpy.ndarray</code> data type and includes transformations for the array. That is, it maintains the original data array, but also keeps a transformed data array to improve training using e.g. Gaussian processes. By storing the chain of transformations, it is possible to detransform predictions done in the transformed space to the original space and thus allows analysis or plotting in the original domain. Automatic conversions is performed for <code>numpy.datetime64</code> arrays to <code>numpy.float</code> arrays.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L139-L218" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Serie(np.ndarray):
+    &#34;&#34;&#34;
+    Serie is an extension to the `numpy.ndarray` data type and includes transformations for the array. That is, it maintains the original data array, but also keeps a transformed data array to improve training using e.g. Gaussian processes. By storing the chain of transformations, it is possible to detransform predictions done in the transformed space to the original space and thus allows analysis or plotting in the original domain. Automatic conversions is performed for `numpy.datetime64` arrays to `numpy.float` arrays.
+    &#34;&#34;&#34;
+    def __new__(cls, array, transformers=[], x=None, transformed=None):
+        array = np.asarray(array)
+        #if array.ndim != 1 or array.shape[0] == 0:
+        #    raise ValueError(&#39;Serie must have one dimension and a length greater than zero&#39;)
+        if not np.issubdtype(array.dtype, np.float64) and not np.issubdtype(array.dtype, np.datetime64):
+            raise ValueError(&#39;Serie must have a float64 or datetime64 data type&#39;)
+
+        obj = np.asarray(array).view(cls)
+        if transformed is None:
+            obj.transformed = array.astype(np.float64)
+            obj.transformers = []
+            obj.apply(transformers, x)
+        else:
+            obj.transformed = transformed
+            obj.transformers = obj.transformers
+
+        obj.flags[&#39;WRITEABLE&#39;] = False
+        obj.transformed.flags[&#39;WRITEABLE&#39;] = False
+        return obj
+
+    def __array_finalize__(self, obj):
+        if obj is None:
+            return
+        self.transformed = copy.deepcopy(getattr(obj, &#39;transformed&#39;, None))
+        self.transformers = copy.deepcopy(getattr(obj, &#39;transformers&#39;, None))
+    
+    def __getitem__(self, index):
+        ret = super().__getitem__(index)
+        if isinstance(ret, Serie):
+            ret.transformed = ret.transformed.__getitem__(index)
+        return ret
+
+    def __reduce__(self):
+        parent = super().__reduce__()
+        return (parent[0], parent[1], parent[2] + (self.transformed,self.transformers))
+
+    def __setstate__(self, data):
+        super().__setstate__(data[:-2])
+        self.transformed = data[-2]
+        self.transformers = data[-1]
+
+    def apply(self, transformers, x=None):
+        if not isinstance(transformers, list):
+            transformers = [transformers]
+        if not all(issubclass(type(t), TransformBase) for t in transformers):
+            raise ValueError(&#39;transformers must derive from TransformBase&#39;)
+        #if x is not None and (x.ndim != 2 or x.shape[0] != self.shape[0]):
+        #    raise ValueError(&#39;x must have two dimensions and a length equal to the series&#39;)
+
+        for t in transformers:
+            self.transformed = np.array(t.forward(self.transformed, x))
+            self.transformers.append(t)
+
+    def is_datetime64(self):
+        return np.issubdtype(self.dtype, np.datetime64)
+
+    def get_time_unit(self):
+        if not self.is_datetime64():
+            raise ValueError(&#39;Serie must have a datetime64 data type&#39;)
+
+        unit = str(self.dtype)
+        locBracket = unit.find(&#39;[&#39;)
+        if locBracket == -1:
+            return &#39;&#39;
+        return unit[locBracket+1:-1]
+
+    def transform(self, array, x=None):
+        array = array.astype(self.dtype).astype(np.float64)
+        for t in self.transformers:
+            array = np.array(t.forward(array, x))
+        return array
+
+    def detransform(self, array, x=None):
+        for t in self.transformers[::-1]:
+            array = np.array(t.backward(array, x))
+        return array.astype(self.dtype)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>numpy.ndarray</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.serie.Serie.apply"><code class="name flex">
+<span>def <span class="ident">apply</span></span>(<span>self, transformers, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L184-L194" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def apply(self, transformers, x=None):
+    if not isinstance(transformers, list):
+        transformers = [transformers]
+    if not all(issubclass(type(t), TransformBase) for t in transformers):
+        raise ValueError(&#39;transformers must derive from TransformBase&#39;)
+    #if x is not None and (x.ndim != 2 or x.shape[0] != self.shape[0]):
+    #    raise ValueError(&#39;x must have two dimensions and a length equal to the series&#39;)
+
+    for t in transformers:
+        self.transformed = np.array(t.forward(self.transformed, x))
+        self.transformers.append(t)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.Serie.detransform"><code class="name flex">
+<span>def <span class="ident">detransform</span></span>(<span>self, array, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L215-L218" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def detransform(self, array, x=None):
+    for t in self.transformers[::-1]:
+        array = np.array(t.backward(array, x))
+    return array.astype(self.dtype)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.Serie.get_time_unit"><code class="name flex">
+<span>def <span class="ident">get_time_unit</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L199-L207" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def get_time_unit(self):
+    if not self.is_datetime64():
+        raise ValueError(&#39;Serie must have a datetime64 data type&#39;)
+
+    unit = str(self.dtype)
+    locBracket = unit.find(&#39;[&#39;)
+    if locBracket == -1:
+        return &#39;&#39;
+    return unit[locBracket+1:-1]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.Serie.is_datetime64"><code class="name flex">
+<span>def <span class="ident">is_datetime64</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L196-L197" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def is_datetime64(self):
+    return np.issubdtype(self.dtype, np.datetime64)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.Serie.transform"><code class="name flex">
+<span>def <span class="ident">transform</span></span>(<span>self, array, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L209-L213" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def transform(self, array, x=None):
+    array = array.astype(self.dtype).astype(np.float64)
+    for t in self.transformers:
+        array = np.array(t.forward(array, x))
+    return array</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.serie.TransformBase"><code class="flex name class">
+<span>class <span class="ident">TransformBase</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>TransformBase is a base class for transformations. Each derived class must at least implement the <code>forward()</code> and <code>backward()</code> functions.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L4-L16" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class TransformBase:
+    &#34;&#34;&#34;
+    TransformBase is a base class for transformations. Each derived class must at least implement the `forward()` and `backward()` functions.
+
+    &#34;&#34;&#34;
+    def set_data(self, data):
+        pass
+
+    def forward(self, y, x=None):
+        raise NotImplementedError
+    
+    def backward(self, y, x=None):
+        raise NotImplementedError</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="mogptk.serie.TransformDetrend" href="#mogptk.serie.TransformDetrend">TransformDetrend</a></li>
+<li><a title="mogptk.serie.TransformLinear" href="#mogptk.serie.TransformLinear">TransformLinear</a></li>
+<li><a title="mogptk.serie.TransformLog" href="#mogptk.serie.TransformLog">TransformLog</a></li>
+<li><a title="mogptk.serie.TransformNormalize" href="#mogptk.serie.TransformNormalize">TransformNormalize</a></li>
+<li><a title="mogptk.serie.TransformStandard" href="#mogptk.serie.TransformStandard">TransformStandard</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.serie.TransformBase.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L15-L16" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    raise NotImplementedError</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformBase.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L12-L13" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    raise NotImplementedError</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformBase.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L9-L10" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    pass</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.serie.TransformDetrend"><code class="flex name class">
+<span>class <span class="ident">TransformDetrend</span></span>
+<span>(</span><span>degree=1, dim=0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>TransformDetrend is a transformer that detrends the data. It uses <code>numpy.polyfit</code> to find a polynomial of given degree that best fits the data and thus removes the trend.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>degree</code></strong> :&ensp;<code>int</code></dt>
+<dd>Polynomial degree that will be fit, i.e. <code>2</code> will find a quadratic trend and remove it from the data.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L18-L50" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class TransformDetrend(TransformBase):
+    &#34;&#34;&#34;
+    TransformDetrend is a transformer that detrends the data. It uses `numpy.polyfit` to find a polynomial of given degree that best fits the data and thus removes the trend.
+
+    Args:
+        degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
+    &#34;&#34;&#34;
+    # TODO: add regression?
+    def __init__(self, degree=1, dim=0):
+        self.degree = degree
+        self.dim = dim
+
+    def __repr__(self):
+        return &#39;TransformDetrend(degree=%g)&#39; % (self.degree,)
+
+    def set_data(self, data):
+        if data.get_input_dims() != 1:
+            raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
+
+        x = np.array(data.X[self.dim][data.mask]).astype(np.float64)
+        self.coef = np.polyfit(x, data.Y.transformed[data.mask], self.degree)
+
+    def forward(self, y, x):
+        if x is None:
+            raise ValueError(&#34;must set X for transformation&#34;)
+        x = x[self.dim].astype(np.float64)
+        return y - np.polyval(self.coef, x)
+    
+    def backward(self, y, x):
+        if x is None:
+            raise ValueError(&#34;must set X for transformation&#34;)
+        x = x[self.dim].astype(np.float64)
+        return y + np.polyval(self.coef, x)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.serie.TransformBase" href="#mogptk.serie.TransformBase">TransformBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.serie.TransformDetrend.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L46-L50" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def backward(self, y, x):
+    if x is None:
+        raise ValueError(&#34;must set X for transformation&#34;)
+    x = x[self.dim].astype(np.float64)
+    return y + np.polyval(self.coef, x)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformDetrend.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L40-L44" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def forward(self, y, x):
+    if x is None:
+        raise ValueError(&#34;must set X for transformation&#34;)
+    x = x[self.dim].astype(np.float64)
+    return y - np.polyval(self.coef, x)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformDetrend.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L33-L38" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    if data.get_input_dims() != 1:
+        raise ValueError(&#34;can only remove ranges on one dimensional input data&#34;)
+
+    x = np.array(data.X[self.dim][data.mask]).astype(np.float64)
+    self.coef = np.polyfit(x, data.Y.transformed[data.mask], self.degree)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.serie.TransformLinear"><code class="flex name class">
+<span>class <span class="ident">TransformLinear</span></span>
+<span>(</span><span>bias=0.0, slope=1.0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>TransformLinear transforms the data linearly so that y =&gt; (y-bias)/slope.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L52-L70" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class TransformLinear(TransformBase):
+    &#34;&#34;&#34;
+    TransformLinear transforms the data linearly so that y =&gt; (y-bias)/slope.
+    &#34;&#34;&#34;
+    def __init__(self, bias=0.0, slope=1.0):
+        self.bias = bias
+        self.slope = slope
+
+    def __repr__(self):
+        return &#39;TransformLinear(bias=%g, slope=%g)&#39; % (self.bias, self.slope)
+
+    def set_data(self, data):
+        pass
+
+    def forward(self, y, x=None):
+        return (y-self.bias)/self.slope
+
+    def backward(self, y, x=None):
+        return self.bias + self.slope*y</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.serie.TransformBase" href="#mogptk.serie.TransformBase">TransformBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.serie.TransformLinear.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L69-L70" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    return self.bias + self.slope*y</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformLinear.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L66-L67" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    return (y-self.bias)/self.slope</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformLinear.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L63-L64" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    pass</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.serie.TransformLog"><code class="flex name class">
+<span>class <span class="ident">TransformLog</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the Y axis so that all values are greater than or equal to 1.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L92-L110" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class TransformLog(TransformBase):
+    &#34;&#34;&#34;
+    TransformLog is a transformer that takes the log of the data. Data is automatically shifted in the Y axis so that all values are greater than or equal to 1.
+    &#34;&#34;&#34;
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return &#39;TransformLog(shift=%g, mean=%g)&#39; % (self.shift, self.mean)
+
+    def set_data(self, data):
+        self.shift = 1 - data.Y.transformed.min()
+        self.mean = np.log(data.Y.transformed + self.shift).mean()
+
+    def forward(self, y, x=None):
+        return np.log(y + self.shift) - self.mean
+    
+    def backward(self, y, x=None):
+        return np.exp(y + self.mean) - self.shift</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.serie.TransformBase" href="#mogptk.serie.TransformBase">TransformBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.serie.TransformLog.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L109-L110" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    return np.exp(y + self.mean) - self.shift</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformLog.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L106-L107" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    return np.log(y + self.shift) - self.mean</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformLog.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L102-L104" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    self.shift = 1 - data.Y.transformed.min()
+    self.mean = np.log(data.Y.transformed + self.shift).mean()</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.serie.TransformNormalize"><code class="flex name class">
+<span>class <span class="ident">TransformNormalize</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>TransformNormalize is a transformer that normalizes the data so that the Y axis is between -1 and 1.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L72-L90" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class TransformNormalize(TransformBase):
+    &#34;&#34;&#34;
+    TransformNormalize is a transformer that normalizes the data so that the Y axis is between -1 and 1.
+    &#34;&#34;&#34;
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return &#39;TransformNormalize(min=%g, max=%g)&#39; % (self.ymin, self.ymax)
+
+    def set_data(self, data):
+        self.ymin = np.amin(data.Y.transformed[data.mask])
+        self.ymax = np.amax(data.Y.transformed[data.mask])
+
+    def forward(self, y, x=None):
+        return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
+    
+    def backward(self, y, x=None):
+        return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.serie.TransformBase" href="#mogptk.serie.TransformBase">TransformBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.serie.TransformNormalize.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L89-L90" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    return (y+1.0)/2.0*(self.ymax-self.ymin)+self.ymin</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformNormalize.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L86-L87" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformNormalize.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L82-L84" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    self.ymin = np.amin(data.Y.transformed[data.mask])
+    self.ymax = np.amax(data.Y.transformed[data.mask])</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.serie.TransformStandard"><code class="flex name class">
+<span>class <span class="ident">TransformStandard</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>TransformStandard is a transformer that whitens the data. That is, it transform the data so it has zero mean and unit variance.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L112-L131" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class TransformStandard(TransformBase):
+    &#34;&#34;&#34;
+    TransformStandard is a transformer that whitens the data. That is, it transform the data so it has zero mean and unit variance.
+    &#34;&#34;&#34;
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return &#39;TransformStandard(mean=%g, std=%g)&#39; % (self.mean, self.std)
+    
+    def set_data(self, data):
+        # take only the non-removed observations
+        self.mean = data.Y.transformed[data.mask].mean()
+        self.std = data.Y.transformed[data.mask].std()
+        
+    def forward(self, y, x=None):
+        return (y - self.mean) / self.std
+    
+    def backward(self, y, x=None):
+        return (y * self.std) + self.mean</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.serie.TransformBase" href="#mogptk.serie.TransformBase">TransformBase</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.serie.TransformStandard.backward"><code class="name flex">
+<span>def <span class="ident">backward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L130-L131" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def backward(self, y, x=None):
+    return (y * self.std) + self.mean</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformStandard.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, y, x=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L127-L128" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def forward(self, y, x=None):
+    return (y - self.mean) / self.std</code></pre>
+</details>
+</dd>
+<dt id="mogptk.serie.TransformStandard.set_data"><code class="name flex">
+<span>def <span class="ident">set_data</span></span>(<span>self, data)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/serie.py#L122-L125" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def set_data(self, data):
+    # take only the non-removed observations
+    self.mean = data.Y.transformed[data.mask].mean()
+    self.std = data.Y.transformed[data.mask].std()</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="mogptk" href="index.html">mogptk</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="mogptk.serie.Serie" href="#mogptk.serie.Serie">Serie</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.serie.Serie.apply" href="#mogptk.serie.Serie.apply">apply</a></code></li>
+<li><code><a title="mogptk.serie.Serie.detransform" href="#mogptk.serie.Serie.detransform">detransform</a></code></li>
+<li><code><a title="mogptk.serie.Serie.get_time_unit" href="#mogptk.serie.Serie.get_time_unit">get_time_unit</a></code></li>
+<li><code><a title="mogptk.serie.Serie.is_datetime64" href="#mogptk.serie.Serie.is_datetime64">is_datetime64</a></code></li>
+<li><code><a title="mogptk.serie.Serie.transform" href="#mogptk.serie.Serie.transform">transform</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.serie.TransformBase" href="#mogptk.serie.TransformBase">TransformBase</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.serie.TransformBase.backward" href="#mogptk.serie.TransformBase.backward">backward</a></code></li>
+<li><code><a title="mogptk.serie.TransformBase.forward" href="#mogptk.serie.TransformBase.forward">forward</a></code></li>
+<li><code><a title="mogptk.serie.TransformBase.set_data" href="#mogptk.serie.TransformBase.set_data">set_data</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.serie.TransformDetrend" href="#mogptk.serie.TransformDetrend">TransformDetrend</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.serie.TransformDetrend.backward" href="#mogptk.serie.TransformDetrend.backward">backward</a></code></li>
+<li><code><a title="mogptk.serie.TransformDetrend.forward" href="#mogptk.serie.TransformDetrend.forward">forward</a></code></li>
+<li><code><a title="mogptk.serie.TransformDetrend.set_data" href="#mogptk.serie.TransformDetrend.set_data">set_data</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.serie.TransformLinear" href="#mogptk.serie.TransformLinear">TransformLinear</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.serie.TransformLinear.backward" href="#mogptk.serie.TransformLinear.backward">backward</a></code></li>
+<li><code><a title="mogptk.serie.TransformLinear.forward" href="#mogptk.serie.TransformLinear.forward">forward</a></code></li>
+<li><code><a title="mogptk.serie.TransformLinear.set_data" href="#mogptk.serie.TransformLinear.set_data">set_data</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.serie.TransformLog" href="#mogptk.serie.TransformLog">TransformLog</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.serie.TransformLog.backward" href="#mogptk.serie.TransformLog.backward">backward</a></code></li>
+<li><code><a title="mogptk.serie.TransformLog.forward" href="#mogptk.serie.TransformLog.forward">forward</a></code></li>
+<li><code><a title="mogptk.serie.TransformLog.set_data" href="#mogptk.serie.TransformLog.set_data">set_data</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.serie.TransformNormalize" href="#mogptk.serie.TransformNormalize">TransformNormalize</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.serie.TransformNormalize.backward" href="#mogptk.serie.TransformNormalize.backward">backward</a></code></li>
+<li><code><a title="mogptk.serie.TransformNormalize.forward" href="#mogptk.serie.TransformNormalize.forward">forward</a></code></li>
+<li><code><a title="mogptk.serie.TransformNormalize.set_data" href="#mogptk.serie.TransformNormalize.set_data">set_data</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.serie.TransformStandard" href="#mogptk.serie.TransformStandard">TransformStandard</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.serie.TransformStandard.backward" href="#mogptk.serie.TransformStandard.backward">backward</a></code></li>
+<li><code><a title="mogptk.serie.TransformStandard.forward" href="#mogptk.serie.TransformStandard.forward">forward</a></code></li>
+<li><code><a title="mogptk.serie.TransformStandard.set_data" href="#mogptk.serie.TransformStandard.set_data">set_data</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

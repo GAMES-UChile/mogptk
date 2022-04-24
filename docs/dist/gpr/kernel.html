@@ -1,0 +1,1814 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>mogptk.gpr.kernel API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>mogptk.gpr.kernel</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L1-L477" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">import torch
+import copy
+from . import Parameter, config
+
+class Kernel:
+    &#34;&#34;&#34;
+    Base kernel.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, input_dims=None, active_dims=None, name=None):
+        if name is None:
+            name = self.__class__.__name__
+            if name.endswith(&#39;Kernel&#39;) and name != &#39;Kernel&#39;:
+                name = name[:-6]
+
+        self.input_dims = input_dims
+        self.active_dims = active_dims  # checks input
+        self.name = name
+
+    def __call__(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Calculate kernel matrix. This is the same as calling K(X1,X2) but X1 and X2 don&#39;t necessarily have to be tensors. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
+        X1, X2 = self._check_input(X1, X2)
+        return self.K(X1, X2)
+
+    def __setattr__(self, name, val):
+        if name == &#39;trainable&#39;:
+            from .util import _find_parameters
+            for _, p in _find_parameters(self):
+                p.trainable = val
+            return
+        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
+            raise AttributeError(&#34;parameter is read-only, use Parameter.assign()&#34;)
+        if isinstance(val, Parameter) and val.name is None:
+            val.name = name
+        super().__setattr__(name, val)
+
+    def _active_input(self, X1, X2=None):
+        if self.active_dims is not None:
+            X1 = torch.index_select(X1, dim=1, index=self.active_dims)
+            if X2 is not None:
+                X2 = torch.index_select(X2, dim=1, index=self.active_dims)
+        return X1, X2
+
+    def _check_input(self, X1, X2=None):
+        if not torch.is_tensor(X1):
+            X1 = torch.tensor(X1, device=config.device, dtype=config.dtype)
+        elif X1.device != config.device or X1.dtype != config.dtype:
+            X1 = X1.to(device, dtype)
+        if X1.ndim != 2:
+            raise ValueError(&#34;X should have two dimensions (data_points,input_dims)&#34;)
+        if X1.shape[0] == 0 or X1.shape[1] == 0:
+            raise ValueError(&#34;X must not be empty&#34;)
+        if X2 is not None:
+            if not torch.is_tensor(X2):
+                X2 = torch.tensor(X2, device=config.device, dtype=config.dtype)
+            elif X2.device != config.device or X2.dtype != config.dtype:
+                X2 = X2.to(device, dtype)
+            if X2.ndim != 2:
+                raise ValueError(&#34;X should have two dimensions (data_points,input_dims)&#34;)
+            if X2.shape[0] == 0:
+                raise ValueError(&#34;X must not be empty&#34;)
+            if X1.shape[1] != X2.shape[1]:
+                raise ValueError(&#34;input dimensions for X1 and X2 must match&#34;)
+        return X1, X2
+
+    def _check_kernels(self, kernels, length=None):
+        if isinstance(kernels, tuple):
+            if len(kernels) == 1 and isinstance(kernels[0], list):
+                kernels = kernels[0]
+            else:
+                kernels = list(kernels)
+        elif not isinstance(kernels, list):
+            kernels = [kernels]
+        if len(kernels) == 0:
+            raise ValueError(&#34;must pass at least one kernel&#34;)
+        elif length is not None and len(kernels) != length:
+            if len(kernels) != 1:
+                raise ValueError(&#34;must pass %d kernels&#34; % length)
+            for i in range(length - len(kernels)):
+                kernels.append(copy.deepcopy(kernels[0]))
+        for i, kernel in enumerate(kernels):
+            if not issubclass(type(kernel), Kernel):
+                raise ValueError(&#34;must pass kernels&#34;)
+        if any(kernel.input_dims != kernels[0].input_dims for kernel in kernels[1:]):
+            raise ValueError(&#34;kernels must have same input dimensions&#34;)
+        output_dims = [kernel.output_dims for kernel in kernels if issubclass(type(kernel), MultiOutputKernel)]
+        if any(output_dim != output_dims[0] for output_dim in output_dims[1:]):
+            raise ValueError(&#34;MultiOutput kernels must have same output dimensions&#34;)
+        if len(output_dims) != 0:
+            for kernel in kernels:
+                if kernel.active_dims is None and not issubclass(type(kernel), MultiOutputKernel):
+                    input_dims = kernel.input_dims if kernel.input_dims is not None else 1
+                    kernel.active_dims = [input_dim+1 for input_dim in range(input_dims)]
+        return kernels
+
+    @property
+    def active_dims(self):
+        return self._active_dims
+
+    @active_dims.setter
+    def active_dims(self, active_dims):
+        if active_dims is not None:
+            if not isinstance(active_dims, list):
+                active_dims = [active_dims]
+            if not all(isinstance(item, int) for item in active_dims):
+                raise ValueError(&#34;active dimensions must be a list of integers&#34;)
+            active_dims = torch.tensor(active_dims, device=config.device, dtype=torch.long)
+            if self.input_dims is not None and self.input_dims != active_dims.shape[0]:
+                raise ValueError(&#34;input dimensions must match the number of active dimensions&#34;)
+        self._active_dims = active_dims
+        self.input_dims = active_dims.shape[0]
+
+    def iterkernels(self):
+        &#34;&#34;&#34;
+        Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the AddKernel).
+        &#34;&#34;&#34;
+        yield self
+
+    @property
+    def output_dims(self):
+        return 1
+
+    def copy_parameters(self, other):
+        &#34;&#34;&#34;
+        Copy parameters from other kernel.
+
+        Args:
+            other (Kernel): Source kernel.
+        &#34;&#34;&#34;
+        from .util import _copy_parameters
+        _copy_parameters(self, other)
+
+    def K(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
+        # X1 is NxD, X2 is MxD, then ret is NxM
+        raise NotImplementedError()
+
+    def K_diag(self, X1):
+        &#34;&#34;&#34;
+        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        &#34;&#34;&#34;
+        # X1 is NxD, then ret is N
+        # TODO: implement for all kernels
+        return self.K(X1).diagonal()
+
+    @staticmethod
+    def average(X1, X2=None):
+        &#34;&#34;&#34;
+        Cross average between inputs.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Average of shape (data_points0,data_points1,input_dims).
+        &#34;&#34;&#34;
+        # X1 is NxD, X2 is MxD, then ret is NxMxD
+        if X2 is None:
+            X2 = X1
+        return 0.5 * (X1.unsqueeze(1) + X2)
+
+    @staticmethod
+    def distance(X1, X2=None):
+        &#34;&#34;&#34;
+        Cross distance between inputs.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Distance of shape (data_points0,data_points1,input_dims).
+        &#34;&#34;&#34;
+        # X1 is NxD, X2 is MxD, then ret is NxMxD
+        if X2 is None:
+            X2 = X1
+        return X1.unsqueeze(1) - X2
+
+    @staticmethod
+    def squared_distance(X1, X2=None):
+        &#34;&#34;&#34;
+        Cross squared distance between inputs.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Squared distance of shape (data_points0,data_points1,input_dims).
+        &#34;&#34;&#34;
+        # X1 is NxD, X2 is MxD, then ret is NxMxD
+        if X2 is None:
+            X2 = X1
+        #return (X1.unsqueeze(1) - X2)**2  # slower than cdist for large X
+        return torch.cdist(X2.T.unsqueeze(2), X1.T.unsqueeze(2)).permute((2,1,0))**2
+
+    def __add__(self, other):
+        return AddKernel(self, other)
+
+    def __mul__(self, other):
+        return MulKernel(self, other)
+
+class Kernels(Kernel):
+    &#34;&#34;&#34;
+    Base kernel for list of kernels.
+
+    Args:
+        kernels (list of Kernel): Kernels.
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, *kernels, name=&#34;Kernels&#34;):
+        super().__init__(name=name)
+        kernels = self._check_kernels(kernels)
+
+        i = 0
+        while i &lt; len(kernels):
+            if isinstance(kernels[i], self.__class__):
+                subkernels = kernels[i].kernels
+                kernels = kernels[:i] + subkernels + kernels[i+1:]
+                i += len(subkernels) - 1
+            i += 1
+        self.kernels = kernels
+
+    def __getitem__(self, key):
+        return self.kernels[key]
+
+    def iterkernels(self):
+        &#34;&#34;&#34;
+        Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the AddKernel).
+        &#34;&#34;&#34;
+        yield self
+        for kernel in self.kernels:
+            yield kernel
+
+    @property
+    def output_dims(self):
+        # _check_kernels make sure it&#39;s the same for all kernels
+        return self.kernels[0].output_dims
+
+class AddKernel(Kernels):
+    &#34;&#34;&#34;
+    Addition kernel that sums kernels.
+
+    Args:
+        kernels (list of Kernel): Kernels.
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, *kernels, name=&#34;Add&#34;):
+        super().__init__(*kernels, name=name)
+
+    def K(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
+        return torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=2).sum(dim=2)
+
+    def K_diag(self, X1):
+        &#34;&#34;&#34;
+        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        &#34;&#34;&#34;
+        return torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1).sum(dim=1)
+
+class MulKernel(Kernels):
+    &#34;&#34;&#34;
+    Multiplication kernel that multiplies kernels.
+
+    Args:
+        kernels (list of Kernel): Kernels.
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, *kernels, name=&#34;Mul&#34;):
+        super().__init__(*kernels, name=name)
+
+    def K(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
+        return torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=2).prod(dim=2)
+
+    def K_diag(self, X1):
+        &#34;&#34;&#34;
+        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        &#34;&#34;&#34;
+        return torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1).prod(dim=1)
+
+class MixtureKernel(AddKernel):
+    &#34;&#34;&#34;
+    Mixture kernel that sums Q kernels.
+
+    Args:
+        kernels (Kernel,list of Kernel): Single kernel or list of kernels of shape (Q,).
+        Q (int): Number of mixtures.
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, kernels, Q, name=&#34;Mixture&#34;):
+        kernels = self._check_kernels(kernels, Q)
+        super().__init__(*kernels, name=name)
+
+class AutomaticRelevanceDeterminationKernel(MulKernel):
+    &#34;&#34;&#34;
+    Automatic relevance determination (ARD) kernel that multiplies kernels.
+
+    Args:
+        kernels (Kernel,list of Kernel): Single kernel or list of kernels of shape (Q,).
+        input_dims (int): Number of input dimensions.
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, kernels, input_dims, name=&#34;ARD&#34;):
+        kernels = self._check_kernels(kernels, input_dims)
+        for i, kernel in enumerate(kernels):
+            kernel.set_active_dims(i)
+        super().__init__(*kernels, name=name)
+
+class MultiOutputKernel(Kernel):
+    &#34;&#34;&#34;
+    The MultiOutputKernel is a base class for multi-output kernels. It assumes that the first dimension of X contains channel IDs (integers) and calculates the final kernel matrix accordingly. Concretely, it will call the Ksub method for derived kernels from this class, which should return the kernel matrix between channel i and j, given inputs X1 and X2. This class will automatically split and recombine the input vectors and kernel matrices respectively, in order to create the final kernel matrix of the multi-output kernel.
+
+    Be aware that for implementation of Ksub, i==j is true for the diagonal matrices. X2==None is true when calculating the Gram matrix (i.e. X1==X2) and when i==j. It is thus a subset of the case i==j, and if X2==None than i is always equal to j.
+
+    Args:
+        output_dims (int): Number of output dimensions.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    # TODO: seems to accumulate a lot of memory in the loops to call Ksub, perhaps it&#39;s keeping the computational graph while indexing?
+
+    def __init__(self, output_dims, input_dims=None, active_dims=None, name=None):
+        super().__init__(input_dims, active_dims, name)
+        self._output_dims = output_dims
+
+    def _check_input(self, X1, X2=None):
+        X1, X2 = super()._check_input(X1, X2)
+        if X1[:,0] != X1[:,0].long().type(config.dtype):
+            raise ValueError(&#34;X must have integers for the channel IDs in the first input dimension&#34;)
+        if X2[:,0] != X2[:,0].long().type(config.dtype):
+            raise ValueError(&#34;X must have integers for the channel IDs in the first input dimension&#34;)
+        return X1, X2
+
+    @property
+    def output_dims(self):
+        return self._output_dims
+
+    def K(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+        The first input dimension of X1 and X2 must contain the channel IDs (integers).
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
+        # X has shape (data_points,1+input_dims) where the first column is the channel ID
+        # extract channel mask, get data, and find indices that belong to the channels
+        c1 = X1[:,0].long()
+        m1 = [c1==i for i in range(self.output_dims)]
+        x1 = [X1[m1[i],1:] for i in range(self.output_dims)]
+        r1 = [torch.nonzero(m1[i], as_tuple=False) for i in range(self.output_dims)]  # as_tuple avoids warning
+
+        if X2 is None:
+            r2 = [r1[i].reshape(1,-1) for i in range(self.output_dims)]
+            res = torch.empty(X1.shape[0], X1.shape[0], device=config.device, dtype=config.dtype)  # N1 x N1
+            # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
+            for i in range(self.output_dims):
+                for j in range(i+1):
+                    # calculate sub kernel matrix and add to main kernel matrix
+                    if i == j:
+                        res[r1[i],r2[i]] = self.Ksub(i, i, x1[i])
+                    else:
+                        k = self.Ksub(i, j, x1[i], x1[j])
+                        res[r1[i],r2[j]] = k
+                        res[r1[j],r2[i]] = k.T
+        else:
+            # extract channel mask, get data, and find indices that belong to the channels
+            c2 = X2[:,0].long()
+            m2 = [c2==j for j in range(self.output_dims)]
+            x2 = [X2[m2[j],1:] for j in range(self.output_dims)]
+            r2 = [torch.nonzero(m2[j], as_tuple=False).reshape(1,-1) for j in range(self.output_dims)]  # as_tuple avoids warning
+
+            res = torch.empty(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)  # N1 x N2
+            for i in range(self.output_dims):
+                for j in range(self.output_dims):
+                    # calculate sub kernel matrix and add to main kernel matrix
+                    res[r1[i],r2[j]] = self.Ksub(i, j, x1[i], x2[j])
+
+        return res
+
+    def K_diag(self, X1):
+        &#34;&#34;&#34;
+        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+
+        The first input dimension of X1 must contain the channel IDs (integers).
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        &#34;&#34;&#34;
+        # extract channel mask, get data, and find indices that belong to the channels
+        c1 = X1[:,0].long()
+        m1 = [c1==i for i in range(self.output_dims)]
+        x1 = [X1[m1[i],1:] for i in range(self.output_dims)]  # I is broadcastable with last dimension in X
+        r1 = [torch.nonzero(m1[i], as_tuple=False)[:,0] for i in range(self.output_dims)]  # as_tuple avoids warning
+
+        res = torch.empty(X1.shape[0], device=config.device, dtype=config.dtype)  # N1 x N1
+
+        # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
+        for i in range(self.output_dims):
+            # calculate sub kernel matrix and add to main kernel matrix
+            res[r1[i]] = self.Ksub_diag(i, x1[i])
+        return res
+
+    def Ksub(self, i, j, X1, X2=None):
+        raise NotImplementedError()
+
+    def Ksub_diag(self, i, X1):
+        return self.Ksub(i, i, X1).diagonal()</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="mogptk.gpr.kernel.AddKernel"><code class="flex name class">
+<span>class <span class="ident">AddKernel</span></span>
+<span>(</span><span>*kernels, name='Add')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Addition kernel that sums kernels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernels</code></strong> :&ensp;<code>list</code> of <code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Kernels.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Kernel name.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L269-L303" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class AddKernel(Kernels):
+    &#34;&#34;&#34;
+    Addition kernel that sums kernels.
+
+    Args:
+        kernels (list of Kernel): Kernels.
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, *kernels, name=&#34;Add&#34;):
+        super().__init__(*kernels, name=name)
+
+    def K(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
+        return torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=2).sum(dim=2)
+
+    def K_diag(self, X1):
+        &#34;&#34;&#34;
+        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        &#34;&#34;&#34;
+        return torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1).sum(dim=1)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.MixtureKernel" href="#mogptk.gpr.kernel.MixtureKernel">MixtureKernel</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.kernel.Kernels.K" href="#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.K_diag" href="#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.average" href="#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.copy_parameters" href="#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.distance" href="#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.iterkernels" href="#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.squared_distance" href="#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel"><code class="flex name class">
+<span>class <span class="ident">AutomaticRelevanceDeterminationKernel</span></span>
+<span>(</span><span>kernels, input_dims, name='ARD')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Automatic relevance determination (ARD) kernel that multiplies kernels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernels</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a>,list</code> of <code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Single kernel or list of kernels of shape (Q,).</dd>
+<dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of input dimensions.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Kernel name.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L354-L367" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class AutomaticRelevanceDeterminationKernel(MulKernel):
+    &#34;&#34;&#34;
+    Automatic relevance determination (ARD) kernel that multiplies kernels.
+
+    Args:
+        kernels (Kernel,list of Kernel): Single kernel or list of kernels of shape (Q,).
+        input_dims (int): Number of input dimensions.
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, kernels, input_dims, name=&#34;ARD&#34;):
+        kernels = self._check_kernels(kernels, input_dims)
+        for i, kernel in enumerate(kernels):
+            kernel.set_active_dims(i)
+        super().__init__(*kernels, name=name)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.MulKernel" href="#mogptk.gpr.kernel.MulKernel">MulKernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.kernel.MulKernel" href="#mogptk.gpr.kernel.MulKernel">MulKernel</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.kernel.MulKernel.K" href="#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MulKernel.K_diag" href="#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MulKernel.average" href="#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MulKernel.copy_parameters" href="#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MulKernel.distance" href="#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MulKernel.iterkernels" href="#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MulKernel.squared_distance" href="#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.kernel.Kernel"><code class="flex name class">
+<span>class <span class="ident">Kernel</span></span>
+<span>(</span><span>input_dims=None, active_dims=None, name=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base kernel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of input dimensions.</dd>
+<dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
+<dd>Indices of active dimensions of shape (input_dims,).</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Kernel name.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L5-L230" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Kernel:
+    &#34;&#34;&#34;
+    Base kernel.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, input_dims=None, active_dims=None, name=None):
+        if name is None:
+            name = self.__class__.__name__
+            if name.endswith(&#39;Kernel&#39;) and name != &#39;Kernel&#39;:
+                name = name[:-6]
+
+        self.input_dims = input_dims
+        self.active_dims = active_dims  # checks input
+        self.name = name
+
+    def __call__(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Calculate kernel matrix. This is the same as calling K(X1,X2) but X1 and X2 don&#39;t necessarily have to be tensors. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
+        X1, X2 = self._check_input(X1, X2)
+        return self.K(X1, X2)
+
+    def __setattr__(self, name, val):
+        if name == &#39;trainable&#39;:
+            from .util import _find_parameters
+            for _, p in _find_parameters(self):
+                p.trainable = val
+            return
+        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
+            raise AttributeError(&#34;parameter is read-only, use Parameter.assign()&#34;)
+        if isinstance(val, Parameter) and val.name is None:
+            val.name = name
+        super().__setattr__(name, val)
+
+    def _active_input(self, X1, X2=None):
+        if self.active_dims is not None:
+            X1 = torch.index_select(X1, dim=1, index=self.active_dims)
+            if X2 is not None:
+                X2 = torch.index_select(X2, dim=1, index=self.active_dims)
+        return X1, X2
+
+    def _check_input(self, X1, X2=None):
+        if not torch.is_tensor(X1):
+            X1 = torch.tensor(X1, device=config.device, dtype=config.dtype)
+        elif X1.device != config.device or X1.dtype != config.dtype:
+            X1 = X1.to(device, dtype)
+        if X1.ndim != 2:
+            raise ValueError(&#34;X should have two dimensions (data_points,input_dims)&#34;)
+        if X1.shape[0] == 0 or X1.shape[1] == 0:
+            raise ValueError(&#34;X must not be empty&#34;)
+        if X2 is not None:
+            if not torch.is_tensor(X2):
+                X2 = torch.tensor(X2, device=config.device, dtype=config.dtype)
+            elif X2.device != config.device or X2.dtype != config.dtype:
+                X2 = X2.to(device, dtype)
+            if X2.ndim != 2:
+                raise ValueError(&#34;X should have two dimensions (data_points,input_dims)&#34;)
+            if X2.shape[0] == 0:
+                raise ValueError(&#34;X must not be empty&#34;)
+            if X1.shape[1] != X2.shape[1]:
+                raise ValueError(&#34;input dimensions for X1 and X2 must match&#34;)
+        return X1, X2
+
+    def _check_kernels(self, kernels, length=None):
+        if isinstance(kernels, tuple):
+            if len(kernels) == 1 and isinstance(kernels[0], list):
+                kernels = kernels[0]
+            else:
+                kernels = list(kernels)
+        elif not isinstance(kernels, list):
+            kernels = [kernels]
+        if len(kernels) == 0:
+            raise ValueError(&#34;must pass at least one kernel&#34;)
+        elif length is not None and len(kernels) != length:
+            if len(kernels) != 1:
+                raise ValueError(&#34;must pass %d kernels&#34; % length)
+            for i in range(length - len(kernels)):
+                kernels.append(copy.deepcopy(kernels[0]))
+        for i, kernel in enumerate(kernels):
+            if not issubclass(type(kernel), Kernel):
+                raise ValueError(&#34;must pass kernels&#34;)
+        if any(kernel.input_dims != kernels[0].input_dims for kernel in kernels[1:]):
+            raise ValueError(&#34;kernels must have same input dimensions&#34;)
+        output_dims = [kernel.output_dims for kernel in kernels if issubclass(type(kernel), MultiOutputKernel)]
+        if any(output_dim != output_dims[0] for output_dim in output_dims[1:]):
+            raise ValueError(&#34;MultiOutput kernels must have same output dimensions&#34;)
+        if len(output_dims) != 0:
+            for kernel in kernels:
+                if kernel.active_dims is None and not issubclass(type(kernel), MultiOutputKernel):
+                    input_dims = kernel.input_dims if kernel.input_dims is not None else 1
+                    kernel.active_dims = [input_dim+1 for input_dim in range(input_dims)]
+        return kernels
+
+    @property
+    def active_dims(self):
+        return self._active_dims
+
+    @active_dims.setter
+    def active_dims(self, active_dims):
+        if active_dims is not None:
+            if not isinstance(active_dims, list):
+                active_dims = [active_dims]
+            if not all(isinstance(item, int) for item in active_dims):
+                raise ValueError(&#34;active dimensions must be a list of integers&#34;)
+            active_dims = torch.tensor(active_dims, device=config.device, dtype=torch.long)
+            if self.input_dims is not None and self.input_dims != active_dims.shape[0]:
+                raise ValueError(&#34;input dimensions must match the number of active dimensions&#34;)
+        self._active_dims = active_dims
+        self.input_dims = active_dims.shape[0]
+
+    def iterkernels(self):
+        &#34;&#34;&#34;
+        Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the AddKernel).
+        &#34;&#34;&#34;
+        yield self
+
+    @property
+    def output_dims(self):
+        return 1
+
+    def copy_parameters(self, other):
+        &#34;&#34;&#34;
+        Copy parameters from other kernel.
+
+        Args:
+            other (Kernel): Source kernel.
+        &#34;&#34;&#34;
+        from .util import _copy_parameters
+        _copy_parameters(self, other)
+
+    def K(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
+        # X1 is NxD, X2 is MxD, then ret is NxM
+        raise NotImplementedError()
+
+    def K_diag(self, X1):
+        &#34;&#34;&#34;
+        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        &#34;&#34;&#34;
+        # X1 is NxD, then ret is N
+        # TODO: implement for all kernels
+        return self.K(X1).diagonal()
+
+    @staticmethod
+    def average(X1, X2=None):
+        &#34;&#34;&#34;
+        Cross average between inputs.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Average of shape (data_points0,data_points1,input_dims).
+        &#34;&#34;&#34;
+        # X1 is NxD, X2 is MxD, then ret is NxMxD
+        if X2 is None:
+            X2 = X1
+        return 0.5 * (X1.unsqueeze(1) + X2)
+
+    @staticmethod
+    def distance(X1, X2=None):
+        &#34;&#34;&#34;
+        Cross distance between inputs.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Distance of shape (data_points0,data_points1,input_dims).
+        &#34;&#34;&#34;
+        # X1 is NxD, X2 is MxD, then ret is NxMxD
+        if X2 is None:
+            X2 = X1
+        return X1.unsqueeze(1) - X2
+
+    @staticmethod
+    def squared_distance(X1, X2=None):
+        &#34;&#34;&#34;
+        Cross squared distance between inputs.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Squared distance of shape (data_points0,data_points1,input_dims).
+        &#34;&#34;&#34;
+        # X1 is NxD, X2 is MxD, then ret is NxMxD
+        if X2 is None:
+            X2 = X1
+        #return (X1.unsqueeze(1) - X2)**2  # slower than cdist for large X
+        return torch.cdist(X2.T.unsqueeze(2), X1.T.unsqueeze(2)).permute((2,1,0))**2
+
+    def __add__(self, other):
+        return AddKernel(self, other)
+
+    def __mul__(self, other):
+        return MulKernel(self, other)</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></li>
+<li><a title="mogptk.gpr.kernel.MultiOutputKernel" href="#mogptk.gpr.kernel.MultiOutputKernel">MultiOutputKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.ConstantKernel" href="singleoutput.html#mogptk.gpr.singleoutput.ConstantKernel">ConstantKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.CosineKernel" href="singleoutput.html#mogptk.gpr.singleoutput.CosineKernel">CosineKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.ExponentialKernel" href="singleoutput.html#mogptk.gpr.singleoutput.ExponentialKernel">ExponentialKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.LinearKernel" href="singleoutput.html#mogptk.gpr.singleoutput.LinearKernel">LinearKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.LocallyPeriodicKernel" href="singleoutput.html#mogptk.gpr.singleoutput.LocallyPeriodicKernel">LocallyPeriodicKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.MaternKernel" href="singleoutput.html#mogptk.gpr.singleoutput.MaternKernel">MaternKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.PeriodicKernel" href="singleoutput.html#mogptk.gpr.singleoutput.PeriodicKernel">PeriodicKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.PhiKernel" href="singleoutput.html#mogptk.gpr.singleoutput.PhiKernel">PhiKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.PolynomialKernel" href="singleoutput.html#mogptk.gpr.singleoutput.PolynomialKernel">PolynomialKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.RationalQuadraticKernel" href="singleoutput.html#mogptk.gpr.singleoutput.RationalQuadraticKernel">RationalQuadraticKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.SincKernel" href="singleoutput.html#mogptk.gpr.singleoutput.SincKernel">SincKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.SpectralKernel" href="singleoutput.html#mogptk.gpr.singleoutput.SpectralKernel">SpectralKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.SquaredExponentialKernel" href="singleoutput.html#mogptk.gpr.singleoutput.SquaredExponentialKernel">SquaredExponentialKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.WhiteKernel" href="singleoutput.html#mogptk.gpr.singleoutput.WhiteKernel">WhiteKernel</a></li>
+</ul>
+<h3>Static methods</h3>
+<dl>
+<dt id="mogptk.gpr.kernel.Kernel.average"><code class="name flex">
+<span>def <span class="ident">average</span></span>(<span>X1, X2=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Cross average between inputs.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X1</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points0,input_dims).</dd>
+<dt><strong><code>X2</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points1,input_dims).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Average of shape (data_points0,data_points1,input_dims).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L174-L189" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">@staticmethod
+def average(X1, X2=None):
+    &#34;&#34;&#34;
+    Cross average between inputs.
+
+    Args:
+        X1 (torch.tensor): Input of shape (data_points0,input_dims).
+        X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+    Returns:
+        torch.tensor: Average of shape (data_points0,data_points1,input_dims).
+    &#34;&#34;&#34;
+    # X1 is NxD, X2 is MxD, then ret is NxMxD
+    if X2 is None:
+        X2 = X1
+    return 0.5 * (X1.unsqueeze(1) + X2)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.kernel.Kernel.distance"><code class="name flex">
+<span>def <span class="ident">distance</span></span>(<span>X1, X2=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Cross distance between inputs.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X1</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points0,input_dims).</dd>
+<dt><strong><code>X2</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points1,input_dims).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Distance of shape (data_points0,data_points1,input_dims).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L191-L206" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">@staticmethod
+def distance(X1, X2=None):
+    &#34;&#34;&#34;
+    Cross distance between inputs.
+
+    Args:
+        X1 (torch.tensor): Input of shape (data_points0,input_dims).
+        X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+    Returns:
+        torch.tensor: Distance of shape (data_points0,data_points1,input_dims).
+    &#34;&#34;&#34;
+    # X1 is NxD, X2 is MxD, then ret is NxMxD
+    if X2 is None:
+        X2 = X1
+    return X1.unsqueeze(1) - X2</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.kernel.Kernel.squared_distance"><code class="name flex">
+<span>def <span class="ident">squared_distance</span></span>(<span>X1, X2=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Cross squared distance between inputs.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X1</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points0,input_dims).</dd>
+<dt><strong><code>X2</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points1,input_dims).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Squared distance of shape (data_points0,data_points1,input_dims).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L208-L224" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">@staticmethod
+def squared_distance(X1, X2=None):
+    &#34;&#34;&#34;
+    Cross squared distance between inputs.
+
+    Args:
+        X1 (torch.tensor): Input of shape (data_points0,input_dims).
+        X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+    Returns:
+        torch.tensor: Squared distance of shape (data_points0,data_points1,input_dims).
+    &#34;&#34;&#34;
+    # X1 is NxD, X2 is MxD, then ret is NxMxD
+    if X2 is None:
+        X2 = X1
+    #return (X1.unsqueeze(1) - X2)**2  # slower than cdist for large X
+    return torch.cdist(X2.T.unsqueeze(2), X1.T.unsqueeze(2)).permute((2,1,0))**2</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="mogptk.gpr.kernel.Kernel.active_dims"><code class="name">var <span class="ident">active_dims</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L109-L111" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">@property
+def active_dims(self):
+    return self._active_dims</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.kernel.Kernel.output_dims"><code class="name">var <span class="ident">output_dims</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L132-L134" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">@property
+def output_dims(self):
+    return 1</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.gpr.kernel.Kernel.K"><code class="name flex">
+<span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X1</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points0,input_dims).</dd>
+<dt><strong><code>X2</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points1,input_dims).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Kernel matrix of shape (data_points0,data_points1).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L146-L158" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def K(self, X1, X2=None):
+    &#34;&#34;&#34;
+    Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+    Args:
+        X1 (torch.tensor): Input of shape (data_points0,input_dims).
+        X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+    Returns:
+        torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+    &#34;&#34;&#34;
+    # X1 is NxD, X2 is MxD, then ret is NxM
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.kernel.Kernel.K_diag"><code class="name flex">
+<span>def <span class="ident">K_diag</span></span>(<span>self, X1)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X1</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Kernel matrix diagonal of shape (data_points,).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L160-L172" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def K_diag(self, X1):
+    &#34;&#34;&#34;
+    Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+
+    Args:
+        X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+    Returns:
+        torch.tensor: Kernel matrix diagonal of shape (data_points,).
+    &#34;&#34;&#34;
+    # X1 is NxD, then ret is N
+    # TODO: implement for all kernels
+    return self.K(X1).diagonal()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.kernel.Kernel.copy_parameters"><code class="name flex">
+<span>def <span class="ident">copy_parameters</span></span>(<span>self, other)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Copy parameters from other kernel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>other</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Source kernel.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L136-L144" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def copy_parameters(self, other):
+    &#34;&#34;&#34;
+    Copy parameters from other kernel.
+
+    Args:
+        other (Kernel): Source kernel.
+    &#34;&#34;&#34;
+    from .util import _copy_parameters
+    _copy_parameters(self, other)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.kernel.Kernel.iterkernels"><code class="name flex">
+<span>def <span class="ident">iterkernels</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the AddKernel).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L126-L130" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def iterkernels(self):
+    &#34;&#34;&#34;
+    Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the AddKernel).
+    &#34;&#34;&#34;
+    yield self</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.gpr.kernel.Kernels"><code class="flex name class">
+<span>class <span class="ident">Kernels</span></span>
+<span>(</span><span>*kernels, name='Kernels')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base kernel for list of kernels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernels</code></strong> :&ensp;<code>list</code> of <code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Kernels.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Kernel name.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L232-L267" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Kernels(Kernel):
+    &#34;&#34;&#34;
+    Base kernel for list of kernels.
+
+    Args:
+        kernels (list of Kernel): Kernels.
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, *kernels, name=&#34;Kernels&#34;):
+        super().__init__(name=name)
+        kernels = self._check_kernels(kernels)
+
+        i = 0
+        while i &lt; len(kernels):
+            if isinstance(kernels[i], self.__class__):
+                subkernels = kernels[i].kernels
+                kernels = kernels[:i] + subkernels + kernels[i+1:]
+                i += len(subkernels) - 1
+            i += 1
+        self.kernels = kernels
+
+    def __getitem__(self, key):
+        return self.kernels[key]
+
+    def iterkernels(self):
+        &#34;&#34;&#34;
+        Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the AddKernel).
+        &#34;&#34;&#34;
+        yield self
+        for kernel in self.kernels:
+            yield kernel
+
+    @property
+    def output_dims(self):
+        # _check_kernels make sure it&#39;s the same for all kernels
+        return self.kernels[0].output_dims</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.AddKernel" href="#mogptk.gpr.kernel.AddKernel">AddKernel</a></li>
+<li><a title="mogptk.gpr.kernel.MulKernel" href="#mogptk.gpr.kernel.MulKernel">MulKernel</a></li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="mogptk.gpr.kernel.Kernels.output_dims"><code class="name">var <span class="ident">output_dims</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L264-L267" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">@property
+def output_dims(self):
+    # _check_kernels make sure it&#39;s the same for all kernels
+    return self.kernels[0].output_dims</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.kernel.Kernel.K" href="#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.kernel.MixtureKernel"><code class="flex name class">
+<span>class <span class="ident">MixtureKernel</span></span>
+<span>(</span><span>kernels, Q, name='Mixture')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Mixture kernel that sums Q kernels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernels</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a>,list</code> of <code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Single kernel or list of kernels of shape (Q,).</dd>
+<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of mixtures.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Kernel name.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L341-L352" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class MixtureKernel(AddKernel):
+    &#34;&#34;&#34;
+    Mixture kernel that sums Q kernels.
+
+    Args:
+        kernels (Kernel,list of Kernel): Single kernel or list of kernels of shape (Q,).
+        Q (int): Number of mixtures.
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, kernels, Q, name=&#34;Mixture&#34;):
+        kernels = self._check_kernels(kernels, Q)
+        super().__init__(*kernels, name=name)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.AddKernel" href="#mogptk.gpr.kernel.AddKernel">AddKernel</a></li>
+<li><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.kernel.AddKernel" href="#mogptk.gpr.kernel.AddKernel">AddKernel</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.kernel.AddKernel.K" href="#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.AddKernel.K_diag" href="#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.AddKernel.average" href="#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.AddKernel.copy_parameters" href="#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.AddKernel.distance" href="#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.AddKernel.iterkernels" href="#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.AddKernel.squared_distance" href="#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.kernel.MulKernel"><code class="flex name class">
+<span>class <span class="ident">MulKernel</span></span>
+<span>(</span><span>*kernels, name='Mul')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Multiplication kernel that multiplies kernels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernels</code></strong> :&ensp;<code>list</code> of <code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Kernels.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Kernel name.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L305-L339" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class MulKernel(Kernels):
+    &#34;&#34;&#34;
+    Multiplication kernel that multiplies kernels.
+
+    Args:
+        kernels (list of Kernel): Kernels.
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, *kernels, name=&#34;Mul&#34;):
+        super().__init__(*kernels, name=name)
+
+    def K(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
+        return torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=2).prod(dim=2)
+
+    def K_diag(self, X1):
+        &#34;&#34;&#34;
+        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        &#34;&#34;&#34;
+        return torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1).prod(dim=1)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel" href="#mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel">AutomaticRelevanceDeterminationKernel</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.kernel.Kernels.K" href="#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.K_diag" href="#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.average" href="#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.copy_parameters" href="#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.distance" href="#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.iterkernels" href="#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.squared_distance" href="#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.kernel.MultiOutputKernel"><code class="flex name class">
+<span>class <span class="ident">MultiOutputKernel</span></span>
+<span>(</span><span>output_dims, input_dims=None, active_dims=None, name=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The MultiOutputKernel is a base class for multi-output kernels. It assumes that the first dimension of X contains channel IDs (integers) and calculates the final kernel matrix accordingly. Concretely, it will call the Ksub method for derived kernels from this class, which should return the kernel matrix between channel i and j, given inputs X1 and X2. This class will automatically split and recombine the input vectors and kernel matrices respectively, in order to create the final kernel matrix of the multi-output kernel.</p>
+<p>Be aware that for implementation of Ksub, i==j is true for the diagonal matrices. X2==None is true when calculating the Gram matrix (i.e. X1==X2) and when i==j. It is thus a subset of the case i==j, and if X2==None than i is always equal to j.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>output_dims</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of output dimensions.</dd>
+<dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of input dimensions.</dd>
+<dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
+<dd>Indices of active dimensions of shape (input_dims,).</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Kernel name.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L369-L477" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class MultiOutputKernel(Kernel):
+    &#34;&#34;&#34;
+    The MultiOutputKernel is a base class for multi-output kernels. It assumes that the first dimension of X contains channel IDs (integers) and calculates the final kernel matrix accordingly. Concretely, it will call the Ksub method for derived kernels from this class, which should return the kernel matrix between channel i and j, given inputs X1 and X2. This class will automatically split and recombine the input vectors and kernel matrices respectively, in order to create the final kernel matrix of the multi-output kernel.
+
+    Be aware that for implementation of Ksub, i==j is true for the diagonal matrices. X2==None is true when calculating the Gram matrix (i.e. X1==X2) and when i==j. It is thus a subset of the case i==j, and if X2==None than i is always equal to j.
+
+    Args:
+        output_dims (int): Number of output dimensions.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    # TODO: seems to accumulate a lot of memory in the loops to call Ksub, perhaps it&#39;s keeping the computational graph while indexing?
+
+    def __init__(self, output_dims, input_dims=None, active_dims=None, name=None):
+        super().__init__(input_dims, active_dims, name)
+        self._output_dims = output_dims
+
+    def _check_input(self, X1, X2=None):
+        X1, X2 = super()._check_input(X1, X2)
+        if X1[:,0] != X1[:,0].long().type(config.dtype):
+            raise ValueError(&#34;X must have integers for the channel IDs in the first input dimension&#34;)
+        if X2[:,0] != X2[:,0].long().type(config.dtype):
+            raise ValueError(&#34;X must have integers for the channel IDs in the first input dimension&#34;)
+        return X1, X2
+
+    @property
+    def output_dims(self):
+        return self._output_dims
+
+    def K(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+        The first input dimension of X1 and X2 must contain the channel IDs (integers).
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
+        # X has shape (data_points,1+input_dims) where the first column is the channel ID
+        # extract channel mask, get data, and find indices that belong to the channels
+        c1 = X1[:,0].long()
+        m1 = [c1==i for i in range(self.output_dims)]
+        x1 = [X1[m1[i],1:] for i in range(self.output_dims)]
+        r1 = [torch.nonzero(m1[i], as_tuple=False) for i in range(self.output_dims)]  # as_tuple avoids warning
+
+        if X2 is None:
+            r2 = [r1[i].reshape(1,-1) for i in range(self.output_dims)]
+            res = torch.empty(X1.shape[0], X1.shape[0], device=config.device, dtype=config.dtype)  # N1 x N1
+            # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
+            for i in range(self.output_dims):
+                for j in range(i+1):
+                    # calculate sub kernel matrix and add to main kernel matrix
+                    if i == j:
+                        res[r1[i],r2[i]] = self.Ksub(i, i, x1[i])
+                    else:
+                        k = self.Ksub(i, j, x1[i], x1[j])
+                        res[r1[i],r2[j]] = k
+                        res[r1[j],r2[i]] = k.T
+        else:
+            # extract channel mask, get data, and find indices that belong to the channels
+            c2 = X2[:,0].long()
+            m2 = [c2==j for j in range(self.output_dims)]
+            x2 = [X2[m2[j],1:] for j in range(self.output_dims)]
+            r2 = [torch.nonzero(m2[j], as_tuple=False).reshape(1,-1) for j in range(self.output_dims)]  # as_tuple avoids warning
+
+            res = torch.empty(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)  # N1 x N2
+            for i in range(self.output_dims):
+                for j in range(self.output_dims):
+                    # calculate sub kernel matrix and add to main kernel matrix
+                    res[r1[i],r2[j]] = self.Ksub(i, j, x1[i], x2[j])
+
+        return res
+
+    def K_diag(self, X1):
+        &#34;&#34;&#34;
+        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+
+        The first input dimension of X1 must contain the channel IDs (integers).
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        &#34;&#34;&#34;
+        # extract channel mask, get data, and find indices that belong to the channels
+        c1 = X1[:,0].long()
+        m1 = [c1==i for i in range(self.output_dims)]
+        x1 = [X1[m1[i],1:] for i in range(self.output_dims)]  # I is broadcastable with last dimension in X
+        r1 = [torch.nonzero(m1[i], as_tuple=False)[:,0] for i in range(self.output_dims)]  # as_tuple avoids warning
+
+        res = torch.empty(X1.shape[0], device=config.device, dtype=config.dtype)  # N1 x N1
+
+        # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
+        for i in range(self.output_dims):
+            # calculate sub kernel matrix and add to main kernel matrix
+            res[r1[i]] = self.Ksub_diag(i, x1[i])
+        return res
+
+    def Ksub(self, i, j, X1, X2=None):
+        raise NotImplementedError()
+
+    def Ksub_diag(self, i, X1):
+        return self.Ksub(i, i, X1).diagonal()</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.multioutput.CrossSpectralKernel" href="multioutput.html#mogptk.gpr.multioutput.CrossSpectralKernel">CrossSpectralKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.GaussianConvolutionProcessKernel" href="multioutput.html#mogptk.gpr.multioutput.GaussianConvolutionProcessKernel">GaussianConvolutionProcessKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.IndependentMultiOutputKernel" href="multioutput.html#mogptk.gpr.multioutput.IndependentMultiOutputKernel">IndependentMultiOutputKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel" href="multioutput.html#mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel">LinearModelOfCoregionalizationKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.MultiOutputHarmonizableSpectralKernel" href="multioutput.html#mogptk.gpr.multioutput.MultiOutputHarmonizableSpectralKernel">MultiOutputHarmonizableSpectralKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.MultiOutputSpectralKernel" href="multioutput.html#mogptk.gpr.multioutput.MultiOutputSpectralKernel">MultiOutputSpectralKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.UncoupledMultiOutputSpectralKernel" href="multioutput.html#mogptk.gpr.multioutput.UncoupledMultiOutputSpectralKernel">UncoupledMultiOutputSpectralKernel</a></li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="mogptk.gpr.kernel.MultiOutputKernel.output_dims"><code class="name">var <span class="ident">output_dims</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L395-L397" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">@property
+def output_dims(self):
+    return self._output_dims</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.gpr.kernel.MultiOutputKernel.K"><code class="name flex">
+<span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.</p>
+<p>The first input dimension of X1 and X2 must contain the channel IDs (integers).</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X1</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points0,input_dims).</dd>
+<dt><strong><code>X2</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points1,input_dims).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Kernel matrix of shape (data_points0,data_points1).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L399-L445" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def K(self, X1, X2=None):
+    &#34;&#34;&#34;
+    Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+
+    The first input dimension of X1 and X2 must contain the channel IDs (integers).
+
+    Args:
+        X1 (torch.tensor): Input of shape (data_points0,input_dims).
+        X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+    Returns:
+        torch.tensor: Kernel matrix of shape (data_points0,data_points1).
+    &#34;&#34;&#34;
+    # X has shape (data_points,1+input_dims) where the first column is the channel ID
+    # extract channel mask, get data, and find indices that belong to the channels
+    c1 = X1[:,0].long()
+    m1 = [c1==i for i in range(self.output_dims)]
+    x1 = [X1[m1[i],1:] for i in range(self.output_dims)]
+    r1 = [torch.nonzero(m1[i], as_tuple=False) for i in range(self.output_dims)]  # as_tuple avoids warning
+
+    if X2 is None:
+        r2 = [r1[i].reshape(1,-1) for i in range(self.output_dims)]
+        res = torch.empty(X1.shape[0], X1.shape[0], device=config.device, dtype=config.dtype)  # N1 x N1
+        # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
+        for i in range(self.output_dims):
+            for j in range(i+1):
+                # calculate sub kernel matrix and add to main kernel matrix
+                if i == j:
+                    res[r1[i],r2[i]] = self.Ksub(i, i, x1[i])
+                else:
+                    k = self.Ksub(i, j, x1[i], x1[j])
+                    res[r1[i],r2[j]] = k
+                    res[r1[j],r2[i]] = k.T
+    else:
+        # extract channel mask, get data, and find indices that belong to the channels
+        c2 = X2[:,0].long()
+        m2 = [c2==j for j in range(self.output_dims)]
+        x2 = [X2[m2[j],1:] for j in range(self.output_dims)]
+        r2 = [torch.nonzero(m2[j], as_tuple=False).reshape(1,-1) for j in range(self.output_dims)]  # as_tuple avoids warning
+
+        res = torch.empty(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)  # N1 x N2
+        for i in range(self.output_dims):
+            for j in range(self.output_dims):
+                # calculate sub kernel matrix and add to main kernel matrix
+                res[r1[i],r2[j]] = self.Ksub(i, j, x1[i], x2[j])
+
+    return res</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.kernel.MultiOutputKernel.K_diag"><code class="name flex">
+<span>def <span class="ident">K_diag</span></span>(<span>self, X1)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().</p>
+<p>The first input dimension of X1 must contain the channel IDs (integers).</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X1</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Kernel matrix diagonal of shape (data_points,).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L447-L471" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def K_diag(self, X1):
+    &#34;&#34;&#34;
+    Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+
+    The first input dimension of X1 must contain the channel IDs (integers).
+
+    Args:
+        X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+    Returns:
+        torch.tensor: Kernel matrix diagonal of shape (data_points,).
+    &#34;&#34;&#34;
+    # extract channel mask, get data, and find indices that belong to the channels
+    c1 = X1[:,0].long()
+    m1 = [c1==i for i in range(self.output_dims)]
+    x1 = [X1[m1[i],1:] for i in range(self.output_dims)]  # I is broadcastable with last dimension in X
+    r1 = [torch.nonzero(m1[i], as_tuple=False)[:,0] for i in range(self.output_dims)]  # as_tuple avoids warning
+
+    res = torch.empty(X1.shape[0], device=config.device, dtype=config.dtype)  # N1 x N1
+
+    # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
+    for i in range(self.output_dims):
+        # calculate sub kernel matrix and add to main kernel matrix
+        res[r1[i]] = self.Ksub_diag(i, x1[i])
+    return res</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.kernel.MultiOutputKernel.Ksub"><code class="name flex">
+<span>def <span class="ident">Ksub</span></span>(<span>self, i, j, X1, X2=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L473-L474" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def Ksub(self, i, j, X1, X2=None):
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.kernel.MultiOutputKernel.Ksub_diag"><code class="name flex">
+<span>def <span class="ident">Ksub_diag</span></span>(<span>self, i, X1)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/gpr/kernel.py#L476-L477" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def Ksub_diag(self, i, X1):
+    return self.Ksub(i, i, X1).diagonal()</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="mogptk.gpr" href="index.html">mogptk.gpr</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="mogptk.gpr.kernel.AddKernel" href="#mogptk.gpr.kernel.AddKernel">AddKernel</a></code></h4>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel" href="#mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel">AutomaticRelevanceDeterminationKernel</a></code></h4>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></code></h4>
+<ul class="two-column">
+<li><code><a title="mogptk.gpr.kernel.Kernel.K" href="#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.active_dims" href="#mogptk.gpr.kernel.Kernel.active_dims">active_dims</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.output_dims" href="#mogptk.gpr.kernel.Kernel.output_dims">output_dims</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.gpr.kernel.Kernels.output_dims" href="#mogptk.gpr.kernel.Kernels.output_dims">output_dims</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.kernel.MixtureKernel" href="#mogptk.gpr.kernel.MixtureKernel">MixtureKernel</a></code></h4>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.kernel.MulKernel" href="#mogptk.gpr.kernel.MulKernel">MulKernel</a></code></h4>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.kernel.MultiOutputKernel" href="#mogptk.gpr.kernel.MultiOutputKernel">MultiOutputKernel</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.gpr.kernel.MultiOutputKernel.K" href="#mogptk.gpr.kernel.MultiOutputKernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MultiOutputKernel.K_diag" href="#mogptk.gpr.kernel.MultiOutputKernel.K_diag">K_diag</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MultiOutputKernel.Ksub" href="#mogptk.gpr.kernel.MultiOutputKernel.Ksub">Ksub</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MultiOutputKernel.Ksub_diag" href="#mogptk.gpr.kernel.MultiOutputKernel.Ksub_diag">Ksub_diag</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.MultiOutputKernel.output_dims" href="#mogptk.gpr.kernel.MultiOutputKernel.output_dims">output_dims</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,2664 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>mogptk.model API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>mogptk.model</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L1-L760" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">import os
+import sys
+import time
+import pickle
+import numpy as np
+import torch
+import logging
+import matplotlib
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+from . import gpr
+from .serie import Serie
+from .dataset import DataSet
+from .errors import mean_absolute_error, mean_absolute_percentage_error, symmetric_mean_absolute_percentage_error, mean_squared_error, root_mean_squared_error
+
+logger = logging.getLogger(&#39;mogptk&#39;)
+
+def LoadModel(filename):
+    &#34;&#34;&#34;
+    Load model from a given file that was previously saved with `model.save()`.
+
+    Args:
+        filename (str): File name to load from.
+
+    Examples:
+        &gt;&gt;&gt; LoadModel(&#39;filename&#39;)
+    &#34;&#34;&#34;
+    filename += &#34;.npy&#34; 
+    with open(filename, &#39;rb&#39;) as r:
+        return pickle.load(r)
+
+class Exact:
+    &#34;&#34;&#34;
+    Exact inference for Gaussian process regression.
+    &#34;&#34;&#34;
+    def __init__(self, variance=None, jitter=1e-8):
+        self.variance = variance
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        variance = self.variance
+        if variance is None:
+            if y_err is not None:
+                variance = y_err**2
+            else:
+                variance = 1.0
+        return gpr.Exact(kernel, x, y, variance=variance, jitter=self.jitter, mean=mean, name=name)
+
+class Snelson:
+    &#34;&#34;&#34;
+    Inference using Snelson and Ghahramani 2005 for Gaussian process regression.
+    &#34;&#34;&#34;
+    def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
+        self.inducing_points = inducing_points
+        self.variance = variance
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+
+class OpperArchambeau:
+    &#34;&#34;&#34;
+    Inference using Opper and Archambeau 2009 for Gaussian process regression.
+    &#34;&#34;&#34;
+    def __init__(self, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
+        self.likelihood = likelihood
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)
+
+class Titsias:
+    &#34;&#34;&#34;
+    Inference using Titsias 2009 for Gaussian process regression.
+    &#34;&#34;&#34;
+    def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
+        self.inducing_points = inducing_points
+        self.variance = variance
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+
+class Hensman:
+    &#34;&#34;&#34;
+    Inference using Hensman 2015 for Gaussian process regression.
+    &#34;&#34;&#34;
+    def __init__(self, inducing_points=None, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
+        self.inducing_points = inducing_points
+        self.likelihood = likelihood
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        if self.inducing_points is None:
+            return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+        return gpr.SparseHensman(kernel, x, y, self.inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+
+class Model:
+    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None, rescale_x=False):
+        &#34;&#34;&#34;
+        Model is the base class for multi-output Gaussian process models.
+
+        Args:
+            dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
+            kernel (mogptk.gpr.kernel.Kernel): The kernel class.
+            model: Gaussian process model to use, such as `mogptk.model.Exact`.
+            mean (mogptk.gpr.mean.Mean): The mean class.
+            name (str): Name of the model.
+            rescale_x (bool): Rescale the X axis to [0,1000] to help training.
+        &#34;&#34;&#34;
+        
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
+        if dataset.get_output_dims() == 0:
+            raise ValueError(&#34;dataset must have at least one channel&#34;)
+        names = [name for name in dataset.get_names() if name is not None]
+        if len(set(names)) != len(names):
+            raise ValueError(&#34;all data channels must have unique names&#34;)
+
+        if rescale_x:
+            dataset.rescale_x()
+        else:
+            for channel in dataset:
+                for dim in range(channel.get_input_dims()):
+                    xran = np.max(channel.X[dim].transformed) - np.min(channel.X[dim].transformed)
+                    if xran &lt; 1e-3:
+                        logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X axis&#34;)
+                    elif 1e4 &lt; xran:
+                        logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X axis&#34;)
+
+        self.name = name
+        self.dataset = dataset
+
+        X = [[x[channel.mask] for x in channel.X] for channel in self.dataset]
+        Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset]
+        x, y = self._to_kernel_format(X, Y)
+
+        y_err = None
+        if all(channel.Y_err is not None for channel in self.dataset):
+            # TODO: doesn&#39;t transform...
+            Y_err = [np.array(channel.Y_err[channel.mask]) for channel in self.dataset]
+            Y_err_lower = [self.dataset[j].Y.transform(Y[j] - Y_err[j], X[j]) for j in range(len(self.dataset))]
+            Y_err_upper = [self.dataset[j].Y.transform(Y[j] + Y_err[j], X[j]) for j in range(len(self.dataset))]
+            y_err_lower = np.concatenate(Y_err_lower, axis=0)
+            y_err_upper = np.concatenate(Y_err_upper, axis=0)
+            y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
+        self.gpr = inference.build(kernel, x, y, y_err, mean, name)
+
+    ################################################################
+
+    def print_parameters(self):
+        &#34;&#34;&#34;
+        Print the parameters of the model in a table.
+
+        Examples:
+            &gt;&gt;&gt; model.print_parameters()
+        &#34;&#34;&#34;
+        self.gpr.print_parameters()
+
+    def get_parameters(self):
+        &#34;&#34;&#34;
+        Returns all parameters of the kernel.
+
+        Returns:
+            list: mogptk.gpr.parameter.Parameter
+
+        Examples:
+            &gt;&gt;&gt; params = model.get_parameters()
+        &#34;&#34;&#34;
+        return self.gpr.get_parameters()
+
+    def copy_parameters(self, other):
+        &#34;&#34;&#34;
+        Copy the kernel parameters from another model.
+        &#34;&#34;&#34;
+        if not isinstance(other, Model):
+            raise ValueError(&#34;other must be of type Model&#34;)
+
+        self.gpr.kernel.copy_parameters(other.kernel)
+
+    def save(self, filename):
+        &#34;&#34;&#34;
+        Save the model to a given file that can then be loaded using `LoadModel()`.
+
+        Args:
+            filename (str): File name to save to, automatically appends &#39;.npy&#39;.
+
+        Examples:
+            &gt;&gt;&gt; model.save(&#39;filename&#39;)
+        &#34;&#34;&#34;
+        filename += &#34;.npy&#34; 
+        try:
+            os.remove(filename)
+        except OSError:
+            pass
+        with open(filename, &#39;wb&#39;) as w:
+            pickle.dump(self, w)
+
+    def log_marginal_likelihood(self):
+        &#34;&#34;&#34;
+        Returns the log marginal likelihood of the kernel and its data and parameters.
+
+        Returns:
+            float: The current log marginal likelihood.
+
+        Examples:
+            &gt;&gt;&gt; model.log_marginal_likelihood()
+        &#34;&#34;&#34;
+        return self.gpr.log_marginal_likelihood().detach().cpu().item()
+
+    def loss(self):
+        &#34;&#34;&#34;
+        Returns the loss of the kernel and its data and parameters.
+
+        Returns:
+            float: The current loss.
+
+        Examples:
+            &gt;&gt;&gt; model.loss()
+        &#34;&#34;&#34;
+        return self.gpr.loss().detach().cpu().item()
+
+    def error(self, method=&#39;MAE&#39;, use_all_data=False):
+        &#34;&#34;&#34;
+        Returns the error of the kernel prediction with the removed data points in the data set.
+
+        Args:
+            method (str): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE.
+
+        Returns:
+            float: The current error.
+
+        Examples:
+            &gt;&gt;&gt; model.error()
+        &#34;&#34;&#34;
+        if use_all_data:
+            X, Y_true = self.dataset.get_data()
+        else:
+            X, Y_true = self.dataset.get_test_data()
+        x, y_true  = self._to_kernel_format(X, Y_true)
+        y_pred, _ = self.gpr.predict(x, predict_y=False)
+        if method.lower() == &#39;mae&#39;:
+            return mean_absolute_error(y_true, y_pred)
+        elif method.lower() == &#39;mape&#39;:
+            return mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == &#39;smape&#39;:
+            return symmetric_mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == &#39;mse&#39;:
+            return mean_squared_error(y_true, y_pred)
+        elif method.lower() == &#39;rmse&#39;:
+            return root_mean_squared_error(y_true, y_pred)
+        else:
+            raise ValueError(&#34;valid error calculation methods are MAE, MAPE, and RMSE&#34;)
+
+    def train(
+        self,
+        method=&#39;Adam&#39;,
+        iters=500,
+        verbose=False,
+        error=None,
+        plot=False,
+        **kwargs):
+        &#34;&#34;&#34;
+        Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.
+
+        Args:
+            method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.
+            iters (int): Number of iterations, or maximum in case of LBFGS optimizer.
+            verbose (bool): Print verbose output about the state of the optimizer.
+            error (str): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.
+            plot (bool): Plot the loss and, if error is data set, the error of the test data points.
+            **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
+
+        Returns:
+            numpy.ndarray: Losses for all iterations.
+            numpy.ndarray: Errors for all iterations. Only if `error` is set, otherwise zero.
+
+        Examples:
+            &gt;&gt;&gt; model.train()
+            
+            &gt;&gt;&gt; model.train(method=&#39;lbfgs&#39;, tolerance_grad=1e-10, tolerance_change=1e-12)
+            
+            &gt;&gt;&gt; model.train(method=&#39;adam&#39;, lr=0.5)
+        &#34;&#34;&#34;
+        error_use_all_data = False
+        if error is not None and all(not channel.has_test_data() for channel in self.dataset):
+            error_use_all_data = True
+
+        if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
+            method = &#39;LBFGS&#39;
+        elif method.lower() == &#39;adam&#39;:
+            method = &#39;Adam&#39;
+        elif method.lower() == &#39;sgd&#39;:
+            method = &#39;SGD&#39;
+        elif method.lower() == &#39;adagrad&#39;:
+            method = &#39;AdaGrad&#39;
+
+        if verbose:
+            training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
+            parameters = sum([int(np.prod(param.shape)) for param in self.gpr.parameters()])
+            print(&#39;\nStarting optimization using&#39;, method)
+            print(&#39;‣ Model: {}&#39;.format(self.name))
+            print(&#39;‣ Channels: {}&#39;.format(len(self.dataset)))
+            if hasattr(self, &#39;Q&#39;):
+                print(&#39;‣ Mixtures: {}&#39;.format(self.Q))
+            print(&#39;‣ Training points: {}&#39;.format(training_points))
+            print(&#39;‣ Parameters: {}&#39;.format(parameters))
+            print(&#39;‣ Initial loss: {:.3g}&#39;.format(self.loss()))
+            if error is not None:
+                print(&#39;‣ Initial error: {:.3g}&#39;.format(self.error(error, error_use_all_data)))
+
+        losses = np.empty((iters+1,))
+        errors = np.zeros((iters+1,))
+
+        inital_time = time.time()
+        sys.__stdout__.write(&#34;\nStart %s:\n&#34; % (method,))
+        if method == &#39;LBFGS&#39;:
+            if &#39;lr&#39; not in kwargs:
+                kwargs[&#39;lr&#39;] = 0.1
+            if not &#39;max_iter&#39; in kwargs:
+                kwargs[&#39;max_iter&#39;] = iters
+                iters = 0
+            optimizer = torch.optim.LBFGS(self.gpr.parameters(), **kwargs)
+
+            def loss():
+                i = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
+                elapsed_time = time.time() - inital_time
+                losses[i] = self.loss()
+                if error is not None:
+                    errors[i] = self.error(error, error_use_all_data)
+                    if i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                        sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g  error=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], _format_time(elapsed_time), losses[i], errors[i]))
+                elif i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                    sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], _format_time(elapsed_time), losses[i]))
+                return losses[i]
+            optimizer.step(loss)
+            iters = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
+        else:
+            if method == &#39;Adam&#39;:
+                if &#39;lr&#39; not in kwargs:
+                    kwargs[&#39;lr&#39;] = 0.1
+                optimizer = torch.optim.Adam(self.gpr.parameters(), **kwargs)
+            elif method == &#39;SGD&#39;:
+                optimizer = torch.optim.SGD(self.gpr.parameters(), **kwargs)
+            elif method == &#39;AdaGrad&#39;:
+                optimizer = torch.optim.Adagrad(self.gpr.parameters(), **kwargs)
+            else:
+                print(&#34;Unknown optimizer:&#34;, method)
+
+            for i in range(iters):
+                elapsed_time = time.time() - inital_time
+                losses[i] = self.loss()
+                if error is not None:
+                    errors[i] = self.error(error, error_use_all_data)
+                    if i % (iters/100) == 0:
+                        sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g  error=%10g\n&#34; % (i, iters, _format_time(elapsed_time), losses[i], errors[i]))
+                elif i % (iters/100) == 0:
+                    sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g\n&#34; % (i, iters, _format_time(elapsed_time), losses[i]))
+                optimizer.step()
+        losses[iters] = self.loss()
+        elapsed_time = time.time() - inital_time
+        if error is not None:
+            errors[iters] = self.error(error, error_use_all_data)
+            sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g  error=%10g\n&#34; % (iters, iters, _format_time(elapsed_time), losses[iters], errors[iters]))
+        else:
+            sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g\n&#34; % (iters, iters, _format_time(elapsed_time), losses[iters]))
+        sys.__stdout__.write(&#34;Finished\n&#34;)
+
+        if verbose:
+            elapsed_time = time.time() - inital_time
+            print(&#39;\nOptimization finished in {}&#39;.format(_format_duration(elapsed_time)))
+            print(&#39;‣ Function evaluations: {}&#39;.format(iters))
+            print(&#39;‣ Final loss: {:.3g}&#39;.format(losses[iters]))
+            if error is not None:
+                print(&#39;‣ Final error: {:.3g}&#39;.format(errors[iters]))
+
+        self.iters = iters
+        self.losses = losses
+        self.errors = errors
+        if plot:
+            self.plot_losses()
+        return losses, errors
+
+    ################################################################################
+    # Predictions ##################################################################
+    ################################################################################
+
+    # TODO: add get_prediction
+
+    def _to_kernel_format(self, X, Y=None):
+        &#34;&#34;&#34;
+        Return the data vectors in the format used by the kernels. If Y is not passed, than only X data is returned.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+            numpy.ndarray: Y data.
+            numpy.ndarray: Original but normalized X data. Only if no Y is passed.
+        &#34;&#34;&#34;
+        X_orig = X
+        X = X.copy()
+        for j, channel_x in enumerate(X):
+            if channel_x is None or len(channel_x) == 0:
+                X[j] = np.empty((0, input_dims))
+                continue
+
+            input_dims = self.dataset.get_input_dims()[j]
+            if isinstance(channel_x, np.ndarray):
+                if channel_x.ndim == 1:
+                    channel_x = channel_x.reshape(-1, 1)
+                if channel_x.ndim != 2 or channel_x.shape[1] != input_dims:
+                    raise ValueError(&#34;X must be of shape (n,input_dims) or a list [(n,)] * input_dims for each channel&#34;)
+                channel_x = [channel_x[:,i] for i in range(input_dims)]
+            elif not isinstance(channel_x, list):
+                raise ValueError(&#34;X must be a list of lists or numpy.ndarrays&#34;)
+            if not all(isinstance(x, np.ndarray) for x in channel_x) or len(channel_x) != input_dims:
+                raise ValueError(&#34;X must be of shape (n,input_dims) or a list [(n,)] * input_dims for each channel&#34;)
+            X[j] = np.array([self.dataset[j].X[i].transform(channel_x[i]) for i in range(input_dims)]).T
+
+        chan = [i * np.ones(len(X[i])) for i in range(len(X))]
+        chan = np.concatenate(chan).reshape(-1, 1)
+        if len(X) == 0:
+            x = np.array([])
+        else:
+            x = np.concatenate(X, axis=0)
+            x = np.concatenate([chan, x], axis=1)
+        if Y is None:
+            return x
+
+        if isinstance(Y, np.ndarray):
+            Y = list(Y)
+        elif not isinstance(Y, list):
+            raise ValueError(&#34;Y must be a list or numpy.ndarray&#34;)
+        if len(Y) != len(self.dataset.channels):
+            raise ValueError(&#34;Y must be a list of shape (n,) for each channel&#34;)
+        Y = Y.copy()
+        for j, channel_y in enumerate(Y):
+            if channel_y.ndim != 1:
+                raise ValueError(&#34;Y must be a list of shape (n,) for each channel&#34;)
+            if channel_y.shape[0] != X[j].shape[0]:
+                raise ValueError(&#34;Y must have the same number of data points per channel as X&#34;)
+            Y[j] = self.dataset[j].Y.transform(channel_y, X_orig[j])
+        if len(Y) == 0:
+            y = np.array([])
+        else:
+            y = np.concatenate(Y, axis=0).reshape(-1, 1)
+        return x, y
+
+    def predict(self, X=None, sigma=None, q=[0.025, 0.975], transformed=False, predict_y=True):
+        &#34;&#34;&#34;
+        Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
+
+        Args:
+            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+            q (list of float): The quantiles for the confidence interval&#39;s lower and upper ends.
+            transformed (boolean): Return transformed data as used for training.
+
+        Returns:
+            numpy.ndarray: Y mean prediction of shape (n,) for each channel.
+            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,) for each channel.
+            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,) for each channel.
+
+        Examples:
+            &gt;&gt;&gt; model.predict(X)
+        &#34;&#34;&#34;
+        save = X is None
+        if save and transformed:
+            raise ValueError(&#39;must pass an X range explicitly in order to return transformed data&#39;)
+        if save:
+            X = self.dataset.get_prediction_x()
+        else:
+            X = self.dataset._format_prediction_x(X)
+        x = self._to_kernel_format(X)
+
+        mu, var = self.gpr.predict(x, predict_y=predict_y, tensor=True)
+        # TODO: quantiles
+        #if predict_y:
+            #lower = self.gpr.quantile(q[0], mu, var)
+            #upper = self.gpr.quantile(q[1], mu, var)
+        if sigma is not None:
+            lower = mu - sigma*torch.sqrt(var)
+            upper = mu + sigma*torch.sqrt(var)
+        else:
+            ql = torch.tensor(q[0], device=gpr.config.device, dtype=gpr.config.dtype)
+            qu = torch.tensor(q[1], device=gpr.config.device, dtype=gpr.config.dtype)
+            lower = mu + torch.sqrt(var)*np.sqrt(2)*torch.special.erfinv(2.0*ql - 1.0)
+            upper = mu + torch.sqrt(var)*np.sqrt(2)*torch.special.erfinv(2.0*qu - 1.0)
+
+        mu = mu.cpu().numpy()
+        var = var.cpu().numpy()
+        lower = lower.cpu().numpy()
+        upper = upper.cpu().numpy()
+
+        i = 0
+        Mu = []
+        Var = []
+        Lower = []
+        Upper = []
+        for j in range(self.dataset.get_output_dims()):
+            N = X[j][0].shape[0]
+            Mu.append(np.squeeze(mu[i:i+N]))
+            Var.append(np.squeeze(var[i:i+N]))
+            Lower.append(np.squeeze(lower[i:i+N]))
+            Upper.append(np.squeeze(upper[i:i+N]))
+            i += N
+
+        if save:
+            for j in range(self.dataset.get_output_dims()):
+                self.dataset[j].Y_mu_pred[self.name] = Mu[j]
+                self.dataset[j].Y_var_pred[self.name] = Var[j]
+
+        if not transformed:
+            for j in range(self.dataset.get_output_dims()):
+                Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
+                Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
+                Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+        return Mu, Lower, Upper
+
+    def K(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Evaluate the kernel at K(X1,X2).
+
+        Args:
+            X1 (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            X2 (list, dict): Same as X1 if None.
+
+        Returns:
+            numpy.ndarray: kernel evaluated at X1 and X2 of shape (n1,n2).
+
+        Examples:
+            &gt;&gt;&gt; channel0 = np.array([&#39;1987-05-20&#39;, &#39;1987-05-21&#39;])
+            &gt;&gt;&gt; channel1 = np.array([[2.5, 534.6], [3.5, 898.22], [4.5, 566.98]])
+            &gt;&gt;&gt; model.K([channel0,channel1])
+        &#34;&#34;&#34;
+        x1 = self._to_kernel_format(X1)
+        if X2 is None:
+            return self.gpr.K(x1)
+        else:
+            x2 = self._to_kernel_format(X2)
+            return self.gpr.K(x1, x2)
+
+    def sample(self, X=None, n=None, predict_y=True, transformed=False):
+        &#34;&#34;&#34;
+        Sample n times from the kernel at input X .
+
+        Args:
+            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            n (int): Number of samples.
+            transformed (boolean): Return transformed data as used for training.
+
+        Returns:
+            list: samples of shape len(X) for each channel if n is given.
+            numpy.ndarray: sample of shape len(X) for each channel if n is None.
+
+        Examples:
+            &gt;&gt;&gt; model.sample(n=10)
+        &#34;&#34;&#34;
+        if X is None:
+            X = self.dataset.get_prediction_x()
+        else:
+            X = self.dataset._format_prediction_x(X)
+        x = self._to_kernel_format(X)
+
+        samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
+
+        i = 0
+        Samples = []
+        for j in range(self.dataset.get_output_dims()):
+            N = X[j][0].shape[0]
+            if n is None:
+                sample = np.squeeze(samples[i:i+N])
+                if not transformed:
+                    sample = self.dataset[j].Y.detransform(sample, X[j])
+                Samples.append(sample)
+            else:
+                ss = []
+                for k in range(n):
+                    sample = np.squeeze(samples[i:i+N,k])
+                    if not transformed:
+                        sample = self.dataset[j].Y.detransform(sample, X[j])
+                    ss.append(sample)
+                Samples.append(ss)
+            i += N
+        if self.dataset.get_output_dims() == 1:
+            return Samples[0]
+        return Samples
+
+    def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+        if not hasattr(self, &#39;losses&#39;):
+            raise Exception(&#34;must be trained in order to plot the losses&#34;)
+
+        if figsize is None:
+            figsize = (12,3)
+
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        ax.plot(np.arange(0,self.iters+1), self.losses[:self.iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
+        ax.set_xlim(0, self.iters)
+        ax.set_xlabel(&#39;Iteration&#39;)
+        ax.set_ylabel(&#39;Loss&#39;)
+
+        legends = []
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
+        if errors and hasattr(self, &#39;errors&#39;):
+            ax2 = ax.twinx()
+            ax2.plot(np.arange(0,self.iters+1), self.errors[:self.iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
+            ax2.set_ylabel(&#39;Error&#39;)
+            legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
+
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        if legend:
+            ax.legend(handles=legends)
+
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
+        &#34;&#34;&#34;
+        Plot the data including removed observations, latent function, and predictions of this model for each channel.
+
+        Args:
+            title (str): Set the title of the plot.
+            figsize (tuple): Set the figure size.
+            legend (boolean): Disable legend.
+            transformed (boolean): Display transformed Y data as used for training.
+
+        Returns:
+            matplotlib.figure.Figure: The figure.
+            list of matplotlib.axes.Axes: List of axes.
+
+        Examples:
+            &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
+        &#34;&#34;&#34;
+        if X is not None:
+            self.dataset.set_prediction_x(X)
+            self.predict()
+        elif not self.name in self.dataset[0].Y_mu_pred:
+            self.predict(predict_y=predict_y)
+        return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
+
+    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
+        &#34;&#34;&#34;
+        Plot the gram matrix of associated kernel.
+
+        Args:
+            start (float, list, array): Interval minimum.
+            end (float, list, array): Interval maximum.
+            n (int): Number of points per channel.
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        &#34;&#34;&#34;
+        if not all(channel.get_input_dims() == 1 for channel in self.dataset):
+            raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
+
+        if start is None:
+            start = [channel.X[0].transformed.min() for channel in self.dataset]
+        if end is None:
+            end = [channel.X[0].transformed.max() for channel in self.dataset]
+
+        output_dims = len(self.dataset)
+        if not isinstance(start, (list, np.ndarray)):
+            start = [start] * output_dims
+        if not isinstance(end, (list, np.ndarray)):
+            end = [end] * output_dims
+
+        X = np.zeros((output_dims*n, 2))
+        X[:,0] = np.repeat(np.arange(output_dims), n)
+        for j in range(output_dims):
+            if n== 1:
+                X[j*n:(j+1)*n,1] = np.array((start[j]+end[j])/2.0)
+            else:
+                X[j*n:(j+1)*n,1] = np.linspace(start[j], end[j], n)
+        k = self.gpr.K(X)
+            
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        color_range = np.abs(k).max()
+        norm = matplotlib.colors.Normalize(vmin=-color_range, vmax=color_range)
+        im = ax.matshow(k, cmap=&#39;coolwarm&#39;, norm=norm)
+
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes(&#34;right&#34;, size=&#34;5%&#34;, pad=0.3)
+        fig.colorbar(im, cax=cax)
+
+        # Major ticks every 20, minor ticks every 5
+        major_ticks = np.arange(-0.5, output_dims*n, n)
+        minor_ticks = np.arange(-0.5, output_dims*n, 2)
+
+        ax.set_xticks(major_ticks)
+        ax.set_yticks(major_ticks)
+        ax.grid(which=&#39;major&#39;, lw=1.5, c=&#39;k&#39;)
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.tick_params(axis=&#39;both&#39;, which=&#39;both&#39;, length=0)
+        return fig, ax
+
+    def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
+        if not all(channel.get_input_dims() == 1 for channel in self.dataset):
+            raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
+
+        if dist is None:
+            dist = [(channel.X[0].transformed.max()-channel.X[0].transformed.min())/4.0 for channel in self.dataset]
+
+        output_dims = len(self.dataset)
+        if not isinstance(dist, (list, np.ndarray)):
+            dist = [dist] * output_dims
+
+        fig, ax = plt.subplots(output_dims, output_dims, figsize=figsize, constrained_layout=True, squeeze=False, sharex=True)
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        channel = np.ones((n,1))
+        for j in range(output_dims):
+            tau = np.linspace(-dist[j], dist[j], num=n).reshape(-1,1)
+            X1 = np.array([[j,0.0]])
+            for i in range(output_dims):
+                if j &lt; i:
+                    ax[j,i].set_axis_off()
+                    continue
+
+                X0 = np.concatenate((i*channel,tau), axis=1)
+                k = self.gpr.K(X0,X1)
+                ax[j,i].plot(tau, k, color=&#39;k&#39;)
+                ax[j,i].set_yticks([])
+        return fig, ax
+
+def _format_duration(s):
+    s = round(s)
+    days = int(s/86400)
+    hours = int(s%86400/3600)
+    minutes = int(s%3600/60)
+    seconds = int(s%60)
+
+    duration = &#39;&#39;
+    if 1 &lt; days:
+        duration += &#39; %d days&#39; % days
+    elif days == 1:
+        duration += &#39; 1 day&#39;
+    if 1 &lt; hours:
+        duration += &#39; %d hours&#39; % hours
+    elif hours == 1:
+        duration += &#39; 1 hour&#39;
+    if 1 &lt; minutes:
+        duration += &#39; %d minutes&#39; % minutes
+    elif minutes == 1:
+        duration += &#39; 1 minute&#39;
+    if 1 &lt; seconds:
+        duration += &#39; %d seconds&#39; % seconds
+    elif days == 1:
+        duration += &#39; 1 second&#39;
+    else:
+        duration += &#39; less than one second&#39;
+    return duration[1:]
+
+def _format_time(s):
+    return &#34;%3d:%02d:%02d&#34; % (int(s/3600), int((s%3600)/60), int(s%60))</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="mogptk.model.LoadModel"><code class="name flex">
+<span>def <span class="ident">LoadModel</span></span>(<span>filename)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Load model from a given file that was previously saved with <code>model.save()</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
+<dd>File name to load from.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; LoadModel('filename')
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L19-L31" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def LoadModel(filename):
+    &#34;&#34;&#34;
+    Load model from a given file that was previously saved with `model.save()`.
+
+    Args:
+        filename (str): File name to load from.
+
+    Examples:
+        &gt;&gt;&gt; LoadModel(&#39;filename&#39;)
+    &#34;&#34;&#34;
+    filename += &#34;.npy&#34; 
+    with open(filename, &#39;rb&#39;) as r:
+        return pickle.load(r)</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="mogptk.model.Exact"><code class="flex name class">
+<span>class <span class="ident">Exact</span></span>
+<span>(</span><span>variance=None, jitter=1e-08)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Exact inference for Gaussian process regression.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L33-L48" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Exact:
+    &#34;&#34;&#34;
+    Exact inference for Gaussian process regression.
+    &#34;&#34;&#34;
+    def __init__(self, variance=None, jitter=1e-8):
+        self.variance = variance
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        variance = self.variance
+        if variance is None:
+            if y_err is not None:
+                variance = y_err**2
+            else:
+                variance = 1.0
+        return gpr.Exact(kernel, x, y, variance=variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.model.Exact.build"><code class="name flex">
+<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, y_err=None, mean=None, name=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L41-L48" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    variance = self.variance
+    if variance is None:
+        if y_err is not None:
+            variance = y_err**2
+        else:
+            variance = 1.0
+    return gpr.Exact(kernel, x, y, variance=variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.model.Hensman"><code class="flex name class">
+<span>class <span class="ident">Hensman</span></span>
+<span>(</span><span>inducing_points=None, likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-06)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Inference using Hensman 2015 for Gaussian process regression.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L85-L97" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Hensman:
+    &#34;&#34;&#34;
+    Inference using Hensman 2015 for Gaussian process regression.
+    &#34;&#34;&#34;
+    def __init__(self, inducing_points=None, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
+        self.inducing_points = inducing_points
+        self.likelihood = likelihood
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        if self.inducing_points is None:
+            return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+        return gpr.SparseHensman(kernel, x, y, self.inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.model.Hensman.build"><code class="name flex">
+<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, y_err=None, mean=None, name=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L94-L97" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    if self.inducing_points is None:
+        return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+    return gpr.SparseHensman(kernel, x, y, self.inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.model.Model"><code class="flex name class">
+<span>class <span class="ident">Model</span></span>
+<span>(</span><span>dataset, kernel, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name=None, rescale_x=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Model is the base class for multi-output Gaussian process models.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dataset</code></strong> :&ensp;<code><a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet">DataSet</a>, <a title="mogptk.data.Data" href="data.html#mogptk.data.Data">Data</a></code></dt>
+<dd><code>DataSet</code> with <code>Data</code> objects for all the channels. When a (list or dict of) <code>Data</code> object is passed, it will automatically be converted to a <code>DataSet</code>.</dd>
+<dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="gpr/kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>The kernel class.</dd>
+<dt><strong><code>model</code></strong></dt>
+<dd>Gaussian process model to use, such as <code><a title="mogptk.model.Exact" href="#mogptk.model.Exact">Exact</a></code>.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
+<dd>The mean class.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the model.</dd>
+<dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Rescale the X axis to [0,1000] to help training.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L99-L729" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Model:
+    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None, rescale_x=False):
+        &#34;&#34;&#34;
+        Model is the base class for multi-output Gaussian process models.
+
+        Args:
+            dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
+            kernel (mogptk.gpr.kernel.Kernel): The kernel class.
+            model: Gaussian process model to use, such as `mogptk.model.Exact`.
+            mean (mogptk.gpr.mean.Mean): The mean class.
+            name (str): Name of the model.
+            rescale_x (bool): Rescale the X axis to [0,1000] to help training.
+        &#34;&#34;&#34;
+        
+        if not isinstance(dataset, DataSet):
+            dataset = DataSet(dataset)
+        if dataset.get_output_dims() == 0:
+            raise ValueError(&#34;dataset must have at least one channel&#34;)
+        names = [name for name in dataset.get_names() if name is not None]
+        if len(set(names)) != len(names):
+            raise ValueError(&#34;all data channels must have unique names&#34;)
+
+        if rescale_x:
+            dataset.rescale_x()
+        else:
+            for channel in dataset:
+                for dim in range(channel.get_input_dims()):
+                    xran = np.max(channel.X[dim].transformed) - np.min(channel.X[dim].transformed)
+                    if xran &lt; 1e-3:
+                        logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X axis&#34;)
+                    elif 1e4 &lt; xran:
+                        logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X axis&#34;)
+
+        self.name = name
+        self.dataset = dataset
+
+        X = [[x[channel.mask] for x in channel.X] for channel in self.dataset]
+        Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset]
+        x, y = self._to_kernel_format(X, Y)
+
+        y_err = None
+        if all(channel.Y_err is not None for channel in self.dataset):
+            # TODO: doesn&#39;t transform...
+            Y_err = [np.array(channel.Y_err[channel.mask]) for channel in self.dataset]
+            Y_err_lower = [self.dataset[j].Y.transform(Y[j] - Y_err[j], X[j]) for j in range(len(self.dataset))]
+            Y_err_upper = [self.dataset[j].Y.transform(Y[j] + Y_err[j], X[j]) for j in range(len(self.dataset))]
+            y_err_lower = np.concatenate(Y_err_lower, axis=0)
+            y_err_upper = np.concatenate(Y_err_upper, axis=0)
+            y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
+        self.gpr = inference.build(kernel, x, y, y_err, mean, name)
+
+    ################################################################
+
+    def print_parameters(self):
+        &#34;&#34;&#34;
+        Print the parameters of the model in a table.
+
+        Examples:
+            &gt;&gt;&gt; model.print_parameters()
+        &#34;&#34;&#34;
+        self.gpr.print_parameters()
+
+    def get_parameters(self):
+        &#34;&#34;&#34;
+        Returns all parameters of the kernel.
+
+        Returns:
+            list: mogptk.gpr.parameter.Parameter
+
+        Examples:
+            &gt;&gt;&gt; params = model.get_parameters()
+        &#34;&#34;&#34;
+        return self.gpr.get_parameters()
+
+    def copy_parameters(self, other):
+        &#34;&#34;&#34;
+        Copy the kernel parameters from another model.
+        &#34;&#34;&#34;
+        if not isinstance(other, Model):
+            raise ValueError(&#34;other must be of type Model&#34;)
+
+        self.gpr.kernel.copy_parameters(other.kernel)
+
+    def save(self, filename):
+        &#34;&#34;&#34;
+        Save the model to a given file that can then be loaded using `LoadModel()`.
+
+        Args:
+            filename (str): File name to save to, automatically appends &#39;.npy&#39;.
+
+        Examples:
+            &gt;&gt;&gt; model.save(&#39;filename&#39;)
+        &#34;&#34;&#34;
+        filename += &#34;.npy&#34; 
+        try:
+            os.remove(filename)
+        except OSError:
+            pass
+        with open(filename, &#39;wb&#39;) as w:
+            pickle.dump(self, w)
+
+    def log_marginal_likelihood(self):
+        &#34;&#34;&#34;
+        Returns the log marginal likelihood of the kernel and its data and parameters.
+
+        Returns:
+            float: The current log marginal likelihood.
+
+        Examples:
+            &gt;&gt;&gt; model.log_marginal_likelihood()
+        &#34;&#34;&#34;
+        return self.gpr.log_marginal_likelihood().detach().cpu().item()
+
+    def loss(self):
+        &#34;&#34;&#34;
+        Returns the loss of the kernel and its data and parameters.
+
+        Returns:
+            float: The current loss.
+
+        Examples:
+            &gt;&gt;&gt; model.loss()
+        &#34;&#34;&#34;
+        return self.gpr.loss().detach().cpu().item()
+
+    def error(self, method=&#39;MAE&#39;, use_all_data=False):
+        &#34;&#34;&#34;
+        Returns the error of the kernel prediction with the removed data points in the data set.
+
+        Args:
+            method (str): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE.
+
+        Returns:
+            float: The current error.
+
+        Examples:
+            &gt;&gt;&gt; model.error()
+        &#34;&#34;&#34;
+        if use_all_data:
+            X, Y_true = self.dataset.get_data()
+        else:
+            X, Y_true = self.dataset.get_test_data()
+        x, y_true  = self._to_kernel_format(X, Y_true)
+        y_pred, _ = self.gpr.predict(x, predict_y=False)
+        if method.lower() == &#39;mae&#39;:
+            return mean_absolute_error(y_true, y_pred)
+        elif method.lower() == &#39;mape&#39;:
+            return mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == &#39;smape&#39;:
+            return symmetric_mean_absolute_percentage_error(y_true, y_pred)
+        elif method.lower() == &#39;mse&#39;:
+            return mean_squared_error(y_true, y_pred)
+        elif method.lower() == &#39;rmse&#39;:
+            return root_mean_squared_error(y_true, y_pred)
+        else:
+            raise ValueError(&#34;valid error calculation methods are MAE, MAPE, and RMSE&#34;)
+
+    def train(
+        self,
+        method=&#39;Adam&#39;,
+        iters=500,
+        verbose=False,
+        error=None,
+        plot=False,
+        **kwargs):
+        &#34;&#34;&#34;
+        Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.
+
+        Args:
+            method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.
+            iters (int): Number of iterations, or maximum in case of LBFGS optimizer.
+            verbose (bool): Print verbose output about the state of the optimizer.
+            error (str): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.
+            plot (bool): Plot the loss and, if error is data set, the error of the test data points.
+            **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
+
+        Returns:
+            numpy.ndarray: Losses for all iterations.
+            numpy.ndarray: Errors for all iterations. Only if `error` is set, otherwise zero.
+
+        Examples:
+            &gt;&gt;&gt; model.train()
+            
+            &gt;&gt;&gt; model.train(method=&#39;lbfgs&#39;, tolerance_grad=1e-10, tolerance_change=1e-12)
+            
+            &gt;&gt;&gt; model.train(method=&#39;adam&#39;, lr=0.5)
+        &#34;&#34;&#34;
+        error_use_all_data = False
+        if error is not None and all(not channel.has_test_data() for channel in self.dataset):
+            error_use_all_data = True
+
+        if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
+            method = &#39;LBFGS&#39;
+        elif method.lower() == &#39;adam&#39;:
+            method = &#39;Adam&#39;
+        elif method.lower() == &#39;sgd&#39;:
+            method = &#39;SGD&#39;
+        elif method.lower() == &#39;adagrad&#39;:
+            method = &#39;AdaGrad&#39;
+
+        if verbose:
+            training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
+            parameters = sum([int(np.prod(param.shape)) for param in self.gpr.parameters()])
+            print(&#39;\nStarting optimization using&#39;, method)
+            print(&#39;‣ Model: {}&#39;.format(self.name))
+            print(&#39;‣ Channels: {}&#39;.format(len(self.dataset)))
+            if hasattr(self, &#39;Q&#39;):
+                print(&#39;‣ Mixtures: {}&#39;.format(self.Q))
+            print(&#39;‣ Training points: {}&#39;.format(training_points))
+            print(&#39;‣ Parameters: {}&#39;.format(parameters))
+            print(&#39;‣ Initial loss: {:.3g}&#39;.format(self.loss()))
+            if error is not None:
+                print(&#39;‣ Initial error: {:.3g}&#39;.format(self.error(error, error_use_all_data)))
+
+        losses = np.empty((iters+1,))
+        errors = np.zeros((iters+1,))
+
+        inital_time = time.time()
+        sys.__stdout__.write(&#34;\nStart %s:\n&#34; % (method,))
+        if method == &#39;LBFGS&#39;:
+            if &#39;lr&#39; not in kwargs:
+                kwargs[&#39;lr&#39;] = 0.1
+            if not &#39;max_iter&#39; in kwargs:
+                kwargs[&#39;max_iter&#39;] = iters
+                iters = 0
+            optimizer = torch.optim.LBFGS(self.gpr.parameters(), **kwargs)
+
+            def loss():
+                i = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
+                elapsed_time = time.time() - inital_time
+                losses[i] = self.loss()
+                if error is not None:
+                    errors[i] = self.error(error, error_use_all_data)
+                    if i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                        sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g  error=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], _format_time(elapsed_time), losses[i], errors[i]))
+                elif i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                    sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], _format_time(elapsed_time), losses[i]))
+                return losses[i]
+            optimizer.step(loss)
+            iters = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
+        else:
+            if method == &#39;Adam&#39;:
+                if &#39;lr&#39; not in kwargs:
+                    kwargs[&#39;lr&#39;] = 0.1
+                optimizer = torch.optim.Adam(self.gpr.parameters(), **kwargs)
+            elif method == &#39;SGD&#39;:
+                optimizer = torch.optim.SGD(self.gpr.parameters(), **kwargs)
+            elif method == &#39;AdaGrad&#39;:
+                optimizer = torch.optim.Adagrad(self.gpr.parameters(), **kwargs)
+            else:
+                print(&#34;Unknown optimizer:&#34;, method)
+
+            for i in range(iters):
+                elapsed_time = time.time() - inital_time
+                losses[i] = self.loss()
+                if error is not None:
+                    errors[i] = self.error(error, error_use_all_data)
+                    if i % (iters/100) == 0:
+                        sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g  error=%10g\n&#34; % (i, iters, _format_time(elapsed_time), losses[i], errors[i]))
+                elif i % (iters/100) == 0:
+                    sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g\n&#34; % (i, iters, _format_time(elapsed_time), losses[i]))
+                optimizer.step()
+        losses[iters] = self.loss()
+        elapsed_time = time.time() - inital_time
+        if error is not None:
+            errors[iters] = self.error(error, error_use_all_data)
+            sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g  error=%10g\n&#34; % (iters, iters, _format_time(elapsed_time), losses[iters], errors[iters]))
+        else:
+            sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g\n&#34; % (iters, iters, _format_time(elapsed_time), losses[iters]))
+        sys.__stdout__.write(&#34;Finished\n&#34;)
+
+        if verbose:
+            elapsed_time = time.time() - inital_time
+            print(&#39;\nOptimization finished in {}&#39;.format(_format_duration(elapsed_time)))
+            print(&#39;‣ Function evaluations: {}&#39;.format(iters))
+            print(&#39;‣ Final loss: {:.3g}&#39;.format(losses[iters]))
+            if error is not None:
+                print(&#39;‣ Final error: {:.3g}&#39;.format(errors[iters]))
+
+        self.iters = iters
+        self.losses = losses
+        self.errors = errors
+        if plot:
+            self.plot_losses()
+        return losses, errors
+
+    ################################################################################
+    # Predictions ##################################################################
+    ################################################################################
+
+    # TODO: add get_prediction
+
+    def _to_kernel_format(self, X, Y=None):
+        &#34;&#34;&#34;
+        Return the data vectors in the format used by the kernels. If Y is not passed, than only X data is returned.
+
+        Returns:
+            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
+            numpy.ndarray: Y data.
+            numpy.ndarray: Original but normalized X data. Only if no Y is passed.
+        &#34;&#34;&#34;
+        X_orig = X
+        X = X.copy()
+        for j, channel_x in enumerate(X):
+            if channel_x is None or len(channel_x) == 0:
+                X[j] = np.empty((0, input_dims))
+                continue
+
+            input_dims = self.dataset.get_input_dims()[j]
+            if isinstance(channel_x, np.ndarray):
+                if channel_x.ndim == 1:
+                    channel_x = channel_x.reshape(-1, 1)
+                if channel_x.ndim != 2 or channel_x.shape[1] != input_dims:
+                    raise ValueError(&#34;X must be of shape (n,input_dims) or a list [(n,)] * input_dims for each channel&#34;)
+                channel_x = [channel_x[:,i] for i in range(input_dims)]
+            elif not isinstance(channel_x, list):
+                raise ValueError(&#34;X must be a list of lists or numpy.ndarrays&#34;)
+            if not all(isinstance(x, np.ndarray) for x in channel_x) or len(channel_x) != input_dims:
+                raise ValueError(&#34;X must be of shape (n,input_dims) or a list [(n,)] * input_dims for each channel&#34;)
+            X[j] = np.array([self.dataset[j].X[i].transform(channel_x[i]) for i in range(input_dims)]).T
+
+        chan = [i * np.ones(len(X[i])) for i in range(len(X))]
+        chan = np.concatenate(chan).reshape(-1, 1)
+        if len(X) == 0:
+            x = np.array([])
+        else:
+            x = np.concatenate(X, axis=0)
+            x = np.concatenate([chan, x], axis=1)
+        if Y is None:
+            return x
+
+        if isinstance(Y, np.ndarray):
+            Y = list(Y)
+        elif not isinstance(Y, list):
+            raise ValueError(&#34;Y must be a list or numpy.ndarray&#34;)
+        if len(Y) != len(self.dataset.channels):
+            raise ValueError(&#34;Y must be a list of shape (n,) for each channel&#34;)
+        Y = Y.copy()
+        for j, channel_y in enumerate(Y):
+            if channel_y.ndim != 1:
+                raise ValueError(&#34;Y must be a list of shape (n,) for each channel&#34;)
+            if channel_y.shape[0] != X[j].shape[0]:
+                raise ValueError(&#34;Y must have the same number of data points per channel as X&#34;)
+            Y[j] = self.dataset[j].Y.transform(channel_y, X_orig[j])
+        if len(Y) == 0:
+            y = np.array([])
+        else:
+            y = np.concatenate(Y, axis=0).reshape(-1, 1)
+        return x, y
+
+    def predict(self, X=None, sigma=None, q=[0.025, 0.975], transformed=False, predict_y=True):
+        &#34;&#34;&#34;
+        Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
+
+        Args:
+            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+            q (list of float): The quantiles for the confidence interval&#39;s lower and upper ends.
+            transformed (boolean): Return transformed data as used for training.
+
+        Returns:
+            numpy.ndarray: Y mean prediction of shape (n,) for each channel.
+            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,) for each channel.
+            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,) for each channel.
+
+        Examples:
+            &gt;&gt;&gt; model.predict(X)
+        &#34;&#34;&#34;
+        save = X is None
+        if save and transformed:
+            raise ValueError(&#39;must pass an X range explicitly in order to return transformed data&#39;)
+        if save:
+            X = self.dataset.get_prediction_x()
+        else:
+            X = self.dataset._format_prediction_x(X)
+        x = self._to_kernel_format(X)
+
+        mu, var = self.gpr.predict(x, predict_y=predict_y, tensor=True)
+        # TODO: quantiles
+        #if predict_y:
+            #lower = self.gpr.quantile(q[0], mu, var)
+            #upper = self.gpr.quantile(q[1], mu, var)
+        if sigma is not None:
+            lower = mu - sigma*torch.sqrt(var)
+            upper = mu + sigma*torch.sqrt(var)
+        else:
+            ql = torch.tensor(q[0], device=gpr.config.device, dtype=gpr.config.dtype)
+            qu = torch.tensor(q[1], device=gpr.config.device, dtype=gpr.config.dtype)
+            lower = mu + torch.sqrt(var)*np.sqrt(2)*torch.special.erfinv(2.0*ql - 1.0)
+            upper = mu + torch.sqrt(var)*np.sqrt(2)*torch.special.erfinv(2.0*qu - 1.0)
+
+        mu = mu.cpu().numpy()
+        var = var.cpu().numpy()
+        lower = lower.cpu().numpy()
+        upper = upper.cpu().numpy()
+
+        i = 0
+        Mu = []
+        Var = []
+        Lower = []
+        Upper = []
+        for j in range(self.dataset.get_output_dims()):
+            N = X[j][0].shape[0]
+            Mu.append(np.squeeze(mu[i:i+N]))
+            Var.append(np.squeeze(var[i:i+N]))
+            Lower.append(np.squeeze(lower[i:i+N]))
+            Upper.append(np.squeeze(upper[i:i+N]))
+            i += N
+
+        if save:
+            for j in range(self.dataset.get_output_dims()):
+                self.dataset[j].Y_mu_pred[self.name] = Mu[j]
+                self.dataset[j].Y_var_pred[self.name] = Var[j]
+
+        if not transformed:
+            for j in range(self.dataset.get_output_dims()):
+                Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
+                Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
+                Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+        return Mu, Lower, Upper
+
+    def K(self, X1, X2=None):
+        &#34;&#34;&#34;
+        Evaluate the kernel at K(X1,X2).
+
+        Args:
+            X1 (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            X2 (list, dict): Same as X1 if None.
+
+        Returns:
+            numpy.ndarray: kernel evaluated at X1 and X2 of shape (n1,n2).
+
+        Examples:
+            &gt;&gt;&gt; channel0 = np.array([&#39;1987-05-20&#39;, &#39;1987-05-21&#39;])
+            &gt;&gt;&gt; channel1 = np.array([[2.5, 534.6], [3.5, 898.22], [4.5, 566.98]])
+            &gt;&gt;&gt; model.K([channel0,channel1])
+        &#34;&#34;&#34;
+        x1 = self._to_kernel_format(X1)
+        if X2 is None:
+            return self.gpr.K(x1)
+        else:
+            x2 = self._to_kernel_format(X2)
+            return self.gpr.K(x1, x2)
+
+    def sample(self, X=None, n=None, predict_y=True, transformed=False):
+        &#34;&#34;&#34;
+        Sample n times from the kernel at input X .
+
+        Args:
+            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            n (int): Number of samples.
+            transformed (boolean): Return transformed data as used for training.
+
+        Returns:
+            list: samples of shape len(X) for each channel if n is given.
+            numpy.ndarray: sample of shape len(X) for each channel if n is None.
+
+        Examples:
+            &gt;&gt;&gt; model.sample(n=10)
+        &#34;&#34;&#34;
+        if X is None:
+            X = self.dataset.get_prediction_x()
+        else:
+            X = self.dataset._format_prediction_x(X)
+        x = self._to_kernel_format(X)
+
+        samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
+
+        i = 0
+        Samples = []
+        for j in range(self.dataset.get_output_dims()):
+            N = X[j][0].shape[0]
+            if n is None:
+                sample = np.squeeze(samples[i:i+N])
+                if not transformed:
+                    sample = self.dataset[j].Y.detransform(sample, X[j])
+                Samples.append(sample)
+            else:
+                ss = []
+                for k in range(n):
+                    sample = np.squeeze(samples[i:i+N,k])
+                    if not transformed:
+                        sample = self.dataset[j].Y.detransform(sample, X[j])
+                    ss.append(sample)
+                Samples.append(ss)
+            i += N
+        if self.dataset.get_output_dims() == 1:
+            return Samples[0]
+        return Samples
+
+    def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+        if not hasattr(self, &#39;losses&#39;):
+            raise Exception(&#34;must be trained in order to plot the losses&#34;)
+
+        if figsize is None:
+            figsize = (12,3)
+
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        ax.plot(np.arange(0,self.iters+1), self.losses[:self.iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
+        ax.set_xlim(0, self.iters)
+        ax.set_xlabel(&#39;Iteration&#39;)
+        ax.set_ylabel(&#39;Loss&#39;)
+
+        legends = []
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
+        if errors and hasattr(self, &#39;errors&#39;):
+            ax2 = ax.twinx()
+            ax2.plot(np.arange(0,self.iters+1), self.errors[:self.iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
+            ax2.set_ylabel(&#39;Error&#39;)
+            legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
+
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        if legend:
+            ax.legend(handles=legends)
+
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
+        &#34;&#34;&#34;
+        Plot the data including removed observations, latent function, and predictions of this model for each channel.
+
+        Args:
+            title (str): Set the title of the plot.
+            figsize (tuple): Set the figure size.
+            legend (boolean): Disable legend.
+            transformed (boolean): Display transformed Y data as used for training.
+
+        Returns:
+            matplotlib.figure.Figure: The figure.
+            list of matplotlib.axes.Axes: List of axes.
+
+        Examples:
+            &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
+        &#34;&#34;&#34;
+        if X is not None:
+            self.dataset.set_prediction_x(X)
+            self.predict()
+        elif not self.name in self.dataset[0].Y_mu_pred:
+            self.predict(predict_y=predict_y)
+        return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
+
+    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
+        &#34;&#34;&#34;
+        Plot the gram matrix of associated kernel.
+
+        Args:
+            start (float, list, array): Interval minimum.
+            end (float, list, array): Interval maximum.
+            n (int): Number of points per channel.
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        &#34;&#34;&#34;
+        if not all(channel.get_input_dims() == 1 for channel in self.dataset):
+            raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
+
+        if start is None:
+            start = [channel.X[0].transformed.min() for channel in self.dataset]
+        if end is None:
+            end = [channel.X[0].transformed.max() for channel in self.dataset]
+
+        output_dims = len(self.dataset)
+        if not isinstance(start, (list, np.ndarray)):
+            start = [start] * output_dims
+        if not isinstance(end, (list, np.ndarray)):
+            end = [end] * output_dims
+
+        X = np.zeros((output_dims*n, 2))
+        X[:,0] = np.repeat(np.arange(output_dims), n)
+        for j in range(output_dims):
+            if n== 1:
+                X[j*n:(j+1)*n,1] = np.array((start[j]+end[j])/2.0)
+            else:
+                X[j*n:(j+1)*n,1] = np.linspace(start[j], end[j], n)
+        k = self.gpr.K(X)
+            
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        color_range = np.abs(k).max()
+        norm = matplotlib.colors.Normalize(vmin=-color_range, vmax=color_range)
+        im = ax.matshow(k, cmap=&#39;coolwarm&#39;, norm=norm)
+
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes(&#34;right&#34;, size=&#34;5%&#34;, pad=0.3)
+        fig.colorbar(im, cax=cax)
+
+        # Major ticks every 20, minor ticks every 5
+        major_ticks = np.arange(-0.5, output_dims*n, n)
+        minor_ticks = np.arange(-0.5, output_dims*n, 2)
+
+        ax.set_xticks(major_ticks)
+        ax.set_yticks(major_ticks)
+        ax.grid(which=&#39;major&#39;, lw=1.5, c=&#39;k&#39;)
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.tick_params(axis=&#39;both&#39;, which=&#39;both&#39;, length=0)
+        return fig, ax
+
+    def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
+        if not all(channel.get_input_dims() == 1 for channel in self.dataset):
+            raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
+
+        if dist is None:
+            dist = [(channel.X[0].transformed.max()-channel.X[0].transformed.min())/4.0 for channel in self.dataset]
+
+        output_dims = len(self.dataset)
+        if not isinstance(dist, (list, np.ndarray)):
+            dist = [dist] * output_dims
+
+        fig, ax = plt.subplots(output_dims, output_dims, figsize=figsize, constrained_layout=True, squeeze=False, sharex=True)
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        channel = np.ones((n,1))
+        for j in range(output_dims):
+            tau = np.linspace(-dist[j], dist[j], num=n).reshape(-1,1)
+            X1 = np.array([[j,0.0]])
+            for i in range(output_dims):
+                if j &lt; i:
+                    ax[j,i].set_axis_off()
+                    continue
+
+                X0 = np.concatenate((i*channel,tau), axis=1)
+                k = self.gpr.K(X0,X1)
+                ax[j,i].plot(tau, k, color=&#39;k&#39;)
+                ax[j,i].set_yticks([])
+        return fig, ax</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="mogptk.models.conv.CONV" href="models/conv.html#mogptk.models.conv.CONV">CONV</a></li>
+<li><a title="mogptk.models.csm.CSM" href="models/csm.html#mogptk.models.csm.CSM">CSM</a></li>
+<li><a title="mogptk.models.mohsm.MOHSM" href="models/mohsm.html#mogptk.models.mohsm.MOHSM">MOHSM</a></li>
+<li><a title="mogptk.models.mosm.MOSM" href="models/mosm.html#mogptk.models.mosm.MOSM">MOSM</a></li>
+<li><a title="mogptk.models.sm.SM" href="models/sm.html#mogptk.models.sm.SM">SM</a></li>
+<li><a title="mogptk.models.sm_lmc.SM_LMC" href="models/sm_lmc.html#mogptk.models.sm_lmc.SM_LMC">SM_LMC</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.model.Model.K"><code class="name flex">
+<span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Evaluate the kernel at K(X1,X2).</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X1</code></strong> :&ensp;<code>list, dict</code></dt>
+<dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs.</dd>
+<dt><strong><code>X2</code></strong> :&ensp;<code>list, dict</code></dt>
+<dd>Same as X1 if None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>numpy.ndarray</code></dt>
+<dd>kernel evaluated at X1 and X2 of shape (n1,n2).</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; channel0 = np.array(['1987-05-20', '1987-05-21'])
+&gt;&gt;&gt; channel1 = np.array([[2.5, 534.6], [3.5, 898.22], [4.5, 566.98]])
+&gt;&gt;&gt; model.K([channel0,channel1])
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L519-L540" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def K(self, X1, X2=None):
+    &#34;&#34;&#34;
+    Evaluate the kernel at K(X1,X2).
+
+    Args:
+        X1 (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+        X2 (list, dict): Same as X1 if None.
+
+    Returns:
+        numpy.ndarray: kernel evaluated at X1 and X2 of shape (n1,n2).
+
+    Examples:
+        &gt;&gt;&gt; channel0 = np.array([&#39;1987-05-20&#39;, &#39;1987-05-21&#39;])
+        &gt;&gt;&gt; channel1 = np.array([[2.5, 534.6], [3.5, 898.22], [4.5, 566.98]])
+        &gt;&gt;&gt; model.K([channel0,channel1])
+    &#34;&#34;&#34;
+    x1 = self._to_kernel_format(X1)
+    if X2 is None:
+        return self.gpr.K(x1)
+    else:
+        x2 = self._to_kernel_format(X2)
+        return self.gpr.K(x1, x2)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.copy_parameters"><code class="name flex">
+<span>def <span class="ident">copy_parameters</span></span>(<span>self, other)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Copy the kernel parameters from another model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L173-L180" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def copy_parameters(self, other):
+    &#34;&#34;&#34;
+    Copy the kernel parameters from another model.
+    &#34;&#34;&#34;
+    if not isinstance(other, Model):
+        raise ValueError(&#34;other must be of type Model&#34;)
+
+    self.gpr.kernel.copy_parameters(other.kernel)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.error"><code class="name flex">
+<span>def <span class="ident">error</span></span>(<span>self, method='MAE', use_all_data=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the error of the kernel prediction with the removed data points in the data set.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
+<dd>Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>float</code></dt>
+<dd>The current error.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.error()
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L224-L254" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def error(self, method=&#39;MAE&#39;, use_all_data=False):
+    &#34;&#34;&#34;
+    Returns the error of the kernel prediction with the removed data points in the data set.
+
+    Args:
+        method (str): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE.
+
+    Returns:
+        float: The current error.
+
+    Examples:
+        &gt;&gt;&gt; model.error()
+    &#34;&#34;&#34;
+    if use_all_data:
+        X, Y_true = self.dataset.get_data()
+    else:
+        X, Y_true = self.dataset.get_test_data()
+    x, y_true  = self._to_kernel_format(X, Y_true)
+    y_pred, _ = self.gpr.predict(x, predict_y=False)
+    if method.lower() == &#39;mae&#39;:
+        return mean_absolute_error(y_true, y_pred)
+    elif method.lower() == &#39;mape&#39;:
+        return mean_absolute_percentage_error(y_true, y_pred)
+    elif method.lower() == &#39;smape&#39;:
+        return symmetric_mean_absolute_percentage_error(y_true, y_pred)
+    elif method.lower() == &#39;mse&#39;:
+        return mean_squared_error(y_true, y_pred)
+    elif method.lower() == &#39;rmse&#39;:
+        return root_mean_squared_error(y_true, y_pred)
+    else:
+        raise ValueError(&#34;valid error calculation methods are MAE, MAPE, and RMSE&#34;)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.get_parameters"><code class="name flex">
+<span>def <span class="ident">get_parameters</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns all parameters of the kernel.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>list</code></dt>
+<dd>mogptk.gpr.parameter.Parameter</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; params = model.get_parameters()
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L161-L171" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def get_parameters(self):
+    &#34;&#34;&#34;
+    Returns all parameters of the kernel.
+
+    Returns:
+        list: mogptk.gpr.parameter.Parameter
+
+    Examples:
+        &gt;&gt;&gt; params = model.get_parameters()
+    &#34;&#34;&#34;
+    return self.gpr.get_parameters()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.log_marginal_likelihood"><code class="name flex">
+<span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the log marginal likelihood of the kernel and its data and parameters.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>float</code></dt>
+<dd>The current log marginal likelihood.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.log_marginal_likelihood()
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L200-L210" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def log_marginal_likelihood(self):
+    &#34;&#34;&#34;
+    Returns the log marginal likelihood of the kernel and its data and parameters.
+
+    Returns:
+        float: The current log marginal likelihood.
+
+    Examples:
+        &gt;&gt;&gt; model.log_marginal_likelihood()
+    &#34;&#34;&#34;
+    return self.gpr.log_marginal_likelihood().detach().cpu().item()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.loss"><code class="name flex">
+<span>def <span class="ident">loss</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the loss of the kernel and its data and parameters.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>float</code></dt>
+<dd>The current loss.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.loss()
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L212-L222" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def loss(self):
+    &#34;&#34;&#34;
+    Returns the loss of the kernel and its data and parameters.
+
+    Returns:
+        float: The current loss.
+
+    Examples:
+        &gt;&gt;&gt; model.loss()
+    &#34;&#34;&#34;
+    return self.gpr.loss().detach().cpu().item()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.plot_gram"><code class="name flex">
+<span>def <span class="ident">plot_gram</span></span>(<span>self, start=None, end=None, n=31, title=None, figsize=(12, 12))</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Plot the gram matrix of associated kernel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>start</code></strong> :&ensp;<code>float, list, array</code></dt>
+<dd>Interval minimum.</dd>
+<dt><strong><code>end</code></strong> :&ensp;<code>float, list, array</code></dt>
+<dd>Interval maximum.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of points per channel.</dd>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
+<dd>Figure title.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code></dt>
+<dd>Figure size.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>figure</code></dt>
+<dd>Matplotlib figure.</dd>
+<dt><code>axis</code></dt>
+<dd>Matplotlib axis.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L639-L699" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
+    &#34;&#34;&#34;
+    Plot the gram matrix of associated kernel.
+
+    Args:
+        start (float, list, array): Interval minimum.
+        end (float, list, array): Interval maximum.
+        n (int): Number of points per channel.
+        title (str): Figure title.
+        figsize (tuple): Figure size.
+
+    Returns:
+        figure: Matplotlib figure.
+        axis: Matplotlib axis.
+    &#34;&#34;&#34;
+    if not all(channel.get_input_dims() == 1 for channel in self.dataset):
+        raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
+
+    if start is None:
+        start = [channel.X[0].transformed.min() for channel in self.dataset]
+    if end is None:
+        end = [channel.X[0].transformed.max() for channel in self.dataset]
+
+    output_dims = len(self.dataset)
+    if not isinstance(start, (list, np.ndarray)):
+        start = [start] * output_dims
+    if not isinstance(end, (list, np.ndarray)):
+        end = [end] * output_dims
+
+    X = np.zeros((output_dims*n, 2))
+    X[:,0] = np.repeat(np.arange(output_dims), n)
+    for j in range(output_dims):
+        if n== 1:
+            X[j*n:(j+1)*n,1] = np.array((start[j]+end[j])/2.0)
+        else:
+            X[j*n:(j+1)*n,1] = np.linspace(start[j], end[j], n)
+    k = self.gpr.K(X)
+        
+    fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+    if title is not None:
+        fig.suptitle(title, fontsize=18)
+
+    color_range = np.abs(k).max()
+    norm = matplotlib.colors.Normalize(vmin=-color_range, vmax=color_range)
+    im = ax.matshow(k, cmap=&#39;coolwarm&#39;, norm=norm)
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes(&#34;right&#34;, size=&#34;5%&#34;, pad=0.3)
+    fig.colorbar(im, cax=cax)
+
+    # Major ticks every 20, minor ticks every 5
+    major_ticks = np.arange(-0.5, output_dims*n, n)
+    minor_ticks = np.arange(-0.5, output_dims*n, 2)
+
+    ax.set_xticks(major_ticks)
+    ax.set_yticks(major_ticks)
+    ax.grid(which=&#39;major&#39;, lw=1.5, c=&#39;k&#39;)
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.tick_params(axis=&#39;both&#39;, which=&#39;both&#39;, length=0)
+    return fig, ax</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.plot_kernel"><code class="name flex">
+<span>def <span class="ident">plot_kernel</span></span>(<span>self, dist=None, n=101, title=None, figsize=(12, 12))</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L701-L729" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
+    if not all(channel.get_input_dims() == 1 for channel in self.dataset):
+        raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
+
+    if dist is None:
+        dist = [(channel.X[0].transformed.max()-channel.X[0].transformed.min())/4.0 for channel in self.dataset]
+
+    output_dims = len(self.dataset)
+    if not isinstance(dist, (list, np.ndarray)):
+        dist = [dist] * output_dims
+
+    fig, ax = plt.subplots(output_dims, output_dims, figsize=figsize, constrained_layout=True, squeeze=False, sharex=True)
+    if title is not None:
+        fig.suptitle(title, fontsize=18)
+
+    channel = np.ones((n,1))
+    for j in range(output_dims):
+        tau = np.linspace(-dist[j], dist[j], num=n).reshape(-1,1)
+        X1 = np.array([[j,0.0]])
+        for i in range(output_dims):
+            if j &lt; i:
+                ax[j,i].set_axis_off()
+                continue
+
+            X0 = np.concatenate((i*channel,tau), axis=1)
+            k = self.gpr.K(X0,X1)
+            ax[j,i].plot(tau, k, color=&#39;k&#39;)
+            ax[j,i].set_yticks([])
+    return fig, ax</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.plot_losses"><code class="name flex">
+<span>def <span class="ident">plot_losses</span></span>(<span>self, title=None, figsize=None, legend=True, errors=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L588-L613" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+    if not hasattr(self, &#39;losses&#39;):
+        raise Exception(&#34;must be trained in order to plot the losses&#34;)
+
+    if figsize is None:
+        figsize = (12,3)
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+    ax.plot(np.arange(0,self.iters+1), self.losses[:self.iters+1], c=&#39;k&#39;, ls=&#39;-&#39;)
+    ax.set_xlim(0, self.iters)
+    ax.set_xlabel(&#39;Iteration&#39;)
+    ax.set_ylabel(&#39;Loss&#39;)
+
+    legends = []
+    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
+    if errors and hasattr(self, &#39;errors&#39;):
+        ax2 = ax.twinx()
+        ax2.plot(np.arange(0,self.iters+1), self.errors[:self.iters+1], c=&#39;k&#39;, ls=&#39;-.&#39;)
+        ax2.set_ylabel(&#39;Error&#39;)
+        legends.append(plt.Line2D([0], [0], ls=&#39;-.&#39;, color=&#39;k&#39;, label=&#39;Error&#39;))
+
+    if title is not None:
+        fig.suptitle(title, fontsize=18)
+
+    if legend:
+        ax.legend(handles=legends)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.plot_prediction"><code class="name flex">
+<span>def <span class="ident">plot_prediction</span></span>(<span>self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Plot the data including removed observations, latent function, and predictions of this model for each channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
+<dd>Set the title of the plot.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code></dt>
+<dd>Set the figure size.</dd>
+<dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Disable legend.</dd>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Display transformed Y data as used for training.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>matplotlib.figure.Figure</code></dt>
+<dd>The figure.</dd>
+<dt><code>list</code> of <code>matplotlib.axes.Axes</code></dt>
+<dd>List of axes.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; fig, axes = dataset.plot(title='Title')
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L615-L637" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
+    &#34;&#34;&#34;
+    Plot the data including removed observations, latent function, and predictions of this model for each channel.
+
+    Args:
+        title (str): Set the title of the plot.
+        figsize (tuple): Set the figure size.
+        legend (boolean): Disable legend.
+        transformed (boolean): Display transformed Y data as used for training.
+
+    Returns:
+        matplotlib.figure.Figure: The figure.
+        list of matplotlib.axes.Axes: List of axes.
+
+    Examples:
+        &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
+    &#34;&#34;&#34;
+    if X is not None:
+        self.dataset.set_prediction_x(X)
+        self.predict()
+    elif not self.name in self.dataset[0].Y_mu_pred:
+        self.predict(predict_y=predict_y)
+    return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.predict"><code class="name flex">
+<span>def <span class="ident">predict</span></span>(<span>self, X=None, sigma=None, q=[0.025, 0.975], transformed=False, predict_y=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if <code>X</code> is passed, use that as the prediction range and return the prediction instead of saving it.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>list, dict</code></dt>
+<dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.</dd>
+<dt><strong><code>q</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>The quantiles for the confidence interval's lower and upper ends.</dd>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Return transformed data as used for training.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>numpy.ndarray</code></dt>
+<dd>Y mean prediction of shape (n,) for each channel.</dd>
+<dt><code>numpy.ndarray</code></dt>
+<dd>Y lower prediction of uncertainty interval of shape (n,) for each channel.</dd>
+<dt><code>numpy.ndarray</code></dt>
+<dd>Y upper prediction of uncertainty interval of shape (n,) for each channel.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.predict(X)
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L449-L517" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def predict(self, X=None, sigma=None, q=[0.025, 0.975], transformed=False, predict_y=True):
+    &#34;&#34;&#34;
+    Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
+
+    Args:
+        X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+        q (list of float): The quantiles for the confidence interval&#39;s lower and upper ends.
+        transformed (boolean): Return transformed data as used for training.
+
+    Returns:
+        numpy.ndarray: Y mean prediction of shape (n,) for each channel.
+        numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,) for each channel.
+        numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,) for each channel.
+
+    Examples:
+        &gt;&gt;&gt; model.predict(X)
+    &#34;&#34;&#34;
+    save = X is None
+    if save and transformed:
+        raise ValueError(&#39;must pass an X range explicitly in order to return transformed data&#39;)
+    if save:
+        X = self.dataset.get_prediction_x()
+    else:
+        X = self.dataset._format_prediction_x(X)
+    x = self._to_kernel_format(X)
+
+    mu, var = self.gpr.predict(x, predict_y=predict_y, tensor=True)
+    # TODO: quantiles
+    #if predict_y:
+        #lower = self.gpr.quantile(q[0], mu, var)
+        #upper = self.gpr.quantile(q[1], mu, var)
+    if sigma is not None:
+        lower = mu - sigma*torch.sqrt(var)
+        upper = mu + sigma*torch.sqrt(var)
+    else:
+        ql = torch.tensor(q[0], device=gpr.config.device, dtype=gpr.config.dtype)
+        qu = torch.tensor(q[1], device=gpr.config.device, dtype=gpr.config.dtype)
+        lower = mu + torch.sqrt(var)*np.sqrt(2)*torch.special.erfinv(2.0*ql - 1.0)
+        upper = mu + torch.sqrt(var)*np.sqrt(2)*torch.special.erfinv(2.0*qu - 1.0)
+
+    mu = mu.cpu().numpy()
+    var = var.cpu().numpy()
+    lower = lower.cpu().numpy()
+    upper = upper.cpu().numpy()
+
+    i = 0
+    Mu = []
+    Var = []
+    Lower = []
+    Upper = []
+    for j in range(self.dataset.get_output_dims()):
+        N = X[j][0].shape[0]
+        Mu.append(np.squeeze(mu[i:i+N]))
+        Var.append(np.squeeze(var[i:i+N]))
+        Lower.append(np.squeeze(lower[i:i+N]))
+        Upper.append(np.squeeze(upper[i:i+N]))
+        i += N
+
+    if save:
+        for j in range(self.dataset.get_output_dims()):
+            self.dataset[j].Y_mu_pred[self.name] = Mu[j]
+            self.dataset[j].Y_var_pred[self.name] = Var[j]
+
+    if not transformed:
+        for j in range(self.dataset.get_output_dims()):
+            Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
+            Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
+            Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+    return Mu, Lower, Upper</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.print_parameters"><code class="name flex">
+<span>def <span class="ident">print_parameters</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Print the parameters of the model in a table.</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.print_parameters()
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L152-L159" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def print_parameters(self):
+    &#34;&#34;&#34;
+    Print the parameters of the model in a table.
+
+    Examples:
+        &gt;&gt;&gt; model.print_parameters()
+    &#34;&#34;&#34;
+    self.gpr.print_parameters()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.sample"><code class="name flex">
+<span>def <span class="ident">sample</span></span>(<span>self, X=None, n=None, predict_y=True, transformed=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sample n times from the kernel at input X .</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>list, dict</code></dt>
+<dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of samples.</dd>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Return transformed data as used for training.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>list</code></dt>
+<dd>samples of shape len(X) for each channel if n is given.</dd>
+<dt><code>numpy.ndarray</code></dt>
+<dd>sample of shape len(X) for each channel if n is None.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.sample(n=10)
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L542-L586" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def sample(self, X=None, n=None, predict_y=True, transformed=False):
+    &#34;&#34;&#34;
+    Sample n times from the kernel at input X .
+
+    Args:
+        X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+        n (int): Number of samples.
+        transformed (boolean): Return transformed data as used for training.
+
+    Returns:
+        list: samples of shape len(X) for each channel if n is given.
+        numpy.ndarray: sample of shape len(X) for each channel if n is None.
+
+    Examples:
+        &gt;&gt;&gt; model.sample(n=10)
+    &#34;&#34;&#34;
+    if X is None:
+        X = self.dataset.get_prediction_x()
+    else:
+        X = self.dataset._format_prediction_x(X)
+    x = self._to_kernel_format(X)
+
+    samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
+
+    i = 0
+    Samples = []
+    for j in range(self.dataset.get_output_dims()):
+        N = X[j][0].shape[0]
+        if n is None:
+            sample = np.squeeze(samples[i:i+N])
+            if not transformed:
+                sample = self.dataset[j].Y.detransform(sample, X[j])
+            Samples.append(sample)
+        else:
+            ss = []
+            for k in range(n):
+                sample = np.squeeze(samples[i:i+N,k])
+                if not transformed:
+                    sample = self.dataset[j].Y.detransform(sample, X[j])
+                ss.append(sample)
+            Samples.append(ss)
+        i += N
+    if self.dataset.get_output_dims() == 1:
+        return Samples[0]
+    return Samples</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.save"><code class="name flex">
+<span>def <span class="ident">save</span></span>(<span>self, filename)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Save the model to a given file that can then be loaded using <code><a title="mogptk.model.LoadModel" href="#mogptk.model.LoadModel">LoadModel()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
+<dd>File name to save to, automatically appends '.npy'.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.save('filename')
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L182-L198" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def save(self, filename):
+    &#34;&#34;&#34;
+    Save the model to a given file that can then be loaded using `LoadModel()`.
+
+    Args:
+        filename (str): File name to save to, automatically appends &#39;.npy&#39;.
+
+    Examples:
+        &gt;&gt;&gt; model.save(&#39;filename&#39;)
+    &#34;&#34;&#34;
+    filename += &#34;.npy&#34; 
+    try:
+        os.remove(filename)
+    except OSError:
+        pass
+    with open(filename, &#39;wb&#39;) as w:
+        pickle.dump(self, w)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.train"><code class="name flex">
+<span>def <span class="ident">train</span></span>(<span>self, method='Adam', iters=500, verbose=False, error=None, plot=False, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
+<dd>Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.</dd>
+<dt><strong><code>iters</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of iterations, or maximum in case of LBFGS optimizer.</dd>
+<dt><strong><code>verbose</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Print verbose output about the state of the optimizer.</dd>
+<dt><strong><code>error</code></strong> :&ensp;<code>str</code></dt>
+<dd>Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.</dd>
+<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Plot the loss and, if error is data set, the error of the test data points.</dd>
+<dt><strong><code>**kwargs</code></strong> :&ensp;<code>dict</code></dt>
+<dd>Additional dictionary of parameters passed to the PyTorch optimizer. </dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>numpy.ndarray</code></dt>
+<dd>Losses for all iterations.</dd>
+<dt><code>numpy.ndarray</code></dt>
+<dd>Errors for all iterations. Only if <code>error</code> is set, otherwise zero.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.train()
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.train(method='lbfgs', tolerance_grad=1e-10, tolerance_change=1e-12)
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.train(method='adam', lr=0.5)
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L256-L383" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def train(
+    self,
+    method=&#39;Adam&#39;,
+    iters=500,
+    verbose=False,
+    error=None,
+    plot=False,
+    **kwargs):
+    &#34;&#34;&#34;
+    Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.
+
+    Args:
+        method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.
+        iters (int): Number of iterations, or maximum in case of LBFGS optimizer.
+        verbose (bool): Print verbose output about the state of the optimizer.
+        error (str): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.
+        plot (bool): Plot the loss and, if error is data set, the error of the test data points.
+        **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
+
+    Returns:
+        numpy.ndarray: Losses for all iterations.
+        numpy.ndarray: Errors for all iterations. Only if `error` is set, otherwise zero.
+
+    Examples:
+        &gt;&gt;&gt; model.train()
+        
+        &gt;&gt;&gt; model.train(method=&#39;lbfgs&#39;, tolerance_grad=1e-10, tolerance_change=1e-12)
+        
+        &gt;&gt;&gt; model.train(method=&#39;adam&#39;, lr=0.5)
+    &#34;&#34;&#34;
+    error_use_all_data = False
+    if error is not None and all(not channel.has_test_data() for channel in self.dataset):
+        error_use_all_data = True
+
+    if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
+        method = &#39;LBFGS&#39;
+    elif method.lower() == &#39;adam&#39;:
+        method = &#39;Adam&#39;
+    elif method.lower() == &#39;sgd&#39;:
+        method = &#39;SGD&#39;
+    elif method.lower() == &#39;adagrad&#39;:
+        method = &#39;AdaGrad&#39;
+
+    if verbose:
+        training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
+        parameters = sum([int(np.prod(param.shape)) for param in self.gpr.parameters()])
+        print(&#39;\nStarting optimization using&#39;, method)
+        print(&#39;‣ Model: {}&#39;.format(self.name))
+        print(&#39;‣ Channels: {}&#39;.format(len(self.dataset)))
+        if hasattr(self, &#39;Q&#39;):
+            print(&#39;‣ Mixtures: {}&#39;.format(self.Q))
+        print(&#39;‣ Training points: {}&#39;.format(training_points))
+        print(&#39;‣ Parameters: {}&#39;.format(parameters))
+        print(&#39;‣ Initial loss: {:.3g}&#39;.format(self.loss()))
+        if error is not None:
+            print(&#39;‣ Initial error: {:.3g}&#39;.format(self.error(error, error_use_all_data)))
+
+    losses = np.empty((iters+1,))
+    errors = np.zeros((iters+1,))
+
+    inital_time = time.time()
+    sys.__stdout__.write(&#34;\nStart %s:\n&#34; % (method,))
+    if method == &#39;LBFGS&#39;:
+        if &#39;lr&#39; not in kwargs:
+            kwargs[&#39;lr&#39;] = 0.1
+        if not &#39;max_iter&#39; in kwargs:
+            kwargs[&#39;max_iter&#39;] = iters
+            iters = 0
+        optimizer = torch.optim.LBFGS(self.gpr.parameters(), **kwargs)
+
+        def loss():
+            i = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
+            elapsed_time = time.time() - inital_time
+            losses[i] = self.loss()
+            if error is not None:
+                errors[i] = self.error(error, error_use_all_data)
+                if i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                    sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g  error=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], _format_time(elapsed_time), losses[i], errors[i]))
+            elif i % (kwargs[&#39;max_iter&#39;]/100) == 0:
+                sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g\n&#34; % (i, kwargs[&#39;max_iter&#39;], _format_time(elapsed_time), losses[i]))
+            return losses[i]
+        optimizer.step(loss)
+        iters = int(optimizer.state_dict()[&#39;state&#39;][0][&#39;func_evals&#39;])
+    else:
+        if method == &#39;Adam&#39;:
+            if &#39;lr&#39; not in kwargs:
+                kwargs[&#39;lr&#39;] = 0.1
+            optimizer = torch.optim.Adam(self.gpr.parameters(), **kwargs)
+        elif method == &#39;SGD&#39;:
+            optimizer = torch.optim.SGD(self.gpr.parameters(), **kwargs)
+        elif method == &#39;AdaGrad&#39;:
+            optimizer = torch.optim.Adagrad(self.gpr.parameters(), **kwargs)
+        else:
+            print(&#34;Unknown optimizer:&#34;, method)
+
+        for i in range(iters):
+            elapsed_time = time.time() - inital_time
+            losses[i] = self.loss()
+            if error is not None:
+                errors[i] = self.error(error, error_use_all_data)
+                if i % (iters/100) == 0:
+                    sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g  error=%10g\n&#34; % (i, iters, _format_time(elapsed_time), losses[i], errors[i]))
+            elif i % (iters/100) == 0:
+                sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g\n&#34; % (i, iters, _format_time(elapsed_time), losses[i]))
+            optimizer.step()
+    losses[iters] = self.loss()
+    elapsed_time = time.time() - inital_time
+    if error is not None:
+        errors[iters] = self.error(error, error_use_all_data)
+        sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g  error=%10g\n&#34; % (iters, iters, _format_time(elapsed_time), losses[iters], errors[iters]))
+    else:
+        sys.__stdout__.write(&#34;% 5d/%d %s  loss=%10g\n&#34; % (iters, iters, _format_time(elapsed_time), losses[iters]))
+    sys.__stdout__.write(&#34;Finished\n&#34;)
+
+    if verbose:
+        elapsed_time = time.time() - inital_time
+        print(&#39;\nOptimization finished in {}&#39;.format(_format_duration(elapsed_time)))
+        print(&#39;‣ Function evaluations: {}&#39;.format(iters))
+        print(&#39;‣ Final loss: {:.3g}&#39;.format(losses[iters]))
+        if error is not None:
+            print(&#39;‣ Final error: {:.3g}&#39;.format(errors[iters]))
+
+    self.iters = iters
+    self.losses = losses
+    self.errors = errors
+    if plot:
+        self.plot_losses()
+    return losses, errors</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.model.OpperArchambeau"><code class="flex name class">
+<span>class <span class="ident">OpperArchambeau</span></span>
+<span>(</span><span>likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-06)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Inference using Opper and Archambeau 2009 for Gaussian process regression.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L62-L71" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class OpperArchambeau:
+    &#34;&#34;&#34;
+    Inference using Opper and Archambeau 2009 for Gaussian process regression.
+    &#34;&#34;&#34;
+    def __init__(self, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
+        self.likelihood = likelihood
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.model.OpperArchambeau.build"><code class="name flex">
+<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, y_err=None, mean=None, name=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L70-L71" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.model.Snelson"><code class="flex name class">
+<span>class <span class="ident">Snelson</span></span>
+<span>(</span><span>inducing_points=10, variance=1.0, jitter=1e-06)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Inference using Snelson and Ghahramani 2005 for Gaussian process regression.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L50-L60" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Snelson:
+    &#34;&#34;&#34;
+    Inference using Snelson and Ghahramani 2005 for Gaussian process regression.
+    &#34;&#34;&#34;
+    def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
+        self.inducing_points = inducing_points
+        self.variance = variance
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.model.Snelson.build"><code class="name flex">
+<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, y_err=None, mean=None, name=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L59-L60" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="mogptk.model.Titsias"><code class="flex name class">
+<span>class <span class="ident">Titsias</span></span>
+<span>(</span><span>inducing_points=10, variance=1.0, jitter=1e-06)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Inference using Titsias 2009 for Gaussian process regression.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L73-L83" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Titsias:
+    &#34;&#34;&#34;
+    Inference using Titsias 2009 for Gaussian process regression.
+    &#34;&#34;&#34;
+    def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
+        self.inducing_points = inducing_points
+        self.variance = variance
+        self.jitter = jitter
+
+    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="mogptk.model.Titsias.build"><code class="name flex">
+<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, y_err=None, mean=None, name=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/f368a16bfb1504832f678b0335e6773127aade67/mogptk/model.py#L82-L83" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="mogptk" href="index.html">mogptk</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="mogptk.model.LoadModel" href="#mogptk.model.LoadModel">LoadModel</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="mogptk.model.Exact" href="#mogptk.model.Exact">Exact</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.model.Exact.build" href="#mogptk.model.Exact.build">build</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.model.Hensman" href="#mogptk.model.Hensman">Hensman</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.model.Hensman.build" href="#mogptk.model.Hensman.build">build</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.model.Model" href="#mogptk.model.Model">Model</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.model.Model.K" href="#mogptk.model.Model.K">K</a></code></li>
+<li><code><a title="mogptk.model.Model.copy_parameters" href="#mogptk.model.Model.copy_parameters">copy_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.error" href="#mogptk.model.Model.error">error</a></code></li>
+<li><code><a title="mogptk.model.Model.get_parameters" href="#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
+<li><code><a title="mogptk.model.Model.loss" href="#mogptk.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_gram" href="#mogptk.model.Model.plot_gram">plot_gram</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_kernel" href="#mogptk.model.Model.plot_kernel">plot_kernel</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_losses" href="#mogptk.model.Model.plot_losses">plot_losses</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_prediction" href="#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
+<li><code><a title="mogptk.model.Model.predict" href="#mogptk.model.Model.predict">predict</a></code></li>
+<li><code><a title="mogptk.model.Model.print_parameters" href="#mogptk.model.Model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.sample" href="#mogptk.model.Model.sample">sample</a></code></li>
+<li><code><a title="mogptk.model.Model.save" href="#mogptk.model.Model.save">save</a></code></li>
+<li><code><a title="mogptk.model.Model.train" href="#mogptk.model.Model.train">train</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.model.OpperArchambeau" href="#mogptk.model.OpperArchambeau">OpperArchambeau</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.model.OpperArchambeau.build" href="#mogptk.model.OpperArchambeau.build">build</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.model.Snelson" href="#mogptk.model.Snelson">Snelson</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.model.Snelson.build" href="#mogptk.model.Snelson.build">build</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.model.Titsias" href="#mogptk.model.Titsias">Titsias</a></code></h4>
+<ul class="">
+<li><code><a title="mogptk.model.Titsias.build" href="#mogptk.model.Titsias.build">build</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>
