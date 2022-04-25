@@ -386,9 +386,9 @@ class MultiOutputKernel(Kernel):
 
     def _check_input(self, X1, X2=None):
         X1, X2 = super()._check_input(X1, X2)
-        if X1[:,0] != X1[:,0].long().type(config.dtype):
+        if not torch.all(X1[:,0] == X1[:,0].long().type(config.dtype)):
             raise ValueError("X must have integers for the channel IDs in the first input dimension")
-        if X2[:,0] != X2[:,0].long().type(config.dtype):
+        if not torch.all(X2[:,0] == X2[:,0].long().type(config.dtype)):
             raise ValueError("X must have integers for the channel IDs in the first input dimension")
         return X1, X2
 
