@@ -120,8 +120,8 @@ class Kernel:
             active_dims = torch.tensor(active_dims, device=config.device, dtype=torch.long)
             if self.input_dims is not None and self.input_dims != active_dims.shape[0]:
                 raise ValueError("input dimensions must match the number of active dimensions")
+            self.input_dims = active_dims.shape[0]
         self._active_dims = active_dims
-        self.input_dims = active_dims.shape[0]
 
     def iterkernels(self):
         """

@@ -236,16 +236,16 @@ class Model:
         with torch.no_grad():
             return self.kernel(X1, X2).cpu().numpy() # does cpu().numpy() detach? check memory usage
 
-    def quantile(self, p, mu, var):
-        with torch.no_grad():
-            if not isinstance(p, torch.Tensor):
-                p = torch.tensor(p, device=config.device, dtype=config.dtype)
-            else:
-                p = p.to(config.device, config.dtype)
-            p = p.squeeze()
-            if p.ndim != 0:
-                raise ValueError("quantile must be scalar")
-            return self.likelihood.quantile(p, mu, var)
+    #def quantile(self, p, mu, var):
+    #    with torch.no_grad():
+    #        if not isinstance(p, torch.Tensor):
+    #            p = torch.tensor(p, device=config.device, dtype=config.dtype)
+    #        else:
+    #            p = p.to(config.device, config.dtype)
+    #        p = p.squeeze()
+    #        if p.ndim != 0:
+    #            raise ValueError("quantile must be scalar")
+    #        return self.likelihood.quantile(p, mu, var)
 
     def sample(self, Z, n=None, predict_y=True):
         with torch.no_grad():
