@@ -66,7 +66,7 @@ class Likelihood:
         # where q(f) ~ N(mu,var) and p(y|f) is our likelihood
         # mu,var: Nx1
         Ey = self.quadrature(mu, var, lambda f: self.predictive_mean(f,X=X))
-        Eyy = self.quadrature(mu, var, lambda f: self.predictive_mean(f,X=X).square() + predictive_variance(f,X=X))
+        Eyy = self.quadrature(mu, var, lambda f: self.predictive_mean(f,X=X).square() + self.predictive_variance(f,X=X))
         return Ey, Eyy-Ey**2
 
 class MultiOutputLikelihood(Likelihood):
@@ -236,7 +236,10 @@ class ExponentialLikelihood(Likelihood):
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -y/self.link(f) - torch.log(self.link(f))
+        if self.link == exp:
+            p = -y/self.link(f) - f
+        else:
+            p = -y/self.link(f) - self.link(f).log()
         return p  # NxM
 
     def predictive_mean(self, f, X=None):
@@ -312,7 +315,7 @@ class BetaLikelihood(Likelihood):
         alpha = mixture * self.scale()
         beta = (1.0-mixture) * self.scale()
 
-        p = (alpha-1.0)*torch.log(y)
+        p = (alpha-1.0)*y.log()
         p += (beta-1.0)*torch.log1p(-y)
         p += torch.lgamma(alpha+beta)
         p -= torch.lgamma(alpha)
@@ -341,9 +344,12 @@ class GammaLikelihood(Likelihood):
         # y: Nx1
         # f: NxM
         p = -y/self.link(f)
-        p += (self.shape()-1.0)*torch.log(y)
+        p += (self.shape()-1.0)*y.log()
         p -= torch.lgamma(self.shape())
-        p -= self.shape()*torch.log(self.link(f))
+        if self.link == exp:
+            p -= self.shape()*f
+        else:
+            p -= self.shape()*self.link(f).log()
         return p  # NxM
 
     def predictive_mean(self, f, X=None):
@@ -365,7 +371,10 @@ class PoissonLikelihood(Likelihood):
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = y*torch.log(self.link(f))
+        if self.link == exp:
+            p = y*f
+        else:
+            p = y*self.link(f).log()
         p -= torch.lgamma(y+1.0)
         p -= self.link(f)
         return p  # NxM
@@ -377,34 +386,37 @@ class PoissonLikelihood(Likelihood):
         return self.link(f)
 
 class WeibullLikelihood(Likelihood):
-    def __init__(self, link=exp, name="Weibull", quadratures=20):
+    def __init__(self, shape=1.0, link=exp, name="Weibull", quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
         self.shape = Parameter(shape, name="shape", lower=config.positive_minimum)
 
     def validate_y(self, y):
-        if torch.any(y < 0.0):
-            raise ValueError("y must be in the range [0.0,inf)")
+        if torch.any(y <= 0.0):
+            raise ValueError("y must be in the range (0.0,inf)")
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = (y/self.link(f))**self.shape()
-        p += (self.shape()-1.0)*torch.log(y)
-        p += torch.log(self.shape()) - torch.log(self.link(f))
+        if self.link == exp:
+            p = -self.shape()*f
+        else:
+            p = -self.shape()*self.link(f).log()
+        p += self.shape().log() + (self.shape()-1.0)*y.log()
+        p -= (y/self.link(f))**self.shape()
         return p  # NxM
 
     def predictive_mean(self, f, X=None):
-        return self.shape() * torch.gamma(1.0 + 1.0/self.shape())
+        return f * torch.lgamma(1.0 + 1.0/self.shape()).exp()
 
     def predictive_variance(self, f, X=None):
-        a = torch.gamma(1.0 + 2.0/self.shape())
-        b = torch.gamma(1.0 + 1.0/self.shape())
-        return self.shape().square() * (a-b.square())
+        a = torch.lgamma(1.0 + 2.0/self.shape()).exp()
+        b = torch.lgamma(1.0 + 1.0/self.shape()).exp()
+        return f.square() * (a - b.square())
 
 class LogLogisticLikelihood(Likelihood):
-    def __init__(self, link=exp, name="LogLogistic", quadratures=20):
+    def __init__(self, shape=1.0, link=exp, name="LogLogistic", quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
@@ -417,28 +429,27 @@ class LogLogisticLikelihood(Likelihood):
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = torch.log(self.shape())
-        p += (self.shape()-1.0)*torch.log(y)
-        p -= self.shape()*torch.log(self.link(f))
-        p -= 2.0*torch.log1p((y/self.link(f))**self.scale())
+        if self.link == exp:
+            p = -self.shape()*f
+        else:
+            p = -self.shape()*self.link(f).log()
+        p -= 2.0*torch.log1p((y/self.link(f))**self.shape())
+        p += self.shape().log()
+        p += (self.shape()-1.0)*y.log()
         return p  # NxM
 
     def predictive_mean(self, f, X=None):
-        b = np.pi/self.shape()
-        if b == 0.0:
-            return self.link(f)
-        return self.link(f) * b / torch.sin(b)
+        return self.link(f) / torch.sinc(1.0/self.shape())
 
     def predictive_variance(self, f, X=None):
         if self.shape() <= 2.0:
             return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
-        b = np.pi/self.shape()
-        if b == 0.0:
-            return torch.full(f.shape, 0.0, device=config.device, dtype=config.dtype)
-        return self.link(f).square() * (2.0*b/torch.sin(2.0*b) - b.square()/torch.sin(b).square())
+        a = 1.0/torch.sinc(2.0/self.shape())
+        b = 1.0/torch.sinc(1.0/self.shape())
+        return self.link(f).square() * (a - b.square())
 
 class LogGaussianLikelihood(Likelihood):
-    def __init__(self, name="LogGaussian", quadratures=20):
+    def __init__(self, variance=1.0, name="LogGaussian", quadratures=20):
         super().__init__(name, quadratures)
 
         self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
@@ -450,14 +461,15 @@ class LogGaussianLikelihood(Likelihood):
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -torch.log(y*(2.0*np.pi*self.variance()).sqrt())
-        p -= 0.5*(torch.log(y) - f).square()/self.variance()
+        logy = y.log()
+        p = -0.5*(np.log(2.0*np.pi) + self.variance().log() + (logy-f).square()/self.variance())
+        p -= logy
         return p  # NxM
 
     def predictive_mean(self, f, X=None):
         return torch.exp(f + 0.5*self.variance())
 
     def predictive_variance(self, f, X=None):
-        return (torch.exp(self.variance())-1.0) * torch.exp(2.0*f + self.variance())
+        return (self.variance().exp() - 1.0) * torch.exp(2.0*f + self.variance())
 
 # TODO: implement: Softmax
