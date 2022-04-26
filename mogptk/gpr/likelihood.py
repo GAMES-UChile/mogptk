@@ -5,6 +5,9 @@ from . import config, Parameter
 def identity(x):
     return x
 
+def square(x):
+    return torch.square(x)
+
 def exp(x):
     return torch.exp(x)
 
@@ -478,5 +481,48 @@ class LogGaussianLikelihood(Likelihood):
 
     def predictive_variance(self, f, X=None):
         return (self.variance().exp() - 1.0) * torch.exp(2.0*f + self.variance())
+
+class ChiLikelihood(Likelihood):
+    def __init__(self, name="Chi", quadratures=20):
+        super().__init__(name, quadratures)
+
+    def validate_y(self, y, X=None):
+        if torch.any(y <= 0.0):
+            raise ValueError("y must be in the range (0.0,inf)")
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        k = f.square()
+        p = -(k/2.0-1.0)*np.log(2.0) - torch.lgamma(k/2.0) + (k-1.0)*y.log() - 0.5*y.square()
+        return p  # NxM
+
+    def predictive_mean(self, f, X=None):
+        k = f.square()
+        return np.sqrt(2.0) * torch.exp(torch.lgamma((k+1.0)/2.0) - torch.lgamma(k/2.0))
+
+    def predictive_variance(self, f, X=None):
+        k = f.square()
+        return k - self.predictive_mean(f,X=X).square()
+
+class ChiSquaredLikelihood(Likelihood):
+    def __init__(self, name="ChiSquared", quadratures=20):
+        super().__init__(name, quadratures)
+
+    def validate_y(self, y, X=None):
+        if torch.any(y <= 0.0):
+            raise ValueError("y must be in the range (0.0,inf)")
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        p = -0.5*f*np.log(2.0) - torch.lgamma(f/2.0) + (f/2.0-1.0)*y.log() - 0.5*y
+        return p  # NxM
+
+    def predictive_mean(self, f, X=None):
+        return f
+
+    def predictive_variance(self, f, X=None):
+        return 2.0*f
 
 # TODO: implement: Softmax

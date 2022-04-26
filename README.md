@@ -43,6 +43,31 @@ One of the main advantages of the present toolkit is the GPU support, which enab
 
 See [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://doi.org/10.1016/j.neucom.2020.09.085) for our publication in Neurocomputing.
 
+## Implementation
+Implemented models:
+
+- Exact
+- Snelson (E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005)
+- OpperArchambeau (M. Opper, C. Archambeau, "The Variational Gaussian Approximation Revisited", 2009)
+- Titsias (Titsias, "Variational learning of induced variables in sparse Gaussian processes", 2009)
+- Hensman (J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015)
+
+Implemented likelihoods:
+
+- Gaussian
+- Student-T
+- Exponential
+- Laplace
+- Bernoulli
+- Beta
+- Gamma
+- Poisson
+- Weibull
+- Log-Logistic
+- Log-Gaussian
+- Chi
+- Chi-Squared
+
 ## Tutorials
 
 **[00 - Quick Start](https://games-uchile.github.io/mogptk/examples.html?q=00_Quick_Start)**: Short notebook showing the basic use of the toolkit.

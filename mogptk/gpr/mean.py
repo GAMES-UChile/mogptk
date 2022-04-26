@@ -2,11 +2,7 @@ import torch
 from . import Parameter, config
 
 class Mean:
-    def __init__(self, name=None):
-        if name is None:
-            name = self.__class__.__name__
-            if name.endswith('Mean') and name != 'Mean':
-                name = name[:-4]
+    def __init__(self, name="Mean"):
         self.name = name
 
     def __call__(self, X):
@@ -40,9 +36,18 @@ class Mean:
         raise NotImplementedError()
 
 class ConstantMean(Mean):
-    def __init__(self, y, name=None):
+    def __init__(self, name="ConstantMean"):
         super().__init__(name)
-        self.y = y
+        self.bias = Parameter(0.0)
 
     def mean(self, X):
-        return torch.full((X.shape[0],), self.y, device=config.device, dtype=config.dtype)
+        return self.bias().repeat(X.shape[0])
+
+class LinearMean(Mean):
+    def __init__(self, input_dims=1, name="LinearMean"):
+        super().__init__(name)
+        self.bias = Parameter(0.0)
+        self.slope = Parameter(torch.zeros(input_dims))
+
+    def mean(self, X):
+        return self.bias() + X.mm(self.slope().reshape(1,-1))

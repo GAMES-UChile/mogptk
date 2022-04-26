@@ -343,12 +343,14 @@ class MixtureKernel(AddKernel):
     Mixture kernel that sums Q kernels.
 
     Args:
-        kernels (Kernel,list of Kernel): Single kernel or list of kernels of shape (Q,).
+        kernel (Kernel): Single kernel.
         Q (int): Number of mixtures.
         name (str): Kernel name.
     """
-    def __init__(self, kernels, Q, name="Mixture"):
-        kernels = self._check_kernels(kernels, Q)
+    def __init__(self, kernel, Q, name="Mixture"):
+        if not issubclass(type(kernel), Kernel):
+            raise ValueError("must pass kernel")
+        kernels = self._check_kernels(kernel, Q)
         super().__init__(*kernels, name=name)
 
 class AutomaticRelevanceDeterminationKernel(MulKernel):
@@ -356,12 +358,14 @@ class AutomaticRelevanceDeterminationKernel(MulKernel):
     Automatic relevance determination (ARD) kernel that multiplies kernels.
 
     Args:
-        kernels (Kernel,list of Kernel): Single kernel or list of kernels of shape (Q,).
+        kernel (Kernel): Single kernel.
         input_dims (int): Number of input dimensions.
         name (str): Kernel name.
     """
-    def __init__(self, kernels, input_dims, name="ARD"):
-        kernels = self._check_kernels(kernels, input_dims)
+    def __init__(self, kernel, input_dims, name="ARD"):
+        if not issubclass(type(kernel), Kernel):
+            raise ValueError("must pass kernel")
+        kernels = self._check_kernels(kernel, input_dims)
         for i, kernel in enumerate(kernels):
             kernel.set_active_dims(i)
         super().__init__(*kernels, name=name)
@@ -386,9 +390,9 @@ class MultiOutputKernel(Kernel):
 
     def _check_input(self, X1, X2=None):
         X1, X2 = super()._check_input(X1, X2)
-        if not torch.all(X1[:,0] == X1[:,0].long().type(config.dtype)):
+        if not torch.all(X1[:,0] == X1[:,0].long()) or not torch.all(X1[:,0] < self.output_dims):
             raise ValueError("X must have integers for the channel IDs in the first input dimension")
-        if X2 is not None and not torch.all(X2[:,0] == X2[:,0].long().type(config.dtype)):
+        if X2 is not None and not torch.all(X2[:,0] == X2[:,0].long()) or not torch.all(X1[:,0] < self.output_dims):
             raise ValueError("X must have integers for the channel IDs in the first input dimension")
         return X1, X2
 
