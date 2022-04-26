@@ -98,8 +98,13 @@ class MultiOutputLikelihood(Likelihood):
         return r
 
     def validate_y(self, y):
-        for likelihood in self.likelihoods:
-            likelihood.validate_y(y)
+        if self.output_dims == 1:
+            self.likelihoods[0].validate_y(y)
+            return
+
+        r = self._channel_indices(X)
+        for i in range(self.output_dims):
+            self.likelihoods[i].validate_y(y[r[i],:])
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
