@@ -643,11 +643,11 @@ class SparseHensman(Model):
             self._register_parameters(self.Z)
 
     def kl_gaussian(self, q_mu, q_sqrt):
-        Lq = q_sqrt.tril() # NxN
+        S_diag = q_sqrt.diagonal().square() # NxN
         kl = -q_mu.shape[0]
         kl += q_mu.T.mm(q_mu).squeeze()  # Mahalanobis
-        kl -= Lq.diagonal().square().log().sum()  # determinant of q_var
-        kl += Lq.square().sum()  # same as Trace(p_var^(-1).q_var)
+        kl -= S_diag.log().sum()  # determinant of q_var
+        kl += S_diag.sum()  # same as Trace(p_var^(-1).q_var)
         return 0.5*kl
 
     def elbo(self):
@@ -664,7 +664,7 @@ class SparseHensman(Model):
 
             qf_mu = Lff.mm(self.q_mu())
             if self.mean is not None:
-                qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
+                qf_mu -= self.mean(self.X).reshape(-1,1)  # Sx1
 
             qf_sqrt = Lff.mm(self.q_sqrt().tril())
             qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
