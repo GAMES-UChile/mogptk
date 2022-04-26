@@ -40,6 +40,20 @@ class IndependentMultiOutputKernel(MultiOutputKernel):
                 X2 = X1
             return torch.zeros(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)
 
+    def Ksub_diag(self, i, X1):
+        """
+        Calculate the diagonal of the kernel matrix between two channels. This is usually faster than Ksub(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        """
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.kernels[i].K_diag(X1)
+
 class MultiOutputSpectralKernel(MultiOutputKernel):
     """
     Multi-output spectral kernel (MOSM) where each channel and cross-channel is modelled with a spectral kernel as proposed by [1]. You can add the mixture kernel with `MixtureKernel(MultiOutputSpectralKernel(...), Q=3)`.
@@ -109,6 +123,21 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
             cos = torch.cos(2.0*np.pi * (torch.tensordot(tau+delay, mean, dims=1) + phase))  # NxM
             return alpha * exp * cos
 
+    def Ksub_diag(self, i, X1):
+        """
+        Calculate the diagonal of the kernel matrix between two channels. This is usually faster than Ksub(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        """
+        # X has shape (data_points,input_dims)
+        variance = self.variance()[i]
+        alpha = self.magnitude()[i]**2 * self.twopi * variance.prod().sqrt()  # scalar
+        return alpha.repeat(X1.shape[0])
+
 class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims=1, active_dims=None, name="uMOSM"):
         super().__init__(output_dims, input_dims, active_dims, name)
@@ -166,6 +195,22 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
             cos = torch.cos(2.0*np.pi * torch.tensordot(tau+delay, mean, dims=1) + phase)  # NxM
             return alpha * exp * cos
 
+    def Ksub_diag(self, i, X1):
+        """
+        Calculate the diagonal of the kernel matrix between two channels. This is usually faster than Ksub(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        """
+        # X has shape (data_points,input_dims)
+        magnitude = self.magnitude().tril().mm(self.magnitude().tril().T)
+        variance = self.variance()[i]
+        alpha = magnitude[i,i] * self.twopi * variance.prod().sqrt()  # scalar
+        return alpha.repeat(X1.shape[0])
+
 class CrossSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims=1, Rq=1, active_dims=None, name="CSM"):
         super().__init__(output_dims, input_dims, active_dims, name)
@@ -215,6 +260,20 @@ class CrossSpectralKernel(MultiOutputKernel):
             cos = torch.cos(2.0*np.pi * (torch.tensordot(tau, self.mean(), dims=1).unsqueeze(2) + shift.reshape(1,1,-1))) # NxMxRq
             return torch.sum(amplitude * exp * cos, dim=2)
 
+    def Ksub_diag(self, i, X1):
+        """
+        Calculate the diagonal of the kernel matrix between two channels. This is usually faster than Ksub(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        """
+        # X has shape (data_points,input_dims)
+        amplitude = self.amplitude()[i].sum()
+        return amplitude.repeat(X1.shape[0])
+
 class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
     def __init__(self, *kernels, output_dims, input_dims=1, Q=None, Rq=1, name="LMC"):
         super().__init__(output_dims, input_dims, name=name)
@@ -244,6 +303,22 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
         X1, X2 = self._active_input(X1, X2)
         weight = torch.sum(self.weight()[i] * self.weight()[j], dim=1)  # Q
         kernels = torch.stack([kernel.K(X1,X2) for kernel in self.kernels], dim=2)  # NxMxQ
+        return torch.tensordot(kernels, weight, dims=1)
+
+    def Ksub_diag(self, i, X1):
+        """
+        Calculate the diagonal of the kernel matrix between two channels. This is usually faster than Ksub(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        """
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        weight = torch.sum(self.weight()[i]**2, dim=1)  # Q
+        kernels = torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1)  # NxQ
         return torch.tensordot(kernels, weight, dims=1)
 
 class GaussianConvolutionProcessKernel(MultiOutputKernel):
@@ -287,9 +362,24 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
             exp = torch.exp(-0.5 * torch.tensordot(tau, 1.0/variances, dims=1))  # NxM
             return weight * exp
 
+    def Ksub_diag(self, i, X1):
+        """
+        Calculate the diagonal of the kernel matrix between two channels. This is usually faster than Ksub(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        """
+        # X has shape (data_points,input_dims)
+        variances = 2.0*self.variance()[i] + self.base_variance()  # D
+        weight = self.weight()[i]**2 * torch.sqrt(self.base_variance().prod()/variances.prod())  # scalar
+        return weight.repeat(X1.shape[0])
+
 class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
-    def __init__(self, output_dims, input_dims, active_dims=None, name="MOHSM"):
-        super(MultiOutputHarmonizableSpectralKernel, self).__init__(output_dims, input_dims, active_dims, name)
+    def __init__(self, output_dims, input_dims=1, active_dims=None, name="MOHSM"):
+        super().__init__(output_dims, input_dims, active_dims, name)
 
         # TODO: incorporate mixtures?
         # TODO: allow different input_dims per channel
@@ -358,3 +448,21 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
             exp2 = torch.exp(-0.5 * torch.tensordot((avg-self.center())**2, lengthscale*torch.ones(self.input_dims, device=config.device, dtype=config.dtype), dims=1))  # NxM
             cos = torch.cos(2.0 * np.pi * torch.tensordot(tau+delay, mean, dims=1) + phase)  # NxM
             return alpha * exp1 * cos * exp2
+
+    def Ksub_diag(self, i, X1):
+        """
+        Calculate the diagonal of the kernel matrix between two channels. This is usually faster than Ksub(X1).diagonal().
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Kernel matrix diagonal of shape (data_points,).
+        """
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        variance = self.variance()[i]
+        lengthscale = self.lengthscale()[i]**2
+        alpha = self.magnitude()[i]**2 * self.twopi * variance.prod().sqrt() * torch.pow(lengthscale.sqrt(), float(self.input_dims))  # scalar
+        exp2 = torch.exp(-0.5 * torch.tensordot((X1-self.center())**2, lengthscale*torch.ones(self.input_dims, device=config.device, dtype=config.dtype), dims=1))  # NxM
+        return alpha * exp2
