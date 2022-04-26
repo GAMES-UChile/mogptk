@@ -98,7 +98,7 @@ class MultiOutputLikelihood(Likelihood):
         return r
 
     def validate_y(self, y):
-        for likelihood in likelihoods:
+        for likelihood in self.likelihoods:
             likelihood.validate_y(y)
 
     def log_prob(self, y, f, X=None):
