@@ -56,7 +56,7 @@ class Model:
 
         if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
             raise ValueError("kernel and likelihood must have matching output dimensions")
-        likelihood.validate_y(y)
+        likelihood.validate_y(y, X=X)
 
         # limit to number of significant digits
         if config.dtype == torch.float32:

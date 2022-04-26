@@ -38,7 +38,7 @@ class Likelihood:
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = 1
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         pass
 
     def log_prob(self, y, f, X=None):
@@ -97,14 +97,14 @@ class MultiOutputLikelihood(Likelihood):
         r = [torch.nonzero(m[j], as_tuple=False).reshape(-1) for j in range(self.output_dims)]  # as_tuple avoids warning
         return r
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if self.output_dims == 1:
-            self.likelihoods[0].validate_y(y)
+            self.likelihoods[0].validate_y(y, X=X)
             return
 
         r = self._channel_indices(X)
         for i in range(self.output_dims):
-            self.likelihoods[i].validate_y(y[r[i],:])
+            self.likelihoods[i].validate_y(y[r[i],:], X=X)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -234,7 +234,7 @@ class ExponentialLikelihood(Likelihood):
 
         self.link = link
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any(y < 0.0):
             raise ValueError("y must be positive")
 
@@ -277,9 +277,9 @@ class BernoulliLikelihood(Likelihood):
 
         self.link = link
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any((y != 0.0) & (y != 1.0)):
-            raise ValueError("y must have only 0.0 and 1.0")
+            raise ValueError("y must have only 0.0 and 1.0 values")
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -309,7 +309,7 @@ class BetaLikelihood(Likelihood):
         self.link = link
         self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any((y <= 0.0) | (1.0 <= y)):
             raise ValueError("y must be in the range (0.0,1.0)")
 
@@ -341,7 +341,7 @@ class GammaLikelihood(Likelihood):
         self.link = link
         self.shape = Parameter(shape, name="shape", lower=config.positive_minimum)
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any(y <= 0.0):
             raise ValueError("y must be in the range (0.0,inf)")
 
@@ -369,9 +369,11 @@ class PoissonLikelihood(Likelihood):
 
         self.link = link
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any(y < 0.0):
             raise ValueError("y must be in the range [0.0,inf)")
+        if not torch.all(y == y.long()):
+            raise ValueError("y must have integer count values")
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -397,7 +399,7 @@ class WeibullLikelihood(Likelihood):
         self.link = link
         self.shape = Parameter(shape, name="shape", lower=config.positive_minimum)
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any(y <= 0.0):
             raise ValueError("y must be in the range (0.0,inf)")
 
@@ -427,7 +429,7 @@ class LogLogisticLikelihood(Likelihood):
         self.link = link
         self.shape = Parameter(shape, name="shape", lower=config.positive_minimum)
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any(y < 0.0):
             raise ValueError("y must be in the range [0.0,inf)")
 
@@ -459,7 +461,7 @@ class LogGaussianLikelihood(Likelihood):
 
         self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any(y <= 0.0):
             raise ValueError("y must be in the range (0.0,inf)")
 
