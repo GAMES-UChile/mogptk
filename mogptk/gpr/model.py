@@ -445,10 +445,6 @@ class OpperArchambeau(Model):
                  jitter=1e-8, mean=None, name="OpperArchambeau"):
         super().__init__(kernel, X, y, likelihood, jitter, mean, name)
 
-        if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
-            raise ValueError("kernel and likelihood must have matching output dimensions")
-        likelihood.validate_y(y)
-
         n = self.X.shape[0]
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.q_nu = Parameter(torch.zeros(n,1), name="q_nu")
@@ -464,7 +460,7 @@ class OpperArchambeau(Model):
         else:
             y = self.y  # Nx1
 
-        q_nu = self.q_nu()  # Nx1
+        q_nu = self.q_nu()
         q_lambda = self.q_lambda()
 
         Kff = self.kernel(self.X)  # NxN
@@ -472,16 +468,29 @@ class OpperArchambeau(Model):
         invL = torch.linalg.solve_triangular(L,self.eye,upper=False)  # NxN
 
         qf_mu = Kff.mm(q_nu)
-        qf_var_diag = (1.0/q_lambda.square()) - (invL.T.mm(invL)/q_lambda/q_lambda.T).diagonal().reshape(-1,1)
-        if self.mean is not None:
-            qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
-
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+        qf_var_diag = 1.0/q_lambda.square() - (invL.T.mm(invL)/q_lambda/q_lambda.T).diagonal().reshape(-1,1)
 
         kl = -q_nu.shape[0]
         kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
-        kl += 2.0*L.diagonal().log().sum()  # determinant
+        kl += L.diagonal().square().log().sum()  # determinant TODO: is this correct?
+        #kl += invL.diagonal().square().sum()  # trace
         kl += invL.square().sum()  # trace
+
+        if self.mean is not None:
+            qf_mu = qf_mu - self.mean(self.X).reshape(-1,1)  # Sx1
+        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+
+        #eye = torch.eye(q_lambda.shape[0], device=config.device, dtype=config.dtype)
+        #qf_var = (1.0/q_lambda.square())*eye - invL.T.mm(invL)/q_lambda/q_lambda.T
+        #kl = -q_nu.shape[0]
+        #kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
+        #kl -= qf_var.det().log()  # determinant
+        #kl += invL.diagonal().square().sum()  # trace
+
+        #kl = -q_nu.shape[0]
+        #kl += q_nu.T.mm(q_nu).squeeze()  # Mahalanobis
+        #kl -= qf_var.det().log()  # determinant
+        #kl += qf_var_diag.sum()  # trace
         return var_exp - 0.5*kl
 
     def log_marginal_likelihood(self):
@@ -495,7 +504,7 @@ class OpperArchambeau(Model):
             Kff = self.kernel(self.X)
             Kfs = self.kernel(self.X,Xs)  # NxS
 
-            L = self._cholesky(Kff + (1.0/self.q_lambda()).square().diagflat())  # NxN
+            L = self._cholesky(Kff + (1.0/self.q_lambda().square()).diagflat())  # NxN
             a = torch.linalg.solve_triangular(L,Kfs,upper=False)  # NxS;  Kuu^(-1/2).Kus
 
             mu = Kfs.T.mm(self.q_nu())  # Sx1
