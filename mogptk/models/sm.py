@@ -61,20 +61,21 @@ class SM(Model):
         """
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
+        - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak's position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
         - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
         - IPS uses independent parameter sampling from the PhD thesis of Andrew Wilson 2014. It takes the inverse of the lengthscales drawn from a truncated Gaussian Normal(0, max_dist^2), the means drawn from a Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the Y values divided by the number of mixtures.
 
         In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Args:
-            method (str): Method of estimation, such as IPS or LS.
+            method (str): Method of estimation, such as IPS, LS, or BNSE.
         """
 
         input_dims = self.dataset.get_input_dims()
         output_dims = self.dataset.get_output_dims()
 
-        if method.lower() not in ['ips', 'ls']:
-            raise ValueError("valid methods of estimation are IPS and LS")
+        if method.lower() not in ['ips', 'ls', 'bnse']:
+            raise ValueError("valid methods of estimation are IPS, LS, and BNSE")
 
         if method.lower() == 'ips':
             for j in range(output_dims):
@@ -95,6 +96,11 @@ class SM(Model):
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('LS could not find peaks for SM')
+                return
+        elif method.lower() == 'bnse':
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            if np.sum(amplitudes) == 0.0:
+                logger.warning('BNSE could not find peaks for SM')
                 return
 
         #if noise:

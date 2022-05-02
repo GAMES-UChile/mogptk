@@ -61,7 +61,7 @@ class SM_LMC(Model):
             self.gpr.kernel[q].sigma.assign(1.0, trainable=False)  # handled by LMCKernel
             self.gpr.kernel[q].mean.assign(upper=nyquist)
 
-    def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method='BNSE', sm_init='LS', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
         """
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 

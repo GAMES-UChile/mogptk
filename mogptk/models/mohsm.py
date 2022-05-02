@@ -25,7 +25,7 @@ class MOHSM(Model):
         self.rescale_x = rescale_x
 
     
-    def init_parameters(self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={},sm_plot=False):
+    def init_parameters(self, method='BNSE', sm_init='SM', sm_method='Adam', sm_iters=100, sm_params={},sm_plot=False):
         """
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
         - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak's position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.

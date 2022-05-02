@@ -994,7 +994,7 @@ class Data:
             C[:num,i] = variances
         return A, B, C
 
-    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method='LS', optimizer='Adam', iters=100, params={}, plot=False):
         """
         Peak estimation of the spectrum using the spectral mixture kernel.
 
