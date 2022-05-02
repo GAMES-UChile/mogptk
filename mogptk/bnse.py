@@ -74,7 +74,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
     with torch.no_grad():
         Ktt = kernel(x)
         Ktt += model.likelihood.variance() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
-        Ltt = torch.linalg.cholesky(Ktt)
+        Ltt = model._cholesky(Ktt, add_jitter=True)
 
         Kff = kernel_ff(w, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
         Pff = kernel_ff(w, -w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
