@@ -348,8 +348,6 @@ class MixtureKernel(AddKernel):
         name (str): Kernel name.
     """
     def __init__(self, kernel, Q, name="Mixture"):
-        if not issubclass(type(kernel), Kernel):
-            raise ValueError("must pass kernel")
         kernels = self._check_kernels(kernel, Q)
         super().__init__(*kernels, name=name)
 
@@ -363,8 +361,6 @@ class AutomaticRelevanceDeterminationKernel(MulKernel):
         name (str): Kernel name.
     """
     def __init__(self, kernel, input_dims, name="ARD"):
-        if not issubclass(type(kernel), Kernel):
-            raise ValueError("must pass kernel")
         kernels = self._check_kernels(kernel, input_dims)
         for i, kernel in enumerate(kernels):
             kernel.set_active_dims(i)
