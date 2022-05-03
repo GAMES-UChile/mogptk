@@ -1030,18 +1030,18 @@ class Data:
 
         if plot:
             nyquist = self.get_nyquist_estimation()
-            means = np.array([sm.model.kernel[0][q].mean.numpy() for q in range(Q)])
-            weights = np.array([sm.model.kernel[0][q].sigma.numpy()**2 for q in range(Q)])
-            scales = np.array([sm.model.kernel[0][q].variance.numpy() for q in range(Q)])
+            means = np.array([sm.gpr.kernel[0][q].mean.numpy() for q in range(Q)])
+            weights = np.array([sm.gpr.kernel[0][q].sigma.numpy()**2 for q in range(Q)])
+            scales = np.array([sm.gpr.kernel[0][q].variance.numpy() for q in range(Q)])
             nyquist = np.expand_dims(nyquist, 0)
             means = np.expand_dims(means, 1)
             scales = np.expand_dims(scales, 1)
             plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
         for q in range(Q):
-            A[q,:] = sm.kernel[0][q].sigma.numpy()**2  # TODO: weight is not per input_dims
-            B[q,:] = sm.kernel[0][q].mean.numpy()
-            C[q,:] = sm.kernel[0][q].variance.numpy()
+            A[q,:] = sm.gpr.kernel[0][q].sigma.numpy()**2  # TODO: weight is not per input_dims
+            B[q,:] = sm.gpr.kernel[0][q].mean.numpy()
+            C[q,:] = sm.gpr.kernel[0][q].variance.numpy()
         return A, B, C
 
     def plot(self, pred=None, title=None, ax=None, legend=True, errorbars=True, transformed=False):
