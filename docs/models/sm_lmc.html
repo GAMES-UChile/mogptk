@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/models/sm_lmc.py#L1-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/sm_lmc.py#L1-L126" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
@@ -92,7 +92,7 @@ class SM_LMC(Model):
             self.gpr.kernel[q].sigma.assign(1.0, trainable=False)  # handled by LMCKernel
             self.gpr.kernel[q].mean.assign(upper=nyquist)
 
-    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -234,7 +234,7 @@ class SM_LMC(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/models/sm_lmc.py#L7-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/sm_lmc.py#L7-L126" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SM_LMC(Model):
     &#34;&#34;&#34;
@@ -293,7 +293,7 @@ class SM_LMC(Model):
             self.gpr.kernel[q].sigma.assign(1.0, trainable=False)  # handled by LMCKernel
             self.gpr.kernel[q].mean.assign(upper=nyquist)
 
-    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -364,7 +364,7 @@ class SM_LMC(Model):
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.models.sm_lmc.SM_LMC.init_parameters"><code class="name flex">
-<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False)</span>
+<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', sm_init='LS', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Estimate kernel parameters from the data set. The initialization can be done using three methods:</p>
@@ -392,9 +392,9 @@ class SM_LMC(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/models/sm_lmc.py#L64-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/sm_lmc.py#L64-L126" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
+<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
     &#34;&#34;&#34;
     Estimate kernel parameters from the data set. The initialization can be done using three methods:
 

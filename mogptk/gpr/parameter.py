@@ -4,15 +4,36 @@ import torch.nn.functional as functional
 from .config import config
 
 class Transform:
+    """
+    Base transformation class for constrained parameter.
+    """
     def forward(self, x):
+        """
+        Forward transformation from the unconstrained original space to the new constrained transformed space.
+        """
         # unconstrained to constrained space
         raise NotImplementedError()
     
     def inverse(self, y):
+        """
+        Inverse transformation from the new constrained transformed space to the unconstrained original space.
+        """
         # constrained to unconstrained space
         raise NotImplementedError()
 
 class Softplus(Transform):
+    """
+    Softplus transformation for a lower constraint given by
+
+    $$ y = a + \\frac{\\log\\left(1+e^{\\beta x}\\right)}{\\beta} $$
+
+    with \\(a\\) the lower limit and \\(\\beta\\) the slope.
+
+    Args:
+        lower (float,torch.tensor): Lower limit.
+        beta (float): Slope.
+        threshold (float): Location from where to approximate the softplus by a linear function to avoid numerical problems.
+    """
     def __init__(self, lower=0.0, beta=0.1, threshold=20.0):
         self.beta = beta
         self.lower = lower
@@ -27,6 +48,17 @@ class Softplus(Transform):
         return y-self.lower + torch.log(-torch.expm1(-self.beta*(y-self.lower)))/self.beta
 
 class Sigmoid(Transform):
+    """
+    Sigmoid transformation for a lower and upper constraint given by
+
+    $$ y = a + (b-1)\\frac{1}{1+e^{-x}} $$
+
+    with \\(a\\) the lower limit and \\(b\\) the upper limit.
+
+    Args:
+        lower (float,torch.tensor): Lower limit.
+        upper (float,torch.tensor): Upper limit.
+    """
     def __init__(self, lower=0.0, upper=1.0):
         self.lower = lower
         self.upper = upper
@@ -41,7 +73,18 @@ class Sigmoid(Transform):
         return torch.log(y) - torch.log(1-y)
 
 class Parameter:
-    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True, peg=False, transform=None):
+    """
+    Parameter class that allows for parameter training in a constraint space.
+
+    Args:
+        value (torch.tensor): Parameter (initial) value in the constraint space.
+        name (str): Name.
+        lower (float,torch.tensor): Lower limit.
+        upper (float,torch.tensor): Upper limit.
+        prior (Likelihood,torch.distribution): Prior distribution.
+        trainable (boolean): Train parameter, otherwise keep its value fixed.
+    """
+    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True):
         self.name = name
         self.lower = None
         self.upper = None
@@ -52,10 +95,7 @@ class Parameter:
         self.pegged_parameter = None
         self.pegged_transform = None
 
-        if peg:
-            self.peg(value, transform)
-        else:
-            self.assign(value, lower=lower, upper=upper)
+        self.assign(value, lower=lower, upper=upper)
 
     def __repr__(self):
         name = self.name
@@ -66,6 +106,12 @@ class Parameter:
         return '{}={}'.format(self.name, self.constrained.tolist())
     
     def __call__(self):
+        """
+        Get (constraint) parameter value.
+
+        Returns:
+            torch.tensor: Parameter value.
+        """
         return self.constrained
 
     @property
@@ -84,6 +130,12 @@ class Parameter:
         return self.unconstrained
 
     def numpy(self):
+        """
+        Get NumPy representation of the (constraint) parameter value.
+
+        Returns:
+            numpy.ndarray: Parameter value.
+        """
         return self.constrained.detach().cpu().numpy()
 
     @staticmethod
@@ -97,6 +149,17 @@ class Parameter:
         return value
 
     def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+        """
+        Assign a new value to the parameter. If any of the arguments is not passed, the current value will be kept.
+
+        Args:
+            value (torch.tensor): Parameter value in the constraint space.
+            name (str): Name.
+            lower (float,torch.tensor): Lower limit.
+            upper (float,torch.tensor): Upper limit.
+            prior (Likelihood,torch.distribution): Prior distribution.
+            trainable (boolean): Train parameter, otherwise keep its value fixed.
+        """
         if value is not None:
             value = Parameter.to_tensor(value)
             if self.unconstrained is not None:
@@ -185,6 +248,13 @@ class Parameter:
         self.pegged_transform = None
 
     def peg(self, other, transform=None):
+        """
+        Peg parameter to other parameter. It will follow another parameter's value and will not be trained independently. Additionally it is possible to transform the value while pegging, that is parameter A can be equal to two times parameter B for example.
+
+        Args:
+            other (Parameter): The other parameter to which this parameter will be pegged.
+            transform (function): Transformation from the other parameter to this one.
+        """
         if not isinstance(other, Parameter):
             raise ValueError("parameter must be pegged to other parameter object")
         elif other.pegged:
@@ -194,6 +264,12 @@ class Parameter:
         self.trainable = False
 
     def log_prior(self):
+        """
+        Get the log of the prior.
+
+        Returns:
+            float: Log prior.
+        """
         if self.prior is None:
             return 0.0
         return self.prior.log_prob(self()).sum()

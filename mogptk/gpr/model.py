@@ -43,6 +43,9 @@ class CholeskyException(Exception):
         return self.message
 
 class Model:
+    """
+    Base model class.
+    """
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0), jitter=1e-8, mean=None, name=None):
         if not issubclass(type(kernel), Kernel):
             raise ValueError("kernel must derive from mogptk.gpr.Kernel")
@@ -152,14 +155,29 @@ class Model:
                 p.grad.zero_()
 
     def parameters(self):
+        """
+        Yield trainable parameters of model.
+
+        Returns:
+            Parameter generator
+        """
         for p in self._params:
             if p.trainable:
                 yield p.unconstrained
 
     def get_parameters(self):
+        """
+        Return all parameters of model.
+
+        Returns:
+            list: List of Parameters.
+        """
         return self._params
     
     def print_parameters(self, file=None):
+        """
+        Print parameters and their values.
+        """
         def param_range(lower, upper, trainable=True, pegged=False):
             if lower is not None:
                 if prod(lower.shape) == 1:
@@ -221,20 +239,52 @@ class Model:
             raise CholeskyException(e.args[0], K, self)
 
     def log_marginal_likelihood(self):
+        """
+        Return the log marginal likelihood given by
+
+        $$ \\log p(y) $$
+
+        Returns:
+            torch.tensor: Log marginal likelihood.
+        """
         raise NotImplementedError()
 
     def log_prior(self):
+        """
+        Return the log prior given by
+
+        $$ \\log p(\\theta) $$
+
+        Returns:
+            torch.tensor: Log prior.
+        """
         return sum([p.log_prior() for p in self._params])
 
     def loss(self):
+        """
+        Model loss for training.
+
+        Returns:
+            torch.tensor: Loss.
+        """
         self.zero_grad()
         loss = -self.log_marginal_likelihood() - self.log_prior()
         loss.backward()
         return loss
 
     def K(self, X1, X2=None):
+        """
+        Evaluate kernel at `X1` and `X2` and return the NumPy representation.
+
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
+        """
         with torch.no_grad():
-            return self.kernel(X1, X2).cpu().numpy() # does cpu().numpy() detach? check memory usage
+            return self.kernel(X1, X2).detach().cpu().numpy()
 
     #def quantile(self, p, mu, var):
     #    with torch.no_grad():
@@ -248,6 +298,17 @@ class Model:
     #        return self.likelihood.quantile(p, mu, var)
 
     def sample(self, Z, n=None, predict_y=True):
+        """
+        Sample from model.
+
+        Args:
+            Z (torch.tensor): Input of shape (data_points,input_dims).
+            n (int): Number of samples.
+            predict_y (boolean): Predict the data values \\(y\\) instead of the function values \\(f\\).
+
+        Returns:
+            torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
+        """
         with torch.no_grad():
             S = n
             if n is None:
@@ -640,7 +701,7 @@ class SparseHensman(Model):
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
-        self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt")
+        self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt") # TODO: store only lower triangle
         if self.is_sparse:
             self.Z = Parameter(Z, name="induction_points")
         else:
@@ -708,7 +769,7 @@ class SparseHensman(Model):
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
 
-            mu, var = self._predict(Xs, full=full and not predict_y)
+            mu, var = self._predict(Xs, full=full)
             if predict_y:
                 mu, var = self.likelihood.predict(mu, var, full=full, X=Xs)
             if self.mean is not None:

@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/models/sm.py#L1-L152" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/sm.py#L1-L157" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
@@ -75,9 +75,8 @@ class SM(Model):
             dataset = DataSet(dataset)
 
         kernel = IndependentMultiOutputKernel(
-            [MixtureKernel(
-                [SpectralKernel(dataset[j].get_input_dims()) for q in range(Q)],
-             Q) for j in range(dataset.get_output_dims())],
+            [MixtureKernel(SpectralKernel(dataset[j].get_input_dims()), Q)
+                for j in range(dataset.get_output_dims())],
             output_dims=dataset.get_output_dims(),
         )
         super().__init__(dataset, kernel, inference, mean, name, rescale_x)
@@ -92,20 +91,21 @@ class SM(Model):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
+        - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak&#39;s position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
         - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
         - IPS uses independent parameter sampling from the PhD thesis of Andrew Wilson 2014. It takes the inverse of the lengthscales drawn from a truncated Gaussian Normal(0, max_dist^2), the means drawn from a Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the Y values divided by the number of mixtures.
 
         In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Args:
-            method (str): Method of estimation, such as IPS or LS.
+            method (str): Method of estimation, such as IPS, LS, or BNSE.
         &#34;&#34;&#34;
 
         input_dims = self.dataset.get_input_dims()
         output_dims = self.dataset.get_output_dims()
 
-        if method.lower() not in [&#39;ips&#39;, &#39;ls&#39;]:
-            raise ValueError(&#34;valid methods of estimation are IPS and LS&#34;)
+        if method.lower() not in [&#39;ips&#39;, &#39;ls&#39;, &#39;bnse&#39;]:
+            raise ValueError(&#34;valid methods of estimation are IPS, LS, and BNSE&#34;)
 
         if method.lower() == &#39;ips&#39;:
             for j in range(output_dims):
@@ -126,6 +126,11 @@ class SM(Model):
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning(&#39;LS could not find peaks for SM&#39;)
+                return
+        elif method.lower() == &#39;bnse&#39;:
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            if np.sum(amplitudes) == 0.0:
+                logger.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
         #if noise:
@@ -256,7 +261,7 @@ class SM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/models/sm.py#L8-L152" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/sm.py#L8-L157" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SM(Model):
     &#34;&#34;&#34;
@@ -297,9 +302,8 @@ class SM(Model):
             dataset = DataSet(dataset)
 
         kernel = IndependentMultiOutputKernel(
-            [MixtureKernel(
-                [SpectralKernel(dataset[j].get_input_dims()) for q in range(Q)],
-             Q) for j in range(dataset.get_output_dims())],
+            [MixtureKernel(SpectralKernel(dataset[j].get_input_dims()), Q)
+                for j in range(dataset.get_output_dims())],
             output_dims=dataset.get_output_dims(),
         )
         super().__init__(dataset, kernel, inference, mean, name, rescale_x)
@@ -314,20 +318,21 @@ class SM(Model):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
+        - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak&#39;s position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
         - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
         - IPS uses independent parameter sampling from the PhD thesis of Andrew Wilson 2014. It takes the inverse of the lengthscales drawn from a truncated Gaussian Normal(0, max_dist^2), the means drawn from a Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the Y values divided by the number of mixtures.
 
         In all cases the noise is initialized with 1/30 of the variance of each channel.
 
         Args:
-            method (str): Method of estimation, such as IPS or LS.
+            method (str): Method of estimation, such as IPS, LS, or BNSE.
         &#34;&#34;&#34;
 
         input_dims = self.dataset.get_input_dims()
         output_dims = self.dataset.get_output_dims()
 
-        if method.lower() not in [&#39;ips&#39;, &#39;ls&#39;]:
-            raise ValueError(&#34;valid methods of estimation are IPS and LS&#34;)
+        if method.lower() not in [&#39;ips&#39;, &#39;ls&#39;, &#39;bnse&#39;]:
+            raise ValueError(&#34;valid methods of estimation are IPS, LS, and BNSE&#34;)
 
         if method.lower() == &#39;ips&#39;:
             for j in range(output_dims):
@@ -348,6 +353,11 @@ class SM(Model):
             amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning(&#39;LS could not find peaks for SM&#39;)
+                return
+        elif method.lower() == &#39;bnse&#39;:
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            if np.sum(amplitudes) == 0.0:
+                logger.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
         #if noise:
@@ -416,6 +426,7 @@ class SM(Model):
 <dd>
 <div class="desc"><p>Estimate kernel parameters from the data set. The initialization can be done using three methods:</p>
 <ul>
+<li>BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak's position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.</li>
 <li>LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.</li>
 <li>IPS uses independent parameter sampling from the PhD thesis of Andrew Wilson 2014. It takes the inverse of the lengthscales drawn from a truncated Gaussian Normal(0, max_dist^2), the means drawn from a Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the Y values divided by the number of mixtures.</li>
 </ul>
@@ -423,31 +434,32 @@ class SM(Model):
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
-<dd>Method of estimation, such as IPS or LS.</dd>
+<dd>Method of estimation, such as IPS, LS, or BNSE.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/models/sm.py#L60-L130" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/sm.py#L59-L135" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;LS&#39;):
     &#34;&#34;&#34;
     Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
+    - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak&#39;s position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
     - LS is similar to BNSE but uses Lomb-Scargle to estimate the spectrum, which is much faster but may give poorer results.
     - IPS uses independent parameter sampling from the PhD thesis of Andrew Wilson 2014. It takes the inverse of the lengthscales drawn from a truncated Gaussian Normal(0, max_dist^2), the means drawn from a Unif(0, 0.5 / minimum distance between two points), and the mixture weights by taking the standard variation of the Y values divided by the number of mixtures.
 
     In all cases the noise is initialized with 1/30 of the variance of each channel.
 
     Args:
-        method (str): Method of estimation, such as IPS or LS.
+        method (str): Method of estimation, such as IPS, LS, or BNSE.
     &#34;&#34;&#34;
 
     input_dims = self.dataset.get_input_dims()
     output_dims = self.dataset.get_output_dims()
 
-    if method.lower() not in [&#39;ips&#39;, &#39;ls&#39;]:
-        raise ValueError(&#34;valid methods of estimation are IPS and LS&#34;)
+    if method.lower() not in [&#39;ips&#39;, &#39;ls&#39;, &#39;bnse&#39;]:
+        raise ValueError(&#34;valid methods of estimation are IPS, LS, and BNSE&#34;)
 
     if method.lower() == &#39;ips&#39;:
         for j in range(output_dims):
@@ -468,6 +480,11 @@ class SM(Model):
         amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
         if len(amplitudes) == 0:
             logger.warning(&#39;LS could not find peaks for SM&#39;)
+            return
+    elif method.lower() == &#39;bnse&#39;:
+        amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        if np.sum(amplitudes) == 0.0:
+            logger.warning(&#39;BNSE could not find peaks for SM&#39;)
             return
 
     #if noise:
@@ -511,7 +528,7 @@ class SM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/models/sm.py#L132-L152" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/sm.py#L137-L157" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, log=False, noise=False, title=None):
     &#34;&#34;&#34;

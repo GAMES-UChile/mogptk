@@ -2,10 +2,22 @@ import torch
 from . import Parameter, config
 
 class Mean:
+    """
+    Defines a trainable mean function, complementary to the the way we also have a trainable covariance function (the kernel).
+    """
     def __init__(self, name="Mean"):
         self.name = name
 
     def __call__(self, X):
+        """
+        Return the mean for a given `X`. This is the same as calling `mean(X)` but `X` doesn't necessarily have to be a tensor.
+
+        Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Mean values of shape (data_points,).
+        """
         X = self._check_input(X)
         return self.mean(X)
 
@@ -33,9 +45,25 @@ class Mean:
         return X
 
     def mean(self, X):
+        """
+        Return the mean for a given `X`.
+
+        Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Mean values of shape (data_points,).
+        """
         raise NotImplementedError()
 
 class ConstantMean(Mean):
+    """
+    Constant mean function:
+
+    $$ m(X) = b $$
+
+    with \\(b\\) the bias.
+    """
     def __init__(self, name="ConstantMean"):
         super().__init__(name)
         self.bias = Parameter(0.0)
@@ -44,6 +72,13 @@ class ConstantMean(Mean):
         return self.bias().repeat(X.shape[0])
 
 class LinearMean(Mean):
+    """
+    Linear mean function:
+
+    $$ m(X) = aX + b $$
+
+    with \\(a\\) the slope and \\(b\\) the bias.
+    """
     def __init__(self, input_dims=1, name="LinearMean"):
         super().__init__(name)
         self.bias = Parameter(0.0)

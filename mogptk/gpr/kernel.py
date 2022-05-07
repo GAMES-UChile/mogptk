@@ -23,7 +23,7 @@ class Kernel:
 
     def __call__(self, X1, X2=None):
         """
-        Calculate kernel matrix. This is the same as calling K(X1,X2) but X1 and X2 don't necessarily have to be tensors. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+        Calculate kernel matrix. This is the same as calling `K(X1,X2)` but `X1` and `X2` don't necessarily have to be tensors. If `X2` is not given, it is assumed to be the same as `X1`. Not passing `X2` may be faster for some kernels.
 
         Args:
             X1 (torch.tensor): Input of shape (data_points0,input_dims).
@@ -125,7 +125,7 @@ class Kernel:
 
     def iterkernels(self):
         """
-        Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the AddKernel).
+        Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the `AddKernel`).
         """
         yield self
 
@@ -145,7 +145,7 @@ class Kernel:
 
     def K(self, X1, X2=None):
         """
-        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+        Calculate kernel matrix. If `X2` is not given, it is assumed to be the same as `X1`. Not passing `X2` may be faster for some kernels.
 
         Args:
             X1 (torch.tensor): Input of shape (data_points0,input_dims).
@@ -159,7 +159,7 @@ class Kernel:
 
     def K_diag(self, X1):
         """
-        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
+        Calculate the diagonal of the kernel matrix. This is usually faster than `K(X1).diagonal()`.
 
         Args:
             X1 (torch.tensor): Input of shape (data_points,input_dims).
@@ -173,16 +173,6 @@ class Kernel:
 
     @staticmethod
     def average(X1, X2=None):
-        """
-        Cross average between inputs.
-
-        Args:
-            X1 (torch.tensor): Input of shape (data_points0,input_dims).
-            X2 (torch.tensor): Input of shape (data_points1,input_dims).
-
-        Returns:
-            torch.tensor: Average of shape (data_points0,data_points1,input_dims).
-        """
         # X1 is NxD, X2 is MxD, then ret is NxMxD
         if X2 is None:
             X2 = X1
@@ -190,16 +180,6 @@ class Kernel:
 
     @staticmethod
     def distance(X1, X2=None):
-        """
-        Cross distance between inputs.
-
-        Args:
-            X1 (torch.tensor): Input of shape (data_points0,input_dims).
-            X2 (torch.tensor): Input of shape (data_points1,input_dims).
-
-        Returns:
-            torch.tensor: Distance of shape (data_points0,data_points1,input_dims).
-        """
         # X1 is NxD, X2 is MxD, then ret is NxMxD
         if X2 is None:
             X2 = X1
@@ -207,16 +187,6 @@ class Kernel:
 
     @staticmethod
     def squared_distance(X1, X2=None):
-        """
-        Cross squared distance between inputs.
-
-        Args:
-            X1 (torch.tensor): Input of shape (data_points0,input_dims).
-            X2 (torch.tensor): Input of shape (data_points1,input_dims).
-
-        Returns:
-            torch.tensor: Squared distance of shape (data_points0,data_points1,input_dims).
-        """
         # X1 is NxD, X2 is MxD, then ret is NxMxD
         if X2 is None:
             X2 = X1
@@ -254,9 +224,6 @@ class Kernels(Kernel):
         return self.kernels[key]
 
     def iterkernels(self):
-        """
-        Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the AddKernel).
-        """
         yield self
         for kernel in self.kernels:
             yield kernel
@@ -278,28 +245,9 @@ class AddKernel(Kernels):
         super().__init__(*kernels, name=name)
 
     def K(self, X1, X2=None):
-        """
-        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
-
-        Args:
-            X1 (torch.tensor): Input of shape (data_points0,input_dims).
-            X2 (torch.tensor): Input of shape (data_points1,input_dims).
-
-        Returns:
-            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
-        """
         return torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=2).sum(dim=2)
 
     def K_diag(self, X1):
-        """
-        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
-
-        Args:
-            X1 (torch.tensor): Input of shape (data_points,input_dims).
-
-        Returns:
-            torch.tensor: Kernel matrix diagonal of shape (data_points,).
-        """
         return torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1).sum(dim=1)
 
 class MulKernel(Kernels):
@@ -314,33 +262,14 @@ class MulKernel(Kernels):
         super().__init__(*kernels, name=name)
 
     def K(self, X1, X2=None):
-        """
-        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
-
-        Args:
-            X1 (torch.tensor): Input of shape (data_points0,input_dims).
-            X2 (torch.tensor): Input of shape (data_points1,input_dims).
-
-        Returns:
-            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
-        """
         return torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=2).prod(dim=2)
 
     def K_diag(self, X1):
-        """
-        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
-
-        Args:
-            X1 (torch.tensor): Input of shape (data_points,input_dims).
-
-        Returns:
-            torch.tensor: Kernel matrix diagonal of shape (data_points,).
-        """
         return torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=1).prod(dim=1)
 
 class MixtureKernel(AddKernel):
     """
-    Mixture kernel that sums Q kernels.
+    Mixture kernel that sums `Q` kernels.
 
     Args:
         kernel (Kernel): Single kernel.
@@ -348,12 +277,14 @@ class MixtureKernel(AddKernel):
         name (str): Kernel name.
     """
     def __init__(self, kernel, Q, name="Mixture"):
+        if not issubclass(type(kernel), Kernel):
+            raise ValueError("must pass kernel")
         kernels = self._check_kernels(kernel, Q)
         super().__init__(*kernels, name=name)
 
 class AutomaticRelevanceDeterminationKernel(MulKernel):
     """
-    Automatic relevance determination (ARD) kernel that multiplies kernels.
+    Automatic relevance determination (ARD) kernel that multiplies kernels for each input dimension.
 
     Args:
         kernel (Kernel): Single kernel.
@@ -361,6 +292,8 @@ class AutomaticRelevanceDeterminationKernel(MulKernel):
         name (str): Kernel name.
     """
     def __init__(self, kernel, input_dims, name="ARD"):
+        if not issubclass(type(kernel), Kernel):
+            raise ValueError("must pass kernel")
         kernels = self._check_kernels(kernel, input_dims)
         for i, kernel in enumerate(kernels):
             kernel.set_active_dims(i)
@@ -368,9 +301,9 @@ class AutomaticRelevanceDeterminationKernel(MulKernel):
 
 class MultiOutputKernel(Kernel):
     """
-    The MultiOutputKernel is a base class for multi-output kernels. It assumes that the first dimension of X contains channel IDs (integers) and calculates the final kernel matrix accordingly. Concretely, it will call the Ksub method for derived kernels from this class, which should return the kernel matrix between channel i and j, given inputs X1 and X2. This class will automatically split and recombine the input vectors and kernel matrices respectively, in order to create the final kernel matrix of the multi-output kernel.
+    The `MultiOutputKernel` is a base class for multi-output kernels. It assumes that the first dimension of `X` contains channel IDs (integers) and calculates the final kernel matrix accordingly. Concretely, it will call the `Ksub` method for derived kernels from this class, which should return the kernel matrix between channel `i` and `j`, given inputs `X1` and `X2`. This class will automatically split and recombine the input vectors and kernel matrices respectively, in order to create the final kernel matrix of the multi-output kernel.
 
-    Be aware that for implementation of Ksub, i==j is true for the diagonal matrices. X2==None is true when calculating the Gram matrix (i.e. X1==X2) and when i==j. It is thus a subset of the case i==j, and if X2==None than i is always equal to j.
+    Be aware that for implementation of `Ksub`, `i==j` is true for the diagonal matrices. `X2==None` is true when calculating the Gram matrix (i.e. `X1==X2`) and when `i==j`. It is thus a subset of the case `i==j`, and if `X2==None` than `i` is always equal to `j`.
 
     Args:
         output_dims (int): Number of output dimensions.
@@ -397,18 +330,6 @@ class MultiOutputKernel(Kernel):
         return self._output_dims
 
     def K(self, X1, X2=None):
-        """
-        Calculate kernel matrix. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
-
-        The first input dimension of X1 and X2 must contain the channel IDs (integers).
-
-        Args:
-            X1 (torch.tensor): Input of shape (data_points0,input_dims).
-            X2 (torch.tensor): Input of shape (data_points1,input_dims).
-
-        Returns:
-            torch.tensor: Kernel matrix of shape (data_points0,data_points1).
-        """
         # X has shape (data_points,1+input_dims) where the first column is the channel ID
         # extract channel mask, get data, and find indices that belong to the channels
         c1 = X1[:,0].long()
@@ -445,17 +366,6 @@ class MultiOutputKernel(Kernel):
         return res
 
     def K_diag(self, X1):
-        """
-        Calculate the diagonal of the kernel matrix. This is usually faster than K(X1).diagonal().
-
-        The first input dimension of X1 must contain the channel IDs (integers).
-
-        Args:
-            X1 (torch.tensor): Input of shape (data_points,input_dims).
-
-        Returns:
-            torch.tensor: Kernel matrix diagonal of shape (data_points,).
-        """
         # extract channel mask, get data, and find indices that belong to the channels
         c1 = X1[:,0].long()
         m1 = [c1==i for i in range(self.output_dims)]
@@ -472,7 +382,7 @@ class MultiOutputKernel(Kernel):
 
     def Ksub(self, i, j, X1, X2=None):
         """
-        Calculate kernel matrix between two channels. If X2 is not given, it is assumed to be the same as X1. Not passing X2 may be faster for some kernels.
+        Calculate kernel matrix between two channels. If `X2` is not given, it is assumed to be the same as `X1`. Not passing `X2` may be faster for some kernels.
 
         Args:
             X1 (torch.tensor): Input of shape (data_points0,input_dims).
@@ -485,7 +395,7 @@ class MultiOutputKernel(Kernel):
 
     def Ksub_diag(self, i, X1):
         """
-        Calculate the diagonal of the kernel matrix between two channels. This is usually faster than Ksub(X1).diagonal().
+        Calculate the diagonal of the kernel matrix between two channels. This is usually faster than `Ksub(X1).diagonal()`.
 
         Args:
             X1 (torch.tensor): Input of shape (data_points,input_dims).

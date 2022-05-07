@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L1-L716" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L1-L786" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import sys
 import torch
@@ -74,6 +74,9 @@ class CholeskyException(Exception):
         return self.message
 
 class Model:
+    &#34;&#34;&#34;
+    Base model class.
+    &#34;&#34;&#34;
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0), jitter=1e-8, mean=None, name=None):
         if not issubclass(type(kernel), Kernel):
             raise ValueError(&#34;kernel must derive from mogptk.gpr.Kernel&#34;)
@@ -87,7 +90,7 @@ class Model:
 
         if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
             raise ValueError(&#34;kernel and likelihood must have matching output dimensions&#34;)
-        likelihood.validate_y(y)
+        likelihood.validate_y(y, X=X)
 
         # limit to number of significant digits
         if config.dtype == torch.float32:
@@ -183,14 +186,29 @@ class Model:
                 p.grad.zero_()
 
     def parameters(self):
+        &#34;&#34;&#34;
+        Yield trainable parameters of model.
+
+        Returns:
+            Parameter generator
+        &#34;&#34;&#34;
         for p in self._params:
             if p.trainable:
                 yield p.unconstrained
 
     def get_parameters(self):
+        &#34;&#34;&#34;
+        Return all parameters of model.
+
+        Returns:
+            list: List of Parameters.
+        &#34;&#34;&#34;
         return self._params
     
     def print_parameters(self, file=None):
+        &#34;&#34;&#34;
+        Print parameters and their values.
+        &#34;&#34;&#34;
         def param_range(lower, upper, trainable=True, pegged=False):
             if lower is not None:
                 if prod(lower.shape) == 1:
@@ -252,33 +270,76 @@ class Model:
             raise CholeskyException(e.args[0], K, self)
 
     def log_marginal_likelihood(self):
+        &#34;&#34;&#34;
+        Return the log marginal likelihood given by
+
+        $$ \\log p(y) $$
+
+        Returns:
+            torch.tensor: Log marginal likelihood.
+        &#34;&#34;&#34;
         raise NotImplementedError()
 
     def log_prior(self):
+        &#34;&#34;&#34;
+        Return the log prior given by
+
+        $$ \\log p(\\theta) $$
+
+        Returns:
+            torch.tensor: Log prior.
+        &#34;&#34;&#34;
         return sum([p.log_prior() for p in self._params])
 
     def loss(self):
+        &#34;&#34;&#34;
+        Model loss for training.
+
+        Returns:
+            torch.tensor: Loss.
+        &#34;&#34;&#34;
         self.zero_grad()
         loss = -self.log_marginal_likelihood() - self.log_prior()
         loss.backward()
         return loss
 
     def K(self, X1, X2=None):
-        with torch.no_grad():
-            return self.kernel(X1, X2).cpu().numpy() # does cpu().numpy() detach? check memory usage
+        &#34;&#34;&#34;
+        Evaluate kernel at `X1` and `X2` and return the NumPy representation.
 
-    def quantile(self, p, mu, var):
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
         with torch.no_grad():
-            if not isinstance(p, torch.Tensor):
-                p = torch.tensor(p, device=config.device, dtype=config.dtype)
-            else:
-                p = p.to(config.device, config.dtype)
-            p = p.squeeze()
-            if p.ndim != 0:
-                raise ValueError(&#34;quantile must be scalar&#34;)
-            return self.likelihood.quantile(p, mu, var)
+            return self.kernel(X1, X2).detach().cpu().numpy()
+
+    #def quantile(self, p, mu, var):
+    #    with torch.no_grad():
+    #        if not isinstance(p, torch.Tensor):
+    #            p = torch.tensor(p, device=config.device, dtype=config.dtype)
+    #        else:
+    #            p = p.to(config.device, config.dtype)
+    #        p = p.squeeze()
+    #        if p.ndim != 0:
+    #            raise ValueError(&#34;quantile must be scalar&#34;)
+    #        return self.likelihood.quantile(p, mu, var)
 
     def sample(self, Z, n=None, predict_y=True):
+        &#34;&#34;&#34;
+        Sample from model.
+
+        Args:
+            Z (torch.tensor): Input of shape (data_points,input_dims).
+            n (int): Number of samples.
+            predict_y (boolean): Predict the data values \\(y\\) instead of the function values \\(f\\).
+
+        Returns:
+            torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
+        &#34;&#34;&#34;
         with torch.no_grad():
             S = n
             if n is None:
@@ -476,10 +537,6 @@ class OpperArchambeau(Model):
                  jitter=1e-8, mean=None, name=&#34;OpperArchambeau&#34;):
         super().__init__(kernel, X, y, likelihood, jitter, mean, name)
 
-        if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
-            raise ValueError(&#34;kernel and likelihood must have matching output dimensions&#34;)
-        likelihood.validate_y(y)
-
         n = self.X.shape[0]
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.q_nu = Parameter(torch.zeros(n,1), name=&#34;q_nu&#34;)
@@ -495,7 +552,7 @@ class OpperArchambeau(Model):
         else:
             y = self.y  # Nx1
 
-        q_nu = self.q_nu()  # Nx1
+        q_nu = self.q_nu()
         q_lambda = self.q_lambda()
 
         Kff = self.kernel(self.X)  # NxN
@@ -503,16 +560,29 @@ class OpperArchambeau(Model):
         invL = torch.linalg.solve_triangular(L,self.eye,upper=False)  # NxN
 
         qf_mu = Kff.mm(q_nu)
-        qf_var_diag = (1.0/q_lambda.square()) - (invL.T.mm(invL)/q_lambda/q_lambda.T).diagonal().reshape(-1,1)
-        if self.mean is not None:
-            qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
-
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+        qf_var_diag = 1.0/q_lambda.square() - (invL.T.mm(invL)/q_lambda/q_lambda.T).diagonal().reshape(-1,1)
 
         kl = -q_nu.shape[0]
         kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
-        kl += 2.0*L.diagonal().log().sum()  # determinant
+        kl += L.diagonal().square().log().sum()  # determinant TODO: is this correct?
+        #kl += invL.diagonal().square().sum()  # trace
         kl += invL.square().sum()  # trace
+
+        if self.mean is not None:
+            qf_mu = qf_mu - self.mean(self.X).reshape(-1,1)  # Sx1
+        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+
+        #eye = torch.eye(q_lambda.shape[0], device=config.device, dtype=config.dtype)
+        #qf_var = (1.0/q_lambda.square())*eye - invL.T.mm(invL)/q_lambda/q_lambda.T
+        #kl = -q_nu.shape[0]
+        #kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
+        #kl -= qf_var.det().log()  # determinant
+        #kl += invL.diagonal().square().sum()  # trace
+
+        #kl = -q_nu.shape[0]
+        #kl += q_nu.T.mm(q_nu).squeeze()  # Mahalanobis
+        #kl -= qf_var.det().log()  # determinant
+        #kl += qf_var_diag.sum()  # trace
         return var_exp - 0.5*kl
 
     def log_marginal_likelihood(self):
@@ -526,7 +596,7 @@ class OpperArchambeau(Model):
             Kff = self.kernel(self.X)
             Kfs = self.kernel(self.X,Xs)  # NxS
 
-            L = self._cholesky(Kff + (1.0/self.q_lambda()).square().diagflat())  # NxN
+            L = self._cholesky(Kff + (1.0/self.q_lambda().square()).diagflat())  # NxN
             a = torch.linalg.solve_triangular(L,Kfs,upper=False)  # NxS;  Kuu^(-1/2).Kus
 
             mu = Kfs.T.mm(self.q_nu())  # Sx1
@@ -662,7 +732,7 @@ class SparseHensman(Model):
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(n,1), name=&#34;q_mu&#34;)
-        self.q_sqrt = Parameter(torch.eye(n), name=&#34;q_sqrt&#34;)
+        self.q_sqrt = Parameter(torch.eye(n), name=&#34;q_sqrt&#34;) # TODO: store only lower triangle
         if self.is_sparse:
             self.Z = Parameter(Z, name=&#34;induction_points&#34;)
         else:
@@ -674,11 +744,11 @@ class SparseHensman(Model):
             self._register_parameters(self.Z)
 
     def kl_gaussian(self, q_mu, q_sqrt):
-        Lq = q_sqrt.tril() # NxN
+        S_diag = q_sqrt.diagonal().square() # NxN
         kl = -q_mu.shape[0]
         kl += q_mu.T.mm(q_mu).squeeze()  # Mahalanobis
-        kl -= Lq.diagonal().square().log().sum()  # determinant of q_var
-        kl += Lq.square().sum()  # same as Trace(p_var^(-1).q_var)
+        kl -= S_diag.log().sum()  # determinant of q_var
+        kl += S_diag.sum()  # same as Trace(p_var^(-1).q_var)
         return 0.5*kl
 
     def elbo(self):
@@ -695,7 +765,7 @@ class SparseHensman(Model):
 
             qf_mu = Lff.mm(self.q_mu())
             if self.mean is not None:
-                qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
+                qf_mu -= self.mean(self.X).reshape(-1,1)  # Sx1
 
             qf_sqrt = Lff.mm(self.q_sqrt().tril())
             qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
@@ -730,7 +800,7 @@ class SparseHensman(Model):
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
 
-            mu, var = self._predict(Xs, full=full and not predict_y)
+            mu, var = self._predict(Xs, full=full)
             if predict_y:
                 mu, var = self.likelihood.predict(mu, var, full=full, X=Xs)
             if self.mean is not None:
@@ -762,7 +832,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L12-L34" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L12-L34" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_inducing_points(Z, X, kernel):
     # TODO: instead of linspace, use quantile space or k-means to initialize positions
@@ -797,7 +867,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L9-L10" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L9-L10" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def prod(iterable):
     return reduce(operator.mul, iterable, 1)</code></pre>
@@ -817,7 +887,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L36-L43" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L36-L43" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CholeskyException(Exception):
     def __init__(self, message, K, model):
@@ -839,11 +909,11 @@ class Hensman(SparseHensman):
 <span>(</span><span>kernel, X, y, variance=1.0, jitter=1e-08, mean=None, name='Exact')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Base model class.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L271-L348" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L332-L409" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact(Model):
     def __init__(self, kernel, X, y, variance=1.0, jitter=1e-8, mean=None, name=&#34;Exact&#34;):
@@ -930,35 +1000,6 @@ class Hensman(SparseHensman):
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.gpr.model.Exact.log_marginal_likelihood"><code class="name flex">
-<span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L289-L305" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_marginal_likelihood(self):
-    Kff = self.kernel.K(self.X)
-    if self.likelihood.variance().ndim == 2:
-        Kff += self.likelihood.variance()[0,:].diagflat()
-    else:
-        Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
-    L = self._cholesky(Kff, add_jitter=True)  # NxN
-
-    if self.mean is not None:
-        y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
-    else:
-        y = self.y  # Nx1
-
-    p = -self.log_marginal_likelihood_constant
-    p -= L.diagonal().log().sum() # 0.5 is taken inside the log: L is the square root
-    p -= 0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
-    return p</code></pre>
-</details>
-</dd>
 <dt id="mogptk.gpr.model.Exact.predict"><code class="name flex">
 <span>def <span class="ident">predict</span></span>(<span>self, Xs, full=False, tensor=False, predict_y=True)</span>
 </code></dt>
@@ -967,7 +1008,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L307-L348" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L368-L409" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     if self.likelihood.variance().ndim == 2 and predict_y:
@@ -1014,17 +1055,32 @@ class Hensman(SparseHensman):
 </details>
 </dd>
 </dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.model.Model" href="#mogptk.gpr.model.Model">Model</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.model.Model.K" href="#mogptk.gpr.model.Model.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.get_parameters" href="#mogptk.gpr.model.Model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.log_marginal_likelihood" href="#mogptk.gpr.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.log_prior" href="#mogptk.gpr.model.Model.log_prior">log_prior</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.loss" href="#mogptk.gpr.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.parameters" href="#mogptk.gpr.model.Model.parameters">parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample" href="#mogptk.gpr.model.Model.sample">sample</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.model.Hensman"><code class="flex name class">
 <span>class <span class="ident">Hensman</span></span>
 <span>(</span><span>kernel, X, y, likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-08, mean=None, name='Hensman')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Base model class.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L713-L716" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L783-L786" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman(SparseHensman):
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-8,
@@ -1036,19 +1092,37 @@ class Hensman(SparseHensman):
 <li><a title="mogptk.gpr.model.SparseHensman" href="#mogptk.gpr.model.SparseHensman">SparseHensman</a></li>
 <li><a title="mogptk.gpr.model.Model" href="#mogptk.gpr.model.Model">Model</a></li>
 </ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.model.SparseHensman" href="#mogptk.gpr.model.SparseHensman">SparseHensman</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.model.SparseHensman.K" href="#mogptk.gpr.model.Model.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.model.SparseHensman.get_parameters" href="#mogptk.gpr.model.Model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.SparseHensman.log_marginal_likelihood" href="#mogptk.gpr.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
+<li><code><a title="mogptk.gpr.model.SparseHensman.log_prior" href="#mogptk.gpr.model.Model.log_prior">log_prior</a></code></li>
+<li><code><a title="mogptk.gpr.model.SparseHensman.loss" href="#mogptk.gpr.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.gpr.model.SparseHensman.parameters" href="#mogptk.gpr.model.Model.parameters">parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.SparseHensman.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.SparseHensman.sample" href="#mogptk.gpr.model.Model.sample">sample</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.model.Model"><code class="flex name class">
 <span>class <span class="ident">Model</span></span>
 <span>(</span><span>kernel, X, y, likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-08, mean=None, name=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Base model class.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L45-L269" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L45-L330" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
+    &#34;&#34;&#34;
+    Base model class.
+    &#34;&#34;&#34;
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0), jitter=1e-8, mean=None, name=None):
         if not issubclass(type(kernel), Kernel):
             raise ValueError(&#34;kernel must derive from mogptk.gpr.Kernel&#34;)
@@ -1062,7 +1136,7 @@ class Hensman(SparseHensman):
 
         if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
             raise ValueError(&#34;kernel and likelihood must have matching output dimensions&#34;)
-        likelihood.validate_y(y)
+        likelihood.validate_y(y, X=X)
 
         # limit to number of significant digits
         if config.dtype == torch.float32:
@@ -1158,14 +1232,29 @@ class Hensman(SparseHensman):
                 p.grad.zero_()
 
     def parameters(self):
+        &#34;&#34;&#34;
+        Yield trainable parameters of model.
+
+        Returns:
+            Parameter generator
+        &#34;&#34;&#34;
         for p in self._params:
             if p.trainable:
                 yield p.unconstrained
 
     def get_parameters(self):
+        &#34;&#34;&#34;
+        Return all parameters of model.
+
+        Returns:
+            list: List of Parameters.
+        &#34;&#34;&#34;
         return self._params
     
     def print_parameters(self, file=None):
+        &#34;&#34;&#34;
+        Print parameters and their values.
+        &#34;&#34;&#34;
         def param_range(lower, upper, trainable=True, pegged=False):
             if lower is not None:
                 if prod(lower.shape) == 1:
@@ -1227,33 +1316,76 @@ class Hensman(SparseHensman):
             raise CholeskyException(e.args[0], K, self)
 
     def log_marginal_likelihood(self):
+        &#34;&#34;&#34;
+        Return the log marginal likelihood given by
+
+        $$ \\log p(y) $$
+
+        Returns:
+            torch.tensor: Log marginal likelihood.
+        &#34;&#34;&#34;
         raise NotImplementedError()
 
     def log_prior(self):
+        &#34;&#34;&#34;
+        Return the log prior given by
+
+        $$ \\log p(\\theta) $$
+
+        Returns:
+            torch.tensor: Log prior.
+        &#34;&#34;&#34;
         return sum([p.log_prior() for p in self._params])
 
     def loss(self):
+        &#34;&#34;&#34;
+        Model loss for training.
+
+        Returns:
+            torch.tensor: Loss.
+        &#34;&#34;&#34;
         self.zero_grad()
         loss = -self.log_marginal_likelihood() - self.log_prior()
         loss.backward()
         return loss
 
     def K(self, X1, X2=None):
-        with torch.no_grad():
-            return self.kernel(X1, X2).cpu().numpy() # does cpu().numpy() detach? check memory usage
+        &#34;&#34;&#34;
+        Evaluate kernel at `X1` and `X2` and return the NumPy representation.
 
-    def quantile(self, p, mu, var):
+        Args:
+            X1 (torch.tensor): Input of shape (data_points0,input_dims).
+            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+        Returns:
+            numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
+        &#34;&#34;&#34;
         with torch.no_grad():
-            if not isinstance(p, torch.Tensor):
-                p = torch.tensor(p, device=config.device, dtype=config.dtype)
-            else:
-                p = p.to(config.device, config.dtype)
-            p = p.squeeze()
-            if p.ndim != 0:
-                raise ValueError(&#34;quantile must be scalar&#34;)
-            return self.likelihood.quantile(p, mu, var)
+            return self.kernel(X1, X2).detach().cpu().numpy()
+
+    #def quantile(self, p, mu, var):
+    #    with torch.no_grad():
+    #        if not isinstance(p, torch.Tensor):
+    #            p = torch.tensor(p, device=config.device, dtype=config.dtype)
+    #        else:
+    #            p = p.to(config.device, config.dtype)
+    #        p = p.squeeze()
+    #        if p.ndim != 0:
+    #            raise ValueError(&#34;quantile must be scalar&#34;)
+    #        return self.likelihood.quantile(p, mu, var)
 
     def sample(self, Z, n=None, predict_y=True):
+        &#34;&#34;&#34;
+        Sample from model.
+
+        Args:
+            Z (torch.tensor): Input of shape (data_points,input_dims).
+            n (int): Number of samples.
+            predict_y (boolean): Predict the data values \\(y\\) instead of the function values \\(f\\).
+
+        Returns:
+            torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
+        &#34;&#34;&#34;
         with torch.no_grad():
             S = n
             if n is None:
@@ -1288,28 +1420,61 @@ class Hensman(SparseHensman):
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Evaluate kernel at <code>X1</code> and <code>X2</code> and return the NumPy representation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X1</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points0,input_dims).</dd>
+<dt><strong><code>X2</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points1,input_dims).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>numpy.ndarray</code></dt>
+<dd>Kernel matrix of shape (data_points0,data_points1).</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L235-L237" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L275-L287" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
+    &#34;&#34;&#34;
+    Evaluate kernel at `X1` and `X2` and return the NumPy representation.
+
+    Args:
+        X1 (torch.tensor): Input of shape (data_points0,input_dims).
+        X2 (torch.tensor): Input of shape (data_points1,input_dims).
+
+    Returns:
+        numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
+    &#34;&#34;&#34;
     with torch.no_grad():
-        return self.kernel(X1, X2).cpu().numpy() # does cpu().numpy() detach? check memory usage</code></pre>
+        return self.kernel(X1, X2).detach().cpu().numpy()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.gpr.model.Model.get_parameters"><code class="name flex">
 <span>def <span class="ident">get_parameters</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Return all parameters of model.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>list</code></dt>
+<dd>List of Parameters.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L159-L160" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L168-L175" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
+    &#34;&#34;&#34;
+    Return all parameters of model.
+
+    Returns:
+        list: List of Parameters.
+    &#34;&#34;&#34;
     return self._params</code></pre>
 </details>
 </dd>
@@ -1317,13 +1482,27 @@ class Hensman(SparseHensman):
 <span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Return the log marginal likelihood given by</p>
+<p><span><span class="MathJax_Preview"> \log p(y) </span><script type="math/tex; mode=display"> \log p(y) </script></span></p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Log marginal likelihood.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L223-L224" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L241-L250" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
+    &#34;&#34;&#34;
+    Return the log marginal likelihood given by
+
+    $$ \\log p(y) $$
+
+    Returns:
+        torch.tensor: Log marginal likelihood.
+    &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -1331,13 +1510,27 @@ class Hensman(SparseHensman):
 <span>def <span class="ident">log_prior</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Return the log prior given by</p>
+<p><span><span class="MathJax_Preview"> \log p(\theta) </span><script type="math/tex; mode=display"> \log p(\theta) </script></span></p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Log prior.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L226-L227" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L252-L261" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
+    &#34;&#34;&#34;
+    Return the log prior given by
+
+    $$ \\log p(\\theta) $$
+
+    Returns:
+        torch.tensor: Log prior.
+    &#34;&#34;&#34;
     return sum([p.log_prior() for p in self._params])</code></pre>
 </details>
 </dd>
@@ -1345,13 +1538,24 @@ class Hensman(SparseHensman):
 <span>def <span class="ident">loss</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Model loss for training.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Loss.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L229-L233" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L263-L273" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
+    &#34;&#34;&#34;
+    Model loss for training.
+
+    Returns:
+        torch.tensor: Loss.
+    &#34;&#34;&#34;
     self.zero_grad()
     loss = -self.log_marginal_likelihood() - self.log_prior()
     loss.backward()
@@ -1362,13 +1566,21 @@ class Hensman(SparseHensman):
 <span>def <span class="ident">parameters</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Yield trainable parameters of model.</p>
+<h2 id="returns">Returns</h2>
+<p>Parameter generator</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L154-L157" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L157-L166" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def parameters(self):
+    &#34;&#34;&#34;
+    Yield trainable parameters of model.
+
+    Returns:
+        Parameter generator
+    &#34;&#34;&#34;
     for p in self._params:
         if p.trainable:
             yield p.unconstrained</code></pre>
@@ -1378,13 +1590,16 @@ class Hensman(SparseHensman):
 <span>def <span class="ident">print_parameters</span></span>(<span>self, file=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Print parameters and their values.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L162-L206" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L177-L224" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self, file=None):
+    &#34;&#34;&#34;
+    Print parameters and their values.
+    &#34;&#34;&#34;
     def param_range(lower, upper, trainable=True, pegged=False):
         if lower is not None:
             if prod(lower.shape) == 1:
@@ -1431,39 +1646,42 @@ class Hensman(SparseHensman):
         print(&#34;%-*s  %-*s  %s&#34; % (nameWidth, val[0], rangeWidth, val[1], val[2]), file=file)</code></pre>
 </details>
 </dd>
-<dt id="mogptk.gpr.model.Model.quantile"><code class="name flex">
-<span>def <span class="ident">quantile</span></span>(<span>self, p, mu, var)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L239-L248" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def quantile(self, p, mu, var):
-    with torch.no_grad():
-        if not isinstance(p, torch.Tensor):
-            p = torch.tensor(p, device=config.device, dtype=config.dtype)
-        else:
-            p = p.to(config.device, config.dtype)
-        p = p.squeeze()
-        if p.ndim != 0:
-            raise ValueError(&#34;quantile must be scalar&#34;)
-        return self.likelihood.quantile(p, mu, var)</code></pre>
-</details>
-</dd>
 <dt id="mogptk.gpr.model.Model.sample"><code class="name flex">
 <span>def <span class="ident">sample</span></span>(<span>self, Z, n=None, predict_y=True)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Sample from model.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>Z</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims).</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of samples.</dd>
+<dt><strong><code>predict_y</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Predict the data values <span><span class="MathJax_Preview">y</span><script type="math/tex">y</script></span> instead of the function values <span><span class="MathJax_Preview">f</span><script type="math/tex">f</script></span>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Samples of shape (data_points,samples) or (data_points,) if <code>n</code> is not given.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L250-L269" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L300-L330" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, Z, n=None, predict_y=True):
+    &#34;&#34;&#34;
+    Sample from model.
+
+    Args:
+        Z (torch.tensor): Input of shape (data_points,input_dims).
+        n (int): Number of samples.
+        predict_y (boolean): Predict the data values \\(y\\) instead of the function values \\(f\\).
+
+    Returns:
+        torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
+    &#34;&#34;&#34;
     with torch.no_grad():
         S = n
         if n is None:
@@ -1493,7 +1711,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L144-L152" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L147-L155" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def zero_grad(self):
     for p in self._params:
@@ -1513,11 +1731,11 @@ class Hensman(SparseHensman):
 <span>(</span><span>kernel, X, y, likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-08, mean=None, name='OpperArchambeau')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Base model class.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L441-L519" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L502-L589" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau(Model):
     # See:
@@ -1525,10 +1743,6 @@ class Hensman(SparseHensman):
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0),
                  jitter=1e-8, mean=None, name=&#34;OpperArchambeau&#34;):
         super().__init__(kernel, X, y, likelihood, jitter, mean, name)
-
-        if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
-            raise ValueError(&#34;kernel and likelihood must have matching output dimensions&#34;)
-        likelihood.validate_y(y)
 
         n = self.X.shape[0]
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
@@ -1545,7 +1759,7 @@ class Hensman(SparseHensman):
         else:
             y = self.y  # Nx1
 
-        q_nu = self.q_nu()  # Nx1
+        q_nu = self.q_nu()
         q_lambda = self.q_lambda()
 
         Kff = self.kernel(self.X)  # NxN
@@ -1553,16 +1767,29 @@ class Hensman(SparseHensman):
         invL = torch.linalg.solve_triangular(L,self.eye,upper=False)  # NxN
 
         qf_mu = Kff.mm(q_nu)
-        qf_var_diag = (1.0/q_lambda.square()) - (invL.T.mm(invL)/q_lambda/q_lambda.T).diagonal().reshape(-1,1)
-        if self.mean is not None:
-            qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
-
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+        qf_var_diag = 1.0/q_lambda.square() - (invL.T.mm(invL)/q_lambda/q_lambda.T).diagonal().reshape(-1,1)
 
         kl = -q_nu.shape[0]
         kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
-        kl += 2.0*L.diagonal().log().sum()  # determinant
+        kl += L.diagonal().square().log().sum()  # determinant TODO: is this correct?
+        #kl += invL.diagonal().square().sum()  # trace
         kl += invL.square().sum()  # trace
+
+        if self.mean is not None:
+            qf_mu = qf_mu - self.mean(self.X).reshape(-1,1)  # Sx1
+        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+
+        #eye = torch.eye(q_lambda.shape[0], device=config.device, dtype=config.dtype)
+        #qf_var = (1.0/q_lambda.square())*eye - invL.T.mm(invL)/q_lambda/q_lambda.T
+        #kl = -q_nu.shape[0]
+        #kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
+        #kl -= qf_var.det().log()  # determinant
+        #kl += invL.diagonal().square().sum()  # trace
+
+        #kl = -q_nu.shape[0]
+        #kl += q_nu.T.mm(q_nu).squeeze()  # Mahalanobis
+        #kl -= qf_var.det().log()  # determinant
+        #kl += qf_var_diag.sum()  # trace
         return var_exp - 0.5*kl
 
     def log_marginal_likelihood(self):
@@ -1576,7 +1803,7 @@ class Hensman(SparseHensman):
             Kff = self.kernel(self.X)
             Kfs = self.kernel(self.X,Xs)  # NxS
 
-            L = self._cholesky(Kff + (1.0/self.q_lambda()).square().diagflat())  # NxN
+            L = self._cholesky(Kff + (1.0/self.q_lambda().square()).diagflat())  # NxN
             a = torch.linalg.solve_triangular(L,Kfs,upper=False)  # NxS;  Kuu^(-1/2).Kus
 
             mu = Kfs.T.mm(self.q_nu())  # Sx1
@@ -1613,7 +1840,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L461-L485" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L518-L555" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -1621,7 +1848,7 @@ class Hensman(SparseHensman):
     else:
         y = self.y  # Nx1
 
-    q_nu = self.q_nu()  # Nx1
+    q_nu = self.q_nu()
     q_lambda = self.q_lambda()
 
     Kff = self.kernel(self.X)  # NxN
@@ -1629,32 +1856,30 @@ class Hensman(SparseHensman):
     invL = torch.linalg.solve_triangular(L,self.eye,upper=False)  # NxN
 
     qf_mu = Kff.mm(q_nu)
-    qf_var_diag = (1.0/q_lambda.square()) - (invL.T.mm(invL)/q_lambda/q_lambda.T).diagonal().reshape(-1,1)
-    if self.mean is not None:
-        qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
-
-    var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+    qf_var_diag = 1.0/q_lambda.square() - (invL.T.mm(invL)/q_lambda/q_lambda.T).diagonal().reshape(-1,1)
 
     kl = -q_nu.shape[0]
     kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
-    kl += 2.0*L.diagonal().log().sum()  # determinant
+    kl += L.diagonal().square().log().sum()  # determinant TODO: is this correct?
+    #kl += invL.diagonal().square().sum()  # trace
     kl += invL.square().sum()  # trace
+
+    if self.mean is not None:
+        qf_mu = qf_mu - self.mean(self.X).reshape(-1,1)  # Sx1
+    var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+
+    #eye = torch.eye(q_lambda.shape[0], device=config.device, dtype=config.dtype)
+    #qf_var = (1.0/q_lambda.square())*eye - invL.T.mm(invL)/q_lambda/q_lambda.T
+    #kl = -q_nu.shape[0]
+    #kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
+    #kl -= qf_var.det().log()  # determinant
+    #kl += invL.diagonal().square().sum()  # trace
+
+    #kl = -q_nu.shape[0]
+    #kl += q_nu.T.mm(q_nu).squeeze()  # Mahalanobis
+    #kl -= qf_var.det().log()  # determinant
+    #kl += qf_var_diag.sum()  # trace
     return var_exp - 0.5*kl</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.model.OpperArchambeau.log_marginal_likelihood"><code class="name flex">
-<span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L487-L489" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_marginal_likelihood(self):
-    # maximize the lower bound
-    return self.elbo()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.gpr.model.OpperArchambeau.predict"><code class="name flex">
@@ -1665,7 +1890,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L491-L519" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L561-L589" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -1674,7 +1899,7 @@ class Hensman(SparseHensman):
         Kff = self.kernel(self.X)
         Kfs = self.kernel(self.X,Xs)  # NxS
 
-        L = self._cholesky(Kff + (1.0/self.q_lambda()).square().diagflat())  # NxN
+        L = self._cholesky(Kff + (1.0/self.q_lambda().square()).diagflat())  # NxN
         a = torch.linalg.solve_triangular(L,Kfs,upper=False)  # NxS;  Kuu^(-1/2).Kus
 
         mu = Kfs.T.mm(self.q_nu())  # Sx1
@@ -1699,17 +1924,32 @@ class Hensman(SparseHensman):
 </details>
 </dd>
 </dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.model.Model" href="#mogptk.gpr.model.Model">Model</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.model.Model.K" href="#mogptk.gpr.model.Model.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.get_parameters" href="#mogptk.gpr.model.Model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.log_marginal_likelihood" href="#mogptk.gpr.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.log_prior" href="#mogptk.gpr.model.Model.log_prior">log_prior</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.loss" href="#mogptk.gpr.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.parameters" href="#mogptk.gpr.model.Model.parameters">parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample" href="#mogptk.gpr.model.Model.sample">sample</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.model.Snelson"><code class="flex name class">
 <span>class <span class="ident">Snelson</span></span>
 <span>(</span><span>kernel, X, y, Z=10, variance=1.0, jitter=1e-08, mean=None, name='Snelson')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Base model class.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L350-L439" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L411-L500" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson(Model):
     # See:
@@ -1808,42 +2048,6 @@ class Hensman(SparseHensman):
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.gpr.model.Snelson.log_marginal_likelihood"><code class="name flex">
-<span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L371-L394" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_marginal_likelihood(self):
-    if self.mean is not None:
-        y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
-    else:
-        y = self.y  # Nx1
-
-    Kff_diag = self.kernel.K_diag(self.X)  # N
-    Kuf = self.kernel.K(self.Z(),self.X)  # MxN
-    Kuu = self.kernel.K(self.Z())  # MxM
-
-    Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Luu = Kuu^(1/2)
-    v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-    g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.variance(), self.X)  # N;  diag(Kff-Qff) + sigma^2.I
-    G = torch.diagflat(1.0/g)  # N
-    L = self._cholesky(v.mm(G).mm(v.T) + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.G.Kfu.Kuu^(-1/2) + I)^(1/2)
-
-    c = torch.linalg.solve_triangular(L,v.mm(G).mm(y),upper=False)  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.G.y
-
-    p = -self.log_marginal_likelihood_constant
-    p -= L.diagonal().log().sum() # 0.5 is taken as the square root of L
-    p -= 0.5*g.log().sum()
-    p -= 0.5*y.T.mm(G).mm(y).squeeze()
-    p += 0.5*c.T.mm(c).squeeze()
-    return p</code></pre>
-</details>
-</dd>
 <dt id="mogptk.gpr.model.Snelson.predict"><code class="name flex">
 <span>def <span class="ident">predict</span></span>(<span>self, Xs, full=False, tensor=False, predict_y=True)</span>
 </code></dt>
@@ -1852,7 +2056,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L396-L439" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L457-L500" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -1901,17 +2105,32 @@ class Hensman(SparseHensman):
 </details>
 </dd>
 </dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.model.Model" href="#mogptk.gpr.model.Model">Model</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.model.Model.K" href="#mogptk.gpr.model.Model.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.get_parameters" href="#mogptk.gpr.model.Model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.log_marginal_likelihood" href="#mogptk.gpr.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.log_prior" href="#mogptk.gpr.model.Model.log_prior">log_prior</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.loss" href="#mogptk.gpr.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.parameters" href="#mogptk.gpr.model.Model.parameters">parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample" href="#mogptk.gpr.model.Model.sample">sample</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.model.SparseHensman"><code class="flex name class">
 <span>class <span class="ident">SparseHensman</span></span>
 <span>(</span><span>kernel, X, y, Z=None, likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-08, mean=None, name='SparseHensman')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Base model class.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L615-L711" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L685-L781" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SparseHensman(Model):
     # See:
@@ -1932,7 +2151,7 @@ class Hensman(SparseHensman):
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(n,1), name=&#34;q_mu&#34;)
-        self.q_sqrt = Parameter(torch.eye(n), name=&#34;q_sqrt&#34;)
+        self.q_sqrt = Parameter(torch.eye(n), name=&#34;q_sqrt&#34;) # TODO: store only lower triangle
         if self.is_sparse:
             self.Z = Parameter(Z, name=&#34;induction_points&#34;)
         else:
@@ -1944,11 +2163,11 @@ class Hensman(SparseHensman):
             self._register_parameters(self.Z)
 
     def kl_gaussian(self, q_mu, q_sqrt):
-        Lq = q_sqrt.tril() # NxN
+        S_diag = q_sqrt.diagonal().square() # NxN
         kl = -q_mu.shape[0]
         kl += q_mu.T.mm(q_mu).squeeze()  # Mahalanobis
-        kl -= Lq.diagonal().square().log().sum()  # determinant of q_var
-        kl += Lq.square().sum()  # same as Trace(p_var^(-1).q_var)
+        kl -= S_diag.log().sum()  # determinant of q_var
+        kl += S_diag.sum()  # same as Trace(p_var^(-1).q_var)
         return 0.5*kl
 
     def elbo(self):
@@ -1965,7 +2184,7 @@ class Hensman(SparseHensman):
 
             qf_mu = Lff.mm(self.q_mu())
             if self.mean is not None:
-                qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
+                qf_mu -= self.mean(self.X).reshape(-1,1)  # Sx1
 
             qf_sqrt = Lff.mm(self.q_sqrt().tril())
             qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
@@ -2000,7 +2219,7 @@ class Hensman(SparseHensman):
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
 
-            mu, var = self._predict(Xs, full=full and not predict_y)
+            mu, var = self._predict(Xs, full=full)
             if predict_y:
                 mu, var = self.likelihood.predict(mu, var, full=full, X=Xs)
             if self.mean is not None:
@@ -2029,7 +2248,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L653-L674" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L723-L744" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -2045,7 +2264,7 @@ class Hensman(SparseHensman):
 
         qf_mu = Lff.mm(self.q_mu())
         if self.mean is not None:
-            qf_mu += self.mean(self.X).reshape(-1,1)  # Sx1
+            qf_mu -= self.mean(self.X).reshape(-1,1)  # Sx1
 
         qf_sqrt = Lff.mm(self.q_sqrt().tril())
         qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
@@ -2063,30 +2282,15 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L645-L651" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L715-L721" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def kl_gaussian(self, q_mu, q_sqrt):
-    Lq = q_sqrt.tril() # NxN
+    S_diag = q_sqrt.diagonal().square() # NxN
     kl = -q_mu.shape[0]
     kl += q_mu.T.mm(q_mu).squeeze()  # Mahalanobis
-    kl -= Lq.diagonal().square().log().sum()  # determinant of q_var
-    kl += Lq.square().sum()  # same as Trace(p_var^(-1).q_var)
+    kl -= S_diag.log().sum()  # determinant of q_var
+    kl += S_diag.sum()  # same as Trace(p_var^(-1).q_var)
     return 0.5*kl</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.model.SparseHensman.log_marginal_likelihood"><code class="name flex">
-<span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L676-L678" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_marginal_likelihood(self):
-    # maximize the lower bound
-    return self.elbo()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.gpr.model.SparseHensman.predict"><code class="name flex">
@@ -2097,13 +2301,13 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L698-L711" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L768-L781" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
         Xs = self._check_input(Xs)  # MxD
 
-        mu, var = self._predict(Xs, full=full and not predict_y)
+        mu, var = self._predict(Xs, full=full)
         if predict_y:
             mu, var = self.likelihood.predict(mu, var, full=full, X=Xs)
         if self.mean is not None:
@@ -2116,17 +2320,32 @@ class Hensman(SparseHensman):
 </details>
 </dd>
 </dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.model.Model" href="#mogptk.gpr.model.Model">Model</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.model.Model.K" href="#mogptk.gpr.model.Model.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.get_parameters" href="#mogptk.gpr.model.Model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.log_marginal_likelihood" href="#mogptk.gpr.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.log_prior" href="#mogptk.gpr.model.Model.log_prior">log_prior</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.loss" href="#mogptk.gpr.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.parameters" href="#mogptk.gpr.model.Model.parameters">parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample" href="#mogptk.gpr.model.Model.sample">sample</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.model.Titsias"><code class="flex name class">
 <span>class <span class="ident">Titsias</span></span>
 <span>(</span><span>kernel, X, y, Z, variance=1.0, jitter=1e-08, mean=None, name='Titsias')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Base model class.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L521-L613" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L591-L683" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias(Model):
     # See:
@@ -2236,7 +2455,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L539-L563" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L609-L633" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -2265,21 +2484,6 @@ class Hensman(SparseHensman):
     return p</code></pre>
 </details>
 </dd>
-<dt id="mogptk.gpr.model.Titsias.log_marginal_likelihood"><code class="name flex">
-<span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L565-L567" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_marginal_likelihood(self):
-    # maximize the lower bound
-    return self.elbo()</code></pre>
-</details>
-</dd>
 <dt id="mogptk.gpr.model.Titsias.predict"><code class="name flex">
 <span>def <span class="ident">predict</span></span>(<span>self, Xs, full=False, tensor=False, predict_y=True)</span>
 </code></dt>
@@ -2288,7 +2492,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/model.py#L569-L613" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L639-L683" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -2338,6 +2542,21 @@ class Hensman(SparseHensman):
 </details>
 </dd>
 </dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.model.Model" href="#mogptk.gpr.model.Model">Model</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.model.Model.K" href="#mogptk.gpr.model.Model.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.get_parameters" href="#mogptk.gpr.model.Model.get_parameters">get_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.log_marginal_likelihood" href="#mogptk.gpr.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.log_prior" href="#mogptk.gpr.model.Model.log_prior">log_prior</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.loss" href="#mogptk.gpr.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.parameters" href="#mogptk.gpr.model.Model.parameters">parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample" href="#mogptk.gpr.model.Model.sample">sample</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 </dl>
 </section>
@@ -2367,7 +2586,6 @@ class Hensman(SparseHensman):
 <li>
 <h4><code><a title="mogptk.gpr.model.Exact" href="#mogptk.gpr.model.Exact">Exact</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.gpr.model.Exact.log_marginal_likelihood" href="#mogptk.gpr.model.Exact.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.gpr.model.Exact.predict" href="#mogptk.gpr.model.Exact.predict">predict</a></code></li>
 </ul>
 </li>
@@ -2384,7 +2602,6 @@ class Hensman(SparseHensman):
 <li><code><a title="mogptk.gpr.model.Model.loss" href="#mogptk.gpr.model.Model.loss">loss</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.parameters" href="#mogptk.gpr.model.Model.parameters">parameters</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.model.Model.quantile" href="#mogptk.gpr.model.Model.quantile">quantile</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.sample" href="#mogptk.gpr.model.Model.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.zero_grad" href="#mogptk.gpr.model.Model.zero_grad">zero_grad</a></code></li>
 </ul>
@@ -2393,14 +2610,12 @@ class Hensman(SparseHensman):
 <h4><code><a title="mogptk.gpr.model.OpperArchambeau" href="#mogptk.gpr.model.OpperArchambeau">OpperArchambeau</a></code></h4>
 <ul class="">
 <li><code><a title="mogptk.gpr.model.OpperArchambeau.elbo" href="#mogptk.gpr.model.OpperArchambeau.elbo">elbo</a></code></li>
-<li><code><a title="mogptk.gpr.model.OpperArchambeau.log_marginal_likelihood" href="#mogptk.gpr.model.OpperArchambeau.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.gpr.model.OpperArchambeau.predict" href="#mogptk.gpr.model.OpperArchambeau.predict">predict</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.model.Snelson" href="#mogptk.gpr.model.Snelson">Snelson</a></code></h4>
 <ul class="">
-<li><code><a title="mogptk.gpr.model.Snelson.log_marginal_likelihood" href="#mogptk.gpr.model.Snelson.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.gpr.model.Snelson.predict" href="#mogptk.gpr.model.Snelson.predict">predict</a></code></li>
 </ul>
 </li>
@@ -2409,7 +2624,6 @@ class Hensman(SparseHensman):
 <ul class="">
 <li><code><a title="mogptk.gpr.model.SparseHensman.elbo" href="#mogptk.gpr.model.SparseHensman.elbo">elbo</a></code></li>
 <li><code><a title="mogptk.gpr.model.SparseHensman.kl_gaussian" href="#mogptk.gpr.model.SparseHensman.kl_gaussian">kl_gaussian</a></code></li>
-<li><code><a title="mogptk.gpr.model.SparseHensman.log_marginal_likelihood" href="#mogptk.gpr.model.SparseHensman.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.gpr.model.SparseHensman.predict" href="#mogptk.gpr.model.SparseHensman.predict">predict</a></code></li>
 </ul>
 </li>
@@ -2417,7 +2631,6 @@ class Hensman(SparseHensman):
 <h4><code><a title="mogptk.gpr.model.Titsias" href="#mogptk.gpr.model.Titsias">Titsias</a></code></h4>
 <ul class="">
 <li><code><a title="mogptk.gpr.model.Titsias.elbo" href="#mogptk.gpr.model.Titsias.elbo">elbo</a></code></li>
-<li><code><a title="mogptk.gpr.model.Titsias.log_marginal_likelihood" href="#mogptk.gpr.model.Titsias.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.gpr.model.Titsias.predict" href="#mogptk.gpr.model.Titsias.predict">predict</a></code></li>
 </ul>
 </li>

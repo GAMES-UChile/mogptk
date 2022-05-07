@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/models/mohsm.py#L1-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/mohsm.py#L1-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -56,7 +56,7 @@ class MOHSM(Model):
         self.rescale_x = rescale_x
 
     
-    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={},sm_plot=False):
+    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;SM&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={},sm_plot=False):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
         - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak&#39;s position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
@@ -184,7 +184,7 @@ class MOHSM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/models/mohsm.py#L9-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/mohsm.py#L9-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MOHSM(Model):
     def __init__(self, dataset, P=1, Q=1, model=Exact(), mean=None, name=&#34;MOHSM&#34;, rescale_x=False):
@@ -205,7 +205,7 @@ class MOHSM(Model):
         self.rescale_x = rescale_x
 
     
-    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={},sm_plot=False):
+    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;SM&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={},sm_plot=False):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
         - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak&#39;s position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
@@ -306,7 +306,7 @@ class MOHSM(Model):
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.models.mohsm.MOHSM.init_parameters"><code class="name flex">
-<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', sm_init='BNSE', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False)</span>
+<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', sm_init='SM', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Estimate kernel parameters from the data set. The initialization can be done using three methods:
@@ -332,9 +332,9 @@ In all cases the noise is initialized with 1/30 of the variance of each channel.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/models/mohsm.py#L28-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/mohsm.py#L28-L120" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;BNSE&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={},sm_plot=False):
+<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;SM&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={},sm_plot=False):
     &#34;&#34;&#34;
     Estimate kernel parameters from the data set. The initialization can be done using three methods:
     - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak&#39;s position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.

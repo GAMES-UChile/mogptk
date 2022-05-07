@@ -33,6 +33,10 @@ def LoadModel(filename):
 class Exact:
     """
     Exact inference for Gaussian process regression.
+
+    Args:
+        variance (float): Variance of the Gaussian likelihood.
+        jitter (float): Jitter added before calculating a Cholesky.
     """
     def __init__(self, variance=None, jitter=1e-8):
         self.variance = variance
@@ -50,6 +54,11 @@ class Exact:
 class Snelson:
     """
     Inference using Snelson and Ghahramani 2005 for Gaussian process regression.
+
+    Args:
+        inducing_points (int,list): Number of inducing points or the locations of the inducing points.
+        variance (float): Variance of the Gaussian likelihood.
+        jitter (float): Jitter added before calculating a Cholesky.
     """
     def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
         self.inducing_points = inducing_points
@@ -62,6 +71,10 @@ class Snelson:
 class OpperArchambeau:
     """
     Inference using Opper and Archambeau 2009 for Gaussian process regression.
+
+    Args:
+        likelihood (gpr.Likelihood): Likelihood $p(y|f)$.
+        jitter (float): Jitter added before calculating a Cholesky.
     """
     def __init__(self, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
         self.likelihood = likelihood
@@ -73,6 +86,11 @@ class OpperArchambeau:
 class Titsias:
     """
     Inference using Titsias 2009 for Gaussian process regression.
+
+    Args:
+        inducing_points (int,list): Number of inducing points or the locations of the inducing points.
+        variance (float): Variance of the Gaussian likelihood.
+        jitter (float): Jitter added before calculating a Cholesky.
     """
     def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
         self.inducing_points = inducing_points
@@ -85,6 +103,11 @@ class Titsias:
 class Hensman:
     """
     Inference using Hensman 2015 for Gaussian process regression.
+
+    Args:
+        inducing_points (int,list): Number of inducing points or the locations of the inducing points. By default the non-sparse Hensman model is used.
+        likelihood (gpr.Likelihood): Likelihood $p(y|f)$.
+        jitter (float): Jitter added before calculating a Cholesky.
     """
     def __init__(self, inducing_points=None, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
         self.inducing_points = inducing_points

@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L1-L760" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L1-L783" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import sys
@@ -64,6 +64,10 @@ def LoadModel(filename):
 class Exact:
     &#34;&#34;&#34;
     Exact inference for Gaussian process regression.
+
+    Args:
+        variance (float): Variance of the Gaussian likelihood.
+        jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
     def __init__(self, variance=None, jitter=1e-8):
         self.variance = variance
@@ -81,6 +85,11 @@ class Exact:
 class Snelson:
     &#34;&#34;&#34;
     Inference using Snelson and Ghahramani 2005 for Gaussian process regression.
+
+    Args:
+        inducing_points (int,list): Number of inducing points or the locations of the inducing points.
+        variance (float): Variance of the Gaussian likelihood.
+        jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
     def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
         self.inducing_points = inducing_points
@@ -93,6 +102,10 @@ class Snelson:
 class OpperArchambeau:
     &#34;&#34;&#34;
     Inference using Opper and Archambeau 2009 for Gaussian process regression.
+
+    Args:
+        likelihood (gpr.Likelihood): Likelihood $p(y|f)$.
+        jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
     def __init__(self, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
         self.likelihood = likelihood
@@ -104,6 +117,11 @@ class OpperArchambeau:
 class Titsias:
     &#34;&#34;&#34;
     Inference using Titsias 2009 for Gaussian process regression.
+
+    Args:
+        inducing_points (int,list): Number of inducing points or the locations of the inducing points.
+        variance (float): Variance of the Gaussian likelihood.
+        jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
     def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
         self.inducing_points = inducing_points
@@ -116,6 +134,11 @@ class Titsias:
 class Hensman:
     &#34;&#34;&#34;
     Inference using Hensman 2015 for Gaussian process regression.
+
+    Args:
+        inducing_points (int,list): Number of inducing points or the locations of the inducing points. By default the non-sparse Hensman model is used.
+        likelihood (gpr.Likelihood): Likelihood $p(y|f)$.
+        jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
     def __init__(self, inducing_points=None, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
         self.inducing_points = inducing_points
@@ -814,7 +837,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L19-L31" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L19-L31" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -841,15 +864,26 @@ def _format_time(s):
 <span>(</span><span>variance=None, jitter=1e-08)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Exact inference for Gaussian process regression.</p></div>
+<div class="desc"><p>Exact inference for Gaussian process regression.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>variance</code></strong> :&ensp;<code>float</code></dt>
+<dd>Variance of the Gaussian likelihood.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Jitter added before calculating a Cholesky.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L33-L48" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L33-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
     Exact inference for Gaussian process regression.
+
+    Args:
+        variance (float): Variance of the Gaussian likelihood.
+        jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
     def __init__(self, variance=None, jitter=1e-8):
         self.variance = variance
@@ -874,7 +908,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L41-L48" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L45-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
     variance = self.variance
@@ -893,15 +927,29 @@ def _format_time(s):
 <span>(</span><span>inducing_points=None, likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-06)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Inference using Hensman 2015 for Gaussian process regression.</p></div>
+<div class="desc"><p>Inference using Hensman 2015 for Gaussian process regression.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>inducing_points</code></strong> :&ensp;<code>int,list</code></dt>
+<dd>Number of inducing points or the locations of the inducing points. By default the non-sparse Hensman model is used.</dd>
+<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpr.Likelihood</code></dt>
+<dd>Likelihood $p(y|f)$.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Jitter added before calculating a Cholesky.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L85-L97" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L103-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman:
     &#34;&#34;&#34;
     Inference using Hensman 2015 for Gaussian process regression.
+
+    Args:
+        inducing_points (int,list): Number of inducing points or the locations of the inducing points. By default the non-sparse Hensman model is used.
+        likelihood (gpr.Likelihood): Likelihood $p(y|f)$.
+        jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
     def __init__(self, inducing_points=None, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
         self.inducing_points = inducing_points
@@ -923,7 +971,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L94-L97" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L117-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
     if self.inducing_points is None:
@@ -957,7 +1005,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L99-L729" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L122-L752" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None, rescale_x=False):
@@ -1627,7 +1675,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L519-L540" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L542-L563" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -1661,7 +1709,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L173-L180" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L196-L203" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy_parameters(self, other):
     &#34;&#34;&#34;
@@ -1694,7 +1742,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L224-L254" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L247-L277" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;, use_all_data=False):
     &#34;&#34;&#34;
@@ -1745,7 +1793,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L161-L171" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L184-L194" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -1776,7 +1824,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L200-L210" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L223-L233" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -1807,7 +1855,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L212-L222" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L235-L245" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -1850,7 +1898,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L639-L699" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L662-L722" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -1923,7 +1971,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L701-L729" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L724-L752" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
     if not all(channel.get_input_dims() == 1 for channel in self.dataset):
@@ -1964,7 +2012,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L588-L613" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L611-L636" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
     if not hasattr(self, &#39;losses&#39;):
@@ -2023,7 +2071,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L615-L637" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L638-L660" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
     &#34;&#34;&#34;
@@ -2079,7 +2127,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L449-L517" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L472-L540" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=None, q=[0.025, 0.975], transformed=False, predict_y=True):
     &#34;&#34;&#34;
@@ -2163,7 +2211,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L152-L159" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L175-L182" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -2202,7 +2250,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L542-L586" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L565-L609" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, X=None, n=None, predict_y=True, transformed=False):
     &#34;&#34;&#34;
@@ -2267,7 +2315,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L182-L198" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L205-L221" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -2325,7 +2373,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L256-L383" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L279-L406" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -2464,15 +2512,26 @@ def _format_time(s):
 <span>(</span><span>likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-06)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Inference using Opper and Archambeau 2009 for Gaussian process regression.</p></div>
+<div class="desc"><p>Inference using Opper and Archambeau 2009 for Gaussian process regression.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>likelihood</code></strong> :&ensp;<code>gpr.Likelihood</code></dt>
+<dd>Likelihood $p(y|f)$.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Jitter added before calculating a Cholesky.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L62-L71" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L71-L84" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau:
     &#34;&#34;&#34;
     Inference using Opper and Archambeau 2009 for Gaussian process regression.
+
+    Args:
+        likelihood (gpr.Likelihood): Likelihood $p(y|f)$.
+        jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
     def __init__(self, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
         self.likelihood = likelihood
@@ -2491,7 +2550,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L70-L71" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L83-L84" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
     return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
@@ -2504,15 +2563,29 @@ def _format_time(s):
 <span>(</span><span>inducing_points=10, variance=1.0, jitter=1e-06)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Inference using Snelson and Ghahramani 2005 for Gaussian process regression.</p></div>
+<div class="desc"><p>Inference using Snelson and Ghahramani 2005 for Gaussian process regression.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>inducing_points</code></strong> :&ensp;<code>int,list</code></dt>
+<dd>Number of inducing points or the locations of the inducing points.</dd>
+<dt><strong><code>variance</code></strong> :&ensp;<code>float</code></dt>
+<dd>Variance of the Gaussian likelihood.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Jitter added before calculating a Cholesky.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L50-L60" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L54-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson:
     &#34;&#34;&#34;
     Inference using Snelson and Ghahramani 2005 for Gaussian process regression.
+
+    Args:
+        inducing_points (int,list): Number of inducing points or the locations of the inducing points.
+        variance (float): Variance of the Gaussian likelihood.
+        jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
     def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
         self.inducing_points = inducing_points
@@ -2532,7 +2605,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L59-L60" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L68-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
     return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
@@ -2545,15 +2618,29 @@ def _format_time(s):
 <span>(</span><span>inducing_points=10, variance=1.0, jitter=1e-06)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Inference using Titsias 2009 for Gaussian process regression.</p></div>
+<div class="desc"><p>Inference using Titsias 2009 for Gaussian process regression.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>inducing_points</code></strong> :&ensp;<code>int,list</code></dt>
+<dd>Number of inducing points or the locations of the inducing points.</dd>
+<dt><strong><code>variance</code></strong> :&ensp;<code>float</code></dt>
+<dd>Variance of the Gaussian likelihood.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Jitter added before calculating a Cholesky.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L73-L83" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L86-L101" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias:
     &#34;&#34;&#34;
     Inference using Titsias 2009 for Gaussian process regression.
+
+    Args:
+        inducing_points (int,list): Number of inducing points or the locations of the inducing points.
+        variance (float): Variance of the Gaussian likelihood.
+        jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
     def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
         self.inducing_points = inducing_points
@@ -2573,7 +2660,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/model.py#L82-L83" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L100-L101" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
     return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>

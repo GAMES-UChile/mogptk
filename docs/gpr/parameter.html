@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L1-L199" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L1-L275" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import torch.nn.functional as functional
@@ -35,15 +35,36 @@ import torch.nn.functional as functional
 from .config import config
 
 class Transform:
+    &#34;&#34;&#34;
+    Base transformation class for constrained parameter.
+    &#34;&#34;&#34;
     def forward(self, x):
+        &#34;&#34;&#34;
+        Forward transformation from the unconstrained original space to the new constrained transformed space.
+        &#34;&#34;&#34;
         # unconstrained to constrained space
         raise NotImplementedError()
     
     def inverse(self, y):
+        &#34;&#34;&#34;
+        Inverse transformation from the new constrained transformed space to the unconstrained original space.
+        &#34;&#34;&#34;
         # constrained to unconstrained space
         raise NotImplementedError()
 
 class Softplus(Transform):
+    &#34;&#34;&#34;
+    Softplus transformation for a lower constraint given by
+
+    $$ y = a + \\frac{\\log\\left(1+e^{\\beta x}\\right)}{\\beta} $$
+
+    with \\(a\\) the lower limit and \\(\\beta\\) the slope.
+
+    Args:
+        lower (float,torch.tensor): Lower limit.
+        beta (float): Slope.
+        threshold (float): Location from where to approximate the softplus by a linear function to avoid numerical problems.
+    &#34;&#34;&#34;
     def __init__(self, lower=0.0, beta=0.1, threshold=20.0):
         self.beta = beta
         self.lower = lower
@@ -58,6 +79,17 @@ class Softplus(Transform):
         return y-self.lower + torch.log(-torch.expm1(-self.beta*(y-self.lower)))/self.beta
 
 class Sigmoid(Transform):
+    &#34;&#34;&#34;
+    Sigmoid transformation for a lower and upper constraint given by
+
+    $$ y = a + (b-1)\\frac{1}{1+e^{-x}} $$
+
+    with \\(a\\) the lower limit and \\(b\\) the upper limit.
+
+    Args:
+        lower (float,torch.tensor): Lower limit.
+        upper (float,torch.tensor): Upper limit.
+    &#34;&#34;&#34;
     def __init__(self, lower=0.0, upper=1.0):
         self.lower = lower
         self.upper = upper
@@ -72,7 +104,18 @@ class Sigmoid(Transform):
         return torch.log(y) - torch.log(1-y)
 
 class Parameter:
-    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True, peg=False, transform=None):
+    &#34;&#34;&#34;
+    Parameter class that allows for parameter training in a constraint space.
+
+    Args:
+        value (torch.tensor): Parameter (initial) value in the constraint space.
+        name (str): Name.
+        lower (float,torch.tensor): Lower limit.
+        upper (float,torch.tensor): Upper limit.
+        prior (Likelihood,torch.distribution): Prior distribution.
+        trainable (boolean): Train parameter, otherwise keep its value fixed.
+    &#34;&#34;&#34;
+    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True):
         self.name = name
         self.lower = None
         self.upper = None
@@ -83,10 +126,7 @@ class Parameter:
         self.pegged_parameter = None
         self.pegged_transform = None
 
-        if peg:
-            self.peg(value, transform)
-        else:
-            self.assign(value, lower=lower, upper=upper)
+        self.assign(value, lower=lower, upper=upper)
 
     def __repr__(self):
         name = self.name
@@ -97,6 +137,12 @@ class Parameter:
         return &#39;{}={}&#39;.format(self.name, self.constrained.tolist())
     
     def __call__(self):
+        &#34;&#34;&#34;
+        Get (constraint) parameter value.
+
+        Returns:
+            torch.tensor: Parameter value.
+        &#34;&#34;&#34;
         return self.constrained
 
     @property
@@ -115,6 +161,12 @@ class Parameter:
         return self.unconstrained
 
     def numpy(self):
+        &#34;&#34;&#34;
+        Get NumPy representation of the (constraint) parameter value.
+
+        Returns:
+            numpy.ndarray: Parameter value.
+        &#34;&#34;&#34;
         return self.constrained.detach().cpu().numpy()
 
     @staticmethod
@@ -128,6 +180,17 @@ class Parameter:
         return value
 
     def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+        &#34;&#34;&#34;
+        Assign a new value to the parameter. If any of the arguments is not passed, the current value will be kept.
+
+        Args:
+            value (torch.tensor): Parameter value in the constraint space.
+            name (str): Name.
+            lower (float,torch.tensor): Lower limit.
+            upper (float,torch.tensor): Upper limit.
+            prior (Likelihood,torch.distribution): Prior distribution.
+            trainable (boolean): Train parameter, otherwise keep its value fixed.
+        &#34;&#34;&#34;
         if value is not None:
             value = Parameter.to_tensor(value)
             if self.unconstrained is not None:
@@ -216,6 +279,13 @@ class Parameter:
         self.pegged_transform = None
 
     def peg(self, other, transform=None):
+        &#34;&#34;&#34;
+        Peg parameter to other parameter. It will follow another parameter&#39;s value and will not be trained independently. Additionally it is possible to transform the value while pegging, that is parameter A can be equal to two times parameter B for example.
+
+        Args:
+            other (Parameter): The other parameter to which this parameter will be pegged.
+            transform (function): Transformation from the other parameter to this one.
+        &#34;&#34;&#34;
         if not isinstance(other, Parameter):
             raise ValueError(&#34;parameter must be pegged to other parameter object&#34;)
         elif other.pegged:
@@ -225,6 +295,12 @@ class Parameter:
         self.trainable = False
 
     def log_prior(self):
+        &#34;&#34;&#34;
+        Get the log of the prior.
+        
+        Returns:
+            float: Log prior.
+        &#34;&#34;&#34;
         if self.prior is None:
             return 0.0
         return self.prior.log_prob(self()).sum()</code></pre>
@@ -241,17 +317,43 @@ class Parameter:
 <dl>
 <dt id="mogptk.gpr.parameter.Parameter"><code class="flex name class">
 <span>class <span class="ident">Parameter</span></span>
-<span>(</span><span>value, name=None, lower=None, upper=None, prior=None, trainable=True, peg=False, transform=None)</span>
+<span>(</span><span>value, name=None, lower=None, upper=None, prior=None, trainable=True)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Parameter class that allows for parameter training in a constraint space.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Parameter (initial) value in the constraint space.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name.</dd>
+<dt><strong><code>lower</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
+<dd>Lower limit.</dd>
+<dt><strong><code>upper</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
+<dd>Upper limit.</dd>
+<dt><strong><code>prior</code></strong> :&ensp;<code>Likelihood,torch.distribution</code></dt>
+<dd>Prior distribution.</dd>
+<dt><strong><code>trainable</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Train parameter, otherwise keep its value fixed.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L43-L199" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L75-L275" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Parameter:
-    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True, peg=False, transform=None):
+    &#34;&#34;&#34;
+    Parameter class that allows for parameter training in a constraint space.
+
+    Args:
+        value (torch.tensor): Parameter (initial) value in the constraint space.
+        name (str): Name.
+        lower (float,torch.tensor): Lower limit.
+        upper (float,torch.tensor): Upper limit.
+        prior (Likelihood,torch.distribution): Prior distribution.
+        trainable (boolean): Train parameter, otherwise keep its value fixed.
+    &#34;&#34;&#34;
+    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True):
         self.name = name
         self.lower = None
         self.upper = None
@@ -262,10 +364,7 @@ class Parameter:
         self.pegged_parameter = None
         self.pegged_transform = None
 
-        if peg:
-            self.peg(value, transform)
-        else:
-            self.assign(value, lower=lower, upper=upper)
+        self.assign(value, lower=lower, upper=upper)
 
     def __repr__(self):
         name = self.name
@@ -276,6 +375,12 @@ class Parameter:
         return &#39;{}={}&#39;.format(self.name, self.constrained.tolist())
     
     def __call__(self):
+        &#34;&#34;&#34;
+        Get (constraint) parameter value.
+
+        Returns:
+            torch.tensor: Parameter value.
+        &#34;&#34;&#34;
         return self.constrained
 
     @property
@@ -294,6 +399,12 @@ class Parameter:
         return self.unconstrained
 
     def numpy(self):
+        &#34;&#34;&#34;
+        Get NumPy representation of the (constraint) parameter value.
+
+        Returns:
+            numpy.ndarray: Parameter value.
+        &#34;&#34;&#34;
         return self.constrained.detach().cpu().numpy()
 
     @staticmethod
@@ -307,6 +418,17 @@ class Parameter:
         return value
 
     def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+        &#34;&#34;&#34;
+        Assign a new value to the parameter. If any of the arguments is not passed, the current value will be kept.
+
+        Args:
+            value (torch.tensor): Parameter value in the constraint space.
+            name (str): Name.
+            lower (float,torch.tensor): Lower limit.
+            upper (float,torch.tensor): Upper limit.
+            prior (Likelihood,torch.distribution): Prior distribution.
+            trainable (boolean): Train parameter, otherwise keep its value fixed.
+        &#34;&#34;&#34;
         if value is not None:
             value = Parameter.to_tensor(value)
             if self.unconstrained is not None:
@@ -395,6 +517,13 @@ class Parameter:
         self.pegged_transform = None
 
     def peg(self, other, transform=None):
+        &#34;&#34;&#34;
+        Peg parameter to other parameter. It will follow another parameter&#39;s value and will not be trained independently. Additionally it is possible to transform the value while pegging, that is parameter A can be equal to two times parameter B for example.
+
+        Args:
+            other (Parameter): The other parameter to which this parameter will be pegged.
+            transform (function): Transformation from the other parameter to this one.
+        &#34;&#34;&#34;
         if not isinstance(other, Parameter):
             raise ValueError(&#34;parameter must be pegged to other parameter object&#34;)
         elif other.pegged:
@@ -404,6 +533,12 @@ class Parameter:
         self.trainable = False
 
     def log_prior(self):
+        &#34;&#34;&#34;
+        Get the log of the prior.
+        
+        Returns:
+            float: Log prior.
+        &#34;&#34;&#34;
         if self.prior is None:
             return 0.0
         return self.prior.log_prob(self()).sum()</code></pre>
@@ -418,7 +553,7 @@ class Parameter:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L89-L97" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L141-L149" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def to_tensor(value):
@@ -440,7 +575,7 @@ def to_tensor(value):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L75-L84" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L121-L130" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def constrained(self):
@@ -460,7 +595,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L71-L73" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L117-L119" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def pegged(self):
@@ -474,13 +609,39 @@ def pegged(self):
 <span>def <span class="ident">assign</span></span>(<span>self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Assign a new value to the parameter. If any of the arguments is not passed, the current value will be kept.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Parameter value in the constraint space.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name.</dd>
+<dt><strong><code>lower</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
+<dd>Lower limit.</dd>
+<dt><strong><code>upper</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
+<dd>Upper limit.</dd>
+<dt><strong><code>prior</code></strong> :&ensp;<code>Likelihood,torch.distribution</code></dt>
+<dd>Prior distribution.</dd>
+<dt><strong><code>trainable</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Train parameter, otherwise keep its value fixed.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L99-L185" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L151-L248" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+    &#34;&#34;&#34;
+    Assign a new value to the parameter. If any of the arguments is not passed, the current value will be kept.
+
+    Args:
+        value (torch.tensor): Parameter value in the constraint space.
+        name (str): Name.
+        lower (float,torch.tensor): Lower limit.
+        upper (float,torch.tensor): Upper limit.
+        prior (Likelihood,torch.distribution): Prior distribution.
+        trainable (boolean): Train parameter, otherwise keep its value fixed.
+    &#34;&#34;&#34;
     if value is not None:
         value = Parameter.to_tensor(value)
         if self.unconstrained is not None:
@@ -573,13 +734,24 @@ def pegged(self):
 <span>def <span class="ident">log_prior</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get the log of the prior.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>float</code></dt>
+<dd>Log prior.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L196-L199" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L266-L275" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
+    &#34;&#34;&#34;
+    Get the log of the prior.
+    
+    Returns:
+        float: Log prior.
+    &#34;&#34;&#34;
     if self.prior is None:
         return 0.0
     return self.prior.log_prob(self()).sum()</code></pre>
@@ -589,13 +761,24 @@ def pegged(self):
 <span>def <span class="ident">numpy</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get NumPy representation of the (constraint) parameter value.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>numpy.ndarray</code></dt>
+<dd>Parameter value.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L86-L87" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L132-L139" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def numpy(self):
+    &#34;&#34;&#34;
+    Get NumPy representation of the (constraint) parameter value.
+
+    Returns:
+        numpy.ndarray: Parameter value.
+    &#34;&#34;&#34;
     return self.constrained.detach().cpu().numpy()</code></pre>
 </details>
 </dd>
@@ -603,13 +786,27 @@ def pegged(self):
 <span>def <span class="ident">peg</span></span>(<span>self, other, transform=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Peg parameter to other parameter. It will follow another parameter's value and will not be trained independently. Additionally it is possible to transform the value while pegging, that is parameter A can be equal to two times parameter B for example.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>other</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>The other parameter to which this parameter will be pegged.</dd>
+<dt><strong><code>transform</code></strong> :&ensp;<code>function</code></dt>
+<dd>Transformation from the other parameter to this one.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L187-L194" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L250-L264" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def peg(self, other, transform=None):
+    &#34;&#34;&#34;
+    Peg parameter to other parameter. It will follow another parameter&#39;s value and will not be trained independently. Additionally it is possible to transform the value while pegging, that is parameter A can be equal to two times parameter B for example.
+
+    Args:
+        other (Parameter): The other parameter to which this parameter will be pegged.
+        transform (function): Transformation from the other parameter to this one.
+    &#34;&#34;&#34;
     if not isinstance(other, Parameter):
         raise ValueError(&#34;parameter must be pegged to other parameter object&#34;)
     elif other.pegged:
@@ -626,13 +823,33 @@ def pegged(self):
 <span>(</span><span>lower=0.0, upper=1.0)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Sigmoid transformation for a lower and upper constraint given by</p>
+<p><span><span class="MathJax_Preview"> y = a + (b-1)\frac{1}{1+e^{-x}} </span><script type="math/tex; mode=display"> y = a + (b-1)\frac{1}{1+e^{-x}} </script></span></p>
+<p>with <span><span class="MathJax_Preview">a</span><script type="math/tex">a</script></span> the lower limit and <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span> the upper limit.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>lower</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
+<dd>Lower limit.</dd>
+<dt><strong><code>upper</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
+<dd>Upper limit.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L29-L41" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L50-L73" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Sigmoid(Transform):
+    &#34;&#34;&#34;
+    Sigmoid transformation for a lower and upper constraint given by
+
+    $$ y = a + (b-1)\\frac{1}{1+e^{-x}} $$
+
+    with \\(a\\) the lower limit and \\(b\\) the upper limit.
+
+    Args:
+        lower (float,torch.tensor): Lower limit.
+        upper (float,torch.tensor): Upper limit.
+    &#34;&#34;&#34;
     def __init__(self, lower=0.0, upper=1.0):
         self.lower = lower
         self.upper = upper
@@ -650,53 +867,51 @@ def pegged(self):
 <ul class="hlist">
 <li><a title="mogptk.gpr.parameter.Transform" href="#mogptk.gpr.parameter.Transform">Transform</a></li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.gpr.parameter.Sigmoid.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, x)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L34-L35" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def forward(self, x):
-    return self.lower + (self.upper-self.lower)*torch.sigmoid(x)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.parameter.Sigmoid.inverse"><code class="name flex">
-<span>def <span class="ident">inverse</span></span>(<span>self, y)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L37-L41" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def inverse(self, y):
-    if torch.any(y &lt; self.lower) or torch.any(self.upper &lt; y):
-        raise ValueError(&#34;values must be between %s and %s&#34; % (self.lower, self.upper))
-    y = (y-self.lower)/(self.upper-self.lower)
-    return torch.log(y) - torch.log(1-y)</code></pre>
-</details>
-</dd>
-</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.parameter.Transform" href="#mogptk.gpr.parameter.Transform">Transform</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.parameter.Transform.forward" href="#mogptk.gpr.parameter.Transform.forward">forward</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Transform.inverse" href="#mogptk.gpr.parameter.Transform.inverse">inverse</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.parameter.Softplus"><code class="flex name class">
 <span>class <span class="ident">Softplus</span></span>
 <span>(</span><span>lower=0.0, beta=0.1, threshold=20.0)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Softplus transformation for a lower constraint given by</p>
+<p><span><span class="MathJax_Preview"> y = a + \frac{\log\left(1+e^{\beta x}\right)}{\beta} </span><script type="math/tex; mode=display"> y = a + \frac{\log\left(1+e^{\beta x}\right)}{\beta} </script></span></p>
+<p>with <span><span class="MathJax_Preview">a</span><script type="math/tex">a</script></span> the lower limit and <span><span class="MathJax_Preview">\beta</span><script type="math/tex">\beta</script></span> the slope.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>lower</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
+<dd>Lower limit.</dd>
+<dt><strong><code>beta</code></strong> :&ensp;<code>float</code></dt>
+<dd>Slope.</dd>
+<dt><strong><code>threshold</code></strong> :&ensp;<code>float</code></dt>
+<dd>Location from where to approximate the softplus by a linear function to avoid numerical problems.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L15-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L24-L48" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Softplus(Transform):
+    &#34;&#34;&#34;
+    Softplus transformation for a lower constraint given by
+
+    $$ y = a + \\frac{\\log\\left(1+e^{\\beta x}\\right)}{\\beta} $$
+
+    with \\(a\\) the lower limit and \\(\\beta\\) the slope.
+
+    Args:
+        lower (float,torch.tensor): Lower limit.
+        beta (float): Slope.
+        threshold (float): Location from where to approximate the softplus by a linear function to avoid numerical problems.
+    &#34;&#34;&#34;
     def __init__(self, lower=0.0, beta=0.1, threshold=20.0):
         self.beta = beta
         self.lower = lower
@@ -714,56 +929,41 @@ def pegged(self):
 <ul class="hlist">
 <li><a title="mogptk.gpr.parameter.Transform" href="#mogptk.gpr.parameter.Transform">Transform</a></li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.gpr.parameter.Softplus.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, x)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L21-L22" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def forward(self, x):
-    return self.lower + functional.softplus(x, beta=self.beta, threshold=self.threshold)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.parameter.Softplus.inverse"><code class="name flex">
-<span>def <span class="ident">inverse</span></span>(<span>self, y)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L24-L27" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def inverse(self, y):
-    if torch.any(y &lt; self.lower):
-        raise ValueError(&#34;values must be at least %s&#34; % self.lower)
-    return y-self.lower + torch.log(-torch.expm1(-self.beta*(y-self.lower)))/self.beta</code></pre>
-</details>
-</dd>
-</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.parameter.Transform" href="#mogptk.gpr.parameter.Transform">Transform</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.parameter.Transform.forward" href="#mogptk.gpr.parameter.Transform.forward">forward</a></code></li>
+<li><code><a title="mogptk.gpr.parameter.Transform.inverse" href="#mogptk.gpr.parameter.Transform.inverse">inverse</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.parameter.Transform"><code class="flex name class">
 <span>class <span class="ident">Transform</span></span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Base transformation class for constrained parameter.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L6-L13" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L6-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Transform:
+    &#34;&#34;&#34;
+    Base transformation class for constrained parameter.
+    &#34;&#34;&#34;
     def forward(self, x):
+        &#34;&#34;&#34;
+        Forward transformation from the unconstrained original space to the new constrained transformed space.
+        &#34;&#34;&#34;
         # unconstrained to constrained space
         raise NotImplementedError()
     
     def inverse(self, y):
+        &#34;&#34;&#34;
+        Inverse transformation from the new constrained transformed space to the unconstrained original space.
+        &#34;&#34;&#34;
         # constrained to unconstrained space
         raise NotImplementedError()</code></pre>
 </details>
@@ -778,13 +978,16 @@ def pegged(self):
 <span>def <span class="ident">forward</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Forward transformation from the unconstrained original space to the new constrained transformed space.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L7-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L10-L15" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
+    &#34;&#34;&#34;
+    Forward transformation from the unconstrained original space to the new constrained transformed space.
+    &#34;&#34;&#34;
     # unconstrained to constrained space
     raise NotImplementedError()</code></pre>
 </details>
@@ -793,13 +996,16 @@ def pegged(self):
 <span>def <span class="ident">inverse</span></span>(<span>self, y)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Inverse transformation from the new constrained transformed space to the unconstrained original space.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/parameter.py#L11-L13" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L17-L22" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
+    &#34;&#34;&#34;
+    Inverse transformation from the new constrained transformed space to the unconstrained original space.
+    &#34;&#34;&#34;
     # constrained to unconstrained space
     raise NotImplementedError()</code></pre>
 </details>
@@ -836,17 +1042,9 @@ def pegged(self):
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.parameter.Sigmoid" href="#mogptk.gpr.parameter.Sigmoid">Sigmoid</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.parameter.Sigmoid.forward" href="#mogptk.gpr.parameter.Sigmoid.forward">forward</a></code></li>
-<li><code><a title="mogptk.gpr.parameter.Sigmoid.inverse" href="#mogptk.gpr.parameter.Sigmoid.inverse">inverse</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.parameter.Softplus" href="#mogptk.gpr.parameter.Softplus">Softplus</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.parameter.Softplus.forward" href="#mogptk.gpr.parameter.Softplus.forward">forward</a></code></li>
-<li><code><a title="mogptk.gpr.parameter.Softplus.inverse" href="#mogptk.gpr.parameter.Softplus.inverse">inverse</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.parameter.Transform" href="#mogptk.gpr.parameter.Transform">Transform</a></code></h4>

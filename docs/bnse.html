@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/bnse.py#L1-L98" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/bnse.py#L1-L98" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -105,7 +105,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
     with torch.no_grad():
         Ktt = kernel(x)
         Ktt += model.likelihood.variance() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
-        Ltt = torch.linalg.cholesky(Ktt)
+        Ltt = model._cholesky(Ktt, add_jitter=True)
 
         Kff = kernel_ff(w, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
         Pff = kernel_ff(w, -w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
@@ -144,7 +144,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/bnse.py#L5-L98" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/bnse.py#L5-L98" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
     x -= np.median(x)
@@ -218,7 +218,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
     with torch.no_grad():
         Ktt = kernel(x)
         Ktt += model.likelihood.variance() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
-        Ltt = torch.linalg.cholesky(Ktt)
+        Ltt = model._cholesky(Ktt, add_jitter=True)
 
         Kff = kernel_ff(w, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
         Pff = kernel_ff(w, -w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)

@@ -27,24 +27,52 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L1-L375" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L1-L750" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
 from . import config, Parameter
 
 def identity(x):
+    &#34;&#34;&#34;
+    The identity link function given by
+
+    $$ y = x $$
+    &#34;&#34;&#34;
     return x
 
+def square(x):
+    &#34;&#34;&#34;
+    The square link function given by
+
+    $$ y = x^2 $$
+    &#34;&#34;&#34;
+    return torch.square(x)
+
 def exp(x):
+    &#34;&#34;&#34;
+    The exponential link function given by
+
+    $$ y = e^{x} $$
+    &#34;&#34;&#34;
     return torch.exp(x)
 
 def inv_probit(x):
+    &#34;&#34;&#34;
+    The inverse probit link function given by
+
+    $$ y = \\frac{1}{2} \\left(1 + \\erf(x/\\sqrt{2})\\right) $$
+    &#34;&#34;&#34;
     jitter = 1e-3
     return 0.5*(1.0+torch.erf(x/np.sqrt(2.0))) * (1.0-2.0*jitter) + jitter
 
 # also inv_logit or sigmoid
 def logistic(x):
+    &#34;&#34;&#34;
+    The logistic, inverse logit, or sigmoid link function given by
+
+    $$ y = \\frac{1}{1 + e^{-x}} $$
+    &#34;&#34;&#34;
     return 1.0/(1.0+torch.exp(-x))
 
 class GaussHermiteQuadrature:
@@ -56,58 +84,128 @@ class GaussHermiteQuadrature:
             t *= t_scale
         if w_scale is not None:
             w *= w_scale
-        self.t = torch.tensor(t, device=config.device, dtype=config.dtype)  # Mx1
-        self.w = torch.tensor(w, device=config.device, dtype=config.dtype)  # Mx1
+        self.t = torch.tensor(t, device=config.device, dtype=config.dtype)  # degx1
+        self.w = torch.tensor(w, device=config.device, dtype=config.dtype)  # degx1
         self.deg = deg
 
     def __call__(self, mu, var, F):
         return F(mu + var.sqrt().mm(self.t.T)).mm(self.w)  # Nx1
 
 class Likelihood:
+    &#34;&#34;&#34;
+    Base likelihood.
+
+    Args:
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, name=&#34;Likelihood&#34;, quadratures=20):
         self.name = name
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = 1
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
+        &#34;&#34;&#34;
+        Validate whether the y input is within the likelihood&#39;s support.
+        &#34;&#34;&#34;
         pass
 
     def log_prob(self, y, f, X=None):
-        # log(p(y|f)), where p(y|f) is our likelihood
+        &#34;&#34;&#34;
+        Calculate the log probability
+
+        $$ \\log(p(y|f)) $$
+
+        with \\(p(y|f)\\) our likelihood.
+        &#34;&#34;&#34;
         # y: Nx1
         # f: NxM
         raise NotImplementedError()
 
     def variational_expectation(self, y, mu, var, X=None):
-        # ∫ log(p(y|f)) q(f) df, where q(f) ~ N(mu,var) and p(y|f) is our likelihood
+        &#34;&#34;&#34;
+        Calculate the variational expectation
+
+        $$ \\int \\log(p(y|f)) \\; q(f) \\; df $$
+
+        where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate the integral.
+
+        Args:
+            y (torch.tensor): Values for y of shape (data_points,).
+            mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,).
+            var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+        &#34;&#34;&#34;
         # y,mu,var: Nx1
         q = self.quadrature(mu, var, lambda f: self.log_prob(y,f,X=X))  # Nx1
         return q.sum()  # sum over N
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
+        &#34;&#34;&#34;
+        Calculate the mean of the likelihood.
+
+        Args:
+            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+
+        Returns:
+            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        &#34;&#34;&#34;
         # f: NxM
         raise NotImplementedError()
 
-    def predictive_yy(self, f, X=None):
-        # f: NxM
-        raise NotImplementedError()
+    def variance(self, f, X=None):
+        &#34;&#34;&#34;
+        Calculate the variance of the likelihood.
 
-    def quantile(self, p, mu, var):
-        # p: scalar
-        # mu,var: Nx1
+        Args:
+            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+
+        Returns:
+            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        &#34;&#34;&#34;
+        # f: NxM
         raise NotImplementedError()
 
     def predict(self, mu, var, X=None, full=False):
-        # ∫∫ y p(y|f) q(f) df dy,  ∫∫ y^2 p(y|f) q(f) df dy - (∫∫ y p(y|f) q(f) df dy)^2
-        # where q(f) ~ N(mu,var) and p(y|f) is our likelihood
+        &#34;&#34;&#34;
+        Calculate the mean and variance of the predictive distribution
+
+        $$ \\mu = \\iint y \\; p(y|f) \\; q(f) \\; df dy $$
+        $$ \\Sigma = \\iint y^2 \\; p(y|f) \\; q(f) \\; df dy - \\mu^2 $$
+
+        where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate both integrals.
+
+        Args:
+            mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,).
+            var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+            full (boolean): Return the full covariance matrix.
+
+        Returns:
+            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
+        &#34;&#34;&#34;
         # mu,var: Nx1
-        Ey = self.quadrature(mu, var, lambda f: self.predictive_y(f,X=X))
-        Eyy = self.quadrature(mu, var, lambda f: self.predictive_yy(f,X=X))
+        # TODO: full covariance matrix for likelihood predictions
+        if full:
+            raise NotImplementedError(&#34;full covariance not support for likelihood predictions&#34;)
+
+        Ey = self.quadrature(mu, var, lambda f: self.mean(f,X=X))
+        Eyy = self.quadrature(mu, var, lambda f: self.mean(f,X=X).square() + self.variance(f,X=X))
         return Ey, Eyy-Ey**2
 
 class MultiOutputLikelihood(Likelihood):
-    def __init__(self, *likelihoods, name=&#34;MultiOutputLikelihood&#34;, quadratures=20):
-        super().__init__(name=name, quadratures=quadratures)
+    &#34;&#34;&#34;
+    Multi-output likelihood to assign a different likelihood per channel.
+
+    Args:
+        likelihoods (gpr.Likelihood): List of likelihoods equal to the number of output dimensions.
+        name (str): Name of the likelihood.
+    &#34;&#34;&#34;
+    def __init__(self, *likelihoods, name=&#34;MultiOutputLikelihood&#34;):
+        super().__init__(name=name)
 
         if isinstance(likelihoods, tuple):
             if len(likelihoods) == 1 and isinstance(likelihoods[0], list):
@@ -133,9 +231,14 @@ class MultiOutputLikelihood(Likelihood):
         r = [torch.nonzero(m[j], as_tuple=False).reshape(-1) for j in range(self.output_dims)]  # as_tuple avoids warning
         return r
 
-    def validate_y(self, y):
-        for likelihood in likelihoods:
-            likelihood.validate_y(y)
+    def validate_y(self, y, X=None):
+        if self.output_dims == 1:
+            self.likelihoods[0].validate_y(y, X=X)
+            return
+
+        r = self._channel_indices(X)
+        for i in range(self.output_dims):
+            self.likelihoods[i].validate_y(y[r[i],:], X=X)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -160,26 +263,26 @@ class MultiOutputLikelihood(Likelihood):
             q += self.likelihoods[i].variational_expectation(y[r[i],:], mu[r[i],:], var[r[i],:]).sum()  # sum over N
         return q
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         # f: NxM
         if self.output_dims == 1:
-            return self.likelihoods[0].predictive_y(f)
+            return self.likelihoods[0].mean(f)
 
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].predictive_y(f[r[i],:])
+            res[r[i],:] = self.likelihoods[i].mean(f[r[i],:])
         return res  # NxM
 
-    def predictive_yy(self, f, X=None):
+    def variance(self, f, X=None):
         # f: NxM
         if self.output_dims == 1:
-            return self.likelihoods[0].predictive_yy2(f)
+            return self.likelihoods[0].variance(f)
 
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].predictive_yy(f[r[i],:])
+            res[r[i],:] = self.likelihoods[i].variance(f[r[i],:])
         return res  # NxM
 
     # TODO: predict is not possible?
@@ -203,8 +306,19 @@ class MultiOutputLikelihood(Likelihood):
     #    return Ey, Eyy-Ey.square()
 
 class GaussianLikelihood(Likelihood):
-    def __init__(self, variance=1.0, name=&#34;Gaussian&#34;, quadratures=20):
-        super().__init__(name, quadratures)
+    &#34;&#34;&#34;
+    Gaussian likelihood given by
+
+    $$ p(y|f) = \\frac{1}{\\sigma\\sqrt{2\\pi}}e^{-\\frac{(y-f)^2}{2\\sigma^2}} $$
+
+    with \\(\\sigma^2\\) the variance.
+
+    Args:
+        variance (float): Gaussian variance.
+        name (str): Name of the likelihood.
+    &#34;&#34;&#34;
+    def __init__(self, variance=1.0, name=&#34;Gaussian&#34;):
+        super().__init__(name)
 
         self.variance = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
 
@@ -221,14 +335,11 @@ class GaussianLikelihood(Likelihood):
         p -= self.variance().log()
         return 0.5*p.sum()  # sum over N
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return f
 
-    def predictive_yy(self, f, X=None):
-        return f.square() + self.variance()
-
-    def quantile(self, p, mu, var):
-        return mu + torch.sqrt(2.0*var)*torch.erfinv(2.0*p - 1.0)
+    def variance(self, f, X=None):
+        return self.variance()
 
     def predict(self, mu, var, X=None, full=False):
         if full:
@@ -237,6 +348,19 @@ class GaussianLikelihood(Likelihood):
             return mu, var + self.variance()
 
 class StudentTLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Student&#39;s t likelihood given by
+
+    $$ p(y|f) = \\frac{\\Gamma\\left(\\frac{\\nu+1}{2}\\right)}{\\Gamma\\left(\\frac{\\nu}{2}\\right)\\sqrt{\\pi\\nu}\\sigma} \\left( 1 + \\frac{(y-f)^2}{\\nu\\sigma^2} \\right)^{-(\\nu+1)/2} $$
+
+    with \\(\\nu\\) the degrees of freedom and \\(\\sigma\\) the scale.
+
+    Args:
+        dof (float): Degrees of freedom.
+        scale (float): Scale.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, dof=3, scale=1.0, name=&#34;StudentT&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
@@ -246,48 +370,72 @@ class StudentTLikelihood(Likelihood):
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -0.5 * (self.dof+1.0)*torch.log(1.0 + ((y-f)/self.scale()).square()/self.dof)
+        p = -0.5 * (self.dof+1.0)*torch.log1p(((y-f)/self.scale()).square()/self.dof)
         p += torch.lgamma((self.dof+1.0)/2.0)
         p -= torch.lgamma(self.dof/2.0)
-        p -= 0.5 * torch.log(self.dof*np.pi*self.scale()**2)
+        p -= 0.5 * torch.log(self.dof*np.pi*self.scale().square())
         return p  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         if self.dof &lt;= 1.0:
             return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
         return f
 
-    def predictive_yy(self, f, X=None):
+    def variance(self, f, X=None):
         if self.dof &lt;= 2.0:
-            return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
-        return f.square() + self.scale()**2 * self.dof/(self.dof-2.0)
+            return np.nan
+        return self.scale().square() * self.dof/(self.dof-2.0)
 
 class ExponentialLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Exponential likelihood given by
+
+    $$ p(y|f) = h(f) e^{-h(f)y} $$
+
+    with \\(h\\) the link function and \\(y \\in [0.0,\\infty)\\).
+
+    Args:
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, link=exp, name=&#34;Exponential&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any(y &lt; 0.0):
             raise ValueError(&#34;y must be positive&#34;)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -y/self.link(f) - torch.log(self.link(f))
+        if self.link == exp:
+            p = -y/self.link(f) - f
+        else:
+            p = -y/self.link(f) - self.link(f).log()
         return p  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f)
 
-    def predictive_yy(self, f, X=None):
-        return 2.0*self.link(f)**2
-
-    def quantile(self, p, mu, var):
-        return -torch.log(1.0 - p) * mu
+    def variance(self, f, X=None):
+        return self.link(f).square()
 
 class LaplaceLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Laplace likelihood given by
+
+    $$ p(y|f) = \\frac{1}{2\\sigma}e^{-\\frac{|y-f|}{\\sigma}} $$
+
+    with \\(\\sigma\\) the scale.
+
+    Args:
+        scale (float): Scale.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, scale=1.0, name=&#34;Laplace&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
@@ -299,26 +447,33 @@ class LaplaceLikelihood(Likelihood):
         p = -torch.log(2.0*self.scale()) - (y-f).abs()/self.scale()
         return p  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return f
 
-    def predictive_yy(self, f, X=None):
-        return f.square() + 2.0*self.scale()**2
-
-    def quantile(self, p, mu, var):
-        if p &lt; 0.5:
-            return mu + self.scale()*torch.log(2.0*p)
-        return mu - self.scale()*torch.log(2.0 - 2.0*p)
+    def variance(self, f, X=None):
+        return 2.0 * self.scale().square()
 
 class BernoulliLikelihood(Likelihood):
-    def __init__(self, scale=1.0, link=inv_probit, name=&#34;Bernoulli&#34;, quadratures=20):
+    &#34;&#34;&#34;
+    Bernoulli likelihood given by
+
+    $$ p(y|f) = h(f)^k (1-h(f))^{1-k} $$
+
+    with \\(h\\) the link function, \\(k\\) the number of \\(y\\) values equal to 1, and \\(y \\in \\{0.0,1.0\\}\\).
+
+    Args:
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, link=inv_probit, name=&#34;Bernoulli&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any((y != 0.0) &amp; (y != 1.0)):
-            raise ValueError(&#34;y must have only 0.0 and 1.0&#34;)
+            raise ValueError(&#34;y must have only 0.0 and 1.0 values&#34;)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -326,14 +481,11 @@ class BernoulliLikelihood(Likelihood):
         p = self.link(f)
         return torch.log(torch.where(0.5 &lt;= y, p, 1.0-p))  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f)
 
-    def predictive_yy(self, f, X=None):
-        return self.link(f)
-
-    def quantile(self, p, mu, var):
-        return torch.where(p &lt;= 1.0-mu, 0.0, 1.0)
+    def variance(self, f, X=None):
+        return self.link(f) - self.link(f).square()
 
     def predict(self, mu, var, X=None, full=False):
         if self.link == inv_probit:
@@ -345,13 +497,26 @@ class BernoulliLikelihood(Likelihood):
             return super().predict(mu, var, X=X, full=full)
 
 class BetaLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Beta likelihood given by
+
+    $$ p(y|f) = \\frac{\\Gamma(\\sigma)}{\\Gamma\\left(h(f)\\sigma\\right)\\Gamma\\left((1-h(f)\\sigma\\right)} y^{h(f)\\sigma} (1-y)^{(1-h(f))\\sigma} $$
+
+    with \\(h\\) the link function, \\(\\sigma\\) the scale, and \\(y \\in (0.0,1.0)\\).
+
+    Args:
+        scale (float): Scale.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, scale=1.0, link=inv_probit, name=&#34;Beta&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
         self.scale = Parameter(scale, name=&#34;scale&#34;, lower=config.positive_minimum)
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any((y &lt;= 0.0) | (1.0 &lt;= y)):
             raise ValueError(&#34;y must be in the range (0.0,1.0)&#34;)
 
@@ -362,28 +527,41 @@ class BetaLikelihood(Likelihood):
         alpha = mixture * self.scale()
         beta = (1.0-mixture) * self.scale()
 
-        p = (alpha-1.0)*torch.log(y)
-        p += (beta-1.0)*torch.log(1.0-y)
+        p = (alpha-1.0)*y.log()
+        p += (beta-1.0)*torch.log1p(-y)
         p += torch.lgamma(alpha+beta)
         p -= torch.lgamma(alpha)
         p -= torch.lgamma(beta)
         return p  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f)
 
-    def predictive_yy(self, f, X=None):
+    def variance(self, f, X=None):
         mixture = self.link(f)
-        return (mixture + mixture.square()*self.scale()) / (self.scale() + 1.0)
+        return (mixture - mixture.square()) / (self.scale() + 1.0)
 
 class GammaLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Gamma likelihood given by
+
+    $$ p(y|f) = \\frac{1}{\\Gamma(k)h(f)^k} y^{k-1} e^{-y/h(f)} $$
+
+    with \\(h\\) the link function, \\(k\\) the shape, and \\(y \\in (0.0,\\infty)\\). 
+
+    Args:
+        shape (float): Shape.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, name=&#34;Gamma&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
         self.shape = Parameter(shape, name=&#34;shape&#34;, lower=config.positive_minimum)
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any(y &lt;= 0.0):
             raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
 
@@ -391,19 +569,216 @@ class GammaLikelihood(Likelihood):
         # y: Nx1
         # f: NxM
         p = -y/self.link(f)
-        p += (self.shape()-1.0)*torch.log(y)
+        p += (self.shape()-1.0)*y.log()
         p -= torch.lgamma(self.shape())
-        p -= self.shape()*torch.log(self.link(f))
+        if self.link == exp:
+            p -= self.shape()*f
+        else:
+            p -= self.shape()*self.link(f).log()
         return p  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return self.shape()*self.link(f)
 
-    def predictive_yy(self, f, X=None):
-        t = self.shape()*self.link(f)
-        return t + t.square()
+    def variance(self, f, X=None):
+        return self.shape()*self.link(f).square()
 
-# TODO: implement: Softmax and Poisson likelihoods?</code></pre>
+class PoissonLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Poisson likelihood given by
+
+    $$ p(y|f) = \\frac{1}{y!} h(f)^y e^{-h(f)} $$
+
+    with \\(h\\) the link function and \\(y \\in \\mathbb{N}_0\\).
+
+    Args:
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, link=exp, name=&#34;Poisson&#34;, quadratures=20):
+        super().__init__(name, quadratures)
+
+        self.link = link
+
+    def validate_y(self, y, X=None):
+        if torch.any(y &lt; 0.0):
+            raise ValueError(&#34;y must be in the range [0.0,inf)&#34;)
+        if not torch.all(y == y.long()):
+            raise ValueError(&#34;y must have integer count values&#34;)
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        if self.link == exp:
+            p = y*f
+        else:
+            p = y*self.link(f).log()
+        p -= torch.lgamma(y+1.0)
+        p -= self.link(f)
+        return p  # NxM
+
+    def mean(self, f, X=None):
+        return self.link(f)
+
+    def variance(self, f, X=None):
+        return self.link(f)
+
+class WeibullLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Weibull likelihood given by
+
+    $$ p(y|f) = \\frac{k}{h(f)} \\left( \\frac{y}{h(f)} \\right)^{k-1} e^{-(y/h(f))^k} $$
+
+    with \\(h\\) the link function, \\(k\\) the shape, and \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        shape (float): Shape.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, shape=1.0, link=exp, name=&#34;Weibull&#34;, quadratures=20):
+        super().__init__(name, quadratures)
+
+        self.link = link
+        self.shape = Parameter(shape, name=&#34;shape&#34;, lower=config.positive_minimum)
+
+    def validate_y(self, y, X=None):
+        if torch.any(y &lt;= 0.0):
+            raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        if self.link == exp:
+            p = -self.shape()*f
+        else:
+            p = -self.shape()*self.link(f).log()
+        p += self.shape().log() + (self.shape()-1.0)*y.log()
+        p -= (y/self.link(f))**self.shape()
+        return p  # NxM
+
+    def mean(self, f, X=None):
+        return f * torch.lgamma(1.0 + 1.0/self.shape()).exp()
+
+    def variance(self, f, X=None):
+        a = torch.lgamma(1.0 + 2.0/self.shape()).exp()
+        b = torch.lgamma(1.0 + 1.0/self.shape()).exp()
+        return f.square() * (a - b.square())
+
+class LogLogisticLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Log-logistic likelihood given by
+
+    $$ p(y|f) = \\frac{(k/h(f)) (y/h(f))^{k-1}}{\\left(1 + (y/h(f))^k\\right)^2} $$
+
+    with \\(h\\) the link function, \\(k\\) the shape, and \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        shape (float): Shape.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, shape=1.0, link=exp, name=&#34;LogLogistic&#34;, quadratures=20):
+        super().__init__(name, quadratures)
+
+        self.link = link
+        self.shape = Parameter(shape, name=&#34;shape&#34;, lower=config.positive_minimum)
+
+    def validate_y(self, y, X=None):
+        if torch.any(y &lt; 0.0):
+            raise ValueError(&#34;y must be in the range [0.0,inf)&#34;)
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        if self.link == exp:
+            p = -self.shape()*f
+        else:
+            p = -self.shape()*self.link(f).log()
+        p -= 2.0*torch.log1p((y/self.link(f))**self.shape())
+        p += self.shape().log()
+        p += (self.shape()-1.0)*y.log()
+        return p  # NxM
+
+    def mean(self, f, X=None):
+        return self.link(f) / torch.sinc(1.0/self.shape())
+
+    def variance(self, f, X=None):
+        if self.shape() &lt;= 2.0:
+            return np.nan
+        a = 1.0/torch.sinc(2.0/self.shape())
+        b = 1.0/torch.sinc(1.0/self.shape())
+        return self.link(f).square() * (a - b.square())
+
+class LogGaussianLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Log-Gaussian likelihood given by
+
+    $$ p(y|f) = \\frac{1}{y\\sqrt{2\\pi\\sigma^2}} e^{-\\frac{(\\log(y) - f)^2}{2\\sigma^2}} $$
+
+    with \\(\\sigma^2\\) the variance and \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        variance (float): Variance.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, variance=1.0, name=&#34;LogGaussian&#34;, quadratures=20):
+        super().__init__(name, quadratures)
+
+        self.variance = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+
+    def validate_y(self, y, X=None):
+        if torch.any(y &lt;= 0.0):
+            raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        logy = y.log()
+        p = -0.5*(np.log(2.0*np.pi) + self.variance().log() + (logy-f).square()/self.variance())
+        p -= logy
+        return p  # NxM
+
+    def mean(self, f, X=None):
+        return torch.exp(f + 0.5*self.variance())
+
+    def variance(self, f, X=None):
+        return (self.variance().exp() - 1.0) * torch.exp(2.0*f + self.variance())
+
+class ChiSquaredLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Chi-squared likelihood given by
+
+    $$ p(y|f) = \\frac{1}{2^{f/2}\\Gamma(f/2)} y^{f/2-1} e^{-y/2} $$
+
+    with \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, name=&#34;ChiSquared&#34;, quadratures=20):
+        super().__init__(name, quadratures)
+
+    def validate_y(self, y, X=None):
+        if torch.any(y &lt;= 0.0):
+            raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        p = -0.5*f*np.log(2.0) - torch.lgamma(f/2.0) + (f/2.0-1.0)*y.log() - 0.5*y
+        return p  # NxM
+
+    def mean(self, f, X=None):
+        return f
+
+    def variance(self, f, X=None):
+        return 2.0*f</code></pre>
 </details>
 </section>
 <section>
@@ -417,13 +792,19 @@ class GammaLikelihood(Likelihood):
 <span>def <span class="ident">exp</span></span>(<span>x)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The exponential link function given by</p>
+<p><span><span class="MathJax_Preview"> y = e^{x} </span><script type="math/tex; mode=display"> y = e^{x} </script></span></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L8-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L21-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def exp(x):
+    &#34;&#34;&#34;
+    The exponential link function given by
+
+    $$ y = e^{x} $$
+    &#34;&#34;&#34;
     return torch.exp(x)</code></pre>
 </details>
 </dd>
@@ -431,13 +812,19 @@ class GammaLikelihood(Likelihood):
 <span>def <span class="ident">identity</span></span>(<span>x)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The identity link function given by</p>
+<p><span><span class="MathJax_Preview"> y = x </span><script type="math/tex; mode=display"> y = x </script></span></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L5-L6" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L5-L11" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def identity(x):
+    &#34;&#34;&#34;
+    The identity link function given by
+
+    $$ y = x $$
+    &#34;&#34;&#34;
     return x</code></pre>
 </details>
 </dd>
@@ -445,13 +832,19 @@ class GammaLikelihood(Likelihood):
 <span>def <span class="ident">inv_probit</span></span>(<span>x)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The inverse probit link function given by</p>
+<p><span><span class="MathJax_Preview"> y = \frac{1}{2} \left(1 + \erf(x/\sqrt{2})\right) </span><script type="math/tex; mode=display"> y = \frac{1}{2} \left(1 + \erf(x/\sqrt{2})\right) </script></span></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L11-L13" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L29-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inv_probit(x):
+    &#34;&#34;&#34;
+    The inverse probit link function given by
+
+    $$ y = \\frac{1}{2} \\left(1 + \\erf(x/\\sqrt{2})\\right) $$
+    &#34;&#34;&#34;
     jitter = 1e-3
     return 0.5*(1.0+torch.erf(x/np.sqrt(2.0))) * (1.0-2.0*jitter) + jitter</code></pre>
 </details>
@@ -460,14 +853,40 @@ class GammaLikelihood(Likelihood):
 <span>def <span class="ident">logistic</span></span>(<span>x)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The logistic, inverse logit, or sigmoid link function given by</p>
+<p><span><span class="MathJax_Preview"> y = \frac{1}{1 + e^{-x}} </span><script type="math/tex; mode=display"> y = \frac{1}{1 + e^{-x}} </script></span></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L16-L17" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L39-L45" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def logistic(x):
+    &#34;&#34;&#34;
+    The logistic, inverse logit, or sigmoid link function given by
+
+    $$ y = \\frac{1}{1 + e^{-x}} $$
+    &#34;&#34;&#34;
     return 1.0/(1.0+torch.exp(-x))</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.likelihood.square"><code class="name flex">
+<span>def <span class="ident">square</span></span>(<span>x)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The square link function given by</p>
+<p><span><span class="MathJax_Preview"> y = x^2 </span><script type="math/tex; mode=display"> y = x^2 </script></span></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L13-L19" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def square(x):
+    &#34;&#34;&#34;
+    The square link function given by
+
+    $$ y = x^2 $$
+    &#34;&#34;&#34;
+    return torch.square(x)</code></pre>
 </details>
 </dd>
 </dl>
@@ -477,24 +896,47 @@ class GammaLikelihood(Likelihood):
 <dl>
 <dt id="mogptk.gpr.likelihood.BernoulliLikelihood"><code class="flex name class">
 <span>class <span class="ident">BernoulliLikelihood</span></span>
-<span>(</span><span>scale=1.0, link=&lt;function inv_probit&gt;, name='Bernoulli', quadratures=20)</span>
+<span>(</span><span>link=&lt;function inv_probit&gt;, name='Bernoulli', quadratures=20)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Bernoulli likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = h(f)^k (1-h(f))^{1-k} </span><script type="math/tex; mode=display"> p(y|f) = h(f)^k (1-h(f))^{1-k} </script></span></p>
+<p>with <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> the link function, <span><span class="MathJax_Preview">k</span><script type="math/tex">k</script></span> the number of <span><span class="MathJax_Preview">y</span><script type="math/tex">y</script></span> values equal to 1, and <span><span class="MathJax_Preview">y \in \{0.0,1.0\}</span><script type="math/tex">y \in \{0.0,1.0\}</script></span>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>link</code></strong> :&ensp;<code>function</code></dt>
+<dd>Link function to map function values to the support of the likelihood.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L282-L314" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L425-L466" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class BernoulliLikelihood(Likelihood):
-    def __init__(self, scale=1.0, link=inv_probit, name=&#34;Bernoulli&#34;, quadratures=20):
+    &#34;&#34;&#34;
+    Bernoulli likelihood given by
+
+    $$ p(y|f) = h(f)^k (1-h(f))^{1-k} $$
+
+    with \\(h\\) the link function, \\(k\\) the number of \\(y\\) values equal to 1, and \\(y \\in \\{0.0,1.0\\}\\).
+
+    Args:
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, link=inv_probit, name=&#34;Bernoulli&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any((y != 0.0) &amp; (y != 1.0)):
-            raise ValueError(&#34;y must have only 0.0 and 1.0&#34;)
+            raise ValueError(&#34;y must have only 0.0 and 1.0 values&#34;)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -502,14 +944,11 @@ class GammaLikelihood(Likelihood):
         p = self.link(f)
         return torch.log(torch.where(0.5 &lt;= y, p, 1.0-p))  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f)
 
-    def predictive_yy(self, f, X=None):
-        return self.link(f)
-
-    def quantile(self, p, mu, var):
-        return torch.where(p &lt;= 1.0-mu, 0.0, 1.0)
+    def variance(self, f, X=None):
+        return self.link(f) - self.link(f).square()
 
     def predict(self, mu, var, X=None, full=False):
         if self.link == inv_probit:
@@ -524,123 +963,65 @@ class GammaLikelihood(Likelihood):
 <ul class="hlist">
 <li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.gpr.likelihood.BernoulliLikelihood.log_prob"><code class="name flex">
-<span>def <span class="ident">log_prob</span></span>(<span>self, y, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L292-L296" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_prob(self, y, f, X=None):
-    # y: Nx1
-    # f: NxM
-    p = self.link(f)
-    return torch.log(torch.where(0.5 &lt;= y, p, 1.0-p))  # NxM</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.BernoulliLikelihood.predict"><code class="name flex">
-<span>def <span class="ident">predict</span></span>(<span>self, mu, var, X=None, full=False)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L307-L314" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predict(self, mu, var, X=None, full=False):
-    if self.link == inv_probit:
-        p = self.link(mu / torch.sqrt(1.0 + var))
-        if full:
-            return p.diagonal().reshape(-1,1), p-p.square() # TODO: correct?
-        return p, p-p.square()
-    else:
-        return super().predict(mu, var, X=X, full=full)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.BernoulliLikelihood.predictive_y"><code class="name flex">
-<span>def <span class="ident">predictive_y</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L298-L299" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_y(self, f, X=None):
-    return self.link(f)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.BernoulliLikelihood.predictive_yy"><code class="name flex">
-<span>def <span class="ident">predictive_yy</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L301-L302" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_yy(self, f, X=None):
-    return self.link(f)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.BernoulliLikelihood.quantile"><code class="name flex">
-<span>def <span class="ident">quantile</span></span>(<span>self, p, mu, var)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L304-L305" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def quantile(self, p, mu, var):
-    return torch.where(p &lt;= 1.0-mu, 0.0, 1.0)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.BernoulliLikelihood.validate_y"><code class="name flex">
-<span>def <span class="ident">validate_y</span></span>(<span>self, y)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L288-L290" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def validate_y(self, y):
-    if torch.any((y != 0.0) &amp; (y != 1.0)):
-        raise ValueError(&#34;y must have only 0.0 and 1.0&#34;)</code></pre>
-</details>
-</dd>
-</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.likelihood.BetaLikelihood"><code class="flex name class">
 <span>class <span class="ident">BetaLikelihood</span></span>
 <span>(</span><span>scale=1.0, link=&lt;function inv_probit&gt;, name='Beta', quadratures=20)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Beta likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = \frac{\Gamma(\sigma)}{\Gamma\left(h(f)\sigma\right)\Gamma\left((1-h(f)\sigma\right)} y^{h(f)\sigma} (1-y)^{(1-h(f))\sigma} </span><script type="math/tex; mode=display"> p(y|f) = \frac{\Gamma(\sigma)}{\Gamma\left(h(f)\sigma\right)\Gamma\left((1-h(f)\sigma\right)} y^{h(f)\sigma} (1-y)^{(1-h(f))\sigma} </script></span></p>
+<p>with <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> the link function, <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span> the scale, and <span><span class="MathJax_Preview">y \in (0.0,1.0)</span><script type="math/tex">y \in (0.0,1.0)</script></span>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>scale</code></strong> :&ensp;<code>float</code></dt>
+<dd>Scale.</dd>
+<dt><strong><code>link</code></strong> :&ensp;<code>function</code></dt>
+<dd>Link function to map function values to the support of the likelihood.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L316-L346" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L468-L511" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class BetaLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Beta likelihood given by
+
+    $$ p(y|f) = \\frac{\\Gamma(\\sigma)}{\\Gamma\\left(h(f)\\sigma\\right)\\Gamma\\left((1-h(f)\\sigma\\right)} y^{h(f)\\sigma} (1-y)^{(1-h(f))\\sigma} $$
+
+    with \\(h\\) the link function, \\(\\sigma\\) the scale, and \\(y \\in (0.0,1.0)\\).
+
+    Args:
+        scale (float): Scale.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, scale=1.0, link=inv_probit, name=&#34;Beta&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
         self.scale = Parameter(scale, name=&#34;scale&#34;, lower=config.positive_minimum)
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any((y &lt;= 0.0) | (1.0 &lt;= y)):
             raise ValueError(&#34;y must be in the range (0.0,1.0)&#34;)
 
@@ -651,234 +1032,229 @@ class GammaLikelihood(Likelihood):
         alpha = mixture * self.scale()
         beta = (1.0-mixture) * self.scale()
 
-        p = (alpha-1.0)*torch.log(y)
-        p += (beta-1.0)*torch.log(1.0-y)
+        p = (alpha-1.0)*y.log()
+        p += (beta-1.0)*torch.log1p(-y)
         p += torch.lgamma(alpha+beta)
         p -= torch.lgamma(alpha)
         p -= torch.lgamma(beta)
         return p  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f)
 
-    def predictive_yy(self, f, X=None):
+    def variance(self, f, X=None):
         mixture = self.link(f)
-        return (mixture + mixture.square()*self.scale()) / (self.scale() + 1.0)</code></pre>
+        return (mixture - mixture.square()) / (self.scale() + 1.0)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
 </ul>
-<h3>Methods</h3>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.likelihood.ChiSquaredLikelihood"><code class="flex name class">
+<span>class <span class="ident">ChiSquaredLikelihood</span></span>
+<span>(</span><span>name='ChiSquared', quadratures=20)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Chi-squared likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = \frac{1}{2^{f/2}\Gamma(f/2)} y^{f/2-1} e^{-y/2} </span><script type="math/tex; mode=display"> p(y|f) = \frac{1}{2^{f/2}\Gamma(f/2)} y^{f/2-1} e^{-y/2} </script></span></p>
+<p>with <span><span class="MathJax_Preview">y \in (0.0,\infty)</span><script type="math/tex">y \in (0.0,\infty)</script></span>.</p>
+<h2 id="args">Args</h2>
 <dl>
-<dt id="mogptk.gpr.likelihood.BetaLikelihood.log_prob"><code class="name flex">
-<span>def <span class="ident">log_prob</span></span>(<span>self, y, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L327-L339" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L721-L750" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def log_prob(self, y, f, X=None):
-    # y: Nx1
-    # f: NxM
-    mixture = self.link(f)
-    alpha = mixture * self.scale()
-    beta = (1.0-mixture) * self.scale()
+<pre><code class="python">class ChiSquaredLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Chi-squared likelihood given by
 
-    p = (alpha-1.0)*torch.log(y)
-    p += (beta-1.0)*torch.log(1.0-y)
-    p += torch.lgamma(alpha+beta)
-    p -= torch.lgamma(alpha)
-    p -= torch.lgamma(beta)
-    return p  # NxM</code></pre>
+    $$ p(y|f) = \\frac{1}{2^{f/2}\\Gamma(f/2)} y^{f/2-1} e^{-y/2} $$
+
+    with \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, name=&#34;ChiSquared&#34;, quadratures=20):
+        super().__init__(name, quadratures)
+
+    def validate_y(self, y, X=None):
+        if torch.any(y &lt;= 0.0):
+            raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        p = -0.5*f*np.log(2.0) - torch.lgamma(f/2.0) + (f/2.0-1.0)*y.log() - 0.5*y
+        return p  # NxM
+
+    def mean(self, f, X=None):
+        return f
+
+    def variance(self, f, X=None):
+        return 2.0*f</code></pre>
 </details>
-</dd>
-<dt id="mogptk.gpr.likelihood.BetaLikelihood.predictive_y"><code class="name flex">
-<span>def <span class="ident">predictive_y</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L341-L342" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_y(self, f, X=None):
-    return self.link(f)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.BetaLikelihood.predictive_yy"><code class="name flex">
-<span>def <span class="ident">predictive_yy</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L344-L346" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_yy(self, f, X=None):
-    mixture = self.link(f)
-    return (mixture + mixture.square()*self.scale()) / (self.scale() + 1.0)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.BetaLikelihood.validate_y"><code class="name flex">
-<span>def <span class="ident">validate_y</span></span>(<span>self, y)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L323-L325" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def validate_y(self, y):
-    if torch.any((y &lt;= 0.0) | (1.0 &lt;= y)):
-        raise ValueError(&#34;y must be in the range (0.0,1.0)&#34;)</code></pre>
-</details>
-</dd>
-</dl>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.likelihood.ExponentialLikelihood"><code class="flex name class">
 <span>class <span class="ident">ExponentialLikelihood</span></span>
 <span>(</span><span>link=&lt;function exp&gt;, name='Exponential', quadratures=20)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Exponential likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = h(f) e^{-h(f)y} </span><script type="math/tex; mode=display"> p(y|f) = h(f) e^{-h(f)y} </script></span></p>
+<p>with <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> the link function and <span><span class="MathJax_Preview">y \in [0.0,\infty)</span><script type="math/tex">y \in [0.0,\infty)</script></span>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>link</code></strong> :&ensp;<code>function</code></dt>
+<dd>Link function to map function values to the support of the likelihood.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L234-L257" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L358-L393" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ExponentialLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Exponential likelihood given by
+
+    $$ p(y|f) = h(f) e^{-h(f)y} $$
+
+    with \\(h\\) the link function and \\(y \\in [0.0,\\infty)\\).
+
+    Args:
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, link=exp, name=&#34;Exponential&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any(y &lt; 0.0):
             raise ValueError(&#34;y must be positive&#34;)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -y/self.link(f) - torch.log(self.link(f))
+        if self.link == exp:
+            p = -y/self.link(f) - f
+        else:
+            p = -y/self.link(f) - self.link(f).log()
         return p  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f)
 
-    def predictive_yy(self, f, X=None):
-        return 2.0*self.link(f)**2
-
-    def quantile(self, p, mu, var):
-        return -torch.log(1.0 - p) * mu</code></pre>
+    def variance(self, f, X=None):
+        return self.link(f).square()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.gpr.likelihood.ExponentialLikelihood.log_prob"><code class="name flex">
-<span>def <span class="ident">log_prob</span></span>(<span>self, y, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L244-L248" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_prob(self, y, f, X=None):
-    # y: Nx1
-    # f: NxM
-    p = -y/self.link(f) - torch.log(self.link(f))
-    return p  # NxM</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.ExponentialLikelihood.predictive_y"><code class="name flex">
-<span>def <span class="ident">predictive_y</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L250-L251" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_y(self, f, X=None):
-    return self.link(f)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.ExponentialLikelihood.predictive_yy"><code class="name flex">
-<span>def <span class="ident">predictive_yy</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L253-L254" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_yy(self, f, X=None):
-    return 2.0*self.link(f)**2</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.ExponentialLikelihood.quantile"><code class="name flex">
-<span>def <span class="ident">quantile</span></span>(<span>self, p, mu, var)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L256-L257" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def quantile(self, p, mu, var):
-    return -torch.log(1.0 - p) * mu</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.ExponentialLikelihood.validate_y"><code class="name flex">
-<span>def <span class="ident">validate_y</span></span>(<span>self, y)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L240-L242" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def validate_y(self, y):
-    if torch.any(y &lt; 0.0):
-        raise ValueError(&#34;y must be positive&#34;)</code></pre>
-</details>
-</dd>
-</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.likelihood.GammaLikelihood"><code class="flex name class">
 <span>class <span class="ident">GammaLikelihood</span></span>
 <span>(</span><span>shape=1.0, link=&lt;function exp&gt;, name='Gamma', quadratures=20)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Gamma likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = \frac{1}{\Gamma(k)h(f)^k} y^{k-1} e^{-y/h(f)} </span><script type="math/tex; mode=display"> p(y|f) = \frac{1}{\Gamma(k)h(f)^k} y^{k-1} e^{-y/h(f)} </script></span></p>
+<p>with <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> the link function, <span><span class="MathJax_Preview">k</span><script type="math/tex">k</script></span> the shape, and <span><span class="MathJax_Preview">y \in (0.0,\infty)</span><script type="math/tex">y \in (0.0,\infty)</script></span>. </p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>shape</code></strong> :&ensp;<code>float</code></dt>
+<dd>Shape.</dd>
+<dt><strong><code>link</code></strong> :&ensp;<code>function</code></dt>
+<dd>Link function to map function values to the support of the likelihood.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L348-L373" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L513-L553" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GammaLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Gamma likelihood given by
+
+    $$ p(y|f) = \\frac{1}{\\Gamma(k)h(f)^k} y^{k-1} e^{-y/h(f)} $$
+
+    with \\(h\\) the link function, \\(k\\) the shape, and \\(y \\in (0.0,\\infty)\\). 
+
+    Args:
+        shape (float): Shape.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, name=&#34;Gamma&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
         self.shape = Parameter(shape, name=&#34;shape&#34;, lower=config.positive_minimum)
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
         if torch.any(y &lt;= 0.0):
             raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
 
@@ -886,89 +1262,37 @@ class GammaLikelihood(Likelihood):
         # y: Nx1
         # f: NxM
         p = -y/self.link(f)
-        p += (self.shape()-1.0)*torch.log(y)
+        p += (self.shape()-1.0)*y.log()
         p -= torch.lgamma(self.shape())
-        p -= self.shape()*torch.log(self.link(f))
+        if self.link == exp:
+            p -= self.shape()*f
+        else:
+            p -= self.shape()*self.link(f).log()
         return p  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return self.shape()*self.link(f)
 
-    def predictive_yy(self, f, X=None):
-        t = self.shape()*self.link(f)
-        return t + t.square()</code></pre>
+    def variance(self, f, X=None):
+        return self.shape()*self.link(f).square()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.gpr.likelihood.GammaLikelihood.log_prob"><code class="name flex">
-<span>def <span class="ident">log_prob</span></span>(<span>self, y, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L359-L366" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_prob(self, y, f, X=None):
-    # y: Nx1
-    # f: NxM
-    p = -y/self.link(f)
-    p += (self.shape()-1.0)*torch.log(y)
-    p -= torch.lgamma(self.shape())
-    p -= self.shape()*torch.log(self.link(f))
-    return p  # NxM</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.GammaLikelihood.predictive_y"><code class="name flex">
-<span>def <span class="ident">predictive_y</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L368-L369" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_y(self, f, X=None):
-    return self.shape()*self.link(f)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.GammaLikelihood.predictive_yy"><code class="name flex">
-<span>def <span class="ident">predictive_yy</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L371-L373" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_yy(self, f, X=None):
-    t = self.shape()*self.link(f)
-    return t + t.square()</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.GammaLikelihood.validate_y"><code class="name flex">
-<span>def <span class="ident">validate_y</span></span>(<span>self, y)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L355-L357" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def validate_y(self, y):
-    if torch.any(y &lt;= 0.0):
-        raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)</code></pre>
-</details>
-</dd>
-</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.likelihood.GaussHermiteQuadrature"><code class="flex name class">
 <span>class <span class="ident">GaussHermiteQuadrature</span></span>
@@ -979,7 +1303,7 @@ class GammaLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L19-L33" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L47-L61" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussHermiteQuadrature:
     def __init__(self, deg=20, t_scale=None, w_scale=None):
@@ -990,8 +1314,8 @@ class GammaLikelihood(Likelihood):
             t *= t_scale
         if w_scale is not None:
             w *= w_scale
-        self.t = torch.tensor(t, device=config.device, dtype=config.dtype)  # Mx1
-        self.w = torch.tensor(w, device=config.device, dtype=config.dtype)  # Mx1
+        self.t = torch.tensor(t, device=config.device, dtype=config.dtype)  # degx1
+        self.w = torch.tensor(w, device=config.device, dtype=config.dtype)  # degx1
         self.deg = deg
 
     def __call__(self, mu, var, F):
@@ -1000,18 +1324,38 @@ class GammaLikelihood(Likelihood):
 </dd>
 <dt id="mogptk.gpr.likelihood.GaussianLikelihood"><code class="flex name class">
 <span>class <span class="ident">GaussianLikelihood</span></span>
-<span>(</span><span>variance=1.0, name='Gaussian', quadratures=20)</span>
+<span>(</span><span>variance=1.0, name='Gaussian')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Gaussian likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = \frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(y-f)^2}{2\sigma^2}} </span><script type="math/tex; mode=display"> p(y|f) = \frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(y-f)^2}{2\sigma^2}} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the variance.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>variance</code></strong> :&ensp;<code>float</code></dt>
+<dd>Gaussian variance.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L174-L206" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L277-L317" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussianLikelihood(Likelihood):
-    def __init__(self, variance=1.0, name=&#34;Gaussian&#34;, quadratures=20):
-        super().__init__(name, quadratures)
+    &#34;&#34;&#34;
+    Gaussian likelihood given by
+
+    $$ p(y|f) = \\frac{1}{\\sigma\\sqrt{2\\pi}}e^{-\\frac{(y-f)^2}{2\\sigma^2}} $$
+
+    with \\(\\sigma^2\\) the variance.
+
+    Args:
+        variance (float): Gaussian variance.
+        name (str): Name of the likelihood.
+    &#34;&#34;&#34;
+    def __init__(self, variance=1.0, name=&#34;Gaussian&#34;):
+        super().__init__(name)
 
         self.variance = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
 
@@ -1028,14 +1372,11 @@ class GammaLikelihood(Likelihood):
         p -= self.variance().log()
         return 0.5*p.sum()  # sum over N
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return f
 
-    def predictive_yy(self, f, X=None):
-        return f.square() + self.variance()
-
-    def quantile(self, p, mu, var):
-        return mu + torch.sqrt(2.0*var)*torch.erfinv(2.0*p - 1.0)
+    def variance(self, f, X=None):
+        return self.variance()
 
     def predict(self, mu, var, X=None, full=False):
         if full:
@@ -1047,116 +1388,55 @@ class GammaLikelihood(Likelihood):
 <ul class="hlist">
 <li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.gpr.likelihood.GaussianLikelihood.log_prob"><code class="name flex">
-<span>def <span class="ident">log_prob</span></span>(<span>self, y, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L180-L184" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_prob(self, y, f, X=None):
-    # y: Nx1
-    # f: NxM
-    p = -0.5 * (np.log(2.0 * np.pi) + self.variance().log() + (y-f).square()/self.variance())
-    return p  # NxM</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.GaussianLikelihood.predict"><code class="name flex">
-<span>def <span class="ident">predict</span></span>(<span>self, mu, var, X=None, full=False)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L202-L206" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predict(self, mu, var, X=None, full=False):
-    if full:
-        return mu, var + self.variance()*torch.eye(var.shape[0])
-    else:
-        return mu, var + self.variance()</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.GaussianLikelihood.predictive_y"><code class="name flex">
-<span>def <span class="ident">predictive_y</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L193-L194" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_y(self, f, X=None):
-    return f</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.GaussianLikelihood.predictive_yy"><code class="name flex">
-<span>def <span class="ident">predictive_yy</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L196-L197" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_yy(self, f, X=None):
-    return f.square() + self.variance()</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.GaussianLikelihood.quantile"><code class="name flex">
-<span>def <span class="ident">quantile</span></span>(<span>self, p, mu, var)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L199-L200" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def quantile(self, p, mu, var):
-    return mu + torch.sqrt(2.0*var)*torch.erfinv(2.0*p - 1.0)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.GaussianLikelihood.variational_expectation"><code class="name flex">
-<span>def <span class="ident">variational_expectation</span></span>(<span>self, y, mu, var, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L186-L191" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def variational_expectation(self, y, mu, var, X=None):
-    # y,mu,var: Nx1
-    p = -((y-mu).square() + var) / self.variance()
-    p -= np.log(2.0 * np.pi)
-    p -= self.variance().log()
-    return 0.5*p.sum()  # sum over N</code></pre>
-</details>
-</dd>
-</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.likelihood.LaplaceLikelihood"><code class="flex name class">
 <span>class <span class="ident">LaplaceLikelihood</span></span>
 <span>(</span><span>scale=1.0, name='Laplace', quadratures=20)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Laplace likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = \frac{1}{2\sigma}e^{-\frac{|y-f|}{\sigma}} </span><script type="math/tex; mode=display"> p(y|f) = \frac{1}{2\sigma}e^{-\frac{|y-f|}{\sigma}} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span> the scale.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>scale</code></strong> :&ensp;<code>float</code></dt>
+<dd>Scale.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L259-L280" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L395-L423" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LaplaceLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Laplace likelihood given by
+
+    $$ p(y|f) = \\frac{1}{2\\sigma}e^{-\\frac{|y-f|}{\\sigma}} $$
+
+    with \\(\\sigma\\) the scale.
+
+    Args:
+        scale (float): Scale.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, scale=1.0, name=&#34;Laplace&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
@@ -1168,149 +1448,168 @@ class GammaLikelihood(Likelihood):
         p = -torch.log(2.0*self.scale()) - (y-f).abs()/self.scale()
         return p  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         return f
 
-    def predictive_yy(self, f, X=None):
-        return f.square() + 2.0*self.scale()**2
-
-    def quantile(self, p, mu, var):
-        if p &lt; 0.5:
-            return mu + self.scale()*torch.log(2.0*p)
-        return mu - self.scale()*torch.log(2.0 - 2.0*p)</code></pre>
+    def variance(self, f, X=None):
+        return 2.0 * self.scale().square()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.gpr.likelihood.LaplaceLikelihood.log_prob"><code class="name flex">
-<span>def <span class="ident">log_prob</span></span>(<span>self, y, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L265-L269" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_prob(self, y, f, X=None):
-    # y: Nx1
-    # f: NxM
-    p = -torch.log(2.0*self.scale()) - (y-f).abs()/self.scale()
-    return p  # NxM</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.LaplaceLikelihood.predictive_y"><code class="name flex">
-<span>def <span class="ident">predictive_y</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L271-L272" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_y(self, f, X=None):
-    return f</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.LaplaceLikelihood.predictive_yy"><code class="name flex">
-<span>def <span class="ident">predictive_yy</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L274-L275" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_yy(self, f, X=None):
-    return f.square() + 2.0*self.scale()**2</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.LaplaceLikelihood.quantile"><code class="name flex">
-<span>def <span class="ident">quantile</span></span>(<span>self, p, mu, var)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L277-L280" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def quantile(self, p, mu, var):
-    if p &lt; 0.5:
-        return mu + self.scale()*torch.log(2.0*p)
-    return mu - self.scale()*torch.log(2.0 - 2.0*p)</code></pre>
-</details>
-</dd>
-</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.likelihood.Likelihood"><code class="flex name class">
 <span>class <span class="ident">Likelihood</span></span>
 <span>(</span><span>name='Likelihood', quadratures=20)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Base likelihood.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L35-L75" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L63-L166" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Likelihood:
+    &#34;&#34;&#34;
+    Base likelihood.
+
+    Args:
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, name=&#34;Likelihood&#34;, quadratures=20):
         self.name = name
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = 1
 
-    def validate_y(self, y):
+    def validate_y(self, y, X=None):
+        &#34;&#34;&#34;
+        Validate whether the y input is within the likelihood&#39;s support.
+        &#34;&#34;&#34;
         pass
 
     def log_prob(self, y, f, X=None):
-        # log(p(y|f)), where p(y|f) is our likelihood
+        &#34;&#34;&#34;
+        Calculate the log probability
+
+        $$ \\log(p(y|f)) $$
+
+        with \\(p(y|f)\\) our likelihood.
+        &#34;&#34;&#34;
         # y: Nx1
         # f: NxM
         raise NotImplementedError()
 
     def variational_expectation(self, y, mu, var, X=None):
-        # ∫ log(p(y|f)) q(f) df, where q(f) ~ N(mu,var) and p(y|f) is our likelihood
+        &#34;&#34;&#34;
+        Calculate the variational expectation
+
+        $$ \\int \\log(p(y|f)) \\; q(f) \\; df $$
+
+        where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate the integral.
+
+        Args:
+            y (torch.tensor): Values for y of shape (data_points,).
+            mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,).
+            var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+        &#34;&#34;&#34;
         # y,mu,var: Nx1
         q = self.quadrature(mu, var, lambda f: self.log_prob(y,f,X=X))  # Nx1
         return q.sum()  # sum over N
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
+        &#34;&#34;&#34;
+        Calculate the mean of the likelihood.
+
+        Args:
+            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+
+        Returns:
+            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        &#34;&#34;&#34;
         # f: NxM
         raise NotImplementedError()
 
-    def predictive_yy(self, f, X=None):
-        # f: NxM
-        raise NotImplementedError()
+    def variance(self, f, X=None):
+        &#34;&#34;&#34;
+        Calculate the variance of the likelihood.
 
-    def quantile(self, p, mu, var):
-        # p: scalar
-        # mu,var: Nx1
+        Args:
+            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+
+        Returns:
+            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        &#34;&#34;&#34;
+        # f: NxM
         raise NotImplementedError()
 
     def predict(self, mu, var, X=None, full=False):
-        # ∫∫ y p(y|f) q(f) df dy,  ∫∫ y^2 p(y|f) q(f) df dy - (∫∫ y p(y|f) q(f) df dy)^2
-        # where q(f) ~ N(mu,var) and p(y|f) is our likelihood
+        &#34;&#34;&#34;
+        Calculate the mean and variance of the predictive distribution
+
+        $$ \\mu = \\iint y \\; p(y|f) \\; q(f) \\; df dy $$
+        $$ \\Sigma = \\iint y^2 \\; p(y|f) \\; q(f) \\; df dy - \\mu^2 $$
+
+        where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate both integrals.
+
+        Args:
+            mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,).
+            var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+            full (boolean): Return the full covariance matrix.
+
+        Returns:
+            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
+        &#34;&#34;&#34;
         # mu,var: Nx1
-        Ey = self.quadrature(mu, var, lambda f: self.predictive_y(f,X=X))
-        Eyy = self.quadrature(mu, var, lambda f: self.predictive_yy(f,X=X))
+        # TODO: full covariance matrix for likelihood predictions
+        if full:
+            raise NotImplementedError(&#34;full covariance not support for likelihood predictions&#34;)
+
+        Ey = self.quadrature(mu, var, lambda f: self.mean(f,X=X))
+        Eyy = self.quadrature(mu, var, lambda f: self.mean(f,X=X).square() + self.variance(f,X=X))
         return Ey, Eyy-Ey**2</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li><a title="mogptk.gpr.likelihood.BernoulliLikelihood" href="#mogptk.gpr.likelihood.BernoulliLikelihood">BernoulliLikelihood</a></li>
 <li><a title="mogptk.gpr.likelihood.BetaLikelihood" href="#mogptk.gpr.likelihood.BetaLikelihood">BetaLikelihood</a></li>
+<li><a title="mogptk.gpr.likelihood.ChiSquaredLikelihood" href="#mogptk.gpr.likelihood.ChiSquaredLikelihood">ChiSquaredLikelihood</a></li>
 <li><a title="mogptk.gpr.likelihood.ExponentialLikelihood" href="#mogptk.gpr.likelihood.ExponentialLikelihood">ExponentialLikelihood</a></li>
 <li><a title="mogptk.gpr.likelihood.GammaLikelihood" href="#mogptk.gpr.likelihood.GammaLikelihood">GammaLikelihood</a></li>
 <li><a title="mogptk.gpr.likelihood.GaussianLikelihood" href="#mogptk.gpr.likelihood.GaussianLikelihood">GaussianLikelihood</a></li>
 <li><a title="mogptk.gpr.likelihood.LaplaceLikelihood" href="#mogptk.gpr.likelihood.LaplaceLikelihood">LaplaceLikelihood</a></li>
+<li><a title="mogptk.gpr.likelihood.LogGaussianLikelihood" href="#mogptk.gpr.likelihood.LogGaussianLikelihood">LogGaussianLikelihood</a></li>
+<li><a title="mogptk.gpr.likelihood.LogLogisticLikelihood" href="#mogptk.gpr.likelihood.LogLogisticLikelihood">LogLogisticLikelihood</a></li>
 <li><a title="mogptk.gpr.likelihood.MultiOutputLikelihood" href="#mogptk.gpr.likelihood.MultiOutputLikelihood">MultiOutputLikelihood</a></li>
+<li><a title="mogptk.gpr.likelihood.PoissonLikelihood" href="#mogptk.gpr.likelihood.PoissonLikelihood">PoissonLikelihood</a></li>
 <li><a title="mogptk.gpr.likelihood.StudentTLikelihood" href="#mogptk.gpr.likelihood.StudentTLikelihood">StudentTLikelihood</a></li>
+<li><a title="mogptk.gpr.likelihood.WeibullLikelihood" href="#mogptk.gpr.likelihood.WeibullLikelihood">WeibullLikelihood</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
@@ -1318,15 +1617,60 @@ class GammaLikelihood(Likelihood):
 <span>def <span class="ident">log_prob</span></span>(<span>self, y, f, X=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Calculate the log probability</p>
+<p><span><span class="MathJax_Preview"> \log(p(y|f)) </span><script type="math/tex; mode=display"> \log(p(y|f)) </script></span></p>
+<p>with <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> our likelihood.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L44-L48" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L82-L92" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prob(self, y, f, X=None):
-    # log(p(y|f)), where p(y|f) is our likelihood
+    &#34;&#34;&#34;
+    Calculate the log probability
+
+    $$ \\log(p(y|f)) $$
+
+    with \\(p(y|f)\\) our likelihood.
+    &#34;&#34;&#34;
     # y: Nx1
+    # f: NxM
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.likelihood.Likelihood.mean"><code class="name flex">
+<span>def <span class="ident">mean</span></span>(<span>self, f, X=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the mean of the likelihood.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong> :&ensp;<code>torch.Tensor</code></dt>
+<dd>Posterior values for f of shape (data_points,input_dims).</dd>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.Tensor</code></dt>
+<dd>Mean of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L112-L124" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def mean(self, f, X=None):
+    &#34;&#34;&#34;
+    Calculate the mean of the likelihood.
+
+    Args:
+        f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+        X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+
+    Returns:
+        torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+    &#34;&#34;&#34;
     # f: NxM
     raise NotImplementedError()</code></pre>
 </details>
@@ -1335,93 +1679,153 @@ class GammaLikelihood(Likelihood):
 <span>def <span class="ident">predict</span></span>(<span>self, mu, var, X=None, full=False)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Calculate the mean and variance of the predictive distribution</p>
+<p><span><span class="MathJax_Preview"> \mu = \iint y \; p(y|f) \; q(f) \; df dy </span><script type="math/tex; mode=display"> \mu = \iint y \; p(y|f) \; q(f) \; df dy </script></span>
+<span><span class="MathJax_Preview"> \Sigma = \iint y^2 \; p(y|f) \; q(f) \; df dy - \mu^2 </span><script type="math/tex; mode=display"> \Sigma = \iint y^2 \; p(y|f) \; q(f) \; df dy - \mu^2 </script></span></p>
+<p>where <span><span class="MathJax_Preview">q(f) \sim \mathcal{N}(\mu,\Sigma)</span><script type="math/tex">q(f) \sim \mathcal{N}(\mu,\Sigma)</script></span> and <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> our likelihood. By default this uses Gauss-Hermite quadratures to approximate both integrals.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>mu</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Mean of the posterior <span><span class="MathJax_Preview">q(f)</span><script type="math/tex">q(f)</script></span> of shape (data_points,).</dd>
+<dt><strong><code>var</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Variance of the posterior <span><span class="MathJax_Preview">q(f)</span><script type="math/tex">q(f)</script></span> of shape (data_points,).</dd>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
+<dt><strong><code>full</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Return the full covariance matrix.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.Tensor</code></dt>
+<dd>Mean of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,).</dd>
+<dt><code>torch.Tensor</code></dt>
+<dd>Variance of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,) or (data_points,data_points).</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L69-L75" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L140-L166" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, mu, var, X=None, full=False):
-    # ∫∫ y p(y|f) q(f) df dy,  ∫∫ y^2 p(y|f) q(f) df dy - (∫∫ y p(y|f) q(f) df dy)^2
-    # where q(f) ~ N(mu,var) and p(y|f) is our likelihood
+    &#34;&#34;&#34;
+    Calculate the mean and variance of the predictive distribution
+
+    $$ \\mu = \\iint y \\; p(y|f) \\; q(f) \\; df dy $$
+    $$ \\Sigma = \\iint y^2 \\; p(y|f) \\; q(f) \\; df dy - \\mu^2 $$
+
+    where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate both integrals.
+
+    Args:
+        mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,).
+        var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,).
+        X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+        full (boolean): Return the full covariance matrix.
+
+    Returns:
+        torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
+    &#34;&#34;&#34;
     # mu,var: Nx1
-    Ey = self.quadrature(mu, var, lambda f: self.predictive_y(f,X=X))
-    Eyy = self.quadrature(mu, var, lambda f: self.predictive_yy(f,X=X))
+    # TODO: full covariance matrix for likelihood predictions
+    if full:
+        raise NotImplementedError(&#34;full covariance not support for likelihood predictions&#34;)
+
+    Ey = self.quadrature(mu, var, lambda f: self.mean(f,X=X))
+    Eyy = self.quadrature(mu, var, lambda f: self.mean(f,X=X).square() + self.variance(f,X=X))
     return Ey, Eyy-Ey**2</code></pre>
 </details>
 </dd>
-<dt id="mogptk.gpr.likelihood.Likelihood.predictive_y"><code class="name flex">
-<span>def <span class="ident">predictive_y</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L56-L58" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_y(self, f, X=None):
-    # f: NxM
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.Likelihood.predictive_yy"><code class="name flex">
-<span>def <span class="ident">predictive_yy</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L60-L62" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_yy(self, f, X=None):
-    # f: NxM
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.Likelihood.quantile"><code class="name flex">
-<span>def <span class="ident">quantile</span></span>(<span>self, p, mu, var)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L64-L67" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def quantile(self, p, mu, var):
-    # p: scalar
-    # mu,var: Nx1
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
 <dt id="mogptk.gpr.likelihood.Likelihood.validate_y"><code class="name flex">
-<span>def <span class="ident">validate_y</span></span>(<span>self, y)</span>
+<span>def <span class="ident">validate_y</span></span>(<span>self, y, X=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Validate whether the y input is within the likelihood's support.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L41-L42" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L76-L80" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def validate_y(self, y):
+<pre><code class="python">def validate_y(self, y, X=None):
+    &#34;&#34;&#34;
+    Validate whether the y input is within the likelihood&#39;s support.
+    &#34;&#34;&#34;
     pass</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.likelihood.Likelihood.variance"><code class="name flex">
+<span>def <span class="ident">variance</span></span>(<span>self, f, X=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the variance of the likelihood.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong> :&ensp;<code>torch.Tensor</code></dt>
+<dd>Posterior values for f of shape (data_points,input_dims).</dd>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.Tensor</code></dt>
+<dd>Variance of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L126-L138" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def variance(self, f, X=None):
+    &#34;&#34;&#34;
+    Calculate the variance of the likelihood.
+
+    Args:
+        f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+        X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+
+    Returns:
+        torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+    &#34;&#34;&#34;
+    # f: NxM
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="mogptk.gpr.likelihood.Likelihood.variational_expectation"><code class="name flex">
 <span>def <span class="ident">variational_expectation</span></span>(<span>self, y, mu, var, X=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Calculate the variational expectation</p>
+<p><span><span class="MathJax_Preview"> \int \log(p(y|f)) \; q(f) \; df </span><script type="math/tex; mode=display"> \int \log(p(y|f)) \; q(f) \; df </script></span></p>
+<p>where <span><span class="MathJax_Preview">q(f) \sim \mathcal{N}(\mu,\Sigma)</span><script type="math/tex">q(f) \sim \mathcal{N}(\mu,\Sigma)</script></span> and <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> our likelihood. By default this uses Gauss-Hermite quadratures to approximate the integral.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>y</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Values for y of shape (data_points,).</dd>
+<dt><strong><code>mu</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Mean of the posterior <span><span class="MathJax_Preview">q(f)</span><script type="math/tex">q(f)</script></span> of shape (data_points,).</dd>
+<dt><strong><code>var</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Variance of the posterior <span><span class="MathJax_Preview">q(f)</span><script type="math/tex">q(f)</script></span> of shape (data_points,).</dd>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L50-L54" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L94-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def variational_expectation(self, y, mu, var, X=None):
-    # ∫ log(p(y|f)) q(f) df, where q(f) ~ N(mu,var) and p(y|f) is our likelihood
+    &#34;&#34;&#34;
+    Calculate the variational expectation
+
+    $$ \\int \\log(p(y|f)) \\; q(f) \\; df $$
+
+    where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate the integral.
+
+    Args:
+        y (torch.tensor): Values for y of shape (data_points,).
+        mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,).
+        var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,).
+        X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+    &#34;&#34;&#34;
     # y,mu,var: Nx1
     q = self.quadrature(mu, var, lambda f: self.log_prob(y,f,X=X))  # Nx1
     return q.sum()  # sum over N</code></pre>
@@ -1429,20 +1833,198 @@ class GammaLikelihood(Likelihood):
 </dd>
 </dl>
 </dd>
-<dt id="mogptk.gpr.likelihood.MultiOutputLikelihood"><code class="flex name class">
-<span>class <span class="ident">MultiOutputLikelihood</span></span>
-<span>(</span><span>*likelihoods, name='MultiOutputLikelihood', quadratures=20)</span>
+<dt id="mogptk.gpr.likelihood.LogGaussianLikelihood"><code class="flex name class">
+<span>class <span class="ident">LogGaussianLikelihood</span></span>
+<span>(</span><span>variance=1.0, name='LogGaussian', quadratures=20)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Log-Gaussian likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = \frac{1}{y\sqrt{2\pi\sigma^2}} e^{-\frac{(\log(y) - f)^2}{2\sigma^2}} </span><script type="math/tex; mode=display"> p(y|f) = \frac{1}{y\sqrt{2\pi\sigma^2}} e^{-\frac{(\log(y) - f)^2}{2\sigma^2}} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the variance and <span><span class="MathJax_Preview">y \in (0.0,\infty)</span><script type="math/tex">y \in (0.0,\infty)</script></span>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>variance</code></strong> :&ensp;<code>float</code></dt>
+<dd>Variance.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L77-L172" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L685-L719" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class LogGaussianLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Log-Gaussian likelihood given by
+
+    $$ p(y|f) = \\frac{1}{y\\sqrt{2\\pi\\sigma^2}} e^{-\\frac{(\\log(y) - f)^2}{2\\sigma^2}} $$
+
+    with \\(\\sigma^2\\) the variance and \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        variance (float): Variance.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, variance=1.0, name=&#34;LogGaussian&#34;, quadratures=20):
+        super().__init__(name, quadratures)
+
+        self.variance = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+
+    def validate_y(self, y, X=None):
+        if torch.any(y &lt;= 0.0):
+            raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        logy = y.log()
+        p = -0.5*(np.log(2.0*np.pi) + self.variance().log() + (logy-f).square()/self.variance())
+        p -= logy
+        return p  # NxM
+
+    def mean(self, f, X=None):
+        return torch.exp(f + 0.5*self.variance())
+
+    def variance(self, f, X=None):
+        return (self.variance().exp() - 1.0) * torch.exp(2.0*f + self.variance())</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.likelihood.LogLogisticLikelihood"><code class="flex name class">
+<span>class <span class="ident">LogLogisticLikelihood</span></span>
+<span>(</span><span>shape=1.0, link=&lt;function exp&gt;, name='LogLogistic', quadratures=20)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Log-logistic likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = \frac{(k/h(f)) (y/h(f))^{k-1}}{\left(1 + (y/h(f))^k\right)^2} </span><script type="math/tex; mode=display"> p(y|f) = \frac{(k/h(f)) (y/h(f))^{k-1}}{\left(1 + (y/h(f))^k\right)^2} </script></span></p>
+<p>with <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> the link function, <span><span class="MathJax_Preview">k</span><script type="math/tex">k</script></span> the shape, and <span><span class="MathJax_Preview">y \in (0.0,\infty)</span><script type="math/tex">y \in (0.0,\infty)</script></span>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>shape</code></strong> :&ensp;<code>float</code></dt>
+<dd>Shape.</dd>
+<dt><strong><code>link</code></strong> :&ensp;<code>function</code></dt>
+<dd>Link function to map function values to the support of the likelihood.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L639-L683" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class LogLogisticLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Log-logistic likelihood given by
+
+    $$ p(y|f) = \\frac{(k/h(f)) (y/h(f))^{k-1}}{\\left(1 + (y/h(f))^k\\right)^2} $$
+
+    with \\(h\\) the link function, \\(k\\) the shape, and \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        shape (float): Shape.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, shape=1.0, link=exp, name=&#34;LogLogistic&#34;, quadratures=20):
+        super().__init__(name, quadratures)
+
+        self.link = link
+        self.shape = Parameter(shape, name=&#34;shape&#34;, lower=config.positive_minimum)
+
+    def validate_y(self, y, X=None):
+        if torch.any(y &lt; 0.0):
+            raise ValueError(&#34;y must be in the range [0.0,inf)&#34;)
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        if self.link == exp:
+            p = -self.shape()*f
+        else:
+            p = -self.shape()*self.link(f).log()
+        p -= 2.0*torch.log1p((y/self.link(f))**self.shape())
+        p += self.shape().log()
+        p += (self.shape()-1.0)*y.log()
+        return p  # NxM
+
+    def mean(self, f, X=None):
+        return self.link(f) / torch.sinc(1.0/self.shape())
+
+    def variance(self, f, X=None):
+        if self.shape() &lt;= 2.0:
+            return np.nan
+        a = 1.0/torch.sinc(2.0/self.shape())
+        b = 1.0/torch.sinc(1.0/self.shape())
+        return self.link(f).square() * (a - b.square())</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.likelihood.MultiOutputLikelihood"><code class="flex name class">
+<span>class <span class="ident">MultiOutputLikelihood</span></span>
+<span>(</span><span>*likelihoods, name='MultiOutputLikelihood')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Multi-output likelihood to assign a different likelihood per channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>likelihoods</code></strong> :&ensp;<code>gpr.Likelihood</code></dt>
+<dd>List of likelihoods equal to the number of output dimensions.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L168-L275" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputLikelihood(Likelihood):
-    def __init__(self, *likelihoods, name=&#34;MultiOutputLikelihood&#34;, quadratures=20):
-        super().__init__(name=name, quadratures=quadratures)
+    &#34;&#34;&#34;
+    Multi-output likelihood to assign a different likelihood per channel.
+
+    Args:
+        likelihoods (gpr.Likelihood): List of likelihoods equal to the number of output dimensions.
+        name (str): Name of the likelihood.
+    &#34;&#34;&#34;
+    def __init__(self, *likelihoods, name=&#34;MultiOutputLikelihood&#34;):
+        super().__init__(name=name)
 
         if isinstance(likelihoods, tuple):
             if len(likelihoods) == 1 and isinstance(likelihoods[0], list):
@@ -1468,9 +2050,14 @@ class GammaLikelihood(Likelihood):
         r = [torch.nonzero(m[j], as_tuple=False).reshape(-1) for j in range(self.output_dims)]  # as_tuple avoids warning
         return r
 
-    def validate_y(self, y):
-        for likelihood in likelihoods:
-            likelihood.validate_y(y)
+    def validate_y(self, y, X=None):
+        if self.output_dims == 1:
+            self.likelihoods[0].validate_y(y, X=X)
+            return
+
+        r = self._channel_indices(X)
+        for i in range(self.output_dims):
+            self.likelihoods[i].validate_y(y[r[i],:], X=X)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -1495,26 +2082,26 @@ class GammaLikelihood(Likelihood):
             q += self.likelihoods[i].variational_expectation(y[r[i],:], mu[r[i],:], var[r[i],:]).sum()  # sum over N
         return q
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         # f: NxM
         if self.output_dims == 1:
-            return self.likelihoods[0].predictive_y(f)
+            return self.likelihoods[0].mean(f)
 
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].predictive_y(f[r[i],:])
+            res[r[i],:] = self.likelihoods[i].mean(f[r[i],:])
         return res  # NxM
 
-    def predictive_yy(self, f, X=None):
+    def variance(self, f, X=None):
         # f: NxM
         if self.output_dims == 1:
-            return self.likelihoods[0].predictive_yy2(f)
+            return self.likelihoods[0].variance(f)
 
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].predictive_yy(f[r[i],:])
+            res[r[i],:] = self.likelihoods[i].variance(f[r[i],:])
         return res  # NxM
 
     # TODO: predict is not possible?
@@ -1541,126 +2128,139 @@ class GammaLikelihood(Likelihood):
 <ul class="hlist">
 <li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
 </ul>
-<h3>Methods</h3>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.likelihood.PoissonLikelihood"><code class="flex name class">
+<span>class <span class="ident">PoissonLikelihood</span></span>
+<span>(</span><span>link=&lt;function exp&gt;, name='Poisson', quadratures=20)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Poisson likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = \frac{1}{y!} h(f)^y e^{-h(f)} </span><script type="math/tex; mode=display"> p(y|f) = \frac{1}{y!} h(f)^y e^{-h(f)} </script></span></p>
+<p>with <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> the link function and <span><span class="MathJax_Preview">y \in \mathbb{N}_0</span><script type="math/tex">y \in \mathbb{N}_0</script></span>.</p>
+<h2 id="args">Args</h2>
 <dl>
-<dt id="mogptk.gpr.likelihood.MultiOutputLikelihood.log_prob"><code class="name flex">
-<span>def <span class="ident">log_prob</span></span>(<span>self, y, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
+<dt><strong><code>link</code></strong> :&ensp;<code>function</code></dt>
+<dd>Link function to map function values to the support of the likelihood.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L109-L119" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L555-L594" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def log_prob(self, y, f, X=None):
-    # y: Nx1
-    # f: NxM
-    if self.output_dims == 1:
-        return self.likelihoods[0].log_prob(y,f)
+<pre><code class="python">class PoissonLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Poisson likelihood given by
 
-    r = self._channel_indices(X)
-    res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
-    for i in range(self.output_dims):
-        res[r[i],:] = self.likelihoods[i].log_prob(y[r[i],:], f[r[i],:])
-    return res  # NxM</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.MultiOutputLikelihood.predictive_y"><code class="name flex">
-<span>def <span class="ident">predictive_y</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L132-L141" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_y(self, f, X=None):
-    # f: NxM
-    if self.output_dims == 1:
-        return self.likelihoods[0].predictive_y(f)
+    $$ p(y|f) = \\frac{1}{y!} h(f)^y e^{-h(f)} $$
 
-    r = self._channel_indices(X)
-    res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
-    for i in range(self.output_dims):
-        res[r[i],:] = self.likelihoods[i].predictive_y(f[r[i],:])
-    return res  # NxM</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.MultiOutputLikelihood.predictive_yy"><code class="name flex">
-<span>def <span class="ident">predictive_yy</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L143-L152" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_yy(self, f, X=None):
-    # f: NxM
-    if self.output_dims == 1:
-        return self.likelihoods[0].predictive_yy2(f)
+    with \\(h\\) the link function and \\(y \\in \\mathbb{N}_0\\).
 
-    r = self._channel_indices(X)
-    res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
-    for i in range(self.output_dims):
-        res[r[i],:] = self.likelihoods[i].predictive_yy(f[r[i],:])
-    return res  # NxM</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.MultiOutputLikelihood.validate_y"><code class="name flex">
-<span>def <span class="ident">validate_y</span></span>(<span>self, y)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L105-L107" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def validate_y(self, y):
-    for likelihood in likelihoods:
-        likelihood.validate_y(y)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.MultiOutputLikelihood.variational_expectation"><code class="name flex">
-<span>def <span class="ident">variational_expectation</span></span>(<span>self, y, mu, var, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L121-L130" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def variational_expectation(self, y, mu, var, X=None):
-    # y,mu,var: Nx1
-    if self.output_dims == 1:
-        return self.likelihoods[0].variational_expectation(y,mu,var)
+    Args:
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, link=exp, name=&#34;Poisson&#34;, quadratures=20):
+        super().__init__(name, quadratures)
 
-    q = torch.tensor(0.0, dtype=config.dtype, device=config.device)
-    r = self._channel_indices(X)
-    for i in range(self.output_dims):
-        q += self.likelihoods[i].variational_expectation(y[r[i],:], mu[r[i],:], var[r[i],:]).sum()  # sum over N
-    return q</code></pre>
+        self.link = link
+
+    def validate_y(self, y, X=None):
+        if torch.any(y &lt; 0.0):
+            raise ValueError(&#34;y must be in the range [0.0,inf)&#34;)
+        if not torch.all(y == y.long()):
+            raise ValueError(&#34;y must have integer count values&#34;)
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        if self.link == exp:
+            p = y*f
+        else:
+            p = y*self.link(f).log()
+        p -= torch.lgamma(y+1.0)
+        p -= self.link(f)
+        return p  # NxM
+
+    def mean(self, f, X=None):
+        return self.link(f)
+
+    def variance(self, f, X=None):
+        return self.link(f)</code></pre>
 </details>
-</dd>
-</dl>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.likelihood.StudentTLikelihood"><code class="flex name class">
 <span>class <span class="ident">StudentTLikelihood</span></span>
 <span>(</span><span>dof=3, scale=1.0, name='StudentT', quadratures=20)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Student's t likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = \frac{\Gamma\left(\frac{\nu+1}{2}\right)}{\Gamma\left(\frac{\nu}{2}\right)\sqrt{\pi\nu}\sigma} \left( 1 + \frac{(y-f)^2}{\nu\sigma^2} \right)^{-(\nu+1)/2} </span><script type="math/tex; mode=display"> p(y|f) = \frac{\Gamma\left(\frac{\nu+1}{2}\right)}{\Gamma\left(\frac{\nu}{2}\right)\sqrt{\pi\nu}\sigma} \left( 1 + \frac{(y-f)^2}{\nu\sigma^2} \right)^{-(\nu+1)/2} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\nu</span><script type="math/tex">\nu</script></span> the degrees of freedom and <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span> the scale.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dof</code></strong> :&ensp;<code>float</code></dt>
+<dd>Degrees of freedom.</dd>
+<dt><strong><code>scale</code></strong> :&ensp;<code>float</code></dt>
+<dd>Scale.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L208-L232" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L319-L356" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class StudentTLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Student&#39;s t likelihood given by
+
+    $$ p(y|f) = \\frac{\\Gamma\\left(\\frac{\\nu+1}{2}\\right)}{\\Gamma\\left(\\frac{\\nu}{2}\\right)\\sqrt{\\pi\\nu}\\sigma} \\left( 1 + \\frac{(y-f)^2}{\\nu\\sigma^2} \\right)^{-(\\nu+1)/2} $$
+
+    with \\(\\nu\\) the degrees of freedom and \\(\\sigma\\) the scale.
+
+    Args:
+        dof (float): Degrees of freedom.
+        scale (float): Scale.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
     def __init__(self, dof=3, scale=1.0, name=&#34;StudentT&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
@@ -1670,81 +2270,124 @@ class GammaLikelihood(Likelihood):
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -0.5 * (self.dof+1.0)*torch.log(1.0 + ((y-f)/self.scale()).square()/self.dof)
+        p = -0.5 * (self.dof+1.0)*torch.log1p(((y-f)/self.scale()).square()/self.dof)
         p += torch.lgamma((self.dof+1.0)/2.0)
         p -= torch.lgamma(self.dof/2.0)
-        p -= 0.5 * torch.log(self.dof*np.pi*self.scale()**2)
+        p -= 0.5 * torch.log(self.dof*np.pi*self.scale().square())
         return p  # NxM
 
-    def predictive_y(self, f, X=None):
+    def mean(self, f, X=None):
         if self.dof &lt;= 1.0:
             return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
         return f
 
-    def predictive_yy(self, f, X=None):
+    def variance(self, f, X=None):
         if self.dof &lt;= 2.0:
-            return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
-        return f.square() + self.scale()**2 * self.dof/(self.dof-2.0)</code></pre>
+            return np.nan
+        return self.scale().square() * self.dof/(self.dof-2.0)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
 </ul>
-<h3>Methods</h3>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.likelihood.WeibullLikelihood"><code class="flex name class">
+<span>class <span class="ident">WeibullLikelihood</span></span>
+<span>(</span><span>shape=1.0, link=&lt;function exp&gt;, name='Weibull', quadratures=20)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Weibull likelihood given by</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = \frac{k}{h(f)} \left( \frac{y}{h(f)} \right)^{k-1} e^{-(y/h(f))^k} </span><script type="math/tex; mode=display"> p(y|f) = \frac{k}{h(f)} \left( \frac{y}{h(f)} \right)^{k-1} e^{-(y/h(f))^k} </script></span></p>
+<p>with <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> the link function, <span><span class="MathJax_Preview">k</span><script type="math/tex">k</script></span> the shape, and <span><span class="MathJax_Preview">y \in (0.0,\infty)</span><script type="math/tex">y \in (0.0,\infty)</script></span>.</p>
+<h2 id="args">Args</h2>
 <dl>
-<dt id="mogptk.gpr.likelihood.StudentTLikelihood.log_prob"><code class="name flex">
-<span>def <span class="ident">log_prob</span></span>(<span>self, y, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
+<dt><strong><code>shape</code></strong> :&ensp;<code>float</code></dt>
+<dd>Shape.</dd>
+<dt><strong><code>link</code></strong> :&ensp;<code>function</code></dt>
+<dd>Link function to map function values to the support of the likelihood.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the likelihood.</dd>
+<dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L215-L222" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L596-L637" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def log_prob(self, y, f, X=None):
-    # y: Nx1
-    # f: NxM
-    p = -0.5 * (self.dof+1.0)*torch.log(1.0 + ((y-f)/self.scale()).square()/self.dof)
-    p += torch.lgamma((self.dof+1.0)/2.0)
-    p -= torch.lgamma(self.dof/2.0)
-    p -= 0.5 * torch.log(self.dof*np.pi*self.scale()**2)
-    return p  # NxM</code></pre>
+<pre><code class="python">class WeibullLikelihood(Likelihood):
+    &#34;&#34;&#34;
+    Weibull likelihood given by
+
+    $$ p(y|f) = \\frac{k}{h(f)} \\left( \\frac{y}{h(f)} \\right)^{k-1} e^{-(y/h(f))^k} $$
+
+    with \\(h\\) the link function, \\(k\\) the shape, and \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        shape (float): Shape.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    &#34;&#34;&#34;
+    def __init__(self, shape=1.0, link=exp, name=&#34;Weibull&#34;, quadratures=20):
+        super().__init__(name, quadratures)
+
+        self.link = link
+        self.shape = Parameter(shape, name=&#34;shape&#34;, lower=config.positive_minimum)
+
+    def validate_y(self, y, X=None):
+        if torch.any(y &lt;= 0.0):
+            raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
+
+    def log_prob(self, y, f, X=None):
+        # y: Nx1
+        # f: NxM
+        if self.link == exp:
+            p = -self.shape()*f
+        else:
+            p = -self.shape()*self.link(f).log()
+        p += self.shape().log() + (self.shape()-1.0)*y.log()
+        p -= (y/self.link(f))**self.shape()
+        return p  # NxM
+
+    def mean(self, f, X=None):
+        return f * torch.lgamma(1.0 + 1.0/self.shape()).exp()
+
+    def variance(self, f, X=None):
+        a = torch.lgamma(1.0 + 2.0/self.shape()).exp()
+        b = torch.lgamma(1.0 + 1.0/self.shape()).exp()
+        return f.square() * (a - b.square())</code></pre>
 </details>
-</dd>
-<dt id="mogptk.gpr.likelihood.StudentTLikelihood.predictive_y"><code class="name flex">
-<span>def <span class="ident">predictive_y</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L224-L227" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_y(self, f, X=None):
-    if self.dof &lt;= 1.0:
-        return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
-    return f</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.StudentTLikelihood.predictive_yy"><code class="name flex">
-<span>def <span class="ident">predictive_yy</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/likelihood.py#L229-L232" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def predictive_yy(self, f, X=None):
-    if self.dof &lt;= 2.0:
-        return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
-    return f.square() + self.scale()**2 * self.dof/(self.dof-2.0)</code></pre>
-</details>
-</dd>
-</dl>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 </dl>
 </section>
@@ -1766,101 +2409,63 @@ class GammaLikelihood(Likelihood):
 <li><code><a title="mogptk.gpr.likelihood.identity" href="#mogptk.gpr.likelihood.identity">identity</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.inv_probit" href="#mogptk.gpr.likelihood.inv_probit">inv_probit</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.logistic" href="#mogptk.gpr.likelihood.logistic">logistic</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.square" href="#mogptk.gpr.likelihood.square">square</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
 <h4><code><a title="mogptk.gpr.likelihood.BernoulliLikelihood" href="#mogptk.gpr.likelihood.BernoulliLikelihood">BernoulliLikelihood</a></code></h4>
-<ul class="two-column">
-<li><code><a title="mogptk.gpr.likelihood.BernoulliLikelihood.log_prob" href="#mogptk.gpr.likelihood.BernoulliLikelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.BernoulliLikelihood.predict" href="#mogptk.gpr.likelihood.BernoulliLikelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.BernoulliLikelihood.predictive_y" href="#mogptk.gpr.likelihood.BernoulliLikelihood.predictive_y">predictive_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.BernoulliLikelihood.predictive_yy" href="#mogptk.gpr.likelihood.BernoulliLikelihood.predictive_yy">predictive_yy</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.BernoulliLikelihood.quantile" href="#mogptk.gpr.likelihood.BernoulliLikelihood.quantile">quantile</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.BernoulliLikelihood.validate_y" href="#mogptk.gpr.likelihood.BernoulliLikelihood.validate_y">validate_y</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.likelihood.BetaLikelihood" href="#mogptk.gpr.likelihood.BetaLikelihood">BetaLikelihood</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.likelihood.BetaLikelihood.log_prob" href="#mogptk.gpr.likelihood.BetaLikelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.BetaLikelihood.predictive_y" href="#mogptk.gpr.likelihood.BetaLikelihood.predictive_y">predictive_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.BetaLikelihood.predictive_yy" href="#mogptk.gpr.likelihood.BetaLikelihood.predictive_yy">predictive_yy</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.BetaLikelihood.validate_y" href="#mogptk.gpr.likelihood.BetaLikelihood.validate_y">validate_y</a></code></li>
-</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.likelihood.ChiSquaredLikelihood" href="#mogptk.gpr.likelihood.ChiSquaredLikelihood">ChiSquaredLikelihood</a></code></h4>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.likelihood.ExponentialLikelihood" href="#mogptk.gpr.likelihood.ExponentialLikelihood">ExponentialLikelihood</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.likelihood.ExponentialLikelihood.log_prob" href="#mogptk.gpr.likelihood.ExponentialLikelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.ExponentialLikelihood.predictive_y" href="#mogptk.gpr.likelihood.ExponentialLikelihood.predictive_y">predictive_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.ExponentialLikelihood.predictive_yy" href="#mogptk.gpr.likelihood.ExponentialLikelihood.predictive_yy">predictive_yy</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.ExponentialLikelihood.quantile" href="#mogptk.gpr.likelihood.ExponentialLikelihood.quantile">quantile</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.ExponentialLikelihood.validate_y" href="#mogptk.gpr.likelihood.ExponentialLikelihood.validate_y">validate_y</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.likelihood.GammaLikelihood" href="#mogptk.gpr.likelihood.GammaLikelihood">GammaLikelihood</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.likelihood.GammaLikelihood.log_prob" href="#mogptk.gpr.likelihood.GammaLikelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.GammaLikelihood.predictive_y" href="#mogptk.gpr.likelihood.GammaLikelihood.predictive_y">predictive_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.GammaLikelihood.predictive_yy" href="#mogptk.gpr.likelihood.GammaLikelihood.predictive_yy">predictive_yy</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.GammaLikelihood.validate_y" href="#mogptk.gpr.likelihood.GammaLikelihood.validate_y">validate_y</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.likelihood.GaussHermiteQuadrature" href="#mogptk.gpr.likelihood.GaussHermiteQuadrature">GaussHermiteQuadrature</a></code></h4>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.likelihood.GaussianLikelihood" href="#mogptk.gpr.likelihood.GaussianLikelihood">GaussianLikelihood</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.likelihood.GaussianLikelihood.log_prob" href="#mogptk.gpr.likelihood.GaussianLikelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.GaussianLikelihood.predict" href="#mogptk.gpr.likelihood.GaussianLikelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.GaussianLikelihood.predictive_y" href="#mogptk.gpr.likelihood.GaussianLikelihood.predictive_y">predictive_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.GaussianLikelihood.predictive_yy" href="#mogptk.gpr.likelihood.GaussianLikelihood.predictive_yy">predictive_yy</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.GaussianLikelihood.quantile" href="#mogptk.gpr.likelihood.GaussianLikelihood.quantile">quantile</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.GaussianLikelihood.variational_expectation" href="#mogptk.gpr.likelihood.GaussianLikelihood.variational_expectation">variational_expectation</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.likelihood.LaplaceLikelihood" href="#mogptk.gpr.likelihood.LaplaceLikelihood">LaplaceLikelihood</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.likelihood.LaplaceLikelihood.log_prob" href="#mogptk.gpr.likelihood.LaplaceLikelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.LaplaceLikelihood.predictive_y" href="#mogptk.gpr.likelihood.LaplaceLikelihood.predictive_y">predictive_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.LaplaceLikelihood.predictive_yy" href="#mogptk.gpr.likelihood.LaplaceLikelihood.predictive_yy">predictive_yy</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.LaplaceLikelihood.quantile" href="#mogptk.gpr.likelihood.LaplaceLikelihood.quantile">quantile</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></code></h4>
 <ul class="">
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.predictive_y" href="#mogptk.gpr.likelihood.Likelihood.predictive_y">predictive_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.predictive_yy" href="#mogptk.gpr.likelihood.Likelihood.predictive_yy">predictive_yy</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.quantile" href="#mogptk.gpr.likelihood.Likelihood.quantile">quantile</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
 <li>
+<h4><code><a title="mogptk.gpr.likelihood.LogGaussianLikelihood" href="#mogptk.gpr.likelihood.LogGaussianLikelihood">LogGaussianLikelihood</a></code></h4>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.likelihood.LogLogisticLikelihood" href="#mogptk.gpr.likelihood.LogLogisticLikelihood">LogLogisticLikelihood</a></code></h4>
+</li>
+<li>
 <h4><code><a title="mogptk.gpr.likelihood.MultiOutputLikelihood" href="#mogptk.gpr.likelihood.MultiOutputLikelihood">MultiOutputLikelihood</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.likelihood.MultiOutputLikelihood.log_prob" href="#mogptk.gpr.likelihood.MultiOutputLikelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.MultiOutputLikelihood.predictive_y" href="#mogptk.gpr.likelihood.MultiOutputLikelihood.predictive_y">predictive_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.MultiOutputLikelihood.predictive_yy" href="#mogptk.gpr.likelihood.MultiOutputLikelihood.predictive_yy">predictive_yy</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.MultiOutputLikelihood.validate_y" href="#mogptk.gpr.likelihood.MultiOutputLikelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.MultiOutputLikelihood.variational_expectation" href="#mogptk.gpr.likelihood.MultiOutputLikelihood.variational_expectation">variational_expectation</a></code></li>
-</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.likelihood.PoissonLikelihood" href="#mogptk.gpr.likelihood.PoissonLikelihood">PoissonLikelihood</a></code></h4>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.likelihood.StudentTLikelihood" href="#mogptk.gpr.likelihood.StudentTLikelihood">StudentTLikelihood</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.likelihood.StudentTLikelihood.log_prob" href="#mogptk.gpr.likelihood.StudentTLikelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.StudentTLikelihood.predictive_y" href="#mogptk.gpr.likelihood.StudentTLikelihood.predictive_y">predictive_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.StudentTLikelihood.predictive_yy" href="#mogptk.gpr.likelihood.StudentTLikelihood.predictive_yy">predictive_yy</a></code></li>
-</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.likelihood.WeibullLikelihood" href="#mogptk.gpr.likelihood.WeibullLikelihood">WeibullLikelihood</a></code></h4>
 </li>
 </ul>
 </li>

@@ -27,13 +27,25 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L1-L346" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L1-L514" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
 from . import Kernel, Parameter, config
 
 class ConstantKernel(Kernel):
+    &#34;&#34;&#34;
+    A constant or bias kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 $$
+
+    with \\(\\sigma^2\\) the magnitude.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Constant&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -54,6 +66,18 @@ class ConstantKernel(Kernel):
         return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class WhiteKernel(Kernel):
+    &#34;&#34;&#34;
+    A white kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 I $$
+
+    with \\(\\sigma^2\\) the magnitude.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;White&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -74,6 +98,18 @@ class WhiteKernel(Kernel):
         return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class LinearKernel(Kernel):
+    &#34;&#34;&#34;
+    A linear kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 xx&#39;^T + c $$
+
+    with \\(\\sigma^2\\) the magnitude and \\(c\\) the bias.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Linear&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -96,6 +132,19 @@ class LinearKernel(Kernel):
         return self.sigma()**2 * X1.square().sum(dim=1) + self.constant()
 
 class PolynomialKernel(Kernel):
+    &#34;&#34;&#34;
+    A polynomial kernel given by
+
+    $$ K(x,x&#39;) = (\\sigma^2 xx&#39;^T + c)^d $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(c\\) the bias, and \\(d\\) the degree of the polynomial. When \\(d\\) is 1 this becomes equivalent to the linear kernel.
+
+    Args:
+        degree (int): Degree of the polynomial.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, degree, input_dims=1, active_dims=None, name=&#34;Polynomial&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -119,6 +168,19 @@ class PolynomialKernel(Kernel):
         return (self.sigma()**2 * X1.square().sum(dim=1) + self.offset())**self.degree
 
 class PhiKernel(Kernel):
+    &#34;&#34;&#34;
+    A kernel determined by a function \\(\\phi\\) given by
+
+    $$ K(x,x&#39;) = \\phi(x) \\sigma^2 \\phi(x&#39;) $$
+
+    with \\(\\sigma^2\\) the magnitude and \\(\\phi\\) the function.
+
+    Args:
+        phi (function): Function that takes (data_points,input_dims) as input and (data_points,feature_dims) as output. Input and output must be tensors.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, phi, input_dims=1, active_dims=None, name=&#34;Phi&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -137,16 +199,26 @@ class PhiKernel(Kernel):
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
-        variance = self.sigma()**2
+        variance = (self.sigma()**2).diagflat()
         if X2 is None:
             X1 = self.phi(X1)
-            return X1.mm(variance.diagflat().mm(X1.T))
+            return X1.mm(variance.mm(X1.T))
         else:
-            return self.phi(X1).mm(variance.diagflat().mm(self.phi(X2).T))
-
-    # TODO: K_diag
+            return self.phi(X1).mm(variance.mm(self.phi(X2).T))
 
 class ExponentialKernel(Kernel):
+    &#34;&#34;&#34;
+    An exponential kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 e^{-\\frac{|x-x&#39;|}{2l}} $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Exponential&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -169,6 +241,18 @@ class ExponentialKernel(Kernel):
         return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class SquaredExponentialKernel(Kernel):
+    &#34;&#34;&#34;
+    A squared exponential kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 e^{-\\frac{|x-x&#39;|^2}{2l^2}} $$
+
+    with \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;SE&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -191,6 +275,18 @@ class SquaredExponentialKernel(Kernel):
         return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class RationalQuadraticKernel(Kernel):
+    &#34;&#34;&#34;
+    A rational quadratic kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 \\left(1 + \\frac{|x-x&#39;|^2}{2l^2}\\right)^{-\\alpha} $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, alpha=1.0, input_dims=1, active_dims=None, name=&#34;RQ&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -214,9 +310,20 @@ class RationalQuadraticKernel(Kernel):
         return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class PeriodicKernel(Kernel):
+    &#34;&#34;&#34;
+    A periodic kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 e^{-\\frac{2\\sin^2(\\pi |x-x&#39;| / p)}{l^2}} $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Periodic&#34;):
         super().__init__(input_dims, active_dims, name)
-        # TODO: make nested by SE
 
         l = torch.rand(input_dims)
         p = torch.rand(1)
@@ -240,6 +347,18 @@ class PeriodicKernel(Kernel):
         return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class LocallyPeriodicKernel(Kernel):
+    &#34;&#34;&#34;
+    A locally periodic kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 e^{-\\frac{2\\sin^2(\\pi |x-x&#39;| / p)}{l^2}} e^{-\\frac{|x-x&#39;|^2}{2l^2}} $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;LocallyPeriodic&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -267,6 +386,18 @@ class LocallyPeriodicKernel(Kernel):
         return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class CosineKernel(Kernel):
+    &#34;&#34;&#34;
+    A cosine periodic kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 \\cos(2\\pi |x-x&#39;| / l) $$
+
+    with \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Cosine&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -289,11 +420,23 @@ class CosineKernel(Kernel):
         return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class SincKernel(Kernel):
-    def __init__(self, bandwidth=1.0, input_dims=1, active_dims=None, name=&#34;Sinc&#34;):
+    &#34;&#34;&#34;
+    A sinc kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 \\frac{\\sin(\\Delta |x-x&#39;|)}{\\Delta |x-x&#39;|} \\cos(2\\pi \\xi_0 |x-x&#39;|) $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(\\Delta\\) the bandwidth, and \\(\\xi_0\\) the frequency.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, input_dims=1, active_dims=None, name=&#34;Sinc&#34;):
         super().__init__(input_dims, active_dims, name)
 
         frequency = torch.rand(input_dims)
-        bandwidth = bandwidth * torch.ones(input_dims, dtype=config.dtype, device=config.device)
+        bandwidth = torch.ones(input_dims, dtype=config.dtype, device=config.device)
         sigma = torch.rand(1)
 
         self.frequency = Parameter(frequency, lower=config.positive_minimum)
@@ -318,6 +461,18 @@ class SincKernel(Kernel):
         return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class SpectralKernel(Kernel):
+    &#34;&#34;&#34;
+    A spectral kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 e^{-2\\pi^2 \\Sigma |x-x&#39;|^2} \\cos(2\\pi \\mu |x-x&#39;|) $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;SM&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -343,6 +498,19 @@ class SpectralKernel(Kernel):
         return self.sigma()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
 
 class MaternKernel(Kernel):
+    &#34;&#34;&#34;
+    A Matérn kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 c e^{-\\sqrt{2\\nu |x-x&#39;| / l}} $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(c\\) depending on \\(\\nu\\) is either \\(1.0\\) for \\(\\nu = 0.5\\), or \\(1.0 + \\sqrt{3}|x-x&#39;|/l\\) for \\(\\nu = 1.5\\), or \\(1.0 + \\sqrt{5}|x-x&#39;|/l + \\frac{5|x-x&#39;|^2}{3l^2}\\).
+
+    Args:
+        nu (float): Parameter that must be 0.5, 1.5, or 2.5.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, nu=0.5, input_dims=1, active_dims=None, name=&#34;Matérn&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -391,7 +559,9 @@ class MaternKernel(Kernel):
 <span>(</span><span>input_dims=1, active_dims=None, name='Constant')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A constant or bias kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -404,9 +574,21 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L5-L23" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L5-L35" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ConstantKernel(Kernel):
+    &#34;&#34;&#34;
+    A constant or bias kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 $$
+
+    with \\(\\sigma^2\\) the magnitude.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Constant&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -436,11 +618,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -450,7 +629,9 @@ class MaternKernel(Kernel):
 <span>(</span><span>input_dims=1, active_dims=None, name='Cosine')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A cosine periodic kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \cos(2\pi |x-x'| / l) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \cos(2\pi |x-x'| / l) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude and <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -463,9 +644,21 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L238-L258" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L357-L389" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CosineKernel(Kernel):
+    &#34;&#34;&#34;
+    A cosine periodic kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 \\cos(2\\pi |x-x&#39;| / l) $$
+
+    with \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Cosine&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -497,11 +690,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -511,7 +701,9 @@ class MaternKernel(Kernel):
 <span>(</span><span>input_dims=1, active_dims=None, name='Exponential')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>An exponential kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 e^{-\frac{|x-x'|}{2l}} </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 e^{-\frac{|x-x'|}{2l}} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -524,9 +716,21 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L118-L138" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L178-L210" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ExponentialKernel(Kernel):
+    &#34;&#34;&#34;
+    An exponential kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 e^{-\\frac{|x-x&#39;|}{2l}} $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Exponential&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -558,11 +762,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -572,7 +773,9 @@ class MaternKernel(Kernel):
 <span>(</span><span>input_dims=1, active_dims=None, name='Linear')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A linear kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 xx'^T + c </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 xx'^T + c </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude and <span><span class="MathJax_Preview">c</span><script type="math/tex">c</script></span> the bias.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -585,9 +788,21 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L45-L65" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L69-L101" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearKernel(Kernel):
+    &#34;&#34;&#34;
+    A linear kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 xx&#39;^T + c $$
+
+    with \\(\\sigma^2\\) the magnitude and \\(c\\) the bias.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Linear&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -619,11 +834,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -633,7 +845,9 @@ class MaternKernel(Kernel):
 <span>(</span><span>input_dims=1, active_dims=None, name='LocallyPeriodic')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A locally periodic kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 e^{-\frac{2\sin^2(\pi |x-x'| / p)}{l^2}} e^{-\frac{|x-x'|^2}{2l^2}} </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 e^{-\frac{2\sin^2(\pi |x-x'| / p)}{l^2}} e^{-\frac{|x-x'|^2}{2l^2}} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> the period parameter.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -646,9 +860,21 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L211-L236" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L318-L355" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LocallyPeriodicKernel(Kernel):
+    &#34;&#34;&#34;
+    A locally periodic kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 e^{-\\frac{2\\sin^2(\\pi |x-x&#39;| / p)}{l^2}} e^{-\\frac{|x-x&#39;|^2}{2l^2}} $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;LocallyPeriodic&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -685,11 +911,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -699,9 +922,13 @@ class MaternKernel(Kernel):
 <span>(</span><span>nu=0.5, input_dims=1, active_dims=None, name='Matérn')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A Matérn kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 c e^{-\sqrt{2\nu |x-x'| / l}} </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 c e^{-\sqrt{2\nu |x-x'| / l}} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">c</span><script type="math/tex">c</script></span> depending on <span><span class="MathJax_Preview">\nu</span><script type="math/tex">\nu</script></span> is either <span><span class="MathJax_Preview">1.0</span><script type="math/tex">1.0</script></span> for <span><span class="MathJax_Preview">\nu = 0.5</span><script type="math/tex">\nu = 0.5</script></span>, or <span><span class="MathJax_Preview">1.0 + \sqrt{3}|x-x'|/l</span><script type="math/tex">1.0 + \sqrt{3}|x-x'|/l</script></span> for <span><span class="MathJax_Preview">\nu = 1.5</span><script type="math/tex">\nu = 1.5</script></span>, or <span><span class="MathJax_Preview">1.0 + \sqrt{5}|x-x'|/l + \frac{5|x-x'|^2}{3l^2}</span><script type="math/tex">1.0 + \sqrt{5}|x-x'|/l + \frac{5|x-x'|^2}{3l^2}</script></span>.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>nu</code></strong> :&ensp;<code>float</code></dt>
+<dd>Parameter that must be 0.5, 1.5, or 2.5.</dd>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of input dimensions.</dd>
 <dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
@@ -712,9 +939,22 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L314-L346" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L469-L514" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MaternKernel(Kernel):
+    &#34;&#34;&#34;
+    A Matérn kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 c e^{-\\sqrt{2\\nu |x-x&#39;| / l}} $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(c\\) depending on \\(\\nu\\) is either \\(1.0\\) for \\(\\nu = 0.5\\), or \\(1.0 + \\sqrt{3}|x-x&#39;|/l\\) for \\(\\nu = 1.5\\), or \\(1.0 + \\sqrt{5}|x-x&#39;|/l + \\frac{5|x-x&#39;|^2}{3l^2}\\).
+
+    Args:
+        nu (float): Parameter that must be 0.5, 1.5, or 2.5.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, nu=0.5, input_dims=1, active_dims=None, name=&#34;Matérn&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -758,11 +998,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -772,7 +1009,9 @@ class MaternKernel(Kernel):
 <span>(</span><span>input_dims=1, active_dims=None, name='Periodic')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A periodic kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 e^{-\frac{2\sin^2(\pi |x-x'| / p)}{l^2}} </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 e^{-\frac{2\sin^2(\pi |x-x'| / p)}{l^2}} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> the period parameter.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -785,12 +1024,23 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L185-L209" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L281-L316" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PeriodicKernel(Kernel):
+    &#34;&#34;&#34;
+    A periodic kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 e^{-\\frac{2\\sin^2(\\pi |x-x&#39;| / p)}{l^2}} $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Periodic&#34;):
         super().__init__(input_dims, active_dims, name)
-        # TODO: make nested by SE
 
         l = torch.rand(input_dims)
         p = torch.rand(1)
@@ -823,11 +1073,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -837,9 +1084,13 @@ class MaternKernel(Kernel):
 <span>(</span><span>phi, input_dims=1, active_dims=None, name='Phi')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A kernel determined by a function <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \phi(x) \sigma^2 \phi(x') </span><script type="math/tex; mode=display"> K(x,x') = \phi(x) \sigma^2 \phi(x') </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude and <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> the function.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>phi</code></strong> :&ensp;<code>function</code></dt>
+<dd>Function that takes (data_points,input_dims) as input and (data_points,feature_dims) as output. Input and output must be tensors.</dd>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of input dimensions.</dd>
 <dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
@@ -850,9 +1101,22 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L90-L116" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L139-L176" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PhiKernel(Kernel):
+    &#34;&#34;&#34;
+    A kernel determined by a function \\(\\phi\\) given by
+
+    $$ K(x,x&#39;) = \\phi(x) \\sigma^2 \\phi(x&#39;) $$
+
+    with \\(\\sigma^2\\) the magnitude and \\(\\phi\\) the function.
+
+    Args:
+        phi (function): Function that takes (data_points,input_dims) as input and (data_points,feature_dims) as output. Input and output must be tensors.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, phi, input_dims=1, active_dims=None, name=&#34;Phi&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -871,14 +1135,12 @@ class MaternKernel(Kernel):
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
-        variance = self.sigma()**2
+        variance = (self.sigma()**2).diagflat()
         if X2 is None:
             X1 = self.phi(X1)
-            return X1.mm(variance.diagflat().mm(X1.T))
+            return X1.mm(variance.mm(X1.T))
         else:
-            return self.phi(X1).mm(variance.diagflat().mm(self.phi(X2).T))
-
-    # TODO: K_diag</code></pre>
+            return self.phi(X1).mm(variance.mm(self.phi(X2).T))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -890,11 +1152,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -904,9 +1163,13 @@ class MaternKernel(Kernel):
 <span>(</span><span>degree, input_dims=1, active_dims=None, name='Polynomial')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A polynomial kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = (\sigma^2 xx'^T + c)^d </span><script type="math/tex; mode=display"> K(x,x') = (\sigma^2 xx'^T + c)^d </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">c</span><script type="math/tex">c</script></span> the bias, and <span><span class="MathJax_Preview">d</span><script type="math/tex">d</script></span> the degree of the polynomial. When <span><span class="MathJax_Preview">d</span><script type="math/tex">d</script></span> is 1 this becomes equivalent to the linear kernel.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>degree</code></strong> :&ensp;<code>int</code></dt>
+<dd>Degree of the polynomial.</dd>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of input dimensions.</dd>
 <dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
@@ -917,9 +1180,22 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L67-L88" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L103-L137" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PolynomialKernel(Kernel):
+    &#34;&#34;&#34;
+    A polynomial kernel given by
+
+    $$ K(x,x&#39;) = (\\sigma^2 xx&#39;^T + c)^d $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(c\\) the bias, and \\(d\\) the degree of the polynomial. When \\(d\\) is 1 this becomes equivalent to the linear kernel.
+
+    Args:
+        degree (int): Degree of the polynomial.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, degree, input_dims=1, active_dims=None, name=&#34;Polynomial&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -952,11 +1228,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -966,7 +1239,9 @@ class MaternKernel(Kernel):
 <span>(</span><span>alpha=1.0, input_dims=1, active_dims=None, name='RQ')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A rational quadratic kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \left(1 + \frac{|x-x'|^2}{2l^2}\right)^{-\alpha} </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \left(1 + \frac{|x-x'|^2}{2l^2}\right)^{-\alpha} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">\alpha</span><script type="math/tex">\alpha</script></span> the relative weighting of small-scale and large-scale fluctuations. When <span><span class="MathJax_Preview">\alpha \to \infty</span><script type="math/tex">\alpha \to \infty</script></span> this kernel becomes equivalent to the squared exponential kernel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -979,9 +1254,21 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L162-L183" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L246-L279" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class RationalQuadraticKernel(Kernel):
+    &#34;&#34;&#34;
+    A rational quadratic kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 \\left(1 + \\frac{|x-x&#39;|^2}{2l^2}\\right)^{-\\alpha} $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, alpha=1.0, input_dims=1, active_dims=None, name=&#34;RQ&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -1014,21 +1301,20 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
 </dd>
 <dt id="mogptk.gpr.singleoutput.SincKernel"><code class="flex name class">
 <span>class <span class="ident">SincKernel</span></span>
-<span>(</span><span>bandwidth=1.0, input_dims=1, active_dims=None, name='Sinc')</span>
+<span>(</span><span>input_dims=1, active_dims=None, name='Sinc')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A sinc kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \frac{\sin(\Delta |x-x'|)}{\Delta |x-x'|} \cos(2\pi \xi_0 |x-x'|) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \frac{\sin(\Delta |x-x'|)}{\Delta |x-x'|} \cos(2\pi \xi_0 |x-x'|) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">\Delta</span><script type="math/tex">\Delta</script></span> the bandwidth, and <span><span class="MathJax_Preview">\xi_0</span><script type="math/tex">\xi_0</script></span> the frequency.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -1041,14 +1327,26 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L260-L287" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L391-L430" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SincKernel(Kernel):
-    def __init__(self, bandwidth=1.0, input_dims=1, active_dims=None, name=&#34;Sinc&#34;):
+    &#34;&#34;&#34;
+    A sinc kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 \\frac{\\sin(\\Delta |x-x&#39;|)}{\\Delta |x-x&#39;|} \\cos(2\\pi \\xi_0 |x-x&#39;|) $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(\\Delta\\) the bandwidth, and \\(\\xi_0\\) the frequency.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
+    def __init__(self, input_dims=1, active_dims=None, name=&#34;Sinc&#34;):
         super().__init__(input_dims, active_dims, name)
 
         frequency = torch.rand(input_dims)
-        bandwidth = bandwidth * torch.ones(input_dims, dtype=config.dtype, device=config.device)
+        bandwidth = torch.ones(input_dims, dtype=config.dtype, device=config.device)
         sigma = torch.rand(1)
 
         self.frequency = Parameter(frequency, lower=config.positive_minimum)
@@ -1082,11 +1380,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -1096,7 +1391,9 @@ class MaternKernel(Kernel):
 <span>(</span><span>input_dims=1, active_dims=None, name='SM')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A spectral kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 e^{-2\pi^2 \Sigma |x-x'|^2} \cos(2\pi \mu |x-x'|) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 e^{-2\pi^2 \Sigma |x-x'|^2} \cos(2\pi \mu |x-x'|) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">\Sigma</span><script type="math/tex">\Sigma</script></span> the variance, and <span><span class="MathJax_Preview">\mu</span><script type="math/tex">\mu</script></span> the mean.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -1109,9 +1406,21 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L289-L312" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L432-L467" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralKernel(Kernel):
+    &#34;&#34;&#34;
+    A spectral kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 e^{-2\\pi^2 \\Sigma |x-x&#39;|^2} \\cos(2\\pi \\mu |x-x&#39;|) $$
+
+    with \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;SM&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -1146,11 +1455,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -1160,7 +1466,9 @@ class MaternKernel(Kernel):
 <span>(</span><span>input_dims=1, active_dims=None, name='SE')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A squared exponential kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 e^{-\frac{|x-x'|^2}{2l^2}} </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 e^{-\frac{|x-x'|^2}{2l^2}} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude and <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -1173,9 +1481,21 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L140-L160" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L212-L244" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SquaredExponentialKernel(Kernel):
+    &#34;&#34;&#34;
+    A squared exponential kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 e^{-\\frac{|x-x&#39;|^2}{2l^2}} $$
+
+    with \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;SE&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -1207,11 +1527,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>
@@ -1221,7 +1538,9 @@ class MaternKernel(Kernel):
 <span>(</span><span>input_dims=1, active_dims=None, name='White')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base kernel.</p>
+<div class="desc"><p>A white kernel given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 I </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 I </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -1234,9 +1553,21 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/singleoutput.py#L25-L43" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/singleoutput.py#L37-L67" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class WhiteKernel(Kernel):
+    &#34;&#34;&#34;
+    A white kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 I $$
+
+    with \\(\\sigma^2\\) the magnitude.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;White&#34;):
         super().__init__(input_dims, active_dims, name)
 
@@ -1266,11 +1597,8 @@ class MaternKernel(Kernel):
 <ul class="hlist">
 <li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.average" href="kernel.html#mogptk.gpr.kernel.Kernel.average">average</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="kernel.html#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="kernel.html#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 </ul>

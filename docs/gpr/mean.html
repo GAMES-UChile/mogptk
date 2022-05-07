@@ -27,20 +27,28 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/mean.py#L1-L48" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/mean.py#L1-L88" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 from . import Parameter, config
 
 class Mean:
-    def __init__(self, name=None):
-        if name is None:
-            name = self.__class__.__name__
-            if name.endswith(&#39;Mean&#39;) and name != &#39;Mean&#39;:
-                name = name[:-4]
+    &#34;&#34;&#34;
+    Defines a trainable mean function, complementary to the the way we also have a trainable covariance function (the kernel).
+    &#34;&#34;&#34;
+    def __init__(self, name=&#34;Mean&#34;):
         self.name = name
 
     def __call__(self, X):
+        &#34;&#34;&#34;
+        Return the mean for a given `X`. This is the same as calling `mean(X)` but `X` doesn&#39;t necessarily have to be a tensor.
+
+        Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Mean values of shape (data_points,).
+        &#34;&#34;&#34;
         X = self._check_input(X)
         return self.mean(X)
 
@@ -68,15 +76,47 @@ class Mean:
         return X
 
     def mean(self, X):
+        &#34;&#34;&#34;
+        Return the mean for a given `X`.
+
+        Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Mean values of shape (data_points,).
+        &#34;&#34;&#34;
         raise NotImplementedError()
 
 class ConstantMean(Mean):
-    def __init__(self, y, name=None):
+    &#34;&#34;&#34;
+    Constant mean function:
+
+    $$ m(X) = b $$
+
+    with \\(b\\) the bias.
+    &#34;&#34;&#34;
+    def __init__(self, name=&#34;ConstantMean&#34;):
         super().__init__(name)
-        self.y = y
+        self.bias = Parameter(0.0)
 
     def mean(self, X):
-        return torch.full((X.shape[0],), self.y, device=config.device, dtype=config.dtype)</code></pre>
+        return self.bias().repeat(X.shape[0])
+
+class LinearMean(Mean):
+    &#34;&#34;&#34;
+    Linear mean function:
+
+    $$ m(X) = aX + b $$
+
+    with \\(a\\) the slope and \\(b\\) the bias.
+    &#34;&#34;&#34;
+    def __init__(self, input_dims=1, name=&#34;LinearMean&#34;):
+        super().__init__(name)
+        self.bias = Parameter(0.0)
+        self.slope = Parameter(torch.zeros(input_dims))
+
+    def mean(self, X):
+        return self.bias() + X.mm(self.slope().reshape(1,-1))</code></pre>
 </details>
 </section>
 <section>
@@ -90,65 +130,115 @@ class ConstantMean(Mean):
 <dl>
 <dt id="mogptk.gpr.mean.ConstantMean"><code class="flex name class">
 <span>class <span class="ident">ConstantMean</span></span>
-<span>(</span><span>y, name=None)</span>
+<span>(</span><span>name='ConstantMean')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Constant mean function:</p>
+<p><span><span class="MathJax_Preview"> m(X) = b </span><script type="math/tex; mode=display"> m(X) = b </script></span></p>
+<p>with <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span> the bias.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/mean.py#L42-L48" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/mean.py#L59-L72" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ConstantMean(Mean):
-    def __init__(self, y, name=None):
+    &#34;&#34;&#34;
+    Constant mean function:
+
+    $$ m(X) = b $$
+
+    with \\(b\\) the bias.
+    &#34;&#34;&#34;
+    def __init__(self, name=&#34;ConstantMean&#34;):
         super().__init__(name)
-        self.y = y
+        self.bias = Parameter(0.0)
 
     def mean(self, X):
-        return torch.full((X.shape[0],), self.y, device=config.device, dtype=config.dtype)</code></pre>
+        return self.bias().repeat(X.shape[0])</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="mogptk.gpr.mean.Mean" href="#mogptk.gpr.mean.Mean">Mean</a></li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.gpr.mean.ConstantMean.mean"><code class="name flex">
-<span>def <span class="ident">mean</span></span>(<span>self, X)</span>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.mean.Mean" href="#mogptk.gpr.mean.Mean">Mean</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.mean.Mean.mean" href="#mogptk.gpr.mean.Mean.mean">mean</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="mogptk.gpr.mean.LinearMean"><code class="flex name class">
+<span>class <span class="ident">LinearMean</span></span>
+<span>(</span><span>input_dims=1, name='LinearMean')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Linear mean function:</p>
+<p><span><span class="MathJax_Preview"> m(X) = aX + b </span><script type="math/tex; mode=display"> m(X) = aX + b </script></span></p>
+<p>with <span><span class="MathJax_Preview">a</span><script type="math/tex">a</script></span> the slope and <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span> the bias.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/mean.py#L47-L48" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/mean.py#L74-L88" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def mean(self, X):
-    return torch.full((X.shape[0],), self.y, device=config.device, dtype=config.dtype)</code></pre>
+<pre><code class="python">class LinearMean(Mean):
+    &#34;&#34;&#34;
+    Linear mean function:
+
+    $$ m(X) = aX + b $$
+
+    with \\(a\\) the slope and \\(b\\) the bias.
+    &#34;&#34;&#34;
+    def __init__(self, input_dims=1, name=&#34;LinearMean&#34;):
+        super().__init__(name)
+        self.bias = Parameter(0.0)
+        self.slope = Parameter(torch.zeros(input_dims))
+
+    def mean(self, X):
+        return self.bias() + X.mm(self.slope().reshape(1,-1))</code></pre>
 </details>
-</dd>
-</dl>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.mean.Mean" href="#mogptk.gpr.mean.Mean">Mean</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.mean.Mean" href="#mogptk.gpr.mean.Mean">Mean</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.mean.Mean.mean" href="#mogptk.gpr.mean.Mean.mean">mean</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 <dt id="mogptk.gpr.mean.Mean"><code class="flex name class">
 <span>class <span class="ident">Mean</span></span>
-<span>(</span><span>name=None)</span>
+<span>(</span><span>name='Mean')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Defines a trainable mean function, complementary to the the way we also have a trainable covariance function (the kernel).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/mean.py#L4-L40" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/mean.py#L4-L57" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mean:
-    def __init__(self, name=None):
-        if name is None:
-            name = self.__class__.__name__
-            if name.endswith(&#39;Mean&#39;) and name != &#39;Mean&#39;:
-                name = name[:-4]
+    &#34;&#34;&#34;
+    Defines a trainable mean function, complementary to the the way we also have a trainable covariance function (the kernel).
+    &#34;&#34;&#34;
+    def __init__(self, name=&#34;Mean&#34;):
         self.name = name
 
     def __call__(self, X):
+        &#34;&#34;&#34;
+        Return the mean for a given `X`. This is the same as calling `mean(X)` but `X` doesn&#39;t necessarily have to be a tensor.
+
+        Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Mean values of shape (data_points,).
+        &#34;&#34;&#34;
         X = self._check_input(X)
         return self.mean(X)
 
@@ -176,11 +266,21 @@ class ConstantMean(Mean):
         return X
 
     def mean(self, X):
+        &#34;&#34;&#34;
+        Return the mean for a given `X`.
+
+        Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
+
+        Returns:
+            torch.tensor: Mean values of shape (data_points,).
+        &#34;&#34;&#34;
         raise NotImplementedError()</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li><a title="mogptk.gpr.mean.ConstantMean" href="#mogptk.gpr.mean.ConstantMean">ConstantMean</a></li>
+<li><a title="mogptk.gpr.mean.LinearMean" href="#mogptk.gpr.mean.LinearMean">LinearMean</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
@@ -188,13 +288,32 @@ class ConstantMean(Mean):
 <span>def <span class="ident">mean</span></span>(<span>self, X)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Return the mean for a given <code>X</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Mean values of shape (data_points,).</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/957ca8121ade4d5581985d6dcb3d12b9f346e819/mogptk/gpr/mean.py#L39-L40" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/mean.py#L47-L57" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean(self, X):
+    &#34;&#34;&#34;
+    Return the mean for a given `X`.
+
+    Args:
+        X (torch.tensor): Input of shape (data_points,input_dims).
+
+    Returns:
+        torch.tensor: Mean values of shape (data_points,).
+    &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -218,9 +337,9 @@ class ConstantMean(Mean):
 <ul>
 <li>
 <h4><code><a title="mogptk.gpr.mean.ConstantMean" href="#mogptk.gpr.mean.ConstantMean">ConstantMean</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.mean.ConstantMean.mean" href="#mogptk.gpr.mean.ConstantMean.mean">mean</a></code></li>
-</ul>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.mean.LinearMean" href="#mogptk.gpr.mean.LinearMean">LinearMean</a></code></h4>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.mean.Mean" href="#mogptk.gpr.mean.Mean">Mean</a></code></h4>

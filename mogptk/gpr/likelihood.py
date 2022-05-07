@@ -3,20 +3,45 @@ import numpy as np
 from . import config, Parameter
 
 def identity(x):
+    """
+    The identity link function given by
+
+    $$ y = x $$
+    """
     return x
 
 def square(x):
+    """
+    The square link function given by
+
+    $$ y = x^2 $$
+    """
     return torch.square(x)
 
 def exp(x):
+    """
+    The exponential link function given by
+
+    $$ y = e^{x} $$
+    """
     return torch.exp(x)
 
 def inv_probit(x):
+    """
+    The inverse probit link function given by
+
+    $$ y = \\frac{1}{2} \\left(1 + \\erf(x/\\sqrt{2})\\right) $$
+    """
     jitter = 1e-3
     return 0.5*(1.0+torch.erf(x/np.sqrt(2.0))) * (1.0-2.0*jitter) + jitter
 
 # also inv_logit or sigmoid
 def logistic(x):
+    """
+    The logistic, inverse logit, or sigmoid link function given by
+
+    $$ y = \\frac{1}{1 + e^{-x}} $$
+    """
     return 1.0/(1.0+torch.exp(-x))
 
 class GaussHermiteQuadrature:
@@ -28,53 +53,128 @@ class GaussHermiteQuadrature:
             t *= t_scale
         if w_scale is not None:
             w *= w_scale
-        self.t = torch.tensor(t, device=config.device, dtype=config.dtype)  # Mx1
-        self.w = torch.tensor(w, device=config.device, dtype=config.dtype)  # Mx1
+        self.t = torch.tensor(t, device=config.device, dtype=config.dtype)  # degx1
+        self.w = torch.tensor(w, device=config.device, dtype=config.dtype)  # degx1
         self.deg = deg
 
     def __call__(self, mu, var, F):
         return F(mu + var.sqrt().mm(self.t.T)).mm(self.w)  # Nx1
 
 class Likelihood:
+    """
+    Base likelihood.
+
+    Args:
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, name="Likelihood", quadratures=20):
         self.name = name
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = 1
 
     def validate_y(self, y, X=None):
+        """
+        Validate whether the y input is within the likelihood's support.
+        """
         pass
 
     def log_prob(self, y, f, X=None):
-        # log(p(y|f)), where p(y|f) is our likelihood
+        """
+        Calculate the log probability
+
+        $$ \\log(p(y|f)) $$
+
+        with \\(p(y|f)\\) our likelihood.
+        """
         # y: Nx1
         # f: NxM
         raise NotImplementedError()
 
     def variational_expectation(self, y, mu, var, X=None):
-        # ∫ log(p(y|f)) q(f) df, where q(f) ~ N(mu,var) and p(y|f) is our likelihood
+        """
+        Calculate the variational expectation
+
+        $$ \\int \\log(p(y|f)) \\; q(f) \\; df $$
+
+        where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate the integral.
+
+        Args:
+            y (torch.tensor): Values for y of shape (data_points,).
+            mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,).
+            var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+        """
         # y,mu,var: Nx1
         q = self.quadrature(mu, var, lambda f: self.log_prob(y,f,X=X))  # Nx1
         return q.sum()  # sum over N
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
+        """
+        Calculate the mean of the likelihood.
+
+        Args:
+            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+
+        Returns:
+            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        """
         # f: NxM
         raise NotImplementedError()
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
+        """
+        Calculate the variance of the likelihood.
+
+        Args:
+            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+
+        Returns:
+            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        """
         # f: NxM
         raise NotImplementedError()
 
     def predict(self, mu, var, X=None, full=False):
-        # ∫∫ y p(y|f) q(f) df dy,  ∫∫ y^2 p(y|f) q(f) df dy - (∫∫ y p(y|f) q(f) df dy)^2
-        # where q(f) ~ N(mu,var) and p(y|f) is our likelihood
+        """
+        Calculate the mean and variance of the predictive distribution
+
+        $$ \\mu = \\iint y \\; p(y|f) \\; q(f) \\; df dy $$
+        $$ \\Sigma = \\iint y^2 \\; p(y|f) \\; q(f) \\; df dy - \\mu^2 $$
+
+        where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate both integrals.
+
+        Args:
+            mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,).
+            var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+            full (boolean): Return the full covariance matrix.
+
+        Returns:
+            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
+        """
         # mu,var: Nx1
-        Ey = self.quadrature(mu, var, lambda f: self.predictive_mean(f,X=X))
-        Eyy = self.quadrature(mu, var, lambda f: self.predictive_mean(f,X=X).square() + self.predictive_variance(f,X=X))
+        # TODO: full covariance matrix for likelihood predictions
+        if full:
+            raise NotImplementedError("full covariance not support for likelihood predictions")
+
+        Ey = self.quadrature(mu, var, lambda f: self.mean(f,X=X))
+        Eyy = self.quadrature(mu, var, lambda f: self.mean(f,X=X).square() + self.variance(f,X=X))
         return Ey, Eyy-Ey**2
 
 class MultiOutputLikelihood(Likelihood):
-    def __init__(self, *likelihoods, name="MultiOutputLikelihood", quadratures=20):
-        super().__init__(name=name, quadratures=quadratures)
+    """
+    Multi-output likelihood to assign a different likelihood per channel.
+
+    Args:
+        likelihoods (gpr.Likelihood): List of likelihoods equal to the number of output dimensions.
+        name (str): Name of the likelihood.
+    """
+    def __init__(self, *likelihoods, name="MultiOutputLikelihood"):
+        super().__init__(name=name)
 
         if isinstance(likelihoods, tuple):
             if len(likelihoods) == 1 and isinstance(likelihoods[0], list):
@@ -132,26 +232,26 @@ class MultiOutputLikelihood(Likelihood):
             q += self.likelihoods[i].variational_expectation(y[r[i],:], mu[r[i],:], var[r[i],:]).sum()  # sum over N
         return q
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         # f: NxM
         if self.output_dims == 1:
-            return self.likelihoods[0].predictive_mean(f)
+            return self.likelihoods[0].mean(f)
 
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].predictive_mean(f[r[i],:])
+            res[r[i],:] = self.likelihoods[i].mean(f[r[i],:])
         return res  # NxM
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         # f: NxM
         if self.output_dims == 1:
-            return self.likelihoods[0].predictive_variance(f)
+            return self.likelihoods[0].variance(f)
 
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].predictive_variance(f[r[i],:])
+            res[r[i],:] = self.likelihoods[i].variance(f[r[i],:])
         return res  # NxM
 
     # TODO: predict is not possible?
@@ -175,8 +275,19 @@ class MultiOutputLikelihood(Likelihood):
     #    return Ey, Eyy-Ey.square()
 
 class GaussianLikelihood(Likelihood):
-    def __init__(self, variance=1.0, name="Gaussian", quadratures=20):
-        super().__init__(name, quadratures)
+    """
+    Gaussian likelihood given by
+
+    $$ p(y|f) = \\frac{1}{\\sigma\\sqrt{2\\pi}}e^{-\\frac{(y-f)^2}{2\\sigma^2}} $$
+
+    with \\(\\sigma^2\\) the variance.
+
+    Args:
+        variance (float): Gaussian variance.
+        name (str): Name of the likelihood.
+    """
+    def __init__(self, variance=1.0, name="Gaussian"):
+        super().__init__(name)
 
         self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
 
@@ -193,10 +304,10 @@ class GaussianLikelihood(Likelihood):
         p -= self.variance().log()
         return 0.5*p.sum()  # sum over N
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return f
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         return self.variance()
 
     def predict(self, mu, var, X=None, full=False):
@@ -206,6 +317,19 @@ class GaussianLikelihood(Likelihood):
             return mu, var + self.variance()
 
 class StudentTLikelihood(Likelihood):
+    """
+    Student's t likelihood given by
+
+    $$ p(y|f) = \\frac{\\Gamma\\left(\\frac{\\nu+1}{2}\\right)}{\\Gamma\\left(\\frac{\\nu}{2}\\right)\\sqrt{\\pi\\nu}\\sigma} \\left( 1 + \\frac{(y-f)^2}{\\nu\\sigma^2} \\right)^{-(\\nu+1)/2} $$
+
+    with \\(\\nu\\) the degrees of freedom and \\(\\sigma\\) the scale.
+
+    Args:
+        dof (float): Degrees of freedom.
+        scale (float): Scale.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, dof=3, scale=1.0, name="StudentT", quadratures=20):
         super().__init__(name, quadratures)
 
@@ -221,17 +345,29 @@ class StudentTLikelihood(Likelihood):
         p -= 0.5 * torch.log(self.dof*np.pi*self.scale().square())
         return p  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         if self.dof <= 1.0:
             return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
         return f
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         if self.dof <= 2.0:
-            return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
+            return np.nan
         return self.scale().square() * self.dof/(self.dof-2.0)
 
 class ExponentialLikelihood(Likelihood):
+    """
+    Exponential likelihood given by
+
+    $$ p(y|f) = h(f) e^{-h(f)y} $$
+
+    with \\(h\\) the link function and \\(y \\in [0.0,\\infty)\\).
+
+    Args:
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, link=exp, name="Exponential", quadratures=20):
         super().__init__(name, quadratures)
 
@@ -250,13 +386,25 @@ class ExponentialLikelihood(Likelihood):
             p = -y/self.link(f) - self.link(f).log()
         return p  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f)
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         return self.link(f).square()
 
 class LaplaceLikelihood(Likelihood):
+    """
+    Laplace likelihood given by
+
+    $$ p(y|f) = \\frac{1}{2\\sigma}e^{-\\frac{|y-f|}{\\sigma}} $$
+
+    with \\(\\sigma\\) the scale.
+
+    Args:
+        scale (float): Scale.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, scale=1.0, name="Laplace", quadratures=20):
         super().__init__(name, quadratures)
 
@@ -268,14 +416,26 @@ class LaplaceLikelihood(Likelihood):
         p = -torch.log(2.0*self.scale()) - (y-f).abs()/self.scale()
         return p  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return f
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         return 2.0 * self.scale().square()
 
 class BernoulliLikelihood(Likelihood):
-    def __init__(self, scale=1.0, link=inv_probit, name="Bernoulli", quadratures=20):
+    """
+    Bernoulli likelihood given by
+
+    $$ p(y|f) = h(f)^k (1-h(f))^{1-k} $$
+
+    with \\(h\\) the link function, \\(k\\) the number of \\(y\\) values equal to 1, and \\(y \\in \\{0.0,1.0\\}\\).
+
+    Args:
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
+    def __init__(self, link=inv_probit, name="Bernoulli", quadratures=20):
         super().__init__(name, quadratures)
 
         self.link = link
@@ -290,10 +450,10 @@ class BernoulliLikelihood(Likelihood):
         p = self.link(f)
         return torch.log(torch.where(0.5 <= y, p, 1.0-p))  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f)
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         return self.link(f) - self.link(f).square()
 
     def predict(self, mu, var, X=None, full=False):
@@ -306,6 +466,19 @@ class BernoulliLikelihood(Likelihood):
             return super().predict(mu, var, X=X, full=full)
 
 class BetaLikelihood(Likelihood):
+    """
+    Beta likelihood given by
+
+    $$ p(y|f) = \\frac{\\Gamma(\\sigma)}{\\Gamma\\left(h(f)\\sigma\\right)\\Gamma\\left((1-h(f)\\sigma\\right)} y^{h(f)\\sigma} (1-y)^{(1-h(f))\\sigma} $$
+
+    with \\(h\\) the link function, \\(\\sigma\\) the scale, and \\(y \\in (0.0,1.0)\\).
+
+    Args:
+        scale (float): Scale.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, scale=1.0, link=inv_probit, name="Beta", quadratures=20):
         super().__init__(name, quadratures)
 
@@ -330,14 +503,27 @@ class BetaLikelihood(Likelihood):
         p -= torch.lgamma(beta)
         return p  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f)
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         mixture = self.link(f)
         return (mixture - mixture.square()) / (self.scale() + 1.0)
 
 class GammaLikelihood(Likelihood):
+    """
+    Gamma likelihood given by
+
+    $$ p(y|f) = \\frac{1}{\\Gamma(k)h(f)^k} y^{k-1} e^{-y/h(f)} $$
+
+    with \\(h\\) the link function, \\(k\\) the shape, and \\(y \\in (0.0,\\infty)\\). 
+
+    Args:
+        shape (float): Shape.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, shape=1.0, link=exp, name="Gamma", quadratures=20):
         super().__init__(name, quadratures)
 
@@ -360,13 +546,25 @@ class GammaLikelihood(Likelihood):
             p -= self.shape()*self.link(f).log()
         return p  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return self.shape()*self.link(f)
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         return self.shape()*self.link(f).square()
 
 class PoissonLikelihood(Likelihood):
+    """
+    Poisson likelihood given by
+
+    $$ p(y|f) = \\frac{1}{y!} h(f)^y e^{-h(f)} $$
+
+    with \\(h\\) the link function and \\(y \\in \\mathbb{N}_0\\).
+
+    Args:
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, link=exp, name="Poisson", quadratures=20):
         super().__init__(name, quadratures)
 
@@ -389,13 +587,26 @@ class PoissonLikelihood(Likelihood):
         p -= self.link(f)
         return p  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f)
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         return self.link(f)
 
 class WeibullLikelihood(Likelihood):
+    """
+    Weibull likelihood given by
+
+    $$ p(y|f) = \\frac{k}{h(f)} \\left( \\frac{y}{h(f)} \\right)^{k-1} e^{-(y/h(f))^k} $$
+
+    with \\(h\\) the link function, \\(k\\) the shape, and \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        shape (float): Shape.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, shape=1.0, link=exp, name="Weibull", quadratures=20):
         super().__init__(name, quadratures)
 
@@ -417,15 +628,28 @@ class WeibullLikelihood(Likelihood):
         p -= (y/self.link(f))**self.shape()
         return p  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return f * torch.lgamma(1.0 + 1.0/self.shape()).exp()
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         a = torch.lgamma(1.0 + 2.0/self.shape()).exp()
         b = torch.lgamma(1.0 + 1.0/self.shape()).exp()
         return f.square() * (a - b.square())
 
 class LogLogisticLikelihood(Likelihood):
+    """
+    Log-logistic likelihood given by
+
+    $$ p(y|f) = \\frac{(k/h(f)) (y/h(f))^{k-1}}{\\left(1 + (y/h(f))^k\\right)^2} $$
+
+    with \\(h\\) the link function, \\(k\\) the shape, and \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        shape (float): Shape.
+        link (function): Link function to map function values to the support of the likelihood.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, shape=1.0, link=exp, name="LogLogistic", quadratures=20):
         super().__init__(name, quadratures)
 
@@ -448,17 +672,29 @@ class LogLogisticLikelihood(Likelihood):
         p += (self.shape()-1.0)*y.log()
         return p  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return self.link(f) / torch.sinc(1.0/self.shape())
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         if self.shape() <= 2.0:
-            return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
+            return np.nan
         a = 1.0/torch.sinc(2.0/self.shape())
         b = 1.0/torch.sinc(1.0/self.shape())
         return self.link(f).square() * (a - b.square())
 
 class LogGaussianLikelihood(Likelihood):
+    """
+    Log-Gaussian likelihood given by
+
+    $$ p(y|f) = \\frac{1}{y\\sqrt{2\\pi\\sigma^2}} e^{-\\frac{(\\log(y) - f)^2}{2\\sigma^2}} $$
+
+    with \\(\\sigma^2\\) the variance and \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        variance (float): Variance.
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, variance=1.0, name="LogGaussian", quadratures=20):
         super().__init__(name, quadratures)
 
@@ -476,36 +712,24 @@ class LogGaussianLikelihood(Likelihood):
         p -= logy
         return p  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return torch.exp(f + 0.5*self.variance())
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         return (self.variance().exp() - 1.0) * torch.exp(2.0*f + self.variance())
 
-class ChiLikelihood(Likelihood):
-    def __init__(self, name="Chi", quadratures=20):
-        super().__init__(name, quadratures)
-
-    def validate_y(self, y, X=None):
-        if torch.any(y <= 0.0):
-            raise ValueError("y must be in the range (0.0,inf)")
-
-    def log_prob(self, y, f, X=None):
-        # y: Nx1
-        # f: NxM
-        k = f.square()
-        p = -(k/2.0-1.0)*np.log(2.0) - torch.lgamma(k/2.0) + (k-1.0)*y.log() - 0.5*y.square()
-        return p  # NxM
-
-    def predictive_mean(self, f, X=None):
-        k = f.square()
-        return np.sqrt(2.0) * torch.exp(torch.lgamma((k+1.0)/2.0) - torch.lgamma(k/2.0))
-
-    def predictive_variance(self, f, X=None):
-        k = f.square()
-        return k - self.predictive_mean(f,X=X).square()
-
 class ChiSquaredLikelihood(Likelihood):
+    """
+    Chi-squared likelihood given by
+
+    $$ p(y|f) = \\frac{1}{2^{f/2}\\Gamma(f/2)} y^{f/2-1} e^{-y/2} $$
+
+    with \\(y \\in (0.0,\\infty)\\).
+
+    Args:
+        name (str): Name of the likelihood.
+        quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+    """
     def __init__(self, name="ChiSquared", quadratures=20):
         super().__init__(name, quadratures)
 
@@ -519,10 +743,8 @@ class ChiSquaredLikelihood(Likelihood):
         p = -0.5*f*np.log(2.0) - torch.lgamma(f/2.0) + (f/2.0-1.0)*y.log() - 0.5*y
         return p  # NxM
 
-    def predictive_mean(self, f, X=None):
+    def mean(self, f, X=None):
         return f
 
-    def predictive_variance(self, f, X=None):
+    def variance(self, f, X=None):
         return 2.0*f
-
-# TODO: implement: Softmax
