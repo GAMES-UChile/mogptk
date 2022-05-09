@@ -1160,7 +1160,7 @@ class Data:
 
         return ax
 
-    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, log=False, transformed=True):
+    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, log=False, transformed=True, n=1001):
         """
         Plot the spectrum of the data.
 
@@ -1172,6 +1172,7 @@ class Data:
             maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
             log (boolean): Show X and Y axis in log-scale.
             transformed (boolean): Display transformed Y data as used for training.
+            n (int): Number of points used for periodogram.
 
         Returns:
             matplotlib.axes.Axes
@@ -1216,31 +1217,22 @@ class Data:
         nyquist = maxfreq
         if nyquist is None:
             dist = np.abs(X[1:]-X[:-1])
-            nyquist = 0.5 / np.average(dist)
+            nyquist = float(0.5 / np.average(dist))
 
-        X_freq = np.linspace(0.0, nyquist, 10001)[1:]
-        Y_freq_err = []
         if method.lower() == 'ls':
-            Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq)
+            X_freq = np.linspace(0.0, nyquist, n)[1:]
+            Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq, normalize=True)
         elif method.lower() == 'bnse':
-            bnse = bse(X, Y)
-            bnse.set_freqspace(nyquist, 10001)
-            bnse.train()
-            bnse.compute_moments()
-
-            Y_freq = bnse.post_mean_r**2 + bnse.post_mean_i**2
-            Y_freq_err = 2 * np.sqrt(np.diag(bnse.post_cov_r**2 + bnse.post_cov_i**2))
-            Y_freq = Y_freq[1:]
-            Y_freq_err = Y_freq_err[1:]
+            X_freq, Y_freq = BNSE(np.array(X), np.array(Y), max_freq=nyquist, n=n)
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
         # normalize
-        Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
+        #Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
 
         ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
-        if len(Y_freq_err) != 0:
-            ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
+        #if len(Y_freq_err) != 0:
+        #    ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
         ax.set_title((self.name + ' Spectrum' if self.name is not None else '') if title is None else title, fontsize=14)
 
         if log:
