@@ -150,8 +150,8 @@ class SM(Model):
         if noise:
             if not isinstance(self.gpr.likelihood, GaussianLikelihood):
                 raise ValueError("likelihood must be Gaussian to enable spectral noise")
-            if self.gpr.likelihood.variance().ndim == 2:
+            if isinstance(self.gpr, Exact) and self.variance_per_data:
                 raise ValueError("likelihood variance must not be per data point to enable spectral noise")
-            noises = self.gpr.likelihood.variance.numpy()
+            noises = self.gpr.likelihood.scale.numpy()
 
         return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, log=log, titles=names, title=title)

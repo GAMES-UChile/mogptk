@@ -130,8 +130,6 @@ class TransformStandard(TransformBase):
     def backward(self, y, x=None):
         return (y * self.std) + self.mean
 
-# TODO: add TransformFunction with a given mean function
-
 ################################################################
 ################################################################
 ################################################################
