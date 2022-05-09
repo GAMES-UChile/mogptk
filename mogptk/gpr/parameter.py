@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn.functional as functional
 
@@ -97,6 +98,8 @@ class Parameter:
 
         self.assign(value, lower=lower, upper=upper)
 
+        self.num_parameters = math.prod(self.unconstrained.shape)
+
     def __repr__(self):
         name = self.name
         if self.pegged:
@@ -110,7 +113,7 @@ class Parameter:
         Get (constraint) parameter value.
 
         Returns:
-            torch.tensor: Parameter value.
+            torch.tensor
         """
         return self.constrained
 
@@ -120,6 +123,12 @@ class Parameter:
 
     @property
     def constrained(self):
+        """
+        Get (constraint) parameter value. Equivalent to calling `parameter()`.
+
+        Returns:
+            torch.tensor
+        """
         if self.pegged:
             other = self.pegged_parameter.constrained
             if self.pegged_transform is not None:

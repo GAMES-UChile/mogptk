@@ -289,32 +289,32 @@ class GaussianLikelihood(Likelihood):
     def __init__(self, variance=1.0, name="Gaussian"):
         super().__init__(name)
 
-        self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
+        self.scale = Parameter(variance, name="variance", lower=config.positive_minimum)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -0.5 * (np.log(2.0 * np.pi) + self.variance().log() + (y-f).square()/self.variance())
+        p = -0.5 * (np.log(2.0 * np.pi) + self.scale().log() + (y-f).square()/self.scale())
         return p  # NxM
 
     def variational_expectation(self, y, mu, var, X=None):
         # y,mu,var: Nx1
-        p = -((y-mu).square() + var) / self.variance()
+        p = -((y-mu).square() + var) / self.scale()
         p -= np.log(2.0 * np.pi)
-        p -= self.variance().log()
+        p -= self.scale().log()
         return 0.5*p.sum()  # sum over N
 
     def mean(self, f, X=None):
         return f
 
     def variance(self, f, X=None):
-        return self.variance()
+        return self.scale()
 
     def predict(self, mu, var, X=None, full=False):
         if full:
-            return mu, var + self.variance()*torch.eye(var.shape[0])
+            return mu, var + self.scale()*torch.eye(var.shape[0])
         else:
-            return mu, var + self.variance()
+            return mu, var + self.scale()
 
 class StudentTLikelihood(Likelihood):
     """
@@ -698,7 +698,7 @@ class LogGaussianLikelihood(Likelihood):
     def __init__(self, variance=1.0, name="LogGaussian", quadratures=20):
         super().__init__(name, quadratures)
 
-        self.variance = Parameter(variance, name="variance", lower=config.positive_minimum)
+        self.scale = Parameter(variance, name="variance", lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any(y <= 0.0):
@@ -708,15 +708,15 @@ class LogGaussianLikelihood(Likelihood):
         # y: Nx1
         # f: NxM
         logy = y.log()
-        p = -0.5*(np.log(2.0*np.pi) + self.variance().log() + (logy-f).square()/self.variance())
+        p = -0.5*(np.log(2.0*np.pi) + self.scale().log() + (logy-f).square()/self.scale())
         p -= logy
         return p  # NxM
 
     def mean(self, f, X=None):
-        return torch.exp(f + 0.5*self.variance())
+        return torch.exp(f + 0.5*self.scale())
 
     def variance(self, f, X=None):
-        return (self.variance().exp() - 1.0) * torch.exp(2.0*f + self.variance())
+        return (self.scale().exp() - 1.0) * torch.exp(2.0*f + self.scale())
 
 class ChiSquaredLikelihood(Likelihood):
     """

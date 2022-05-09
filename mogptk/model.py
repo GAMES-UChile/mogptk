@@ -46,9 +46,9 @@ class Exact:
         variance = self.variance
         if variance is None:
             if y_err is not None:
-                variance = y_err**2
+                variance = (y_err**2).reshape(-1,1)
             else:
-                variance = 1.0
+                variance = [1.0] * kernel.output_dims
         return gpr.Exact(kernel, x, y, variance=variance, jitter=self.jitter, mean=mean, name=name)
 
 class Snelson:
@@ -60,12 +60,14 @@ class Snelson:
         variance (float): Variance of the Gaussian likelihood.
         jitter (float): Jitter added before calculating a Cholesky.
     """
-    def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
+    def __init__(self, inducing_points=10, variance=None, jitter=1e-6):
         self.inducing_points = inducing_points
         self.variance = variance
         self.jitter = jitter
 
     def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        if variance is None:
+            variance = [1.0] * kernel.output_dims
         return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class OpperArchambeau:
@@ -321,7 +323,7 @@ class Model:
 
         if verbose:
             training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
-            parameters = sum([int(np.prod(param.shape)) for param in self.gpr.parameters()])
+            parameters = sum([p.num_parameters if p.trainable else 0 for p in self.gpr.get_parameters()])
             print('\nStarting optimization using', method)
             print('‣ Model: {}'.format(self.name))
             print('‣ Channels: {}'.format(len(self.dataset)))

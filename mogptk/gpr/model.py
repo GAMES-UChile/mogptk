@@ -2,7 +2,7 @@ import sys
 import torch
 import numpy as np
 from IPython.display import display, HTML
-from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, GaussianLikelihood, config, plot_gram
+from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, MultiOutputLikelihood, GaussianLikelihood, config, plot_gram
 from functools import reduce
 import operator
 
@@ -57,7 +57,7 @@ class Model:
             if mu.shape != y.shape:
                 raise ValueError("mean and y data must match shapes: %s != %s" % (mu.shape, y.shape))
 
-        if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
+        if issubclass(type(likelihood), MultiOutputLikelihood) and likelihood.output_dims != kernel.output_dims:
             raise ValueError("kernel and likelihood must have matching output dimensions")
         likelihood.validate_y(y, X=X)
 
@@ -330,29 +330,41 @@ class Model:
             return samples.cpu().numpy()
 
 class Exact(Model):
+    """
+    Regular Gaussian process regression with a Gaussian likelihood which allows for exact inference.
+
+    $$ y \\sim \\mathcal{N}(0, K + \\sigma^2I) $$
+
+    Args:
+        kernel (Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel. Passing a tensor of shape (data_points,1) will assign and fix different variances per data point.
+        jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
+        mean (Mean): Mean.
+        name (str): Name of the model.
+    """
     def __init__(self, kernel, X, y, variance=1.0, jitter=1e-8, mean=None, name="Exact"):
-        # turn on Gaussian likelihood variance per channel and or per data point
-        # variance shape will be (channels,data_points), where if either is unity, the variance will be equal amonst all channels or data points respectively
-        variance = Parameter.to_tensor(variance).squeeze()
-        if variance.ndim == 1 and 0 < X.ndim and variance.shape[0] == X.shape[0]:
-            variance = variance.reshape(1,-1)
-        elif variance.ndim == 0 or variance.ndim == 1 and variance.shape[0] == 1:
-            variance = variance.repeat(kernel.output_dims)
-        elif variance.ndim != 1 or variance.shape[0] != kernel.output_dims:
-            raise ValueError("variance must have shape (channels,) or (data_points,)")
+        self.variance_per_data = False
+        variance = Parameter.to_tensor(variance)
+        if variance.ndim == 2 and (X.ndim != 1 or variance.shape[0] == X.shape[0]) and variance.shape[1] == 1:
+            self.variance_per_data = True
+            variance = variance.reshape(-1)
+        elif 1 < variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
+            raise ValueError("variance must be float or have shape (channels,) or (data_points,1)")
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
-        self.likelihood.variance.trainable = variance.ndim == 1
+        self.likelihood.scale.trainable = not self.variance_per_data
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
 
     def log_marginal_likelihood(self):
         Kff = self.kernel.K(self.X)
-        if self.likelihood.variance().ndim == 2:
-            Kff += self.likelihood.variance()[0,:].diagflat()
+        if self.variance_per_data:
+            Kff += self.likelihood.scale().diagflat()
         else:
-            Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
+            Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
         L = self._cholesky(Kff, add_jitter=True)  # NxN
 
         if self.mean is not None:
@@ -366,8 +378,8 @@ class Exact(Model):
         return p
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
-        if self.likelihood.variance().ndim == 2 and predict_y:
-            raise ValueError("can only predict f when data point variances are given, set predict_y=False")
+        if self.variance_per_data and predict_y:
+            raise ValueError("can only predict function values when data point variances are given, set predict_y=False")
 
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
@@ -377,10 +389,10 @@ class Exact(Model):
                 y = self.y  # Nx1
 
             Kff = self.kernel.K(self.X)
-            if self.likelihood.variance().ndim == 2:
-                Kff += self.likelihood.variance()[0,:].diagflat()
+            if self.variance_per_data:
+                Kff += self.likelihood.scale().diagflat()
             else:
-                Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
+                Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
             Kfs = self.kernel.K(self.X,Xs)  # NxM
 
             Lff = self._cholesky(Kff, add_jitter=True)  # NxN
@@ -395,12 +407,12 @@ class Exact(Model):
                 var = Kss - v.T.mm(v)  # MxM
                 if predict_y:
                     eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self._index_channel(self.likelihood.variance(), Xs) * eye
+                    var += self._index_channel(self.likelihood.scale(), Xs) * eye
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # M
                 var = Kss_diag - v.T.square().sum(dim=1)  # M
                 if predict_y:
-                    var += self._index_channel(self.likelihood.variance(), Xs)
+                    var += self._index_channel(self.likelihood.scale(), Xs)
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -409,14 +421,25 @@ class Exact(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class Snelson(Model):
-    # See:
-    #  E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005
+    """
+    A sparse Gaussian process regression based on Snelson and Ghahramani [1] with a Gaussian likelihood and inducing points.
+
+    Args:
+        kernel (Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.
+        jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
+        mean (Mean): Mean.
+        name (str): Name of the model.
+
+    [1] E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005
+    """
     def __init__(self, kernel, X, y, Z=10, variance=1.0, jitter=1e-8, mean=None, name="Snelson"):
-        if 1 < kernel.output_dims:
-            # turn on Gaussian likelihood variance per channel
-            variance = Parameter([variance] * kernel.output_dims, name="variance", lower=config.positive_minimum)
-        else:
-            variance = Parameter(variance, name="variance", lower=config.positive_minimum)
+        variance = Parameter.to_tensor(variance).squeeze()
+        if 1 < variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
+            raise ValueError("variance must be float or have shape (channels,)")
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
 
@@ -426,6 +449,8 @@ class Snelson(Model):
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name="induction_points")
+        if 1 < kernel.output_dims:
+            self.Z.num_parameters -= self.Z().shape[0]
 
         self._register_parameters(self.Z)
 
@@ -441,7 +466,7 @@ class Snelson(Model):
 
         Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Luu = Kuu^(1/2)
         v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-        g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.variance(), self.X)  # N;  diag(Kff-Qff) + sigma^2.I
+        g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.scale(), self.X)  # N;  diag(Kff-Qff) + sigma^2.I
         G = torch.diagflat(1.0/g)  # N
         L = self._cholesky(v.mm(G).mm(v.T) + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.G.Kfu.Kuu^(-1/2) + I)^(1/2)
 
@@ -469,7 +494,7 @@ class Snelson(Model):
 
             Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
             v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-            g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.variance(), self.X)
+            g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.scale(), self.X)
             G = torch.diagflat(1.0/g)  # N
             L = self._cholesky(v.mm(G).mm(v.T) + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.G.Kfu.Kuu^(-1/2) + I)^(1/2)
 
@@ -486,12 +511,12 @@ class Snelson(Model):
                 var = Kss - a.T.mm(w) + b.T.mm(u)  # MxM
                 if predict_y:
                     eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self._select_channel(self.likelihood.variance(), Xs) * eye
+                    var += self._select_channel(self.likelihood.scale(), Xs) * eye
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # M
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
                 if predict_y:
-                    var += self._index_channel(self.likelihood.variance(), Xs)
+                    var += self._index_channel(self.likelihood.scale(), Xs)
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -500,8 +525,20 @@ class Snelson(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class OpperArchambeau(Model):
-    # See:
-    #  M. Opper, C. Archambeau, "The Variational Gaussian Approximation Revisited", 2009
+    """
+    A Gaussian process regression based on Opper and Archambeau [1] with a non-Gaussian likelihood.
+
+    Args:
+        kernel (Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        likelihood (Likelihood): Likelihood.
+        jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
+        mean (Mean): Mean.
+        name (str): Name of the model.
+
+    [1] M. Opper, C. Archambeau, "The Variational Gaussian Approximation Revisited", 2009
+    """
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0),
                  jitter=1e-8, mean=None, name="OpperArchambeau"):
         super().__init__(kernel, X, y, likelihood, jitter, mean, name)
@@ -589,9 +626,22 @@ class OpperArchambeau(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class Titsias(Model):
-    # See:
-    #  Titsias, "Variational learning of induced variables in sparse Gaussian processes", 2009
-    #  http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
+    """
+    A sparse Gaussian process regression based on Titsias [1] with a Gaussian likelihood.
+
+    Args:
+        kernel (Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        variance (float): Gaussian likelihood initial variance.
+        jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
+        mean (Mean): Mean.
+        name (str): Name of the model.
+
+    [1] Titsias, "Variational learning of induced variables in sparse Gaussian processes", 2009
+    """
+    # See: http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
     def __init__(self, kernel, X, y, Z, variance=1.0, jitter=1e-8,
                  mean=None, name="Titsias"):
         # TODO: variance per channel
@@ -603,6 +653,8 @@ class Titsias(Model):
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name="induction_points")
+        if 1 < kernel.output_dims:
+            self.Z.num_parameters -= self.Z().shape[0]
 
         self._register_parameters(self.Z)
 
@@ -619,17 +671,17 @@ class Titsias(Model):
         Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
         v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
         Q = v.mm(v.T)  # MxM;  Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)
-        L = self._cholesky(Q/self.likelihood.variance() + self.eye)  # MxM;  (Q/sigma^2 + I)^(1/2)
+        L = self._cholesky(Q/self.likelihood.scale() + self.eye)  # MxM;  (Q/sigma^2 + I)^(1/2)
 
-        c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.variance()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
+        c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.scale()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
 
         # p = log N(0, Kfu.Kuu^(-1).Kuf + I/sigma^2) - 1/(2.sigma^2).Trace(Kff - Kfu.Kuu^(-1).Kuf)
         p = -self.log_marginal_likelihood_constant
         p -= L.diagonal().log().sum() # 0.5 is taken as the square root of L
-        p -= 0.5*self.X.shape[0]*self.likelihood.variance().log()
-        p -= 0.5*y.T.mm(y).squeeze()/self.likelihood.variance()
+        p -= 0.5*self.X.shape[0]*self.likelihood.scale().log()
+        p -= 0.5*y.T.mm(y).squeeze()/self.likelihood.scale()
         p += 0.5*c.T.mm(c).squeeze()
-        p -= 0.5*(Kff_diag.sum() - Q.trace())/self.likelihood.variance() # trace
+        p -= 0.5*(Kff_diag.sum() - Q.trace())/self.likelihood.scale() # trace
         return p
 
     def log_marginal_likelihood(self):
@@ -650,11 +702,11 @@ class Titsias(Model):
 
             Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
             v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-            L = self._cholesky(v.mm(v.T)/self.likelihood.variance() + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)/sigma^2 + I)^(1/2)
+            L = self._cholesky(v.mm(v.T)/self.likelihood.scale() + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)/sigma^2 + I)^(1/2)
 
             a = torch.linalg.solve_triangular(Luu,Kus,upper=False)  # MxS;  Kuu^(-1/2).Kus
             b = torch.linalg.solve_triangular(L,a,upper=False)  # MxS;  L^(-1).Kuu^(-1/2).Kus
-            c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.variance()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
+            c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.scale()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
 
             # mu = sigma^(-2).Ksu.Kuu^(-1/2).(sigma^(-2).Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2) + I)^(-1).Kuu^(-1/2).Kuf.y
             mu = b.T.mm(c)  # Mx1
@@ -669,12 +721,12 @@ class Titsias(Model):
                 var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
                 if predict_y:
                     eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self.likelihood.variance() * eye
+                    var += self.likelihood.scale() * eye
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # M
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
                 if predict_y:
-                    var += self.likelihood.variance()
+                    var += self.likelihood.scale()
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -683,8 +735,21 @@ class Titsias(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class SparseHensman(Model):
-    # See:
-    #  J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015
+    """
+    A sparse Gaussian process regression based on Hensman et al. [1] with a non-Gaussian likelihood.
+
+    Args:
+        kernel (Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        likelihood (Likelihood): Likelihood.
+        jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
+        mean (Mean): Mean.
+        name (str): Name of the model.
+
+    [1] J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015
+    """
     # This version replaces mu_q by L.mu_q and sigma_q by L.sigma_q.L^T, where LL^T = Kuu
     # So that p(u) ~ N(0,1) and q(u) ~ N(L.mu_q, L.sigma_q.L^T)
     def __init__(self, kernel, X, y, Z=None, likelihood=GaussianLikelihood(variance=1.0),
@@ -701,9 +766,12 @@ class SparseHensman(Model):
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
-        self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt") # TODO: store only lower triangle
+        self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt")
+        self.q_sqrt.num_parameters = int((n*n+n)/2)
         if self.is_sparse:
             self.Z = Parameter(Z, name="induction_points")
+            if 1 < kernel.output_dims:
+                self.Z.num_parameters -= self.Z().shape[0]
         else:
             self.Z = Parameter(self.X, trainable=False)  # don't use inducing points
 
@@ -781,6 +849,20 @@ class SparseHensman(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class Hensman(SparseHensman):
+    """
+    A Gaussian process regression based on Hensman et al. [1] with a non-Gaussian likelihood. This is equivalent to the `SparseHensman` model if we set the inducing points equal to the data points and by turning off training the inducing points.
+
+    Args:
+        kernel (Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        likelihood (Likelihood): Likelihood.
+        jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
+        mean (Mean): Mean.
+        name (str): Name of the model.
+
+    [1] J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015
+    """
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-8,
                  mean=None, name="Hensman"):
         super().__init__(kernel, X, y, None, likelihood, jitter, mean, name)
