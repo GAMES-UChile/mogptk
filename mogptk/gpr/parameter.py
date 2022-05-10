@@ -1,4 +1,4 @@
-import math
+import numpy as np
 import torch
 import torch.nn.functional as functional
 
@@ -98,7 +98,7 @@ class Parameter:
 
         self.assign(value, lower=lower, upper=upper)
 
-        self.num_parameters = math.prod(self.unconstrained.shape)
+        self.num_parameters = np.prod(self.unconstrained.shape)
 
     def __repr__(self):
         name = self.name

@@ -32,7 +32,7 @@ class TransformDetrend(TransformBase):
 
     def set_data(self, data):
         if data.get_input_dims() != 1:
-            raise ValueError("can only remove ranges on one dimensional input data")
+            raise ValueError("can only detrend on one dimensional input data")
 
         x = np.array(data.X[self.dim][data.mask]).astype(np.float64)
         self.coef = np.polyfit(x, data.Y.transformed[data.mask], self.degree)

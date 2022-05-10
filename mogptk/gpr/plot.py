@@ -28,7 +28,7 @@ def plot_gram(K):
         cax = divider.append_axes("right", size="3%", pad=0.1)
         fig.colorbar(im, cax=cax)
 
-    ax.set_title('Blue=Inf, Red=NaN', pad=30)
+    ax.set_title('Blue=Inf, Red=NaN', pad=25)
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xticklabels([])

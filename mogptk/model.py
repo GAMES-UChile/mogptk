@@ -653,7 +653,7 @@ class Model:
 
         if legend:
             ax.legend(handles=legends)
-        return fix, ax
+        return fig, ax
 
     def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
         """

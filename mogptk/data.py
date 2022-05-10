@@ -3,7 +3,6 @@ import copy
 import inspect
 import datetime
 import logging
-import math
 import collections
 
 import numpy as np
@@ -125,14 +124,14 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
         else:
             x[i] = np.linspace(start[i], end[i], n[i])
 
-        N_tile = math.prod(n[:i])
-        N_repeat = math.prod(n[i+1:])
+        N_tile = np.prod(n[:i])
+        N_repeat = np.prod(n[i+1:])
         x[i] = np.tile(np.repeat(x[i], N_repeat), N_tile)
 
     y = f(*x)
     if y.ndim == 2 and y.shape[1] == 1:
         y = y[:,0]
-    N = math.prod(n)
+    N = np.prod(n)
     y += np.random.normal(0.0, var, (N,))
 
     data = Data(x, y, name=name)

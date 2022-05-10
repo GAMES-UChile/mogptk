@@ -1,5 +1,4 @@
 import sys
-import math
 import torch
 import numpy as np
 from IPython.display import display, HTML
@@ -176,12 +175,12 @@ class Model:
         """
         def param_range(lower, upper, trainable=True, pegged=False):
             if lower is not None:
-                if math.prod(lower.shape) == 1:
+                if np.prod(lower.shape) == 1:
                     lower = lower.item()
                 else:
                     lower = lower.tolist()
             if upper is not None:
-                if math.prod(upper.shape) == 1:
+                if np.prod(upper.shape) == 1:
                     upper = upper.item()
                 else:
                     upper = upper.tolist()
