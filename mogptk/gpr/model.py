@@ -321,17 +321,6 @@ class Model:
         with torch.no_grad():
             return self.kernel(X1, X2).detach().cpu().numpy()
 
-    #def quantile(self, p, mu, var):
-    #    with torch.no_grad():
-    #        if not isinstance(p, torch.Tensor):
-    #            p = torch.tensor(p, device=config.device, dtype=config.dtype)
-    #        else:
-    #            p = p.to(config.device, config.dtype)
-    #        p = p.squeeze()
-    #        if p.ndim != 0:
-    #            raise ValueError("quantile must be scalar")
-    #        return self.likelihood.quantile(p, mu, var)
-
     def sample(self, Z, n=None, predict_y=True):
         """
         Sample from model.
@@ -374,32 +363,34 @@ class Exact(Model):
         kernel (mpgptk.gpr.kernel.Kernel): Kernel.
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
-        variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel. Passing a tensor of shape (data_points,1) will assign and fix different variances per data point.
+        variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.
+        data_variance (torch.tensor): Assign different and fixed variances per data point. These are added to the kernel's diagonal while still training an additional Gaussian variance.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
         name (str): Name of the model.
     """
-    def __init__(self, kernel, X, y, variance=1.0, jitter=1e-8, mean=None, name="Exact"):
-        self.variance_per_data = False
+    def __init__(self, kernel, X, y, variance=1.0, data_variance=None, jitter=1e-8, mean=None, name="Exact"):
+        if data_variance is not None:
+            data_variance = Parameter.to_tensor(data_variance)
+            if data_variance.ndim != 1 or X.ndim == 2 and data_variance.shape[0] != X.shape[0]:
+                raise ValueError("data variance must have shape (data_points,)")
+            data_variance = data_variance.diagflat()
+        self.data_variance = data_variance
+
         variance = Parameter.to_tensor(variance)
-        if variance.ndim == 2 and (X.ndim != 1 or variance.shape[0] == X.shape[0]) and variance.shape[1] == 1:
-            self.variance_per_data = True
-            variance = variance.reshape(-1)
-        elif 1 < variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
-            raise ValueError("variance must be float or have shape (channels,) or (data_points,1)")
+        if 1 < variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
+            raise ValueError("variance must be float or have shape (channels,)")
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
-        self.likelihood.scale.trainable = not self.variance_per_data
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
 
     def log_marginal_likelihood(self):
         Kff = self.kernel.K(self.X)
-        if self.variance_per_data:
-            Kff += self.likelihood.scale().diagflat()
-        else:
-            Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
+        Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
+        if self.data_variance is not None:
+            Kff += self.data_variance
         L = self._cholesky(Kff, add_jitter=True)  # NxN
 
         if self.mean is not None:
@@ -413,9 +404,6 @@ class Exact(Model):
         return p
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
-        if self.variance_per_data and predict_y:
-            raise ValueError("can only predict function values when data point variances are given, set predict_y=False")
-
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
             if self.mean is not None:
@@ -424,10 +412,9 @@ class Exact(Model):
                 y = self.y  # Nx1
 
             Kff = self.kernel.K(self.X)
-            if self.variance_per_data:
-                Kff += self.likelihood.scale().diagflat()
-            else:
-                Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
+            Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
+            if self.data_variance is not None:
+                Kff += self.data_variance
             Kfs = self.kernel.K(self.X,Xs)  # NxM
 
             Lff = self._cholesky(Kff, add_jitter=True)  # NxN

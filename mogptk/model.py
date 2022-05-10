@@ -45,11 +45,14 @@ class Exact:
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         variance = self.variance
         if variance is None:
-            if y_err is not None:
-                variance = (y_err**2).reshape(-1,1)
-            else:
-                variance = [1.0] * kernel.output_dims
-        return gpr.Exact(kernel, x, y, variance=variance, jitter=self.jitter, mean=mean, name=name)
+            variance = [1.0] * kernel.output_dims
+        data_variance = None
+        if y_err is not None:
+            data_variance = y_err**2
+        model = gpr.Exact(kernel, x, y, variance=variance, data_variance=data_variance, jitter=self.jitter, mean=mean, name=name)
+        if y_err is not None:
+            model.likelihood.scale.assign(0.0, trainable=False)
+        return model
 
 class Snelson:
     """

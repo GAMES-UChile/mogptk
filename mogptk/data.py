@@ -1077,7 +1077,7 @@ class Data:
             if transformed:
                 yl = self.Y.transform(yl, x)
                 yu = self.Y.transform(yu, x)
-            plt.errorbar(x[0], y, [y-yl, yu-y], elinewidth=0.5, ecolor='k', capsize=0, ls='', marker='')
+            plt.errorbar(x[0], y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
 
         colors = list(matplotlib.colors.TABLEAU_COLORS)
         for i, name in enumerate(self.Y_mu_pred):
