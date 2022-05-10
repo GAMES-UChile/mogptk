@@ -347,28 +347,34 @@ class Model:
 
         losses = np.empty((iters+1,))
         errors = np.zeros((iters+1,))
+        initial_time = time.time()
 
-        inital_time = time.time()
+        def progress(i, loss):
+            elapsed_time = time.time() - initial_time
+            write = i % max(1,iters/100) == 0
+            losses[i] = loss
+            if error is not None:
+                errors[i] = self.error(error, error_use_all_data)
+                if write:
+                    sys.__stdout__.write("% 5d/%d %s  loss=%10g  error=%10g\n" % (i, iters, _format_time(elapsed_time), losses[i], errors[i]))
+            elif write:
+                sys.__stdout__.write("% 5d/%d %s  loss=%10g\n" % (i, iters, _format_time(elapsed_time), losses[i]))
+
         sys.__stdout__.write("\nStart %s:\n" % (method,))
         if method == 'LBFGS':
             if 'lr' not in kwargs:
                 kwargs['lr'] = 0.1
             if not 'max_iter' in kwargs:
                 kwargs['max_iter'] = iters
-                iters = 0
+            else:
+                iters = kwargs['max_iter']
             optimizer = torch.optim.LBFGS(self.gpr.parameters(), **kwargs)
 
             def loss():
                 i = int(optimizer.state_dict()['state'][0]['func_evals'])
-                elapsed_time = time.time() - inital_time
-                losses[i] = self.loss()
-                if error is not None:
-                    errors[i] = self.error(error, error_use_all_data)
-                    if i % (kwargs['max_iter']/100) == 0:
-                        sys.__stdout__.write("% 5d/%d %s  loss=%10g  error=%10g\n" % (i, kwargs['max_iter'], _format_time(elapsed_time), losses[i], errors[i]))
-                elif i % (kwargs['max_iter']/100) == 0:
-                    sys.__stdout__.write("% 5d/%d %s  loss=%10g\n" % (i, kwargs['max_iter'], _format_time(elapsed_time), losses[i]))
-                return losses[i]
+                loss = self.loss()
+                progress(i, loss)
+                return loss
             optimizer.step(loss)
             iters = int(optimizer.state_dict()['state'][0]['func_evals'])
         else:
@@ -384,26 +390,13 @@ class Model:
                 print("Unknown optimizer:", method)
 
             for i in range(iters):
-                elapsed_time = time.time() - inital_time
-                losses[i] = self.loss()
-                if error is not None:
-                    errors[i] = self.error(error, error_use_all_data)
-                    if i % (iters/100) == 0:
-                        sys.__stdout__.write("% 5d/%d %s  loss=%10g  error=%10g\n" % (i, iters, _format_time(elapsed_time), losses[i], errors[i]))
-                elif i % (iters/100) == 0:
-                    sys.__stdout__.write("% 5d/%d %s  loss=%10g\n" % (i, iters, _format_time(elapsed_time), losses[i]))
+                progress(i, self.loss())
                 optimizer.step()
-        losses[iters] = self.loss()
-        elapsed_time = time.time() - inital_time
-        if error is not None:
-            errors[iters] = self.error(error, error_use_all_data)
-            sys.__stdout__.write("% 5d/%d %s  loss=%10g  error=%10g\n" % (iters, iters, _format_time(elapsed_time), losses[iters], errors[iters]))
-        else:
-            sys.__stdout__.write("% 5d/%d %s  loss=%10g\n" % (iters, iters, _format_time(elapsed_time), losses[iters]))
+        progress(iters, self.loss())
         sys.__stdout__.write("Finished\n")
 
         if verbose:
-            elapsed_time = time.time() - inital_time
+            elapsed_time = time.time() - initial_time
             print('\nOptimization finished in {}'.format(_format_duration(elapsed_time)))
             print('‣ Function evaluations: {}'.format(iters))
             print('‣ Final loss: {:.3g}'.format(losses[iters]))

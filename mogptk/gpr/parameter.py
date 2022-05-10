@@ -98,7 +98,7 @@ class Parameter:
 
         self.assign(value, lower=lower, upper=upper)
 
-        self.num_parameters = np.prod(self.unconstrained.shape)
+        self.num_parameters = int(np.prod(self.unconstrained.shape))
 
     def __repr__(self):
         name = self.name
