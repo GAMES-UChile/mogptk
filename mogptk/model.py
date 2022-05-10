@@ -57,18 +57,20 @@ class Snelson:
 
     Args:
         inducing_points (int,list): Number of inducing points or the locations of the inducing points.
+        init_inducing_points (str): Method for initialization of inducing points, can be `grid`, `random`, or `density`.
         variance (float): Variance of the Gaussian likelihood.
         jitter (float): Jitter added before calculating a Cholesky.
     """
-    def __init__(self, inducing_points=10, variance=None, jitter=1e-6):
+    def __init__(self, inducing_points=10, init_inducing_points='grid', variance=None, jitter=1e-6):
         self.inducing_points = inducing_points
+        self.init_inducing_points = init_inducing_points
         self.variance = variance
         self.jitter = jitter
 
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         if variance is None:
             variance = [1.0] * kernel.output_dims
-        return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+        return gpr.Snelson(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class OpperArchambeau:
     """
@@ -91,16 +93,18 @@ class Titsias:
 
     Args:
         inducing_points (int,list): Number of inducing points or the locations of the inducing points.
+        init_inducing_points (str): Method for initialization of inducing points, can be `grid`, `random`, or `density`.
         variance (float): Variance of the Gaussian likelihood.
         jitter (float): Jitter added before calculating a Cholesky.
     """
-    def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
+    def __init__(self, inducing_points=10, init_inducing_points='grid', variance=1.0, jitter=1e-6):
         self.inducing_points = inducing_points
+        self.init_inducing_points = init_inducing_points
         self.variance = variance
         self.jitter = jitter
 
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+        return gpr.Titsias(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class Hensman:
     """
@@ -108,18 +112,20 @@ class Hensman:
 
     Args:
         inducing_points (int,list): Number of inducing points or the locations of the inducing points. By default the non-sparse Hensman model is used.
+        init_inducing_points (str): Method for initialization of inducing points, can be `grid`, `random`, or `density`.
         likelihood (gpr.Likelihood): Likelihood $p(y|f)$.
         jitter (float): Jitter added before calculating a Cholesky.
     """
-    def __init__(self, inducing_points=None, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
+    def __init__(self, inducing_points=None, init_inducing_points='grid', likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
         self.inducing_points = inducing_points
+        self.init_inducing_points = init_inducing_points
         self.likelihood = likelihood
         self.jitter = jitter
 
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         if self.inducing_points is None:
             return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
-        return gpr.SparseHensman(kernel, x, y, self.inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+        return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Model:
     def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None, rescale_x=False):

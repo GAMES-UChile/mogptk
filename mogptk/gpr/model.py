@@ -1,12 +1,57 @@
 import sys
 import torch
 import numpy as np
+from scipy.stats import qmc, gaussian_kde
 from IPython.display import display, HTML
 from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, MultiOutputLikelihood, GaussianLikelihood, config, plot_gram
 
-def init_inducing_points(Z, X, kernel):
-    # TODO: instead of linspace, use quantile space or k-means to initialize positions
-    output_dims = kernel.output_dims
+def _init_grid(N, X):
+    n = np.power(N,1.0/X.shape[1])
+    if not n.is_integer():
+        raise ValueError("number of inducing points must equal N = n^%d" % X.shape[1])
+    n = int(n)
+
+    Z = torch.empty((N,X.shape[1]))
+    grid = torch.meshgrid([torch.linspace(torch.min(X[:,i]), torch.max(X[:,i]), n) for i in range(X.shape[1])])
+    for i in range(X.shape[1]):
+        Z[:,i] = grid[i].flatten()
+    return Z
+
+def _init_random(N, X):
+    sampler = qmc.Halton(d=X.shape[1])
+    samples = sampler.random(n=N)
+    Z = torch.empty((N,X.shape[1]))
+    for i in range(X.shape[1]):
+        Z[:,i] = torch.min(X[:,i]) + (torch.max(X[:,i])-torch.min(X[:,i]))*samples[:,i]
+    return Z
+
+def _init_density(N, X):
+    kernel = gaussian_kde(X.T.detach().cpu().numpy(), bw_method='scott')
+    samples = kernel.resample(N).T
+    Z = torch.empty((N,X.shape[1]))
+    for i in range(X.shape[1]):
+        Z[:,i] = torch.tensor(samples[:,i], device=config.device, dtype=config.dtype)
+    return Z
+
+def init_inducing_points(Z, X, method='grid', output_dims=1):
+    """
+    Initialize locations for inducing points.
+
+    Args:
+        Z (int,list): Number of inducing points. A list of ints of shape (output_dims,) will initialize the specified number of inducing points per output dimension.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        method (str): Method for initialization, can be `grid`, `random`, or `density`.
+        output_dims (int): Number of output dimensions.
+
+    Returns:
+        torch.tensor: Inducing point locations of shape (data_points,input_dims). In case of multiple output dimensions, the first input dimension will be the channel ID.
+    """
+    _init = _init_grid
+    if method == 'random':
+        _init = _init_random
+    elif method == 'density':
+        _init = _init_density
+
     if 1 < output_dims:
         if isinstance(Z, int) or all(isinstance(z, int) for z in Z) and len(Z) == output_dims:
             if isinstance(Z, int):
@@ -17,15 +62,10 @@ def init_inducing_points(Z, X, kernel):
                 m0 = sum(M[:j])
                 m = M[j]
                 Z[m0:m0+m,0] = j
-                for i in range(X.shape[1])[1:]:
-                    x = X[X[:,0] == j,:]
-                    Z[m0:m0+m,i] = torch.linspace(torch.min(x[:,i]), torch.max(x[:,i]), m)
+                Z[m0:m0+m,1:] = _init(m, X[X[:,0] == j,1:])
     elif isinstance(Z, int):
         M = Z
-        Z = torch.zeros((M,X.shape[1]))
-        # TODO: this puts values "diagonal", better to use grid?
-        for i in range(X.shape[1]):
-            Z[:,i] = torch.linspace(torch.min(X[:,i]), torch.max(X[:,i]), M)
+        Z = _init(M, X)
     return Z
 
 class CholeskyException(Exception):
@@ -424,6 +464,7 @@ class Snelson(Model):
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
         Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        Z_init (str): Method for initialization of inducing points, can be `grid`, `random`, or `density`.
         variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
@@ -431,14 +472,15 @@ class Snelson(Model):
 
     [1] E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005
     """
-    def __init__(self, kernel, X, y, Z=10, variance=1.0, jitter=1e-8, mean=None, name="Snelson"):
+    def __init__(self, kernel, X, y, Z=10, Z_init='grid', variance=1.0, jitter=1e-8, mean=None,
+                 name="Snelson"):
         variance = Parameter.to_tensor(variance).squeeze()
         if 1 < variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
             raise ValueError("variance must be float or have shape (channels,)")
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
 
-        Z = init_inducing_points(Z, self.X, kernel)
+        Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
         Z = self._check_input(Z)
         
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
@@ -629,6 +671,7 @@ class Titsias(Model):
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
         Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        Z_init (str): Method for initialization of inducing points, can be `grid`, `random`, or `density`.
         variance (float): Gaussian likelihood initial variance.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
@@ -637,12 +680,12 @@ class Titsias(Model):
     [1] Titsias, "Variational learning of induced variables in sparse Gaussian processes", 2009
     """
     # See: http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
-    def __init__(self, kernel, X, y, Z, variance=1.0, jitter=1e-8,
+    def __init__(self, kernel, X, y, Z, Z_init='grid', variance=1.0, jitter=1e-8,
                  mean=None, name="Titsias"):
         # TODO: variance per channel
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
 
-        Z = init_inducing_points(Z, self.X, kernel)
+        Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
         Z = self._check_input(Z)
 
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
@@ -738,6 +781,7 @@ class SparseHensman(Model):
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
         Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        Z_init (str): Method for initialization of inducing points, can be `grid`, `random`, or `density`.
         likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
@@ -747,14 +791,15 @@ class SparseHensman(Model):
     """
     # This version replaces mu_q by L.mu_q and sigma_q by L.sigma_q.L^T, where LL^T = Kuu
     # So that p(u) ~ N(0,1) and q(u) ~ N(L.mu_q, L.sigma_q.L^T)
-    def __init__(self, kernel, X, y, Z=None, likelihood=GaussianLikelihood(variance=1.0),
-                 jitter=1e-8, mean=None, name="SparseHensman"):
+    def __init__(self, kernel, X, y, Z=None, Z_init='grid',
+                 likelihood=GaussianLikelihood(variance=1.0), jitter=1e-8, mean=None,
+                 name="SparseHensman"):
         super().__init__(kernel, X, y, likelihood, jitter, mean, name)
 
         n = self.X.shape[0]
         self.is_sparse = Z is not None
         if self.is_sparse:
-            Z = init_inducing_points(Z, self.X, kernel)
+            Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
             Z = self._check_input(Z)
             n = Z.shape[0]
 
