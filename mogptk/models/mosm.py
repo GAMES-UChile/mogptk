@@ -20,8 +20,7 @@ class MOSM(Model):
 
     Atributes:
         dataset: The associated mogptk.dataset.DataSet.
-        model: The mogptk.gpr.model.Model.
-        kernel: The mogptk.gpr.kernel.Kernel.
+        gpr: The mogptk.gpr.model.Model.
 
     Examples:
     >>> import numpy as np

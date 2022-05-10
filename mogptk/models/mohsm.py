@@ -7,6 +7,39 @@ from ..gpr import MultiOutputHarmonizableSpectralKernel,MixtureKernel
 
 
 class MOHSM(Model):
+    """
+    Multi-output harmonizable spectral kernel with `P` components and `Q` subcomponents [1]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
+
+    Args:
+        dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
+        P (int): Number of components.
+        Q (int): Number of subcomponents.
+        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.gpr.mean.Mean): The mean class.
+        name (str): Name of the model.
+        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
+
+    Atributes:
+        dataset: The associated mogptk.dataset.DataSet.
+        gpr: The mogptk.gpr.model.Model.
+
+    Examples:
+    >>> import numpy as np
+    >>> import mogptk
+    >>> 
+    >>> t = np.linspace(0, 10, 100)
+    >>> y1 = np.sin(0.5 * t)
+    >>> y2 = 2.0 * np.sin(0.2 * t)
+    >>> 
+    >>> dataset = mogptk.DataSet(t, [y1, y2])
+    >>> model = mogptk.MOHSM(dataset, P=2, Q=2)
+    >>> model.init_parameters()
+    >>> model.train()
+    >>> model.predict()
+    >>> dataset.plot()
+
+    [1] M. Altamirano, "Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
+    """
     def __init__(self, dataset, P=1, Q=1, model=Exact(), mean=None, name="MOHSM", rescale_x=False):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)

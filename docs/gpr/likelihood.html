@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L1-L750" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L1-L750" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -145,11 +145,11 @@ class Likelihood:
         Calculate the mean of the likelihood.
 
         Args:
-            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
             X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
         Returns:
-            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
         &#34;&#34;&#34;
         # f: NxM
         raise NotImplementedError()
@@ -159,11 +159,11 @@ class Likelihood:
         Calculate the variance of the likelihood.
 
         Args:
-            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
             X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
         Returns:
-            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
         &#34;&#34;&#34;
         # f: NxM
         raise NotImplementedError()
@@ -184,8 +184,8 @@ class Likelihood:
             full (boolean): Return the full covariance matrix.
 
         Returns:
-            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
         &#34;&#34;&#34;
         # mu,var: Nx1
         # TODO: full covariance matrix for likelihood predictions
@@ -201,7 +201,7 @@ class MultiOutputLikelihood(Likelihood):
     Multi-output likelihood to assign a different likelihood per channel.
 
     Args:
-        likelihoods (gpr.Likelihood): List of likelihoods equal to the number of output dimensions.
+        likelihoods (mogptk.gpr.likelihood.Likelihood): List of likelihoods equal to the number of output dimensions.
         name (str): Name of the likelihood.
     &#34;&#34;&#34;
     def __init__(self, *likelihoods, name=&#34;MultiOutputLikelihood&#34;):
@@ -320,32 +320,32 @@ class GaussianLikelihood(Likelihood):
     def __init__(self, variance=1.0, name=&#34;Gaussian&#34;):
         super().__init__(name)
 
-        self.variance = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+        self.scale = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -0.5 * (np.log(2.0 * np.pi) + self.variance().log() + (y-f).square()/self.variance())
+        p = -0.5 * (np.log(2.0 * np.pi) + self.scale().log() + (y-f).square()/self.scale())
         return p  # NxM
 
     def variational_expectation(self, y, mu, var, X=None):
         # y,mu,var: Nx1
-        p = -((y-mu).square() + var) / self.variance()
+        p = -((y-mu).square() + var) / self.scale()
         p -= np.log(2.0 * np.pi)
-        p -= self.variance().log()
+        p -= self.scale().log()
         return 0.5*p.sum()  # sum over N
 
     def mean(self, f, X=None):
         return f
 
     def variance(self, f, X=None):
-        return self.variance()
+        return self.scale()
 
     def predict(self, mu, var, X=None, full=False):
         if full:
-            return mu, var + self.variance()*torch.eye(var.shape[0])
+            return mu, var + self.scale()*torch.eye(var.shape[0])
         else:
-            return mu, var + self.variance()
+            return mu, var + self.scale()
 
 class StudentTLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -729,7 +729,7 @@ class LogGaussianLikelihood(Likelihood):
     def __init__(self, variance=1.0, name=&#34;LogGaussian&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
-        self.variance = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+        self.scale = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any(y &lt;= 0.0):
@@ -739,15 +739,15 @@ class LogGaussianLikelihood(Likelihood):
         # y: Nx1
         # f: NxM
         logy = y.log()
-        p = -0.5*(np.log(2.0*np.pi) + self.variance().log() + (logy-f).square()/self.variance())
+        p = -0.5*(np.log(2.0*np.pi) + self.scale().log() + (logy-f).square()/self.scale())
         p -= logy
         return p  # NxM
 
     def mean(self, f, X=None):
-        return torch.exp(f + 0.5*self.variance())
+        return torch.exp(f + 0.5*self.scale())
 
     def variance(self, f, X=None):
-        return (self.variance().exp() - 1.0) * torch.exp(2.0*f + self.variance())
+        return (self.scale().exp() - 1.0) * torch.exp(2.0*f + self.scale())
 
 class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -797,7 +797,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L21-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L21-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def exp(x):
     &#34;&#34;&#34;
@@ -817,7 +817,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L5-L11" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L5-L11" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def identity(x):
     &#34;&#34;&#34;
@@ -837,7 +837,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L29-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L29-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inv_probit(x):
     &#34;&#34;&#34;
@@ -858,7 +858,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L39-L45" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L39-L45" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def logistic(x):
     &#34;&#34;&#34;
@@ -878,7 +878,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L13-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L13-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def square(x):
     &#34;&#34;&#34;
@@ -914,7 +914,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L425-L466" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L425-L466" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class BernoulliLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -999,7 +999,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L468-L511" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L468-L511" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class BetaLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1082,7 +1082,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L721-L750" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L721-L750" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1153,7 +1153,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L358-L393" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L358-L393" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ExponentialLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1232,7 +1232,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L513-L553" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L513-L553" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GammaLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1303,7 +1303,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L47-L61" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L47-L61" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussHermiteQuadrature:
     def __init__(self, deg=20, t_scale=None, w_scale=None):
@@ -1340,7 +1340,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L277-L317" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L277-L317" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1357,32 +1357,32 @@ class ChiSquaredLikelihood(Likelihood):
     def __init__(self, variance=1.0, name=&#34;Gaussian&#34;):
         super().__init__(name)
 
-        self.variance = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+        self.scale = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -0.5 * (np.log(2.0 * np.pi) + self.variance().log() + (y-f).square()/self.variance())
+        p = -0.5 * (np.log(2.0 * np.pi) + self.scale().log() + (y-f).square()/self.scale())
         return p  # NxM
 
     def variational_expectation(self, y, mu, var, X=None):
         # y,mu,var: Nx1
-        p = -((y-mu).square() + var) / self.variance()
+        p = -((y-mu).square() + var) / self.scale()
         p -= np.log(2.0 * np.pi)
-        p -= self.variance().log()
+        p -= self.scale().log()
         return 0.5*p.sum()  # sum over N
 
     def mean(self, f, X=None):
         return f
 
     def variance(self, f, X=None):
-        return self.variance()
+        return self.scale()
 
     def predict(self, mu, var, X=None, full=False):
         if full:
-            return mu, var + self.variance()*torch.eye(var.shape[0])
+            return mu, var + self.scale()*torch.eye(var.shape[0])
         else:
-            return mu, var + self.variance()</code></pre>
+            return mu, var + self.scale()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1422,7 +1422,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L395-L423" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L395-L423" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LaplaceLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1488,7 +1488,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L63-L166" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L63-L166" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Likelihood:
     &#34;&#34;&#34;
@@ -1544,11 +1544,11 @@ class ChiSquaredLikelihood(Likelihood):
         Calculate the mean of the likelihood.
 
         Args:
-            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
             X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
         Returns:
-            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
         &#34;&#34;&#34;
         # f: NxM
         raise NotImplementedError()
@@ -1558,11 +1558,11 @@ class ChiSquaredLikelihood(Likelihood):
         Calculate the variance of the likelihood.
 
         Args:
-            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
             X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
         Returns:
-            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
         &#34;&#34;&#34;
         # f: NxM
         raise NotImplementedError()
@@ -1583,8 +1583,8 @@ class ChiSquaredLikelihood(Likelihood):
             full (boolean): Return the full covariance matrix.
 
         Returns:
-            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
         &#34;&#34;&#34;
         # mu,var: Nx1
         # TODO: full covariance matrix for likelihood predictions
@@ -1623,7 +1623,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L82-L92" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L82-L92" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prob(self, y, f, X=None):
     &#34;&#34;&#34;
@@ -1645,31 +1645,31 @@ class ChiSquaredLikelihood(Likelihood):
 <div class="desc"><p>Calculate the mean of the likelihood.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>f</code></strong> :&ensp;<code>torch.Tensor</code></dt>
+<dt><strong><code>f</code></strong> :&ensp;<code>torch.tensor</code></dt>
 <dd>Posterior values for f of shape (data_points,input_dims).</dd>
 <dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
 <dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>torch.Tensor</code></dt>
+<dt><code>torch.tensor</code></dt>
 <dd>Mean of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L112-L124" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L112-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean(self, f, X=None):
     &#34;&#34;&#34;
     Calculate the mean of the likelihood.
 
     Args:
-        f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+        f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
         X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
     Returns:
-        torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
     &#34;&#34;&#34;
     # f: NxM
     raise NotImplementedError()</code></pre>
@@ -1696,15 +1696,15 @@ class ChiSquaredLikelihood(Likelihood):
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>torch.Tensor</code></dt>
+<dt><code>torch.tensor</code></dt>
 <dd>Mean of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,).</dd>
-<dt><code>torch.Tensor</code></dt>
+<dt><code>torch.tensor</code></dt>
 <dd>Variance of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,) or (data_points,data_points).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L140-L166" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L140-L166" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, mu, var, X=None, full=False):
     &#34;&#34;&#34;
@@ -1722,8 +1722,8 @@ class ChiSquaredLikelihood(Likelihood):
         full (boolean): Return the full covariance matrix.
 
     Returns:
-        torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-        torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
+        torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
     &#34;&#34;&#34;
     # mu,var: Nx1
     # TODO: full covariance matrix for likelihood predictions
@@ -1743,7 +1743,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L76-L80" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L76-L80" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def validate_y(self, y, X=None):
     &#34;&#34;&#34;
@@ -1759,31 +1759,31 @@ class ChiSquaredLikelihood(Likelihood):
 <div class="desc"><p>Calculate the variance of the likelihood.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>f</code></strong> :&ensp;<code>torch.Tensor</code></dt>
+<dt><strong><code>f</code></strong> :&ensp;<code>torch.tensor</code></dt>
 <dd>Posterior values for f of shape (data_points,input_dims).</dd>
 <dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
 <dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>torch.Tensor</code></dt>
+<dt><code>torch.tensor</code></dt>
 <dd>Variance of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L126-L138" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L126-L138" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def variance(self, f, X=None):
     &#34;&#34;&#34;
     Calculate the variance of the likelihood.
 
     Args:
-        f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+        f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
         X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
     Returns:
-        torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
     &#34;&#34;&#34;
     # f: NxM
     raise NotImplementedError()</code></pre>
@@ -1810,7 +1810,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L94-L110" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L94-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def variational_expectation(self, y, mu, var, X=None):
     &#34;&#34;&#34;
@@ -1853,7 +1853,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L685-L719" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L685-L719" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LogGaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1871,7 +1871,7 @@ class ChiSquaredLikelihood(Likelihood):
     def __init__(self, variance=1.0, name=&#34;LogGaussian&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
-        self.variance = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+        self.scale = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any(y &lt;= 0.0):
@@ -1881,15 +1881,15 @@ class ChiSquaredLikelihood(Likelihood):
         # y: Nx1
         # f: NxM
         logy = y.log()
-        p = -0.5*(np.log(2.0*np.pi) + self.variance().log() + (logy-f).square()/self.variance())
+        p = -0.5*(np.log(2.0*np.pi) + self.scale().log() + (logy-f).square()/self.scale())
         p -= logy
         return p  # NxM
 
     def mean(self, f, X=None):
-        return torch.exp(f + 0.5*self.variance())
+        return torch.exp(f + 0.5*self.scale())
 
     def variance(self, f, X=None):
-        return (self.variance().exp() - 1.0) * torch.exp(2.0*f + self.variance())</code></pre>
+        return (self.scale().exp() - 1.0) * torch.exp(2.0*f + self.scale())</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1931,7 +1931,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L639-L683" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L639-L683" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LogLogisticLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2005,7 +2005,7 @@ class ChiSquaredLikelihood(Likelihood):
 <div class="desc"><p>Multi-output likelihood to assign a different likelihood per channel.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>likelihoods</code></strong> :&ensp;<code>gpr.Likelihood</code></dt>
+<dt><strong><code>likelihoods</code></strong> :&ensp;<code><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></code></dt>
 <dd>List of likelihoods equal to the number of output dimensions.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the likelihood.</dd>
@@ -2013,14 +2013,14 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L168-L275" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L168-L275" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputLikelihood(Likelihood):
     &#34;&#34;&#34;
     Multi-output likelihood to assign a different likelihood per channel.
 
     Args:
-        likelihoods (gpr.Likelihood): List of likelihoods equal to the number of output dimensions.
+        likelihoods (mogptk.gpr.likelihood.Likelihood): List of likelihoods equal to the number of output dimensions.
         name (str): Name of the likelihood.
     &#34;&#34;&#34;
     def __init__(self, *likelihoods, name=&#34;MultiOutputLikelihood&#34;):
@@ -2162,7 +2162,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L555-L594" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L555-L594" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PoissonLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2245,7 +2245,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L319-L356" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L319-L356" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class StudentTLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2326,7 +2326,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/likelihood.py#L596-L637" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L596-L637" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class WeibullLikelihood(Likelihood):
     &#34;&#34;&#34;

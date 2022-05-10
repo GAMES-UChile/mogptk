@@ -27,18 +27,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L1-L786" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L1-L864" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import sys
+import math
 import torch
 import numpy as np
 from IPython.display import display, HTML
-from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, GaussianLikelihood, config, plot_gram
-from functools import reduce
-import operator
-
-def prod(iterable):
-    return reduce(operator.mul, iterable, 1)
+from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, MultiOutputLikelihood, GaussianLikelihood, config, plot_gram
 
 def init_inducing_points(Z, X, kernel):
     # TODO: instead of linspace, use quantile space or k-means to initialize positions
@@ -88,7 +84,7 @@ class Model:
             if mu.shape != y.shape:
                 raise ValueError(&#34;mean and y data must match shapes: %s != %s&#34; % (mu.shape, y.shape))
 
-        if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
+        if issubclass(type(likelihood), MultiOutputLikelihood) and likelihood.output_dims != kernel.output_dims:
             raise ValueError(&#34;kernel and likelihood must have matching output dimensions&#34;)
         likelihood.validate_y(y, X=X)
 
@@ -211,12 +207,12 @@ class Model:
         &#34;&#34;&#34;
         def param_range(lower, upper, trainable=True, pegged=False):
             if lower is not None:
-                if prod(lower.shape) == 1:
+                if math.prod(lower.shape) == 1:
                     lower = lower.item()
                 else:
                     lower = lower.tolist()
             if upper is not None:
-                if prod(upper.shape) == 1:
+                if math.prod(upper.shape) == 1:
                     upper = upper.item()
                 else:
                     upper = upper.tolist()
@@ -361,29 +357,41 @@ class Model:
             return samples.cpu().numpy()
 
 class Exact(Model):
+    &#34;&#34;&#34;
+    Regular Gaussian process regression with a Gaussian likelihood which allows for exact inference.
+
+    $$ y \\sim \\mathcal{N}(0, K + \\sigma^2I) $$
+
+    Args:
+        kernel (mpgptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel. Passing a tensor of shape (data_points,1) will assign and fix different variances per data point.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+    &#34;&#34;&#34;
     def __init__(self, kernel, X, y, variance=1.0, jitter=1e-8, mean=None, name=&#34;Exact&#34;):
-        # turn on Gaussian likelihood variance per channel and or per data point
-        # variance shape will be (channels,data_points), where if either is unity, the variance will be equal amonst all channels or data points respectively
-        variance = Parameter.to_tensor(variance).squeeze()
-        if variance.ndim == 1 and 0 &lt; X.ndim and variance.shape[0] == X.shape[0]:
-            variance = variance.reshape(1,-1)
-        elif variance.ndim == 0 or variance.ndim == 1 and variance.shape[0] == 1:
-            variance = variance.repeat(kernel.output_dims)
-        elif variance.ndim != 1 or variance.shape[0] != kernel.output_dims:
-            raise ValueError(&#34;variance must have shape (channels,) or (data_points,)&#34;)
+        self.variance_per_data = False
+        variance = Parameter.to_tensor(variance)
+        if variance.ndim == 2 and (X.ndim != 1 or variance.shape[0] == X.shape[0]) and variance.shape[1] == 1:
+            self.variance_per_data = True
+            variance = variance.reshape(-1)
+        elif 1 &lt; variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
+            raise ValueError(&#34;variance must be float or have shape (channels,) or (data_points,1)&#34;)
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
-        self.likelihood.variance.trainable = variance.ndim == 1
+        self.likelihood.scale.trainable = not self.variance_per_data
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
 
     def log_marginal_likelihood(self):
         Kff = self.kernel.K(self.X)
-        if self.likelihood.variance().ndim == 2:
-            Kff += self.likelihood.variance()[0,:].diagflat()
+        if self.variance_per_data:
+            Kff += self.likelihood.scale().diagflat()
         else:
-            Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
+            Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
         L = self._cholesky(Kff, add_jitter=True)  # NxN
 
         if self.mean is not None:
@@ -397,8 +405,8 @@ class Exact(Model):
         return p
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
-        if self.likelihood.variance().ndim == 2 and predict_y:
-            raise ValueError(&#34;can only predict f when data point variances are given, set predict_y=False&#34;)
+        if self.variance_per_data and predict_y:
+            raise ValueError(&#34;can only predict function values when data point variances are given, set predict_y=False&#34;)
 
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
@@ -408,10 +416,10 @@ class Exact(Model):
                 y = self.y  # Nx1
 
             Kff = self.kernel.K(self.X)
-            if self.likelihood.variance().ndim == 2:
-                Kff += self.likelihood.variance()[0,:].diagflat()
+            if self.variance_per_data:
+                Kff += self.likelihood.scale().diagflat()
             else:
-                Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
+                Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
             Kfs = self.kernel.K(self.X,Xs)  # NxM
 
             Lff = self._cholesky(Kff, add_jitter=True)  # NxN
@@ -426,12 +434,12 @@ class Exact(Model):
                 var = Kss - v.T.mm(v)  # MxM
                 if predict_y:
                     eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self._index_channel(self.likelihood.variance(), Xs) * eye
+                    var += self._index_channel(self.likelihood.scale(), Xs) * eye
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # M
                 var = Kss_diag - v.T.square().sum(dim=1)  # M
                 if predict_y:
-                    var += self._index_channel(self.likelihood.variance(), Xs)
+                    var += self._index_channel(self.likelihood.scale(), Xs)
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -440,14 +448,25 @@ class Exact(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class Snelson(Model):
-    # See:
-    #  E. Snelson, Z. Ghahramani, &#34;Sparse Gaussian Processes using Pseudo-inputs&#34;, 2005
+    &#34;&#34;&#34;
+    A sparse Gaussian process regression based on Snelson and Ghahramani [1] with a Gaussian likelihood and inducing points.
+
+    Args:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+
+    [1] E. Snelson, Z. Ghahramani, &#34;Sparse Gaussian Processes using Pseudo-inputs&#34;, 2005
+    &#34;&#34;&#34;
     def __init__(self, kernel, X, y, Z=10, variance=1.0, jitter=1e-8, mean=None, name=&#34;Snelson&#34;):
-        if 1 &lt; kernel.output_dims:
-            # turn on Gaussian likelihood variance per channel
-            variance = Parameter([variance] * kernel.output_dims, name=&#34;variance&#34;, lower=config.positive_minimum)
-        else:
-            variance = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+        variance = Parameter.to_tensor(variance).squeeze()
+        if 1 &lt; variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
+            raise ValueError(&#34;variance must be float or have shape (channels,)&#34;)
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
 
@@ -457,6 +476,8 @@ class Snelson(Model):
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name=&#34;induction_points&#34;)
+        if 1 &lt; kernel.output_dims:
+            self.Z.num_parameters -= self.Z().shape[0]
 
         self._register_parameters(self.Z)
 
@@ -472,7 +493,7 @@ class Snelson(Model):
 
         Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Luu = Kuu^(1/2)
         v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-        g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.variance(), self.X)  # N;  diag(Kff-Qff) + sigma^2.I
+        g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.scale(), self.X)  # N;  diag(Kff-Qff) + sigma^2.I
         G = torch.diagflat(1.0/g)  # N
         L = self._cholesky(v.mm(G).mm(v.T) + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.G.Kfu.Kuu^(-1/2) + I)^(1/2)
 
@@ -500,7 +521,7 @@ class Snelson(Model):
 
             Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
             v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-            g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.variance(), self.X)
+            g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.scale(), self.X)
             G = torch.diagflat(1.0/g)  # N
             L = self._cholesky(v.mm(G).mm(v.T) + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.G.Kfu.Kuu^(-1/2) + I)^(1/2)
 
@@ -517,12 +538,12 @@ class Snelson(Model):
                 var = Kss - a.T.mm(w) + b.T.mm(u)  # MxM
                 if predict_y:
                     eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self._select_channel(self.likelihood.variance(), Xs) * eye
+                    var += self._select_channel(self.likelihood.scale(), Xs) * eye
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # M
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
                 if predict_y:
-                    var += self._index_channel(self.likelihood.variance(), Xs)
+                    var += self._index_channel(self.likelihood.scale(), Xs)
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -531,8 +552,20 @@ class Snelson(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class OpperArchambeau(Model):
-    # See:
-    #  M. Opper, C. Archambeau, &#34;The Variational Gaussian Approximation Revisited&#34;, 2009
+    &#34;&#34;&#34;
+    A Gaussian process regression based on Opper and Archambeau [1] with a non-Gaussian likelihood.
+
+    Args:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+
+    [1] M. Opper, C. Archambeau, &#34;The Variational Gaussian Approximation Revisited&#34;, 2009
+    &#34;&#34;&#34;
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0),
                  jitter=1e-8, mean=None, name=&#34;OpperArchambeau&#34;):
         super().__init__(kernel, X, y, likelihood, jitter, mean, name)
@@ -620,9 +653,22 @@ class OpperArchambeau(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class Titsias(Model):
-    # See:
-    #  Titsias, &#34;Variational learning of induced variables in sparse Gaussian processes&#34;, 2009
-    #  http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
+    &#34;&#34;&#34;
+    A sparse Gaussian process regression based on Titsias [1] with a Gaussian likelihood.
+
+    Args:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        variance (float): Gaussian likelihood initial variance.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+
+    [1] Titsias, &#34;Variational learning of induced variables in sparse Gaussian processes&#34;, 2009
+    &#34;&#34;&#34;
+    # See: http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
     def __init__(self, kernel, X, y, Z, variance=1.0, jitter=1e-8,
                  mean=None, name=&#34;Titsias&#34;):
         # TODO: variance per channel
@@ -634,6 +680,8 @@ class Titsias(Model):
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name=&#34;induction_points&#34;)
+        if 1 &lt; kernel.output_dims:
+            self.Z.num_parameters -= self.Z().shape[0]
 
         self._register_parameters(self.Z)
 
@@ -650,17 +698,17 @@ class Titsias(Model):
         Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
         v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
         Q = v.mm(v.T)  # MxM;  Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)
-        L = self._cholesky(Q/self.likelihood.variance() + self.eye)  # MxM;  (Q/sigma^2 + I)^(1/2)
+        L = self._cholesky(Q/self.likelihood.scale() + self.eye)  # MxM;  (Q/sigma^2 + I)^(1/2)
 
-        c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.variance()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
+        c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.scale()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
 
         # p = log N(0, Kfu.Kuu^(-1).Kuf + I/sigma^2) - 1/(2.sigma^2).Trace(Kff - Kfu.Kuu^(-1).Kuf)
         p = -self.log_marginal_likelihood_constant
         p -= L.diagonal().log().sum() # 0.5 is taken as the square root of L
-        p -= 0.5*self.X.shape[0]*self.likelihood.variance().log()
-        p -= 0.5*y.T.mm(y).squeeze()/self.likelihood.variance()
+        p -= 0.5*self.X.shape[0]*self.likelihood.scale().log()
+        p -= 0.5*y.T.mm(y).squeeze()/self.likelihood.scale()
         p += 0.5*c.T.mm(c).squeeze()
-        p -= 0.5*(Kff_diag.sum() - Q.trace())/self.likelihood.variance() # trace
+        p -= 0.5*(Kff_diag.sum() - Q.trace())/self.likelihood.scale() # trace
         return p
 
     def log_marginal_likelihood(self):
@@ -681,11 +729,11 @@ class Titsias(Model):
 
             Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
             v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-            L = self._cholesky(v.mm(v.T)/self.likelihood.variance() + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)/sigma^2 + I)^(1/2)
+            L = self._cholesky(v.mm(v.T)/self.likelihood.scale() + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)/sigma^2 + I)^(1/2)
 
             a = torch.linalg.solve_triangular(Luu,Kus,upper=False)  # MxS;  Kuu^(-1/2).Kus
             b = torch.linalg.solve_triangular(L,a,upper=False)  # MxS;  L^(-1).Kuu^(-1/2).Kus
-            c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.variance()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
+            c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.scale()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
 
             # mu = sigma^(-2).Ksu.Kuu^(-1/2).(sigma^(-2).Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2) + I)^(-1).Kuu^(-1/2).Kuf.y
             mu = b.T.mm(c)  # Mx1
@@ -700,12 +748,12 @@ class Titsias(Model):
                 var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
                 if predict_y:
                     eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self.likelihood.variance() * eye
+                    var += self.likelihood.scale() * eye
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # M
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
                 if predict_y:
-                    var += self.likelihood.variance()
+                    var += self.likelihood.scale()
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -714,8 +762,21 @@ class Titsias(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class SparseHensman(Model):
-    # See:
-    #  J. Hensman, et al., &#34;Scalable Variational Gaussian Process Classification&#34;, 2015
+    &#34;&#34;&#34;
+    A sparse Gaussian process regression based on Hensman et al. [1] with a non-Gaussian likelihood.
+
+    Args:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+
+    [1] J. Hensman, et al., &#34;Scalable Variational Gaussian Process Classification&#34;, 2015
+    &#34;&#34;&#34;
     # This version replaces mu_q by L.mu_q and sigma_q by L.sigma_q.L^T, where LL^T = Kuu
     # So that p(u) ~ N(0,1) and q(u) ~ N(L.mu_q, L.sigma_q.L^T)
     def __init__(self, kernel, X, y, Z=None, likelihood=GaussianLikelihood(variance=1.0),
@@ -732,9 +793,12 @@ class SparseHensman(Model):
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(n,1), name=&#34;q_mu&#34;)
-        self.q_sqrt = Parameter(torch.eye(n), name=&#34;q_sqrt&#34;) # TODO: store only lower triangle
+        self.q_sqrt = Parameter(torch.eye(n), name=&#34;q_sqrt&#34;)
+        self.q_sqrt.num_parameters = int((n*n+n)/2)
         if self.is_sparse:
             self.Z = Parameter(Z, name=&#34;induction_points&#34;)
+            if 1 &lt; kernel.output_dims:
+                self.Z.num_parameters -= self.Z().shape[0]
         else:
             self.Z = Parameter(self.X, trainable=False)  # don&#39;t use inducing points
 
@@ -812,6 +876,20 @@ class SparseHensman(Model):
                 return mu.cpu().numpy(), var.cpu().numpy()
 
 class Hensman(SparseHensman):
+    &#34;&#34;&#34;
+    A Gaussian process regression based on Hensman et al. [1] with a non-Gaussian likelihood. This is equivalent to the `SparseHensman` model if we set the inducing points equal to the data points and by turning off training the inducing points.
+
+    Args:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+
+    [1] J. Hensman, et al., &#34;Scalable Variational Gaussian Process Classification&#34;, 2015
+    &#34;&#34;&#34;
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-8,
                  mean=None, name=&#34;Hensman&#34;):
         super().__init__(kernel, X, y, None, likelihood, jitter, mean, name)</code></pre>
@@ -832,7 +910,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L12-L34" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L8-L30" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_inducing_points(Z, X, kernel):
     # TODO: instead of linspace, use quantile space or k-means to initialize positions
@@ -859,20 +937,6 @@ class Hensman(SparseHensman):
     return Z</code></pre>
 </details>
 </dd>
-<dt id="mogptk.gpr.model.prod"><code class="name flex">
-<span>def <span class="ident">prod</span></span>(<span>iterable)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L9-L10" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def prod(iterable):
-    return reduce(operator.mul, iterable, 1)</code></pre>
-</details>
-</dd>
 </dl>
 </section>
 <section>
@@ -887,7 +951,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L36-L43" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L32-L39" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CholeskyException(Exception):
     def __init__(self, message, K, model):
@@ -909,36 +973,66 @@ class Hensman(SparseHensman):
 <span>(</span><span>kernel, X, y, variance=1.0, jitter=1e-08, mean=None, name='Exact')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base model class.</p></div>
+<div class="desc"><p>Regular Gaussian process regression with a Gaussian likelihood which allows for exact inference.</p>
+<p><span><span class="MathJax_Preview"> y \sim \mathcal{N}(0, K + \sigma^2I) </span><script type="math/tex; mode=display"> y \sim \mathcal{N}(0, K + \sigma^2I) </script></span></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernel</code></strong> :&ensp;<code>mpgptk.gpr.kernel.Kernel</code></dt>
+<dd>Kernel.</dd>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input data of shape (data_points,input_dims).</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Output data of shape (data_points,).</dd>
+<dt><strong><code>variance</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
+<dd>Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel. Passing a tensor of shape (data_points,1) will assign and fix different variances per data point.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
+<dd>Mean.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the model.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L332-L409" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L328-L417" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact(Model):
+    &#34;&#34;&#34;
+    Regular Gaussian process regression with a Gaussian likelihood which allows for exact inference.
+
+    $$ y \\sim \\mathcal{N}(0, K + \\sigma^2I) $$
+
+    Args:
+        kernel (mpgptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel. Passing a tensor of shape (data_points,1) will assign and fix different variances per data point.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+    &#34;&#34;&#34;
     def __init__(self, kernel, X, y, variance=1.0, jitter=1e-8, mean=None, name=&#34;Exact&#34;):
-        # turn on Gaussian likelihood variance per channel and or per data point
-        # variance shape will be (channels,data_points), where if either is unity, the variance will be equal amonst all channels or data points respectively
-        variance = Parameter.to_tensor(variance).squeeze()
-        if variance.ndim == 1 and 0 &lt; X.ndim and variance.shape[0] == X.shape[0]:
-            variance = variance.reshape(1,-1)
-        elif variance.ndim == 0 or variance.ndim == 1 and variance.shape[0] == 1:
-            variance = variance.repeat(kernel.output_dims)
-        elif variance.ndim != 1 or variance.shape[0] != kernel.output_dims:
-            raise ValueError(&#34;variance must have shape (channels,) or (data_points,)&#34;)
+        self.variance_per_data = False
+        variance = Parameter.to_tensor(variance)
+        if variance.ndim == 2 and (X.ndim != 1 or variance.shape[0] == X.shape[0]) and variance.shape[1] == 1:
+            self.variance_per_data = True
+            variance = variance.reshape(-1)
+        elif 1 &lt; variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
+            raise ValueError(&#34;variance must be float or have shape (channels,) or (data_points,1)&#34;)
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
-        self.likelihood.variance.trainable = variance.ndim == 1
+        self.likelihood.scale.trainable = not self.variance_per_data
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
 
     def log_marginal_likelihood(self):
         Kff = self.kernel.K(self.X)
-        if self.likelihood.variance().ndim == 2:
-            Kff += self.likelihood.variance()[0,:].diagflat()
+        if self.variance_per_data:
+            Kff += self.likelihood.scale().diagflat()
         else:
-            Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
+            Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
         L = self._cholesky(Kff, add_jitter=True)  # NxN
 
         if self.mean is not None:
@@ -952,8 +1046,8 @@ class Hensman(SparseHensman):
         return p
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
-        if self.likelihood.variance().ndim == 2 and predict_y:
-            raise ValueError(&#34;can only predict f when data point variances are given, set predict_y=False&#34;)
+        if self.variance_per_data and predict_y:
+            raise ValueError(&#34;can only predict function values when data point variances are given, set predict_y=False&#34;)
 
         with torch.no_grad():
             Xs = self._check_input(Xs)  # MxD
@@ -963,10 +1057,10 @@ class Hensman(SparseHensman):
                 y = self.y  # Nx1
 
             Kff = self.kernel.K(self.X)
-            if self.likelihood.variance().ndim == 2:
-                Kff += self.likelihood.variance()[0,:].diagflat()
+            if self.variance_per_data:
+                Kff += self.likelihood.scale().diagflat()
             else:
-                Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
+                Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
             Kfs = self.kernel.K(self.X,Xs)  # NxM
 
             Lff = self._cholesky(Kff, add_jitter=True)  # NxN
@@ -981,12 +1075,12 @@ class Hensman(SparseHensman):
                 var = Kss - v.T.mm(v)  # MxM
                 if predict_y:
                     eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self._index_channel(self.likelihood.variance(), Xs) * eye
+                    var += self._index_channel(self.likelihood.scale(), Xs) * eye
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # M
                 var = Kss_diag - v.T.square().sum(dim=1)  # M
                 if predict_y:
-                    var += self._index_channel(self.likelihood.variance(), Xs)
+                    var += self._index_channel(self.likelihood.scale(), Xs)
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -1008,11 +1102,11 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L368-L409" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L376-L417" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
-    if self.likelihood.variance().ndim == 2 and predict_y:
-        raise ValueError(&#34;can only predict f when data point variances are given, set predict_y=False&#34;)
+    if self.variance_per_data and predict_y:
+        raise ValueError(&#34;can only predict function values when data point variances are given, set predict_y=False&#34;)
 
     with torch.no_grad():
         Xs = self._check_input(Xs)  # MxD
@@ -1022,10 +1116,10 @@ class Hensman(SparseHensman):
             y = self.y  # Nx1
 
         Kff = self.kernel.K(self.X)
-        if self.likelihood.variance().ndim == 2:
-            Kff += self.likelihood.variance()[0,:].diagflat()
+        if self.variance_per_data:
+            Kff += self.likelihood.scale().diagflat()
         else:
-            Kff += self._index_channel(self.likelihood.variance(), self.X) * self.eye  # NxN
+            Kff += self._index_channel(self.likelihood.scale(), self.X) * self.eye  # NxN
         Kfs = self.kernel.K(self.X,Xs)  # NxM
 
         Lff = self._cholesky(Kff, add_jitter=True)  # NxN
@@ -1040,12 +1134,12 @@ class Hensman(SparseHensman):
             var = Kss - v.T.mm(v)  # MxM
             if predict_y:
                 eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                var += self._index_channel(self.likelihood.variance(), Xs) * eye
+                var += self._index_channel(self.likelihood.scale(), Xs) * eye
         else:
             Kss_diag = self.kernel.K_diag(Xs)  # M
             var = Kss_diag - v.T.square().sum(dim=1)  # M
             if predict_y:
-                var += self._index_channel(self.likelihood.variance(), Xs)
+                var += self._index_channel(self.likelihood.scale(), Xs)
             var = var.reshape(-1,1)
 
         if tensor:
@@ -1076,13 +1170,45 @@ class Hensman(SparseHensman):
 <span>(</span><span>kernel, X, y, likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-08, mean=None, name='Hensman')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base model class.</p></div>
+<div class="desc"><p>A Gaussian process regression based on Hensman et al. [1] with a non-Gaussian likelihood. This is equivalent to the <code><a title="mogptk.gpr.model.SparseHensman" href="#mogptk.gpr.model.SparseHensman">SparseHensman</a></code> model if we set the inducing points equal to the data points and by turning off training the inducing points.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Kernel.</dd>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input data of shape (data_points,input_dims).</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Output data of shape (data_points,).</dd>
+<dt><strong><code>likelihood</code></strong> :&ensp;<code><a title="mogptk.gpr.likelihood.Likelihood" href="likelihood.html#mogptk.gpr.likelihood.Likelihood">Likelihood</a></code></dt>
+<dd>Likelihood.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
+<dd>Mean.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the model.</dd>
+</dl>
+<p>[1] J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L783-L786" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L847-L864" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman(SparseHensman):
+    &#34;&#34;&#34;
+    A Gaussian process regression based on Hensman et al. [1] with a non-Gaussian likelihood. This is equivalent to the `SparseHensman` model if we set the inducing points equal to the data points and by turning off training the inducing points.
+
+    Args:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+
+    [1] J. Hensman, et al., &#34;Scalable Variational Gaussian Process Classification&#34;, 2015
+    &#34;&#34;&#34;
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0), jitter=1e-8,
                  mean=None, name=&#34;Hensman&#34;):
         super().__init__(kernel, X, y, None, likelihood, jitter, mean, name)</code></pre>
@@ -1117,7 +1243,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L45-L330" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L41-L326" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     &#34;&#34;&#34;
@@ -1134,7 +1260,7 @@ class Hensman(SparseHensman):
             if mu.shape != y.shape:
                 raise ValueError(&#34;mean and y data must match shapes: %s != %s&#34; % (mu.shape, y.shape))
 
-        if likelihood.output_dims != 1 and likelihood.output_dims != kernel.output_dims:
+        if issubclass(type(likelihood), MultiOutputLikelihood) and likelihood.output_dims != kernel.output_dims:
             raise ValueError(&#34;kernel and likelihood must have matching output dimensions&#34;)
         likelihood.validate_y(y, X=X)
 
@@ -1257,12 +1383,12 @@ class Hensman(SparseHensman):
         &#34;&#34;&#34;
         def param_range(lower, upper, trainable=True, pegged=False):
             if lower is not None:
-                if prod(lower.shape) == 1:
+                if math.prod(lower.shape) == 1:
                     lower = lower.item()
                 else:
                     lower = lower.tolist()
             if upper is not None:
-                if prod(upper.shape) == 1:
+                if math.prod(upper.shape) == 1:
                     upper = upper.item()
                 else:
                     upper = upper.tolist()
@@ -1436,7 +1562,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L275-L287" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L271-L283" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -1466,7 +1592,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L168-L175" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L164-L171" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -1492,7 +1618,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L241-L250" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L237-L246" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -1520,7 +1646,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L252-L261" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L248-L257" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     &#34;&#34;&#34;
@@ -1547,7 +1673,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L263-L273" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L259-L269" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -1572,7 +1698,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L157-L166" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L153-L162" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def parameters(self):
     &#34;&#34;&#34;
@@ -1594,7 +1720,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L177-L224" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L173-L220" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self, file=None):
     &#34;&#34;&#34;
@@ -1602,12 +1728,12 @@ class Hensman(SparseHensman):
     &#34;&#34;&#34;
     def param_range(lower, upper, trainable=True, pegged=False):
         if lower is not None:
-            if prod(lower.shape) == 1:
+            if math.prod(lower.shape) == 1:
                 lower = lower.item()
             else:
                 lower = lower.tolist()
         if upper is not None:
-            if prod(upper.shape) == 1:
+            if math.prod(upper.shape) == 1:
                 upper = upper.item()
             else:
                 upper = upper.tolist()
@@ -1668,7 +1794,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L300-L330" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L296-L326" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, Z, n=None, predict_y=True):
     &#34;&#34;&#34;
@@ -1711,7 +1837,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L147-L155" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L143-L151" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def zero_grad(self):
     for p in self._params:
@@ -1731,15 +1857,45 @@ class Hensman(SparseHensman):
 <span>(</span><span>kernel, X, y, likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-08, mean=None, name='OpperArchambeau')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base model class.</p></div>
+<div class="desc"><p>A Gaussian process regression based on Opper and Archambeau [1] with a non-Gaussian likelihood.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Kernel.</dd>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input data of shape (data_points,input_dims).</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Output data of shape (data_points,).</dd>
+<dt><strong><code>likelihood</code></strong> :&ensp;<code><a title="mogptk.gpr.likelihood.Likelihood" href="likelihood.html#mogptk.gpr.likelihood.Likelihood">Likelihood</a></code></dt>
+<dd>Likelihood.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
+<dd>Mean.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the model.</dd>
+</dl>
+<p>[1] M. Opper, C. Archambeau, "The Variational Gaussian Approximation Revisited", 2009</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L502-L589" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L523-L622" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau(Model):
-    # See:
-    #  M. Opper, C. Archambeau, &#34;The Variational Gaussian Approximation Revisited&#34;, 2009
+    &#34;&#34;&#34;
+    A Gaussian process regression based on Opper and Archambeau [1] with a non-Gaussian likelihood.
+
+    Args:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+
+    [1] M. Opper, C. Archambeau, &#34;The Variational Gaussian Approximation Revisited&#34;, 2009
+    &#34;&#34;&#34;
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(variance=1.0),
                  jitter=1e-8, mean=None, name=&#34;OpperArchambeau&#34;):
         super().__init__(kernel, X, y, likelihood, jitter, mean, name)
@@ -1840,7 +1996,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L518-L555" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L551-L588" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -1890,7 +2046,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L561-L589" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L594-L622" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -1945,21 +2101,52 @@ class Hensman(SparseHensman):
 <span>(</span><span>kernel, X, y, Z=10, variance=1.0, jitter=1e-08, mean=None, name='Snelson')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base model class.</p></div>
+<div class="desc"><p>A sparse Gaussian process regression based on Snelson and Ghahramani [1] with a Gaussian likelihood and inducing points.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Kernel.</dd>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input data of shape (data_points,input_dims).</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Output data of shape (data_points,).</dd>
+<dt><strong><code>Z</code></strong> :&ensp;<code>int,torch.tensor</code></dt>
+<dd>Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.</dd>
+<dt><strong><code>variance</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
+<dd>Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
+<dd>Mean.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the model.</dd>
+</dl>
+<p>[1] E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L411-L500" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L419-L521" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson(Model):
-    # See:
-    #  E. Snelson, Z. Ghahramani, &#34;Sparse Gaussian Processes using Pseudo-inputs&#34;, 2005
+    &#34;&#34;&#34;
+    A sparse Gaussian process regression based on Snelson and Ghahramani [1] with a Gaussian likelihood and inducing points.
+
+    Args:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+
+    [1] E. Snelson, Z. Ghahramani, &#34;Sparse Gaussian Processes using Pseudo-inputs&#34;, 2005
+    &#34;&#34;&#34;
     def __init__(self, kernel, X, y, Z=10, variance=1.0, jitter=1e-8, mean=None, name=&#34;Snelson&#34;):
-        if 1 &lt; kernel.output_dims:
-            # turn on Gaussian likelihood variance per channel
-            variance = Parameter([variance] * kernel.output_dims, name=&#34;variance&#34;, lower=config.positive_minimum)
-        else:
-            variance = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+        variance = Parameter.to_tensor(variance).squeeze()
+        if 1 &lt; variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
+            raise ValueError(&#34;variance must be float or have shape (channels,)&#34;)
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
 
@@ -1969,6 +2156,8 @@ class Hensman(SparseHensman):
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name=&#34;induction_points&#34;)
+        if 1 &lt; kernel.output_dims:
+            self.Z.num_parameters -= self.Z().shape[0]
 
         self._register_parameters(self.Z)
 
@@ -1984,7 +2173,7 @@ class Hensman(SparseHensman):
 
         Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Luu = Kuu^(1/2)
         v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-        g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.variance(), self.X)  # N;  diag(Kff-Qff) + sigma^2.I
+        g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.scale(), self.X)  # N;  diag(Kff-Qff) + sigma^2.I
         G = torch.diagflat(1.0/g)  # N
         L = self._cholesky(v.mm(G).mm(v.T) + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.G.Kfu.Kuu^(-1/2) + I)^(1/2)
 
@@ -2012,7 +2201,7 @@ class Hensman(SparseHensman):
 
             Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
             v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-            g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.variance(), self.X)
+            g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.scale(), self.X)
             G = torch.diagflat(1.0/g)  # N
             L = self._cholesky(v.mm(G).mm(v.T) + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.G.Kfu.Kuu^(-1/2) + I)^(1/2)
 
@@ -2029,12 +2218,12 @@ class Hensman(SparseHensman):
                 var = Kss - a.T.mm(w) + b.T.mm(u)  # MxM
                 if predict_y:
                     eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self._select_channel(self.likelihood.variance(), Xs) * eye
+                    var += self._select_channel(self.likelihood.scale(), Xs) * eye
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # M
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
                 if predict_y:
-                    var += self._index_channel(self.likelihood.variance(), Xs)
+                    var += self._index_channel(self.likelihood.scale(), Xs)
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -2056,7 +2245,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L457-L500" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L478-L521" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -2073,7 +2262,7 @@ class Hensman(SparseHensman):
 
         Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
         v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-        g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.variance(), self.X)
+        g = Kff_diag - v.T.square().sum(dim=1) + self._index_channel(self.likelihood.scale(), self.X)
         G = torch.diagflat(1.0/g)  # N
         L = self._cholesky(v.mm(G).mm(v.T) + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.G.Kfu.Kuu^(-1/2) + I)^(1/2)
 
@@ -2090,12 +2279,12 @@ class Hensman(SparseHensman):
             var = Kss - a.T.mm(w) + b.T.mm(u)  # MxM
             if predict_y:
                 eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                var += self._select_channel(self.likelihood.variance(), Xs) * eye
+                var += self._select_channel(self.likelihood.scale(), Xs) * eye
         else:
             Kss_diag = self.kernel.K_diag(Xs)  # M
             var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
             if predict_y:
-                var += self._index_channel(self.likelihood.variance(), Xs)
+                var += self._index_channel(self.likelihood.scale(), Xs)
             var = var.reshape(-1,1)
 
         if tensor:
@@ -2126,15 +2315,48 @@ class Hensman(SparseHensman):
 <span>(</span><span>kernel, X, y, Z=None, likelihood=&lt;mogptk.gpr.likelihood.GaussianLikelihood object&gt;, jitter=1e-08, mean=None, name='SparseHensman')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base model class.</p></div>
+<div class="desc"><p>A sparse Gaussian process regression based on Hensman et al. [1] with a non-Gaussian likelihood.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Kernel.</dd>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input data of shape (data_points,input_dims).</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Output data of shape (data_points,).</dd>
+<dt><strong><code>Z</code></strong> :&ensp;<code>int,torch.tensor</code></dt>
+<dd>Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.</dd>
+<dt><strong><code>likelihood</code></strong> :&ensp;<code><a title="mogptk.gpr.likelihood.Likelihood" href="likelihood.html#mogptk.gpr.likelihood.Likelihood">Likelihood</a></code></dt>
+<dd>Likelihood.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
+<dd>Mean.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the model.</dd>
+</dl>
+<p>[1] J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L685-L781" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L733-L845" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SparseHensman(Model):
-    # See:
-    #  J. Hensman, et al., &#34;Scalable Variational Gaussian Process Classification&#34;, 2015
+    &#34;&#34;&#34;
+    A sparse Gaussian process regression based on Hensman et al. [1] with a non-Gaussian likelihood.
+
+    Args:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+
+    [1] J. Hensman, et al., &#34;Scalable Variational Gaussian Process Classification&#34;, 2015
+    &#34;&#34;&#34;
     # This version replaces mu_q by L.mu_q and sigma_q by L.sigma_q.L^T, where LL^T = Kuu
     # So that p(u) ~ N(0,1) and q(u) ~ N(L.mu_q, L.sigma_q.L^T)
     def __init__(self, kernel, X, y, Z=None, likelihood=GaussianLikelihood(variance=1.0),
@@ -2151,9 +2373,12 @@ class Hensman(SparseHensman):
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.q_mu = Parameter(torch.zeros(n,1), name=&#34;q_mu&#34;)
-        self.q_sqrt = Parameter(torch.eye(n), name=&#34;q_sqrt&#34;) # TODO: store only lower triangle
+        self.q_sqrt = Parameter(torch.eye(n), name=&#34;q_sqrt&#34;)
+        self.q_sqrt.num_parameters = int((n*n+n)/2)
         if self.is_sparse:
             self.Z = Parameter(Z, name=&#34;induction_points&#34;)
+            if 1 &lt; kernel.output_dims:
+                self.Z.num_parameters -= self.Z().shape[0]
         else:
             self.Z = Parameter(self.X, trainable=False)  # don&#39;t use inducing points
 
@@ -2248,7 +2473,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L723-L744" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L787-L808" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -2282,7 +2507,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L715-L721" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L779-L785" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def kl_gaussian(self, q_mu, q_sqrt):
     S_diag = q_sqrt.diagonal().square() # NxN
@@ -2301,7 +2526,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L768-L781" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L832-L845" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -2341,16 +2566,49 @@ class Hensman(SparseHensman):
 <span>(</span><span>kernel, X, y, Z, variance=1.0, jitter=1e-08, mean=None, name='Titsias')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base model class.</p></div>
+<div class="desc"><p>A sparse Gaussian process regression based on Titsias [1] with a Gaussian likelihood.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Kernel.</dd>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input data of shape (data_points,input_dims).</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Output data of shape (data_points,).</dd>
+<dt><strong><code>Z</code></strong> :&ensp;<code>int,torch.tensor</code></dt>
+<dd>Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.</dd>
+<dt><strong><code>variance</code></strong> :&ensp;<code>float</code></dt>
+<dd>Gaussian likelihood initial variance.</dd>
+<dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
+<dd>Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
+<dd>Mean.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the model.</dd>
+</dl>
+<p>[1] Titsias, "Variational learning of induced variables in sparse Gaussian processes", 2009</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L591-L683" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L624-L731" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias(Model):
-    # See:
-    #  Titsias, &#34;Variational learning of induced variables in sparse Gaussian processes&#34;, 2009
-    #  http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
+    &#34;&#34;&#34;
+    A sparse Gaussian process regression based on Titsias [1] with a Gaussian likelihood.
+
+    Args:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        X (torch.tensor): Input data of shape (data_points,input_dims).
+        y (torch.tensor): Output data of shape (data_points,).
+        Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
+        variance (float): Gaussian likelihood initial variance.
+        jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
+        mean (mogptk.gpr.mean.Mean): Mean.
+        name (str): Name of the model.
+
+    [1] Titsias, &#34;Variational learning of induced variables in sparse Gaussian processes&#34;, 2009
+    &#34;&#34;&#34;
+    # See: http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
     def __init__(self, kernel, X, y, Z, variance=1.0, jitter=1e-8,
                  mean=None, name=&#34;Titsias&#34;):
         # TODO: variance per channel
@@ -2362,6 +2620,8 @@ class Hensman(SparseHensman):
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name=&#34;induction_points&#34;)
+        if 1 &lt; kernel.output_dims:
+            self.Z.num_parameters -= self.Z().shape[0]
 
         self._register_parameters(self.Z)
 
@@ -2378,17 +2638,17 @@ class Hensman(SparseHensman):
         Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
         v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
         Q = v.mm(v.T)  # MxM;  Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)
-        L = self._cholesky(Q/self.likelihood.variance() + self.eye)  # MxM;  (Q/sigma^2 + I)^(1/2)
+        L = self._cholesky(Q/self.likelihood.scale() + self.eye)  # MxM;  (Q/sigma^2 + I)^(1/2)
 
-        c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.variance()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
+        c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.scale()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
 
         # p = log N(0, Kfu.Kuu^(-1).Kuf + I/sigma^2) - 1/(2.sigma^2).Trace(Kff - Kfu.Kuu^(-1).Kuf)
         p = -self.log_marginal_likelihood_constant
         p -= L.diagonal().log().sum() # 0.5 is taken as the square root of L
-        p -= 0.5*self.X.shape[0]*self.likelihood.variance().log()
-        p -= 0.5*y.T.mm(y).squeeze()/self.likelihood.variance()
+        p -= 0.5*self.X.shape[0]*self.likelihood.scale().log()
+        p -= 0.5*y.T.mm(y).squeeze()/self.likelihood.scale()
         p += 0.5*c.T.mm(c).squeeze()
-        p -= 0.5*(Kff_diag.sum() - Q.trace())/self.likelihood.variance() # trace
+        p -= 0.5*(Kff_diag.sum() - Q.trace())/self.likelihood.scale() # trace
         return p
 
     def log_marginal_likelihood(self):
@@ -2409,11 +2669,11 @@ class Hensman(SparseHensman):
 
             Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
             v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-            L = self._cholesky(v.mm(v.T)/self.likelihood.variance() + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)/sigma^2 + I)^(1/2)
+            L = self._cholesky(v.mm(v.T)/self.likelihood.scale() + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)/sigma^2 + I)^(1/2)
 
             a = torch.linalg.solve_triangular(Luu,Kus,upper=False)  # MxS;  Kuu^(-1/2).Kus
             b = torch.linalg.solve_triangular(L,a,upper=False)  # MxS;  L^(-1).Kuu^(-1/2).Kus
-            c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.variance()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
+            c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.scale()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
 
             # mu = sigma^(-2).Ksu.Kuu^(-1/2).(sigma^(-2).Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2) + I)^(-1).Kuu^(-1/2).Kuf.y
             mu = b.T.mm(c)  # Mx1
@@ -2428,12 +2688,12 @@ class Hensman(SparseHensman):
                 var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
                 if predict_y:
                     eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self.likelihood.variance() * eye
+                    var += self.likelihood.scale() * eye
             else:
                 Kss_diag = self.kernel.K_diag(Xs)  # M
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
                 if predict_y:
-                    var += self.likelihood.variance()
+                    var += self.likelihood.scale()
                 var = var.reshape(-1,1)
 
             if tensor:
@@ -2455,7 +2715,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L609-L633" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L657-L681" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -2470,17 +2730,17 @@ class Hensman(SparseHensman):
     Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
     v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
     Q = v.mm(v.T)  # MxM;  Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)
-    L = self._cholesky(Q/self.likelihood.variance() + self.eye)  # MxM;  (Q/sigma^2 + I)^(1/2)
+    L = self._cholesky(Q/self.likelihood.scale() + self.eye)  # MxM;  (Q/sigma^2 + I)^(1/2)
 
-    c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.variance()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
+    c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.scale()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
 
     # p = log N(0, Kfu.Kuu^(-1).Kuf + I/sigma^2) - 1/(2.sigma^2).Trace(Kff - Kfu.Kuu^(-1).Kuf)
     p = -self.log_marginal_likelihood_constant
     p -= L.diagonal().log().sum() # 0.5 is taken as the square root of L
-    p -= 0.5*self.X.shape[0]*self.likelihood.variance().log()
-    p -= 0.5*y.T.mm(y).squeeze()/self.likelihood.variance()
+    p -= 0.5*self.X.shape[0]*self.likelihood.scale().log()
+    p -= 0.5*y.T.mm(y).squeeze()/self.likelihood.scale()
     p += 0.5*c.T.mm(c).squeeze()
-    p -= 0.5*(Kff_diag.sum() - Q.trace())/self.likelihood.variance() # trace
+    p -= 0.5*(Kff_diag.sum() - Q.trace())/self.likelihood.scale() # trace
     return p</code></pre>
 </details>
 </dd>
@@ -2492,7 +2752,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/model.py#L639-L683" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/model.py#L687-L731" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -2508,11 +2768,11 @@ class Hensman(SparseHensman):
 
         Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
         v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
-        L = self._cholesky(v.mm(v.T)/self.likelihood.variance() + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)/sigma^2 + I)^(1/2)
+        L = self._cholesky(v.mm(v.T)/self.likelihood.scale() + self.eye)  # MxM;  (Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2)/sigma^2 + I)^(1/2)
 
         a = torch.linalg.solve_triangular(Luu,Kus,upper=False)  # MxS;  Kuu^(-1/2).Kus
         b = torch.linalg.solve_triangular(L,a,upper=False)  # MxS;  L^(-1).Kuu^(-1/2).Kus
-        c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.variance()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
+        c = torch.linalg.solve_triangular(L,v.mm(y),upper=False)/self.likelihood.scale()  # Mx1;  L^(-1).Kuu^(-1/2).Kuf.y
 
         # mu = sigma^(-2).Ksu.Kuu^(-1/2).(sigma^(-2).Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2) + I)^(-1).Kuu^(-1/2).Kuf.y
         mu = b.T.mm(c)  # Mx1
@@ -2527,12 +2787,12 @@ class Hensman(SparseHensman):
             var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
             if predict_y:
                 eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                var += self.likelihood.variance() * eye
+                var += self.likelihood.scale() * eye
         else:
             Kss_diag = self.kernel.K_diag(Xs)  # M
             var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
             if predict_y:
-                var += self.likelihood.variance()
+                var += self.likelihood.scale()
             var = var.reshape(-1,1)
 
         if tensor:
@@ -2575,7 +2835,6 @@ class Hensman(SparseHensman):
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="mogptk.gpr.model.init_inducing_points" href="#mogptk.gpr.model.init_inducing_points">init_inducing_points</a></code></li>
-<li><code><a title="mogptk.gpr.model.prod" href="#mogptk.gpr.model.prod">prod</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

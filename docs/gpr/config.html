@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/config.py#L1-L65" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/config.py#L1-L73" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 
@@ -40,9 +40,17 @@ class Config:
     positive_minimum = 1e-8
 config = Config()
 
+def use_half_precision():
+    &#34;&#34;&#34;
+    Use half precision (float16) for all tensors. This may be much faster on GPUs, but has reduced precision and may more often cause numerical instability. Only recommended on GPUs.
+    &#34;&#34;&#34;
+    if config.device.type == &#39;cpu&#39;:
+        print(&#39;WARNING: half precision not recommend on CPU&#39;)
+    config.dtype = torch.float16
+
 def use_single_precision():
     &#34;&#34;&#34;
-    Use single precision (float32) for all tensors. This may be much faster on GPUs, but has reduced precision and may more often cause numerical instability.
+    Use single precision (float32) for all tensors. This may be faster on GPUs, but has reduced precision and may more often cause numerical instability.
     &#34;&#34;&#34;
     config.dtype = torch.float32
 
@@ -111,7 +119,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/config.py#L46-L59" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/config.py#L54-L67" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_gpu_information():
     &#34;&#34;&#34;
@@ -137,7 +145,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/config.py#L61-L65" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/config.py#L69-L73" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_positive_minimum(val):
     &#34;&#34;&#34;
@@ -154,7 +162,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/config.py#L24-L31" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/config.py#L32-L39" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_cpu(n=None):
     &#34;&#34;&#34;
@@ -174,7 +182,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/config.py#L18-L22" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/config.py#L26-L30" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_double_precision():
     &#34;&#34;&#34;
@@ -191,7 +199,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/config.py#L33-L44" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/config.py#L41-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_gpu(n=None):
     &#34;&#34;&#34;
@@ -207,19 +215,38 @@ def set_positive_minimum(val):
         config.device = torch.device(&#39;cuda&#39;, n)</code></pre>
 </details>
 </dd>
+<dt id="mogptk.gpr.config.use_half_precision"><code class="name flex">
+<span>def <span class="ident">use_half_precision</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Use half precision (float16) for all tensors. This may be much faster on GPUs, but has reduced precision and may more often cause numerical instability. Only recommended on GPUs.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/config.py#L12-L18" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def use_half_precision():
+    &#34;&#34;&#34;
+    Use half precision (float16) for all tensors. This may be much faster on GPUs, but has reduced precision and may more often cause numerical instability. Only recommended on GPUs.
+    &#34;&#34;&#34;
+    if config.device.type == &#39;cpu&#39;:
+        print(&#39;WARNING: half precision not recommend on CPU&#39;)
+    config.dtype = torch.float16</code></pre>
+</details>
+</dd>
 <dt id="mogptk.gpr.config.use_single_precision"><code class="name flex">
 <span>def <span class="ident">use_single_precision</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Use single precision (float32) for all tensors. This may be much faster on GPUs, but has reduced precision and may more often cause numerical instability.</p></div>
+<div class="desc"><p>Use single precision (float32) for all tensors. This may be faster on GPUs, but has reduced precision and may more often cause numerical instability.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/config.py#L12-L16" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/config.py#L20-L24" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_single_precision():
     &#34;&#34;&#34;
-    Use single precision (float32) for all tensors. This may be much faster on GPUs, but has reduced precision and may more often cause numerical instability.
+    Use single precision (float32) for all tensors. This may be faster on GPUs, but has reduced precision and may more often cause numerical instability.
     &#34;&#34;&#34;
     config.dtype = torch.float32</code></pre>
 </details>
@@ -237,7 +264,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/config.py#L3-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/config.py#L3-L9" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
     dtype = torch.float64
@@ -284,6 +311,7 @@ def set_positive_minimum(val):
 <li><code><a title="mogptk.gpr.config.use_cpu" href="#mogptk.gpr.config.use_cpu">use_cpu</a></code></li>
 <li><code><a title="mogptk.gpr.config.use_double_precision" href="#mogptk.gpr.config.use_double_precision">use_double_precision</a></code></li>
 <li><code><a title="mogptk.gpr.config.use_gpu" href="#mogptk.gpr.config.use_gpu">use_gpu</a></code></li>
+<li><code><a title="mogptk.gpr.config.use_half_precision" href="#mogptk.gpr.config.use_half_precision">use_half_precision</a></code></li>
 <li><code><a title="mogptk.gpr.config.use_single_precision" href="#mogptk.gpr.config.use_single_precision">use_single_precision</a></code></li>
 </ul>
 </li>

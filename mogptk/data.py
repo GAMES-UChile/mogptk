@@ -1227,6 +1227,7 @@ class Data:
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
+        # TODO: normalize periodograms
         # normalize
         #Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
 

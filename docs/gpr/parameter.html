@@ -27,9 +27,10 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L1-L275" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L1-L284" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">import torch
+<pre><code class="python">import math
+import torch
 import torch.nn.functional as functional
 
 from .config import config
@@ -128,6 +129,8 @@ class Parameter:
 
         self.assign(value, lower=lower, upper=upper)
 
+        self.num_parameters = math.prod(self.unconstrained.shape)
+
     def __repr__(self):
         name = self.name
         if self.pegged:
@@ -141,7 +144,7 @@ class Parameter:
         Get (constraint) parameter value.
 
         Returns:
-            torch.tensor: Parameter value.
+            torch.tensor
         &#34;&#34;&#34;
         return self.constrained
 
@@ -151,6 +154,12 @@ class Parameter:
 
     @property
     def constrained(self):
+        &#34;&#34;&#34;
+        Get (constraint) parameter value. Equivalent to calling `parameter()`.
+
+        Returns:
+            torch.tensor
+        &#34;&#34;&#34;
         if self.pegged:
             other = self.pegged_parameter.constrained
             if self.pegged_transform is not None:
@@ -297,7 +306,7 @@ class Parameter:
     def log_prior(self):
         &#34;&#34;&#34;
         Get the log of the prior.
-        
+
         Returns:
             float: Log prior.
         &#34;&#34;&#34;
@@ -339,7 +348,7 @@ class Parameter:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L75-L275" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L76-L284" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Parameter:
     &#34;&#34;&#34;
@@ -366,6 +375,8 @@ class Parameter:
 
         self.assign(value, lower=lower, upper=upper)
 
+        self.num_parameters = math.prod(self.unconstrained.shape)
+
     def __repr__(self):
         name = self.name
         if self.pegged:
@@ -379,7 +390,7 @@ class Parameter:
         Get (constraint) parameter value.
 
         Returns:
-            torch.tensor: Parameter value.
+            torch.tensor
         &#34;&#34;&#34;
         return self.constrained
 
@@ -389,6 +400,12 @@ class Parameter:
 
     @property
     def constrained(self):
+        &#34;&#34;&#34;
+        Get (constraint) parameter value. Equivalent to calling `parameter()`.
+
+        Returns:
+            torch.tensor
+        &#34;&#34;&#34;
         if self.pegged:
             other = self.pegged_parameter.constrained
             if self.pegged_transform is not None:
@@ -535,7 +552,7 @@ class Parameter:
     def log_prior(self):
         &#34;&#34;&#34;
         Get the log of the prior.
-        
+
         Returns:
             float: Log prior.
         &#34;&#34;&#34;
@@ -553,7 +570,7 @@ class Parameter:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L141-L149" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L150-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def to_tensor(value):
@@ -571,14 +588,22 @@ def to_tensor(value):
 <dl>
 <dt id="mogptk.gpr.parameter.Parameter.constrained"><code class="name">var <span class="ident">constrained</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get (constraint) parameter value. Equivalent to calling <code>parameter()</code>.</p>
+<h2 id="returns">Returns</h2>
+<p>torch.tensor</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L121-L130" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L124-L139" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def constrained(self):
+    &#34;&#34;&#34;
+    Get (constraint) parameter value. Equivalent to calling `parameter()`.
+
+    Returns:
+        torch.tensor
+    &#34;&#34;&#34;
     if self.pegged:
         other = self.pegged_parameter.constrained
         if self.pegged_transform is not None:
@@ -595,7 +620,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L117-L119" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L120-L122" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def pegged(self):
@@ -628,7 +653,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L151-L248" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L160-L257" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
     &#34;&#34;&#34;
@@ -743,12 +768,12 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L266-L275" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L275-L284" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     &#34;&#34;&#34;
     Get the log of the prior.
-    
+
     Returns:
         float: Log prior.
     &#34;&#34;&#34;
@@ -770,7 +795,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L132-L139" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L141-L148" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def numpy(self):
     &#34;&#34;&#34;
@@ -797,7 +822,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L250-L264" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L259-L273" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def peg(self, other, transform=None):
     &#34;&#34;&#34;
@@ -836,7 +861,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L50-L73" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L51-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Sigmoid(Transform):
     &#34;&#34;&#34;
@@ -897,7 +922,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L24-L48" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L25-L49" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Softplus(Transform):
     &#34;&#34;&#34;
@@ -947,7 +972,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L6-L22" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L7-L23" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Transform:
     &#34;&#34;&#34;
@@ -982,7 +1007,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L10-L15" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L11-L16" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     &#34;&#34;&#34;
@@ -1000,7 +1025,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/gpr/parameter.py#L17-L22" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/parameter.py#L18-L23" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     &#34;&#34;&#34;

@@ -2,12 +2,12 @@ from setuptools import setup
 from os import path
 
 requirements = [
-    'matplotlib>=3.3.0',
+    'matplotlib>=3.3',
     'numpy>=1.10',
     'pandas',
     'python-dateutil',
-    'scipy>=0.18',
-    'torch>=1.11.0',
+    'scipy>=1.7',
+    'torch>=1.11',
 ]
 
 this_directory = path.abspath(path.dirname(__file__))

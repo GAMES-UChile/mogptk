@@ -9,9 +9,17 @@ class Config:
     positive_minimum = 1e-8
 config = Config()
 
+def use_half_precision():
+    """
+    Use half precision (float16) for all tensors. This may be much faster on GPUs, but has reduced precision and may more often cause numerical instability. Only recommended on GPUs.
+    """
+    if config.device.type == 'cpu':
+        print('WARNING: half precision not recommend on CPU')
+    config.dtype = torch.float16
+
 def use_single_precision():
     """
-    Use single precision (float32) for all tensors. This may be much faster on GPUs, but has reduced precision and may more often cause numerical instability.
+    Use single precision (float32) for all tensors. This may be faster on GPUs, but has reduced precision and may more often cause numerical instability.
     """
     config.dtype = torch.float32
 

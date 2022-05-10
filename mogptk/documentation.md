@@ -25,24 +25,26 @@ pip install mogptk
 
 ## Glossary
 - **GP**: Gaussian process, see [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) by C.E. Rasmussen and C.K.I. Williams.
-- **M**: the number of channels (i.e. output dimensions)
-- **N**: the number of data points
-- **Q**: the number of components to use for a kernel. Each component is added additively to the main kernel
 - **MOSM**: Multi-output spectral mixture kernel, see [Spectral Mixture Kernels for Multi-Output Gaussian Processes](https://arxiv.org/abs/1709.01298) by G. Parra and F. Tobar.
 - **CSM**: Cross spectral mixture kernel, see [GP Kernels for Cross-Spectrum Analysis](https://papers.nips.cc/paper/5966-gp-kernels-for-cross-spectrum-analysis) by K.R. Ulrich et al.
 - **CONV**: Convolution Gaussian kernel, see [Sparse Convolved Multiple Output Gaussian Processes](https://arxiv.org/abs/0911.5107) by M.A. Álvarez and N.D. Lawrence.
 - **SM-LMC**: Spectral mixture linear model of coregionalization kernel, see [Gaussian Process Kernels for Pattern Discovery and Extrapolation](https://arxiv.org/abs/1302.4245) by A.G. Wilson and R.P. Adams and the book "Geostatistics for Natural Resource Evaluation" by P. Goovaerts.
-
-## Data handling
-### Transformations
-The transformation classes allow transforming the dependent data (Y axis) to be transformed. Each class implements the following functions:
-
-- **set_data(data)**: pass the Data class in case the transformer uses that data to calculate the transformation
-- **forward(y, x=None)** returns y: does a forward transformation where x has shape (n,input\_dims) and y has shape (n,)
-- **backward(y, x=None)** returns y: does a backward transformation (invert) where x has shape (n,input\_dims) and y has shape (n,)
+- **M**: the number of channels (i.e. output dimensions)
+- **N**: the number of data points
+- **Q**: the number of components to use for a kernel. Each component is added additively to the main kernel
 
 ## Using the GPU
-If a GPU is available through CUDA it will be automatically used in tensor calculations, and may speed up training significantly. To get more information about whether CUDA is supported or which GPU is used, as well as more control over which CPU or GPU to use, see [mogptk.gpr.config](https://games-uchile.github.io/mogptk/gpr/config.html).
+If a GPU is available through CUDA it will be automatically used in tensor calculations and may speed up training significantly. To get more information about whether CUDA is supported or which GPU is used, as well as more control over which CPU or GPU to use, see [mogptk.gpr.config](https://games-uchile.github.io/mogptk/gpr/config.html). For example, you can force CPU or GPU training:
+
+```python
+mogptk.gpr.use_cpu(0)  # use the first CPU
+
+mogptk.gpr.use_gpu(1)  # use the second GPU
+
+mogptk.gpr.use_single_precision()  # higher performance and lower energy usage
+
+mogptk.gpr.use_half_precision()  # even higher performance and lower energy usage
+```
 
 ## Advice on training 
 

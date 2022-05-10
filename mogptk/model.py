@@ -42,7 +42,7 @@ class Exact:
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         variance = self.variance
         if variance is None:
             if y_err is not None:
@@ -65,7 +65,7 @@ class Snelson:
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         if variance is None:
             variance = [1.0] * kernel.output_dims
         return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
@@ -82,7 +82,7 @@ class OpperArchambeau:
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Titsias:
@@ -99,7 +99,7 @@ class Titsias:
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class Hensman:
@@ -116,7 +116,7 @@ class Hensman:
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         if self.inducing_points is None:
             return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
         return gpr.SparseHensman(kernel, x, y, self.inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
@@ -133,6 +133,10 @@ class Model:
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
             rescale_x (bool): Rescale the X axis to [0,1000] to help training.
+
+        Atributes:
+            dataset: The associated mogptk.dataset.DataSet.
+            gpr: The mogptk.gpr.model.Model.
         """
         
         if not isinstance(dataset, DataSet):
@@ -170,7 +174,7 @@ class Model:
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
-        self.gpr = inference.build(kernel, x, y, y_err, mean, name)
+        self.gpr = inference._build(kernel, x, y, y_err, mean, name)
 
     ################################################################
 
@@ -611,6 +615,19 @@ class Model:
         return Samples
 
     def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+        """
+        Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.
+
+        Args:
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+            legend (boolean): Show the legend.
+            errors (boolean): Show the errors.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        """
         if not hasattr(self, 'losses'):
             raise Exception("must be trained in order to plot the losses")
 
@@ -636,6 +653,7 @@ class Model:
 
         if legend:
             ax.legend(handles=legends)
+        return fix, ax
 
     def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
         """
@@ -724,6 +742,19 @@ class Model:
         return fig, ax
 
     def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
+        """
+        Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.
+
+        Args:
+            dist (list): Maximum distance for every channel.
+            n (int): Number of points per channel.
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        """
         if not all(channel.get_input_dims() == 1 for channel in self.dataset):
             raise ValueError("cannot plot for more than one input dimension")
 

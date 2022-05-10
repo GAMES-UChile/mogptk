@@ -2,7 +2,23 @@ import torch
 import numpy as np
 from . import gpr
 
-def BNSE(x, y, max_freq=None, n=1000, iters=500, **params):
+def BNSE(x, y, max_freq=None, n=1000, iters=500):
+    """
+    Bayesian non-parametric spectral estimation [1] is a method for estimating the power spectral density of a signal that uses a Gaussian process with a spectral mixture kernel to learn the spectral representation of the signal.
+
+    Args:
+        x (numpy.ndarray): Input data of shape (data_points,input_dims).
+        y (numpy.ndarray): Output data of shape (data_points,).
+        max_freq (float): Maximum frequency of the power spectral density. If not given the Nyquist frequency is estimated and used instead.
+        n (int): Number of points in frequency space to sample the power spectral density.
+        iters (int): Number of iterations used to train the Gaussian process.
+
+    Returns:
+        numpy.ndarray: Frequencies of shape (n,).
+        numpy.ndarray: Power spectral density at each frequency of shape (n,).
+
+    [1] F. Tobar, Bayesian nonparametric spectral estimation, Advances in Neural Information Processing Systems, 2018
+    """
     x -= np.median(x)
 
     x_range = np.max(x)-np.min(x)

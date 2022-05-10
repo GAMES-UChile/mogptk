@@ -1,13 +1,9 @@
 import sys
+import math
 import torch
 import numpy as np
 from IPython.display import display, HTML
 from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, MultiOutputLikelihood, GaussianLikelihood, config, plot_gram
-from functools import reduce
-import operator
-
-def prod(iterable):
-    return reduce(operator.mul, iterable, 1)
 
 def init_inducing_points(Z, X, kernel):
     # TODO: instead of linspace, use quantile space or k-means to initialize positions
@@ -180,12 +176,12 @@ class Model:
         """
         def param_range(lower, upper, trainable=True, pegged=False):
             if lower is not None:
-                if prod(lower.shape) == 1:
+                if math.prod(lower.shape) == 1:
                     lower = lower.item()
                 else:
                     lower = lower.tolist()
             if upper is not None:
-                if prod(upper.shape) == 1:
+                if math.prod(upper.shape) == 1:
                     upper = upper.item()
                 else:
                     upper = upper.tolist()
@@ -336,12 +332,12 @@ class Exact(Model):
     $$ y \\sim \\mathcal{N}(0, K + \\sigma^2I) $$
 
     Args:
-        kernel (Kernel): Kernel.
+        kernel (mpgptk.gpr.kernel.Kernel): Kernel.
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
         variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel. Passing a tensor of shape (data_points,1) will assign and fix different variances per data point.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
-        mean (Mean): Mean.
+        mean (mogptk.gpr.mean.Mean): Mean.
         name (str): Name of the model.
     """
     def __init__(self, kernel, X, y, variance=1.0, jitter=1e-8, mean=None, name="Exact"):
@@ -425,13 +421,13 @@ class Snelson(Model):
     A sparse Gaussian process regression based on Snelson and Ghahramani [1] with a Gaussian likelihood and inducing points.
 
     Args:
-        kernel (Kernel): Kernel.
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
         Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
         variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
-        mean (Mean): Mean.
+        mean (mogptk.gpr.mean.Mean): Mean.
         name (str): Name of the model.
 
     [1] E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005
@@ -529,12 +525,12 @@ class OpperArchambeau(Model):
     A Gaussian process regression based on Opper and Archambeau [1] with a non-Gaussian likelihood.
 
     Args:
-        kernel (Kernel): Kernel.
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
-        likelihood (Likelihood): Likelihood.
+        likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
-        mean (Mean): Mean.
+        mean (mogptk.gpr.mean.Mean): Mean.
         name (str): Name of the model.
 
     [1] M. Opper, C. Archambeau, "The Variational Gaussian Approximation Revisited", 2009
@@ -630,13 +626,13 @@ class Titsias(Model):
     A sparse Gaussian process regression based on Titsias [1] with a Gaussian likelihood.
 
     Args:
-        kernel (Kernel): Kernel.
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
         Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
         variance (float): Gaussian likelihood initial variance.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
-        mean (Mean): Mean.
+        mean (mogptk.gpr.mean.Mean): Mean.
         name (str): Name of the model.
 
     [1] Titsias, "Variational learning of induced variables in sparse Gaussian processes", 2009
@@ -739,13 +735,13 @@ class SparseHensman(Model):
     A sparse Gaussian process regression based on Hensman et al. [1] with a non-Gaussian likelihood.
 
     Args:
-        kernel (Kernel): Kernel.
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
         Z (int,torch.tensor): Number of inducing points to be distributed over the input space. Passing a tensor of shape (inducing_points,input_dims) sets the initial positions of the inducing points.
-        likelihood (Likelihood): Likelihood.
+        likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
-        mean (Mean): Mean.
+        mean (mogptk.gpr.mean.Mean): Mean.
         name (str): Name of the model.
 
     [1] J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015
@@ -853,12 +849,12 @@ class Hensman(SparseHensman):
     A Gaussian process regression based on Hensman et al. [1] with a non-Gaussian likelihood. This is equivalent to the `SparseHensman` model if we set the inducing points equal to the data points and by turning off training the inducing points.
 
     Args:
-        kernel (Kernel): Kernel.
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
-        likelihood (Likelihood): Likelihood.
+        likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
-        mean (Mean): Mean.
+        mean (mogptk.gpr.mean.Mean): Mean.
         name (str): Name of the model.
 
     [1] J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015

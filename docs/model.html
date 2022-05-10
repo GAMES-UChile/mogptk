@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L1-L783" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L1-L816" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import sys
@@ -73,13 +73,13 @@ class Exact:
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         variance = self.variance
         if variance is None:
             if y_err is not None:
-                variance = y_err**2
+                variance = (y_err**2).reshape(-1,1)
             else:
-                variance = 1.0
+                variance = [1.0] * kernel.output_dims
         return gpr.Exact(kernel, x, y, variance=variance, jitter=self.jitter, mean=mean, name=name)
 
 class Snelson:
@@ -91,12 +91,14 @@ class Snelson:
         variance (float): Variance of the Gaussian likelihood.
         jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
-    def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
+    def __init__(self, inducing_points=10, variance=None, jitter=1e-6):
         self.inducing_points = inducing_points
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        if variance is None:
+            variance = [1.0] * kernel.output_dims
         return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class OpperArchambeau:
@@ -111,7 +113,7 @@ class OpperArchambeau:
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Titsias:
@@ -128,7 +130,7 @@ class Titsias:
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class Hensman:
@@ -145,7 +147,7 @@ class Hensman:
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         if self.inducing_points is None:
             return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
         return gpr.SparseHensman(kernel, x, y, self.inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
@@ -162,6 +164,10 @@ class Model:
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
             rescale_x (bool): Rescale the X axis to [0,1000] to help training.
+
+        Atributes:
+            dataset: The associated mogptk.dataset.DataSet.
+            gpr: The mogptk.gpr.model.Model.
         &#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
@@ -199,7 +205,7 @@ class Model:
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
-        self.gpr = inference.build(kernel, x, y, y_err, mean, name)
+        self.gpr = inference._build(kernel, x, y, y_err, mean, name)
 
     ################################################################
 
@@ -352,7 +358,7 @@ class Model:
 
         if verbose:
             training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
-            parameters = sum([int(np.prod(param.shape)) for param in self.gpr.parameters()])
+            parameters = sum([p.num_parameters if p.trainable else 0 for p in self.gpr.get_parameters()])
             print(&#39;\nStarting optimization using&#39;, method)
             print(&#39;‣ Model: {}&#39;.format(self.name))
             print(&#39;‣ Channels: {}&#39;.format(len(self.dataset)))
@@ -640,6 +646,19 @@ class Model:
         return Samples
 
     def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+        &#34;&#34;&#34;
+        Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.
+
+        Args:
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+            legend (boolean): Show the legend.
+            errors (boolean): Show the errors.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        &#34;&#34;&#34;
         if not hasattr(self, &#39;losses&#39;):
             raise Exception(&#34;must be trained in order to plot the losses&#34;)
 
@@ -665,6 +684,7 @@ class Model:
 
         if legend:
             ax.legend(handles=legends)
+        return fix, ax
 
     def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
         &#34;&#34;&#34;
@@ -753,6 +773,19 @@ class Model:
         return fig, ax
 
     def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
+        &#34;&#34;&#34;
+        Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.
+
+        Args:
+            dist (list): Maximum distance for every channel.
+            n (int): Number of points per channel.
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        &#34;&#34;&#34;
         if not all(channel.get_input_dims() == 1 for channel in self.dataset):
             raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
 
@@ -837,7 +870,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L19-L31" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L19-L31" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -875,7 +908,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L33-L52" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L33-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
@@ -889,38 +922,15 @@ def _format_time(s):
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         variance = self.variance
         if variance is None:
             if y_err is not None:
-                variance = y_err**2
+                variance = (y_err**2).reshape(-1,1)
             else:
-                variance = 1.0
+                variance = [1.0] * kernel.output_dims
         return gpr.Exact(kernel, x, y, variance=variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
 </details>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.model.Exact.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, y_err=None, mean=None, name=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L45-L52" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
-    variance = self.variance
-    if variance is None:
-        if y_err is not None:
-            variance = y_err**2
-        else:
-            variance = 1.0
-    return gpr.Exact(kernel, x, y, variance=variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
-</details>
-</dd>
-</dl>
 </dd>
 <dt id="mogptk.model.Hensman"><code class="flex name class">
 <span>class <span class="ident">Hensman</span></span>
@@ -940,7 +950,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L103-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L105-L122" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman:
     &#34;&#34;&#34;
@@ -956,30 +966,11 @@ def _format_time(s):
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         if self.inducing_points is None:
             return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
         return gpr.SparseHensman(kernel, x, y, self.inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
 </details>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.model.Hensman.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, y_err=None, mean=None, name=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L117-L120" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
-    if self.inducing_points is None:
-        return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
-    return gpr.SparseHensman(kernel, x, y, self.inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
-</details>
-</dd>
-</dl>
 </dd>
 <dt id="mogptk.model.Model"><code class="flex name class">
 <span>class <span class="ident">Model</span></span>
@@ -1001,11 +992,14 @@ def _format_time(s):
 <dd>Name of the model.</dd>
 <dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
 <dd>Rescale the X axis to [0,1000] to help training.</dd>
-</dl></div>
+</dl>
+<h2 id="atributes">Atributes</h2>
+<p>dataset: The associated mogptk.dataset.DataSet.
+gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L122-L752" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L124-L785" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None, rescale_x=False):
@@ -1019,6 +1013,10 @@ def _format_time(s):
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
             rescale_x (bool): Rescale the X axis to [0,1000] to help training.
+
+        Atributes:
+            dataset: The associated mogptk.dataset.DataSet.
+            gpr: The mogptk.gpr.model.Model.
         &#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
@@ -1056,7 +1054,7 @@ def _format_time(s):
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
-        self.gpr = inference.build(kernel, x, y, y_err, mean, name)
+        self.gpr = inference._build(kernel, x, y, y_err, mean, name)
 
     ################################################################
 
@@ -1209,7 +1207,7 @@ def _format_time(s):
 
         if verbose:
             training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
-            parameters = sum([int(np.prod(param.shape)) for param in self.gpr.parameters()])
+            parameters = sum([p.num_parameters if p.trainable else 0 for p in self.gpr.get_parameters()])
             print(&#39;\nStarting optimization using&#39;, method)
             print(&#39;‣ Model: {}&#39;.format(self.name))
             print(&#39;‣ Channels: {}&#39;.format(len(self.dataset)))
@@ -1497,6 +1495,19 @@ def _format_time(s):
         return Samples
 
     def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+        &#34;&#34;&#34;
+        Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.
+
+        Args:
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+            legend (boolean): Show the legend.
+            errors (boolean): Show the errors.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        &#34;&#34;&#34;
         if not hasattr(self, &#39;losses&#39;):
             raise Exception(&#34;must be trained in order to plot the losses&#34;)
 
@@ -1522,6 +1533,7 @@ def _format_time(s):
 
         if legend:
             ax.legend(handles=legends)
+        return fix, ax
 
     def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
         &#34;&#34;&#34;
@@ -1610,6 +1622,19 @@ def _format_time(s):
         return fig, ax
 
     def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
+        &#34;&#34;&#34;
+        Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.
+
+        Args:
+            dist (list): Maximum distance for every channel.
+            n (int): Number of points per channel.
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        &#34;&#34;&#34;
         if not all(channel.get_input_dims() == 1 for channel in self.dataset):
             raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
 
@@ -1675,7 +1700,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L542-L563" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L548-L569" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -1709,7 +1734,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L196-L203" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L202-L209" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy_parameters(self, other):
     &#34;&#34;&#34;
@@ -1742,7 +1767,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L247-L277" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L253-L283" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;, use_all_data=False):
     &#34;&#34;&#34;
@@ -1793,7 +1818,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L184-L194" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L190-L200" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -1824,7 +1849,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L223-L233" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L229-L239" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -1855,7 +1880,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L235-L245" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L241-L251" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -1898,7 +1923,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L662-L722" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L682-L742" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -1967,13 +1992,44 @@ def _format_time(s):
 <span>def <span class="ident">plot_kernel</span></span>(<span>self, dist=None, n=101, title=None, figsize=(12, 12))</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dist</code></strong> :&ensp;<code>list</code></dt>
+<dd>Maximum distance for every channel.</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of points per channel.</dd>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
+<dd>Figure title.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code></dt>
+<dd>Figure size.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>figure</code></dt>
+<dd>Matplotlib figure.</dd>
+<dt><code>axis</code></dt>
+<dd>Matplotlib axis.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L724-L752" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L744-L785" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
+    &#34;&#34;&#34;
+    Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.
+
+    Args:
+        dist (list): Maximum distance for every channel.
+        n (int): Number of points per channel.
+        title (str): Figure title.
+        figsize (tuple): Figure size.
+
+    Returns:
+        figure: Matplotlib figure.
+        axis: Matplotlib axis.
+    &#34;&#34;&#34;
     if not all(channel.get_input_dims() == 1 for channel in self.dataset):
         raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
 
@@ -2008,13 +2064,44 @@ def _format_time(s):
 <span>def <span class="ident">plot_losses</span></span>(<span>self, title=None, figsize=None, legend=True, errors=True)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
+<dd>Figure title.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code></dt>
+<dd>Figure size.</dd>
+<dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Show the legend.</dd>
+<dt><strong><code>errors</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Show the errors.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>figure</code></dt>
+<dd>Matplotlib figure.</dd>
+<dt><code>axis</code></dt>
+<dd>Matplotlib axis.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L611-L636" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L617-L656" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+    &#34;&#34;&#34;
+    Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.
+
+    Args:
+        title (str): Figure title.
+        figsize (tuple): Figure size.
+        legend (boolean): Show the legend.
+        errors (boolean): Show the errors.
+
+    Returns:
+        figure: Matplotlib figure.
+        axis: Matplotlib axis.
+    &#34;&#34;&#34;
     if not hasattr(self, &#39;losses&#39;):
         raise Exception(&#34;must be trained in order to plot the losses&#34;)
 
@@ -2039,7 +2126,8 @@ def _format_time(s):
         fig.suptitle(title, fontsize=18)
 
     if legend:
-        ax.legend(handles=legends)</code></pre>
+        ax.legend(handles=legends)
+    return fix, ax</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.Model.plot_prediction"><code class="name flex">
@@ -2071,7 +2159,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L638-L660" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L658-L680" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
     &#34;&#34;&#34;
@@ -2127,7 +2215,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L472-L540" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L478-L546" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=None, q=[0.025, 0.975], transformed=False, predict_y=True):
     &#34;&#34;&#34;
@@ -2211,7 +2299,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L175-L182" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L181-L188" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -2250,7 +2338,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L565-L609" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L571-L615" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, X=None, n=None, predict_y=True, transformed=False):
     &#34;&#34;&#34;
@@ -2315,7 +2403,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L205-L221" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L211-L227" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -2373,7 +2461,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L279-L406" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L285-L412" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -2420,7 +2508,7 @@ def _format_time(s):
 
     if verbose:
         training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
-        parameters = sum([int(np.prod(param.shape)) for param in self.gpr.parameters()])
+        parameters = sum([p.num_parameters if p.trainable else 0 for p in self.gpr.get_parameters()])
         print(&#39;\nStarting optimization using&#39;, method)
         print(&#39;‣ Model: {}&#39;.format(self.name))
         print(&#39;‣ Channels: {}&#39;.format(len(self.dataset)))
@@ -2523,7 +2611,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L71-L84" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L73-L86" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau:
     &#34;&#34;&#34;
@@ -2537,30 +2625,13 @@ def _format_time(s):
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
 </details>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.model.OpperArchambeau.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, y_err=None, mean=None, name=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L83-L84" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
-    return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
-</details>
-</dd>
-</dl>
 </dd>
 <dt id="mogptk.model.Snelson"><code class="flex name class">
 <span>class <span class="ident">Snelson</span></span>
-<span>(</span><span>inducing_points=10, variance=1.0, jitter=1e-06)</span>
+<span>(</span><span>inducing_points=10, variance=None, jitter=1e-06)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Inference using Snelson and Ghahramani 2005 for Gaussian process regression.</p>
@@ -2576,7 +2647,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L54-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L54-L71" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson:
     &#34;&#34;&#34;
@@ -2587,31 +2658,16 @@ def _format_time(s):
         variance (float): Variance of the Gaussian likelihood.
         jitter (float): Jitter added before calculating a Cholesky.
     &#34;&#34;&#34;
-    def __init__(self, inducing_points=10, variance=1.0, jitter=1e-6):
+    def __init__(self, inducing_points=10, variance=None, jitter=1e-6):
         self.inducing_points = inducing_points
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
+        if variance is None:
+            variance = [1.0] * kernel.output_dims
         return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
 </details>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.model.Snelson.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, y_err=None, mean=None, name=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L68-L69" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
-    return gpr.Snelson(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
-</details>
-</dd>
-</dl>
 </dd>
 <dt id="mogptk.model.Titsias"><code class="flex name class">
 <span>class <span class="ident">Titsias</span></span>
@@ -2631,7 +2687,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L86-L101" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/model.py#L88-L103" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias:
     &#34;&#34;&#34;
@@ -2647,26 +2703,9 @@ def _format_time(s):
         self.variance = variance
         self.jitter = jitter
 
-    def build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
 </details>
-<h3>Methods</h3>
-<dl>
-<dt id="mogptk.model.Titsias.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>self, kernel, x, y, y_err=None, mean=None, name=None)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/model.py#L100-L101" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def build(self, kernel, x, y, y_err=None, mean=None, name=None):
-    return gpr.Titsias(kernel, x, y, self.inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
-</details>
-</dd>
-</dl>
 </dd>
 </dl>
 </section>
@@ -2691,15 +2730,9 @@ def _format_time(s):
 <ul>
 <li>
 <h4><code><a title="mogptk.model.Exact" href="#mogptk.model.Exact">Exact</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.model.Exact.build" href="#mogptk.model.Exact.build">build</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.model.Hensman" href="#mogptk.model.Hensman">Hensman</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.model.Hensman.build" href="#mogptk.model.Hensman.build">build</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.model.Model" href="#mogptk.model.Model">Model</a></code></h4>
@@ -2723,21 +2756,12 @@ def _format_time(s):
 </li>
 <li>
 <h4><code><a title="mogptk.model.OpperArchambeau" href="#mogptk.model.OpperArchambeau">OpperArchambeau</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.model.OpperArchambeau.build" href="#mogptk.model.OpperArchambeau.build">build</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.model.Snelson" href="#mogptk.model.Snelson">Snelson</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.model.Snelson.build" href="#mogptk.model.Snelson.build">build</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.model.Titsias" href="#mogptk.model.Titsias">Titsias</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.model.Titsias.build" href="#mogptk.model.Titsias.build">build</a></code></li>
-</ul>
 </li>
 </ul>
 </li>

@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/csm.py#L1-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/csm.py#L1-L125" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
@@ -50,8 +50,7 @@ class CSM(Model):
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
-        model: The mogptk.gpr.model.Model.
-        kernel: The mogptk.gpr.kernel.Kernel.
+        gpr: The mogptk.gpr.model.Model.
 
     Examples:
 
@@ -193,10 +192,8 @@ class CSM(Model):
 <dl>
 <dt><strong><code>dataset</code></strong></dt>
 <dd>The associated mogptk.dataset.DataSet.</dd>
-<dt><strong><code>model</code></strong></dt>
+<dt><strong><code>gpr</code></strong></dt>
 <dd>The mogptk.gpr.model.Model.</dd>
-<dt><strong><code>kernel</code></strong></dt>
-<dd>The mogptk.gpr.kernel.Kernel.</dd>
 </dl>
 <p>Examples:</p>
 <pre><code class="language-python-repl">&gt;&gt;&gt; import numpy as np
@@ -229,11 +226,14 @@ class CSM(Model):
 <dd>Name of the model.</dd>
 <dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
 <dd>Rescale the X axis to [0,1000] to help training.</dd>
-</dl></div>
+</dl>
+<h2 id="atributes">Atributes</h2>
+<p>dataset: The associated mogptk.dataset.DataSet.
+gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/csm.py#L7-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/csm.py#L7-L125" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CSM(Model):
     &#34;&#34;&#34;
@@ -250,8 +250,7 @@ class CSM(Model):
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
-        model: The mogptk.gpr.model.Model.
-        kernel: The mogptk.gpr.kernel.Kernel.
+        gpr: The mogptk.gpr.model.Model.
 
     Examples:
 
@@ -391,7 +390,7 @@ class CSM(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/csm.py#L61-L126" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/csm.py#L60-L125" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
     &#34;&#34;&#34;
@@ -473,6 +472,8 @@ class CSM(Model):
 <li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="../model.html#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.model.Model.loss" href="../model.html#mogptk.model.Model.loss">loss</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_gram" href="../model.html#mogptk.model.Model.plot_gram">plot_gram</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_kernel" href="../model.html#mogptk.model.Model.plot_kernel">plot_kernel</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_losses" href="../model.html#mogptk.model.Model.plot_losses">plot_losses</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_prediction" href="../model.html#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.Model.predict" href="../model.html#mogptk.model.Model.predict">predict</a></code></li>
 <li><code><a title="mogptk.model.Model.print_parameters" href="../model.html#mogptk.model.Model.print_parameters">print_parameters</a></code></li>

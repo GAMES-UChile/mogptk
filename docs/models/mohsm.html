@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/mohsm.py#L1-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mohsm.py#L1-L153" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -38,6 +38,39 @@ from ..gpr import MultiOutputHarmonizableSpectralKernel,MixtureKernel
 
 
 class MOHSM(Model):
+    &#34;&#34;&#34;
+    Multi-output harmonizable spectral kernel with `P` components and `Q` subcomponents [1]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
+
+    Args:
+        dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
+        P (int): Number of components.
+        Q (int): Number of subcomponents.
+        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.gpr.mean.Mean): The mean class.
+        name (str): Name of the model.
+        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
+
+    Atributes:
+        dataset: The associated mogptk.dataset.DataSet.
+        gpr: The mogptk.gpr.model.Model.
+
+    Examples:
+    &gt;&gt;&gt; import numpy as np
+    &gt;&gt;&gt; import mogptk
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; t = np.linspace(0, 10, 100)
+    &gt;&gt;&gt; y1 = np.sin(0.5 * t)
+    &gt;&gt;&gt; y2 = 2.0 * np.sin(0.2 * t)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; dataset = mogptk.DataSet(t, [y1, y2])
+    &gt;&gt;&gt; model = mogptk.MOHSM(dataset, P=2, Q=2)
+    &gt;&gt;&gt; model.init_parameters()
+    &gt;&gt;&gt; model.train()
+    &gt;&gt;&gt; model.predict()
+    &gt;&gt;&gt; dataset.plot()
+
+    [1] M. Altamirano, &#34;Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
+    &#34;&#34;&#34;
     def __init__(self, dataset, P=1, Q=1, model=Exact(), mean=None, name=&#34;MOHSM&#34;, rescale_x=False):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
@@ -165,8 +198,45 @@ class MOHSM(Model):
 <span>(</span><span>dataset, P=1, Q=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='MOHSM', rescale_x=False)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Model is the base class for multi-output Gaussian process models.</p>
+<div class="desc"><p>Multi-output harmonizable spectral kernel with <code>P</code> components and <code>Q</code> subcomponents [1]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
 <h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dataset</code></strong> :&ensp;<code><a title="mogptk.dataset.DataSet" href="../dataset.html#mogptk.dataset.DataSet">DataSet</a></code></dt>
+<dd><code>DataSet</code> object of data for all channels.</dd>
+<dt><strong><code>P</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of components.</dd>
+<dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of subcomponents.</dd>
+<dt><strong><code>model</code></strong></dt>
+<dd>Gaussian process model to use, such as <code><a title="mogptk.model.Exact" href="../model.html#mogptk.model.Exact">Exact</a></code>.</dd>
+<dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
+<dd>The mean class.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the model.</dd>
+<dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Rescale the X axis to [0,1000] to help training.</dd>
+</dl>
+<h2 id="atributes">Atributes</h2>
+<p>dataset: The associated mogptk.dataset.DataSet.
+gpr: The mogptk.gpr.model.Model.</p>
+<p>Examples:</p>
+<pre><code class="language-python-repl">&gt;&gt;&gt; import numpy as np
+&gt;&gt;&gt; import mogptk
+&gt;&gt;&gt; 
+&gt;&gt;&gt; t = np.linspace(0, 10, 100)
+&gt;&gt;&gt; y1 = np.sin(0.5 * t)
+&gt;&gt;&gt; y2 = 2.0 * np.sin(0.2 * t)
+&gt;&gt;&gt; 
+&gt;&gt;&gt; dataset = mogptk.DataSet(t, [y1, y2])
+&gt;&gt;&gt; model = mogptk.MOHSM(dataset, P=2, Q=2)
+&gt;&gt;&gt; model.init_parameters()
+&gt;&gt;&gt; model.train()
+&gt;&gt;&gt; model.predict()
+&gt;&gt;&gt; dataset.plot()
+</code></pre>
+<p>[1] M. Altamirano, "Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021</p>
+<p>Model is the base class for multi-output Gaussian process models.</p>
+<h2 id="args_1">Args</h2>
 <dl>
 <dt><strong><code>dataset</code></strong> :&ensp;<code><a title="mogptk.dataset.DataSet" href="../dataset.html#mogptk.dataset.DataSet">DataSet</a>, <a title="mogptk.data.Data" href="../data.html#mogptk.data.Data">Data</a></code></dt>
 <dd><code>DataSet</code> with <code>Data</code> objects for all the channels. When a (list or dict of) <code>Data</code> object is passed, it will automatically be converted to a <code>DataSet</code>.</dd>
@@ -180,13 +250,49 @@ class MOHSM(Model):
 <dd>Name of the model.</dd>
 <dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
 <dd>Rescale the X axis to [0,1000] to help training.</dd>
-</dl></div>
+</dl>
+<h2 id="atributes_1">Atributes</h2>
+<p>dataset: The associated mogptk.dataset.DataSet.
+gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/mohsm.py#L9-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mohsm.py#L9-L153" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MOHSM(Model):
+    &#34;&#34;&#34;
+    Multi-output harmonizable spectral kernel with `P` components and `Q` subcomponents [1]. The parameters will be randomly instantiated, use `init_parameters()` to initialize the parameters to reasonable values for the current data set.
+
+    Args:
+        dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
+        P (int): Number of components.
+        Q (int): Number of subcomponents.
+        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        mean (mogptk.gpr.mean.Mean): The mean class.
+        name (str): Name of the model.
+        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
+
+    Atributes:
+        dataset: The associated mogptk.dataset.DataSet.
+        gpr: The mogptk.gpr.model.Model.
+
+    Examples:
+    &gt;&gt;&gt; import numpy as np
+    &gt;&gt;&gt; import mogptk
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; t = np.linspace(0, 10, 100)
+    &gt;&gt;&gt; y1 = np.sin(0.5 * t)
+    &gt;&gt;&gt; y2 = 2.0 * np.sin(0.2 * t)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; dataset = mogptk.DataSet(t, [y1, y2])
+    &gt;&gt;&gt; model = mogptk.MOHSM(dataset, P=2, Q=2)
+    &gt;&gt;&gt; model.init_parameters()
+    &gt;&gt;&gt; model.train()
+    &gt;&gt;&gt; model.predict()
+    &gt;&gt;&gt; dataset.plot()
+
+    [1] M. Altamirano, &#34;Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
+    &#34;&#34;&#34;
     def __init__(self, dataset, P=1, Q=1, model=Exact(), mean=None, name=&#34;MOHSM&#34;, rescale_x=False):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
@@ -332,7 +438,7 @@ In all cases the noise is initialized with 1/30 of the variance of each channel.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/988da52ef1495fc9b451fb62bc010d8dd0ffc6de/mogptk/models/mohsm.py#L28-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mohsm.py#L61-L153" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;SM&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={},sm_plot=False):
     &#34;&#34;&#34;
@@ -441,6 +547,8 @@ In all cases the noise is initialized with 1/30 of the variance of each channel.
 <li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="../model.html#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.model.Model.loss" href="../model.html#mogptk.model.Model.loss">loss</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_gram" href="../model.html#mogptk.model.Model.plot_gram">plot_gram</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_kernel" href="../model.html#mogptk.model.Model.plot_kernel">plot_kernel</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_losses" href="../model.html#mogptk.model.Model.plot_losses">plot_losses</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_prediction" href="../model.html#mogptk.model.Model.plot_prediction">plot_prediction</a></code></li>
 <li><code><a title="mogptk.model.Model.predict" href="../model.html#mogptk.model.Model.predict">predict</a></code></li>
 <li><code><a title="mogptk.model.Model.print_parameters" href="../model.html#mogptk.model.Model.print_parameters">print_parameters</a></code></li>

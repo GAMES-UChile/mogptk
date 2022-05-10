@@ -114,11 +114,11 @@ class Likelihood:
         Calculate the mean of the likelihood.
 
         Args:
-            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
             X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
         Returns:
-            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
         """
         # f: NxM
         raise NotImplementedError()
@@ -128,11 +128,11 @@ class Likelihood:
         Calculate the variance of the likelihood.
 
         Args:
-            f (torch.Tensor): Posterior values for f of shape (data_points,input_dims).
+            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
             X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
         Returns:
-            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
         """
         # f: NxM
         raise NotImplementedError()
@@ -153,8 +153,8 @@ class Likelihood:
             full (boolean): Return the full covariance matrix.
 
         Returns:
-            torch.Tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-            torch.Tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
         """
         # mu,var: Nx1
         # TODO: full covariance matrix for likelihood predictions
@@ -170,7 +170,7 @@ class MultiOutputLikelihood(Likelihood):
     Multi-output likelihood to assign a different likelihood per channel.
 
     Args:
-        likelihoods (gpr.Likelihood): List of likelihoods equal to the number of output dimensions.
+        likelihoods (mogptk.gpr.likelihood.Likelihood): List of likelihoods equal to the number of output dimensions.
         name (str): Name of the likelihood.
     """
     def __init__(self, *likelihoods, name="MultiOutputLikelihood"):
