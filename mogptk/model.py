@@ -340,7 +340,8 @@ class Model:
             training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
             parameters = sum([p.num_parameters if p.trainable else 0 for p in self.gpr.get_parameters()])
             print('\nStarting optimization using', method)
-            print('‣ Model: {}'.format(self.name))
+            if self.name is not None:
+                print('‣ Model: {}'.format(self.name))
             print('‣ Channels: {}'.format(len(self.dataset)))
             if hasattr(self, 'Q'):
                 print('‣ Mixtures: {}'.format(self.Q))
@@ -356,7 +357,7 @@ class Model:
 
         def progress(i, loss):
             elapsed_time = time.time() - initial_time
-            write = i % max(1,iters/100) == 0
+            write = verbose and i % max(1,iters/100) == 0
             losses[i] = loss
             if error is not None:
                 errors[i] = self.error(error, error_use_all_data)
@@ -365,7 +366,8 @@ class Model:
             elif write:
                 print("% 5d/%d %s  loss=%10g" % (i, iters, _format_time(elapsed_time), losses[i]))
 
-        print("\nStart %s:" % (method,))
+        if verbose:
+            print("\nStart %s:" % (method,))
         if method == 'LBFGS':
             if not 'max_iter' in kwargs:
                 kwargs['max_iter'] = iters
@@ -394,10 +396,10 @@ class Model:
                 progress(i, self.loss())
                 optimizer.step()
         progress(iters, self.loss())
-        print("Finished")
 
         if verbose:
             elapsed_time = time.time() - initial_time
+            print("Finished")
             print('\nOptimization finished in {}'.format(_format_duration(elapsed_time)))
             print('‣ Function evaluations: {}'.format(iters))
             print('‣ Final loss: {:.3g}'.format(losses[iters]))
@@ -562,6 +564,7 @@ class Model:
         Args:
             X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
             n (int): Number of samples.
+            predict_y (boolean): Predict data values instead of function values.
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
@@ -601,7 +604,7 @@ class Model:
             return Samples[0]
         return Samples
 
-    def plot_losses(self, title=None, figsize=None, legend=True, errors=True):
+    def plot_losses(self, title=None, figsize=None, legend=True, errors=True, log=False):
         """
         Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.
 
@@ -610,6 +613,7 @@ class Model:
             figsize (tuple): Figure size.
             legend (boolean): Show the legend.
             errors (boolean): Show the errors.
+            log (boolean): Show in log scale.
 
         Returns:
             figure: Matplotlib figure.
@@ -626,6 +630,8 @@ class Model:
         ax.set_xlim(0, self.iters)
         ax.set_xlabel('Iteration')
         ax.set_ylabel('Loss')
+        if log:
+            ax.set_yscale('log')
 
         legends = []
         legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Loss'))
@@ -634,6 +640,8 @@ class Model:
             ax2.plot(np.arange(0,self.iters+1), self.errors[:self.iters+1], c='k', ls='-.')
             ax2.set_ylabel('Error')
             legends.append(plt.Line2D([0], [0], ls='-.', color='k', label='Error'))
+            if log:
+                ax2.set_yscale('log')
 
         if title is not None:
             fig.suptitle(title, fontsize=18)

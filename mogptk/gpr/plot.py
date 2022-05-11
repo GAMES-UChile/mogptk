@@ -18,9 +18,9 @@ def plot_gram(K):
         im = ax.matshow(np.where(np.isinf(K)|np.isnan(K),np.nan,K), cmap='viridis', norm=norm)
 
     # show Inf and NaN as blue and red respectively
-    cmap = matplotlib.colors.ListedColormap(["blue"])
-    ax.matshow(np.where(np.isinf(K),1.0,np.nan), cmap=cmap)
     cmap = matplotlib.colors.ListedColormap(["red"])
+    ax.matshow(np.where(np.isinf(K),1.0,np.nan), cmap=cmap)
+    cmap = matplotlib.colors.ListedColormap(["blue"])
     ax.matshow(np.where(np.isnan(K),1.0,np.nan), cmap=cmap)
 
     if len(K_real) != 0:
@@ -28,7 +28,7 @@ def plot_gram(K):
         cax = divider.append_axes("right", size="3%", pad=0.1)
         fig.colorbar(im, cax=cax)
 
-    ax.set_title('Blue=Inf, Red=NaN', pad=25)
+    ax.set_title('Red=Inf, Blue=NaN', pad=10, fontsize=12)
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xticklabels([])

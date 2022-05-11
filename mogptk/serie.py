@@ -21,19 +21,17 @@ class TransformDetrend(TransformBase):
 
     Args:
         degree (int): Polynomial degree that will be fit, i.e. `2` will find a quadratic trend and remove it from the data.
+        input_dim (int): Input dimension to operate on.
     """
     # TODO: add regression?
-    def __init__(self, degree=1, dim=0):
+    def __init__(self, degree=1, input_dim=0):
         self.degree = degree
-        self.dim = dim
+        self.dim = input_dim
 
     def __repr__(self):
         return 'TransformDetrend(degree=%g)' % (self.degree,)
 
     def set_data(self, data):
-        if data.get_input_dims() != 1:
-            raise ValueError("can only detrend on one dimensional input data")
-
         x = np.array(data.X[self.dim][data.mask]).astype(np.float64)
         self.coef = np.polyfit(x, data.Y.transformed[data.mask], self.degree)
 
