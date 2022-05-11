@@ -38,19 +38,20 @@ class Exact:
         variance (float): Variance of the Gaussian likelihood.
         jitter (float): Jitter added before calculating a Cholesky.
     """
-    def __init__(self, variance=None, jitter=1e-8):
+    def __init__(self, variance=None, data_variance=None, jitter=1e-8):
         self.variance = variance
+        self.data_variance = data_variance
         self.jitter = jitter
 
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         variance = self.variance
         if variance is None:
             variance = [1.0] * kernel.output_dims
-        data_variance = None
-        if y_err is not None:
+        data_variance = self.data_variance
+        if data_variance is None and y_err is not None:
             data_variance = y_err**2
         model = gpr.Exact(kernel, x, y, variance=variance, data_variance=data_variance, jitter=self.jitter, mean=mean, name=name)
-        if y_err is not None:
+        if data_variance is not None:
             model.likelihood.scale.assign(0.0, trainable=False)
         return model
 
