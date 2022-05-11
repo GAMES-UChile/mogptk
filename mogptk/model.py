@@ -170,6 +170,7 @@ class Model:
 
         self.name = name
         self.dataset = dataset
+        self.is_multioutput = issubclass(type(kernel), gpr.MultiOutputKernel)
 
         X = [[x[channel.mask] for x in channel.X] for channel in self.dataset]
         Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset]
@@ -446,13 +447,14 @@ class Model:
                 raise ValueError("X must be of shape (n,input_dims) or a list [(n,)] * input_dims for each channel")
             X[j] = np.array([self.dataset[j].X[i].transform(channel_x[i]) for i in range(input_dims)]).T
 
-        chan = [i * np.ones(len(X[i])) for i in range(len(X))]
-        chan = np.concatenate(chan).reshape(-1, 1)
         if len(X) == 0:
             x = np.array([])
         else:
             x = np.concatenate(X, axis=0)
-            x = np.concatenate([chan, x], axis=1)
+            if self.is_multioutput:
+                chan = [i * np.ones(len(X[i])) for i in range(len(X))]
+                chan = np.concatenate(chan).reshape(-1, 1)
+                x = np.concatenate([chan, x], axis=1)
         if Y is None:
             return x
 

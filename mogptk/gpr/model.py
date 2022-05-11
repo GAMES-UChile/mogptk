@@ -33,7 +33,7 @@ def _init_density(N, X):
         Z[:,i] = torch.tensor(samples[:,i], device=config.device, dtype=config.dtype)
     return Z
 
-def init_inducing_points(Z, X, method='grid', output_dims=1):
+def init_inducing_points(Z, X, method='grid', output_dims=None):
     """
     Initialize locations for inducing points.
 
@@ -41,7 +41,7 @@ def init_inducing_points(Z, X, method='grid', output_dims=1):
         Z (int,list): Number of inducing points. A list of ints of shape (output_dims,) will initialize the specified number of inducing points per output dimension.
         X (torch.tensor): Input data of shape (data_points,input_dims).
         method (str): Method for initialization, can be `grid`, `random`, or `density`.
-        output_dims (int): Number of output dimensions.
+        output_dims (int): Number of output dimensions. If not None, the first input dimension of the input data must contain the channel IDs.
 
     Returns:
         torch.tensor: Inducing point locations of shape (data_points,input_dims). In case of multiple output dimensions, the first input dimension will be the channel ID.
@@ -52,7 +52,7 @@ def init_inducing_points(Z, X, method='grid', output_dims=1):
     elif method == 'density':
         _init = _init_density
 
-    if 1 < output_dims:
+    if output_dims is not None:
         if isinstance(Z, int) or all(isinstance(z, int) for z in Z) and len(Z) == output_dims:
             if isinstance(Z, int):
                 Z = [Z] * output_dims
@@ -464,7 +464,7 @@ class Snelson(Model):
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
 
-        Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
+        Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims if issubclass(type(kernel), MultiOutputKernel) else None)
         Z = self._check_input(Z)
         
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
@@ -664,7 +664,7 @@ class Titsias(Model):
         # TODO: variance per channel
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
 
-        Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
+        Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims if issubclass(type(kernel), MultiOutputKernel) else None)
         Z = self._check_input(Z)
 
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
@@ -776,7 +776,7 @@ class SparseHensman(Model):
         n = self.X.shape[0]
         self.is_sparse = Z is not None
         if self.is_sparse:
-            Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
+            Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims if issubclass(type(kernel), MultiOutputKernel) else None)
             Z = self._check_input(Z)
             n = Z.shape[0]
 
