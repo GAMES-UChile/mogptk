@@ -21,6 +21,60 @@ register_matplotlib_converters()
 
 logger = logging.getLogger('mogptk')
 
+def LoadSplitData(x_train, x_test, y_train, y_test, name=""):
+    """
+    Load from a split data set.
+
+    Args:
+        x_train (numpy.ndarray): Training input of shape (data_points,input_dims).
+        x_test (numpy.ndarray): Testing input of shape (test_points,input_dims).
+        y_train (numpy.ndarray): Training output of shape (data_points,).
+        y_test (numpy.ndarray): Testing output of shape (test_points,).
+        name (str): Name of data.
+
+    Returns:
+        mogptk.data.Data
+
+    Examples:
+        >>> LoadSplitData(x_train, x_test, y_train, y_test, name='Sine wave')
+        <mogptk.data.Data at ...>
+    """
+    if not isinstance(x_train, np.ndarray):
+        x_train = np.array(x_train)
+    if not isinstance(x_test, np.ndarray):
+        x_test = np.array(x_test)
+    if not isinstance(y_train, np.ndarray):
+        y_train = np.array(y_train)
+    if not isinstance(y_test, np.ndarray):
+        y_test = np.array(y_test)
+    if x_train.ndim == 1:
+        x_train = x_train.reshape(-1,1)
+    if x_test.ndim == 1:
+        x_test = x_test.reshape(-1,1)
+    if y_train.ndim == 2 and y_train.shape[1] == 1:
+        y_train = y_train.reshape(-1)
+    if y_test.ndim == 2 and y_test.shape[1] == 1:
+        y_test = y_test.reshape(-1)
+
+    if x_train.ndim != 2 or x_test.ndim != 2:
+        raise ValueError("x data must have shape (data_points,input_dims)")
+    if y_train.ndim != 1 or y_test.ndim != 1:
+        raise ValueError("y data must have shape (data_points,)")
+    if x_train.shape[0] != y_train.shape[0]:
+        raise ValueError("x_train and y_train must have the same number of data points")
+    if x_test.shape[0] != y_test.shape[0]:
+        raise ValueError("x_test and y_test must have the same number of data points")
+    if x_train.shape[1] != x_test.shape[1]:
+        raise ValueError("x_train and x_test must have the same number of input dimensions")
+
+    x = np.concatenate((x_train, x_test))
+    y = np.concatenate((y_train, y_test))
+    test_indices = np.arange(len(x_train),len(x))
+
+    data = Data(x, y, name=name)
+    data.remove_index(test_indices)
+    return data
+
 def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     """
     LoadFunction loads a dataset from a given function y = f(x) + Normal(0,var). It will pick `n` data points between start and end for the X axis for which `f` is being evaluated. By default the `n` points are spread equally over the interval, with `random=True` they will be picked randomly.

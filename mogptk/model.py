@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 import pickle
 import numpy as np
@@ -360,14 +359,12 @@ class Model:
             if error is not None:
                 errors[i] = self.error(error, error_use_all_data)
                 if write:
-                    sys.__stdout__.write("% 5d/%d %s  loss=%10g  error=%10g\n" % (i, iters, _format_time(elapsed_time), losses[i], errors[i]))
+                    print("% 5d/%d %s  loss=%10g  error=%10g" % (i, iters, _format_time(elapsed_time), losses[i], errors[i]))
             elif write:
-                sys.__stdout__.write("% 5d/%d %s  loss=%10g\n" % (i, iters, _format_time(elapsed_time), losses[i]))
+                print("% 5d/%d %s  loss=%10g" % (i, iters, _format_time(elapsed_time), losses[i]))
 
-        sys.__stdout__.write("\nStart %s:\n" % (method,))
+        print("\nStart %s:" % (method,))
         if method == 'LBFGS':
-            if 'lr' not in kwargs:
-                kwargs['lr'] = 0.1
             if not 'max_iter' in kwargs:
                 kwargs['max_iter'] = iters
             else:
@@ -383,8 +380,6 @@ class Model:
             iters = int(optimizer.state_dict()['state'][0]['func_evals'])
         else:
             if method == 'Adam':
-                if 'lr' not in kwargs:
-                    kwargs['lr'] = 0.1
                 optimizer = torch.optim.Adam(self.gpr.parameters(), **kwargs)
             elif method == 'SGD':
                 optimizer = torch.optim.SGD(self.gpr.parameters(), **kwargs)
@@ -397,7 +392,7 @@ class Model:
                 progress(i, self.loss())
                 optimizer.step()
         progress(iters, self.loss())
-        sys.__stdout__.write("Finished\n")
+        print("Finished")
 
         if verbose:
             elapsed_time = time.time() - initial_time
@@ -408,8 +403,9 @@ class Model:
                 print('‣ Final error: {:.3g}'.format(errors[iters]))
 
         self.iters = iters
-        self.losses = losses
-        self.errors = errors
+        self.losses = losses[:iters+1,]
+        if error is not None:
+            self.errors = errors[:iters+1,]
         if plot:
             self.plot_losses()
         return losses, errors
@@ -478,13 +474,13 @@ class Model:
             y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
-    def predict(self, X=None, sigma=None, q=[0.025, 0.975], transformed=False, predict_y=True):
+    def predict(self, X=None, sigma=2, transformed=False, predict_y=True):
         """
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
             X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
-            q (list of float): The quantiles for the confidence interval's lower and upper ends.
+            sigma (float): Number of standard deviations to display upwards and downwards.
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
@@ -505,18 +501,8 @@ class Model:
         x = self._to_kernel_format(X)
 
         mu, var = self.gpr.predict(x, predict_y=predict_y, tensor=True)
-        # TODO: quantiles
-        #if predict_y:
-            #lower = self.gpr.quantile(q[0], mu, var)
-            #upper = self.gpr.quantile(q[1], mu, var)
-        if sigma is not None:
-            lower = mu - sigma*torch.sqrt(var)
-            upper = mu + sigma*torch.sqrt(var)
-        else:
-            ql = torch.tensor(q[0], device=gpr.config.device, dtype=gpr.config.dtype)
-            qu = torch.tensor(q[1], device=gpr.config.device, dtype=gpr.config.dtype)
-            lower = mu + torch.sqrt(var)*np.sqrt(2)*torch.special.erfinv(2.0*ql - 1.0)
-            upper = mu + torch.sqrt(var)*np.sqrt(2)*torch.special.erfinv(2.0*qu - 1.0)
+        lower = mu - sigma*torch.sqrt(var)
+        upper = mu + sigma*torch.sqrt(var)
 
         mu = mu.cpu().numpy()
         var = var.cpu().numpy()
@@ -788,6 +774,9 @@ class Model:
         return fig, ax
 
 def _format_duration(s):
+    if s < 60.0:
+        return '%.3f seconds' % s
+
     s = round(s)
     days = int(s/86400)
     hours = int(s%86400/3600)
@@ -809,10 +798,8 @@ def _format_duration(s):
         duration += ' 1 minute'
     if 1 < seconds:
         duration += ' %d seconds' % seconds
-    elif days == 1:
+    elif seconds == 1:
         duration += ' 1 second'
-    else:
-        duration += ' less than one second'
     return duration[1:]
 
 def _format_time(s):
