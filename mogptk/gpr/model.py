@@ -102,6 +102,7 @@ class Model:
         elif config.dtype == torch.float64:
             jitter = max(jitter, 1e-15)
 
+        self._params = []
         self.kernel = kernel
         self.X = X
         self.y = y
@@ -111,15 +112,11 @@ class Model:
         self.name = name
         self.input_dims = X.shape[1]
 
-        self._params = []
-        self._register_parameters(kernel)
-        self._register_parameters(likelihood)
-        if mean is not None and issubclass(type(mean), Mean):
-            self._register_parameters(mean)
-
     def __setattr__(self, name, val):
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
+        elif isinstance(val, (Parameter, Kernel, Mean, Likelihood)):
+            self._register_parameters(val)
         super().__setattr__(name, val)        
 
     def _check_input(self, X, y=None):
@@ -476,8 +473,6 @@ class Snelson(Model):
         if 1 < kernel.output_dims:
             self.Z.num_parameters -= self.Z().shape[0]
 
-        self._register_parameters(self.Z)
-
     def log_marginal_likelihood(self):
         if self.mean is not None:
             y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
@@ -572,9 +567,6 @@ class OpperArchambeau(Model):
         self.q_nu = Parameter(torch.zeros(n,1), name="q_nu")
         self.q_lambda = Parameter(torch.ones(n,1), name="q_lambda", lower=config.positive_minimum)
         self.likelihood = likelihood
-
-        self._register_parameters(self.q_nu)
-        self._register_parameters(self.q_lambda)
 
     def elbo(self):
         if self.mean is not None:
@@ -680,8 +672,6 @@ class Titsias(Model):
         self.Z = Parameter(Z, name="induction_points")
         if 1 < kernel.output_dims:
             self.Z.num_parameters -= self.Z().shape[0]
-
-        self._register_parameters(self.Z)
 
     def elbo(self):
         if self.mean is not None:
@@ -801,11 +791,6 @@ class SparseHensman(Model):
                 self.Z.num_parameters -= self.Z().shape[0]
         else:
             self.Z = Parameter(self.X, trainable=False)  # don't use inducing points
-
-        self._register_parameters(self.q_mu)
-        self._register_parameters(self.q_sqrt)
-        if self.is_sparse:
-            self._register_parameters(self.Z)
 
     def kl_gaussian(self, q_mu, q_sqrt):
         S_diag = q_sqrt.diagonal().square() # NxN
