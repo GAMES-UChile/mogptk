@@ -6,6 +6,7 @@ import torch
 import logging
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from . import gpr
@@ -491,10 +492,7 @@ class Model:
         Examples:
             >>> model.predict(X)
         """
-        save = X is None
-        if save and transformed:
-            raise ValueError('must pass an X range explicitly in order to return transformed data')
-        if save:
+        if X is None:
             X = self.dataset.get_prediction_x()
         else:
             X = self.dataset._format_prediction_x(X)
@@ -522,17 +520,15 @@ class Model:
             Upper.append(np.squeeze(upper[i:i+N]))
             i += N
 
-        if save:
-            for j in range(self.dataset.get_output_dims()):
-                self.dataset[j].Y_mu_pred[self.name] = Mu[j]
-                self.dataset[j].Y_var_pred[self.name] = Var[j]
-
         if not transformed:
             for j in range(self.dataset.get_output_dims()):
                 Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
                 Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
                 Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
-        return Mu, Lower, Upper
+
+        if len(self.dataset) == 1:
+            return X[0], Mu[0], Lower[0], Upper[0]
+        return X, Mu, Lower, Upper
 
     def K(self, X1, X2=None):
         """
@@ -644,7 +640,7 @@ class Model:
             ax.legend(handles=legends)
         return fig, ax
 
-    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, transformed=False, predict_y=True):
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, predict_y=True, transformed=False):
         """
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -652,6 +648,8 @@ class Model:
             title (str): Set the title of the plot.
             figsize (tuple): Set the figure size.
             legend (boolean): Disable legend.
+            errorbars (boolean): Plot data error bars if available.
+            predict_y (boolean): Predict data values instead of function values.
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
@@ -661,12 +659,94 @@ class Model:
         Examples:
             >>> fig, axes = dataset.plot(title='Title')
         """
-        if X is not None:
-            self.dataset.set_prediction_x(X)
-            self.predict()
-        elif not self.name in self.dataset[0].Y_mu_pred:
-            self.predict(predict_y=predict_y)
-        return self.dataset.plot(pred=self.name, title=title, figsize=figsize, legend=legend, transformed=transformed)
+        X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y)
+        if len(self.dataset) == 1:
+            X = [X]
+            Mu = [Mu]
+            Lower = [Lower]
+            Upper = [Upper]
+
+        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(18, 6.0*len(self.dataset)), squeeze=True, constrained_layout=True)
+        for j, data in enumerate(self.dataset):
+            # TODO: ability to plot conditional or marginal distribution to reduce input dims
+            if data.get_input_dims() > 2:
+                raise ValueError("cannot plot more than two input dimensions")
+            if data.get_input_dims() == 2:
+                raise NotImplementedError("two dimensional input data not yet implemented") # TODO
+
+            legends = []
+            if 0 < len(data.removed_ranges[0]):
+                for removed_range in data.removed_ranges[0]:
+                    x0 = removed_range[0]
+                    x1 = removed_range[1]
+                    y0 = ax.get_ylim()[0]
+                    y1 = ax.get_ylim()[1]
+                    ax.add_patch(patches.Rectangle(
+                        (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.2, lw=0,
+                    ))
+                legends.append(patches.Rectangle(
+                    (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
+                ))
+
+            if errorbars and data.Y_err is not None:
+                x, y = data.get_train_data(transformed=transformed)
+                yl = data.Y[data.mask] - data.Y_err[data.mask]
+                yu = data.Y[data.mask] + data.Y_err[data.mask]
+                if transformed:
+                    yl = data.Y.transform(yl, x)
+                    yu = data.Y.transform(yu, x)
+                ax[j].errorbar(x[0], y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
+
+            # prediction
+            idx = np.argsort(X[j][0])
+            ax.plot(X[j][0][idx], Mu[j][idx], ls=':', color='blue', lw=2)
+            ax.fill_between(X[j][0][idx], Lower[j][idx], Upper[j][idx], color='blue', alpha=0.3)
+            label = 'Posterior Mean'
+            legends.append(patches.Rectangle(
+                (1, 1), 1, 1, fill=True, color='blue', alpha=0.3, lw=0, label='95% Error Bars'
+            ))
+            legends.append(plt.Line2D([0], [0], ls=':', color='blue', lw=2, label=label))
+
+            if data.F is not None:
+                xmin = min(np.min(data.X[0]), np.min(X[j][0]))
+                xmax = max(np.max(data.X[0]), np.max(X[j][0]))
+
+                if np.issubdtype(data.X[0].dtype, np.datetime64):
+                    dt = np.timedelta64(1,data.X[0].get_time_unit())
+                    n = int((xmax-xmin) / dt) + 1
+                    x = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt, dtype=data.X[0].dtype)
+                else:
+                    n = len(data.X[0])*10
+                    x = np.linspace(xmin, xmax, n)
+
+                x = [x]
+                y = data.F(*x)
+                if transformed:
+                    y = data.Y.transform(y, x)
+
+                ax.plot(x[0], y, 'r--', lw=1)
+                legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
+
+            if data.has_test_data():
+                x, y = data.get_test_data(transformed=transformed)
+                ax.plot(x[0], y, 'g.', ms=10)
+                legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Latent'))
+
+            x, y = data.get_train_data(transformed=transformed)
+            ax.plot(x[0], y, 'r.', ms=10)
+            legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Observations'))
+
+            xmin = min(np.min(data.X[0]), np.min(X[j][0]))
+            xmax = max(np.max(data.X[0]), np.max(X[j][0]))
+            ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
+
+            ax.set_xlabel(data.X_labels[0])
+            ax.set_ylabel(data.Y_label)
+            ax.set_title(data.name if title is None else title, fontsize=14)
+
+        if legend:
+            ax.legend(handles=legends[::-1])
+        return fig, ax
 
     def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         """

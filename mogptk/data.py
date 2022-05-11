@@ -340,8 +340,6 @@ class Data:
         self.mask = np.array([True] * Y.shape[0])
         self.F = None
         self.X_pred = None
-        self.Y_mu_pred = {}
-        self.Y_var_pred = {}
         self.removed_ranges = [[]] * input_dims
 
         self.X_labels = ['X'] * input_dims
@@ -768,70 +766,6 @@ class Data:
         self.mask[index] = False
     
     ################################################################
-    
-    def get_prediction_names(self):
-        """
-        Returns the model names of the saved predictions.
-
-        Returns:
-            list: List of prediction names.
-
-        Examples:
-            >>> data.get_prediction_names()
-            ['MOSM', 'CSM', 'SM-LMC', 'CONV']
-        """
-        return self.Y_mu_pred.keys()
-    
-    def get_prediction_x(self):
-        """
-        Returns the prediction X range.
-
-        Returns:
-            numpy.ndarray: X prediction of shape [(n,)] * input_dims.
-
-        Examples:
-            >>> x = data.get_prediction_x()
-        """
-        if self.X_pred is None:
-            return self.X.copy()
-        return self.X_pred.copy()
-    
-    def get_prediction(self, name, sigma=2.0, transformed=False):
-        """
-        Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
-
-        Args:
-            name (str): Name of the model of the prediction.
-            sigma (float): The confidence interval's number of standard deviations.
-            transformed (boolean): Return transformed data as used for training.
-
-        Returns:
-            numpy.ndarray: X prediction of shape [(n,)] * input_dims.
-            numpy.ndarray: Y mean prediction of shape (n,).
-            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
-            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
-
-        Examples:
-            >>> x, y_mean, y_var_lower, y_var_upper = data.get_prediction('MOSM', sigma=1)
-        """
-        if name not in self.Y_mu_pred:
-            raise ValueError("prediction name '%s' does not exist" % (name))
-       
-        if self.X_pred is None:
-            X = self.X.copy()
-        else:
-            X = self.X_pred.copy()
-        mu = self.Y_mu_pred[name]
-        lower = mu - sigma*np.sqrt(self.Y_var_pred[name])
-        upper = mu + sigma*np.sqrt(self.Y_var_pred[name])
-
-        if transformed:
-            return X, mu, lower, upper
-
-        mu = Serie(self.Y.detransform(mu, X), self.Y.transformers, transformed=mu)
-        lower = Serie(self.Y.detransform(lower, X), self.Y.transformers, transformed=lower)
-        upper = Serie(self.Y.detransform(upper, X), self.Y.transformers, transformed=upper)
-        return X, mu, lower, upper
 
     def _format_prediction_x(self, X):
         if isinstance(X, np.ndarray):
@@ -846,6 +780,20 @@ class Data:
             raise ValueError("X shape must be (n,), (n,input_dims), or [(n,)] * input_dims for each channel")
         X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
         return X
+    
+    def get_prediction_x(self):
+        """
+        Returns the prediction X range.
+
+        Returns:
+            numpy.ndarray: X prediction of shape [(n,)] * input_dims.
+
+        Examples:
+            >>> x = data.get_prediction_x()
+        """
+        if self.X_pred is None:
+            return self.X.copy()
+        return self.X_pred.copy()
 
     def set_prediction_x(self, X):
         """
@@ -859,9 +807,6 @@ class Data:
         """
         X = self._format_prediction_x(X)
         self.X_pred = [Serie(X[i], self.X[i].transformers) for i in range(self.get_input_dims())]
-
-        # clear old prediction data now that X_pred has been updated
-        self.clear_predictions()
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
         """
@@ -912,16 +857,6 @@ class Data:
                     x_step = _parse_delta(step[i])
                 X_pred[i] = np.arange(start[i], end[i]+x_step, x_step)
         self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(X_pred)]
-
-        # clear old prediction data now that X_pred has been updated
-        self.clear_predictions()
-
-    def clear_predictions(self):
-        """
-        Clear all saved predictions.
-        """
-        self.Y_mu_pred = {}
-        self.Y_var_pred = {}
 
     ################################################################
 
@@ -1106,6 +1041,7 @@ class Data:
             title (str): Set the title of the plot.
             ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
             legend (boolean): Display legend.
+            errorbars (boolean): Plot data error bars if available.
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
@@ -1131,23 +1067,7 @@ class Data:
             if transformed:
                 yl = self.Y.transform(yl, x)
                 yu = self.Y.transform(yu, x)
-            plt.errorbar(x[0], y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
-
-        colors = list(matplotlib.colors.TABLEAU_COLORS)
-        for i, name in enumerate(self.Y_mu_pred):
-            if self.Y_mu_pred[name].size != 0 and (pred is None or name.lower() == pred.lower()):
-                X_pred, mu, lower, upper = self.get_prediction(name, transformed=transformed)
-
-                idx = np.argsort(X_pred[0])
-                ax.plot(X_pred[0][idx], mu[idx], ls='-', color=colors[i], lw=2)
-                ax.fill_between(X_pred[0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
-                #ax.plot(X_pred[:,0][idx], lower[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
-                #ax.plot(X_pred[:,0][idx], upper[idx], ls='-', color=colors[i], lw=1, alpha=0.5)
-
-                label = 'Prediction'
-                if name is not None:
-                    label += ' ' + name
-                legends.append(plt.Line2D([0], [0], ls='-', color=colors[i], lw=2, label=label))
+            ax.errorbar(x[0], y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
 
         if self.F is not None:
             if self.X_pred is None:
@@ -1208,9 +1128,7 @@ class Data:
         ax.set_title(self.name if title is None else title, fontsize=14)
 
         if legend:
-            legend_rows = (len(legends)-1)/5 + 1
-            ax.legend(handles=legends, loc="upper center", bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
-
+            ax.legend(handles=legends, ncol=5)
         return ax
 
     def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, log=False, transformed=True, n=1001):
