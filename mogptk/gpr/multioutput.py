@@ -52,9 +52,9 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
 
         # TODO: incorporate mixtures?
         # TODO: allow different input_dims per channel
-        magnitude = torch.rand(output_dims)
-        mean = torch.rand(output_dims, input_dims)
-        variance = torch.rand(output_dims, input_dims)
+        magnitude = torch.ones(output_dims)
+        mean = torch.zeros(output_dims, input_dims)
+        variance = torch.ones(output_dims, input_dims)
         delay = torch.zeros(output_dims, input_dims)
         phase = torch.zeros(output_dims)
 
@@ -113,9 +113,9 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims=1, active_dims=None, name="uMOSM"):
         super().__init__(output_dims, input_dims, active_dims, name)
 
-        magnitude = torch.rand(output_dims, output_dims).tril()
-        mean = torch.rand(output_dims, input_dims)
-        variance = torch.rand(output_dims, input_dims)
+        magnitude = torch.ones(output_dims, output_dims).tril()
+        mean = torch.zeros(output_dims, input_dims)
+        variance = torch.ones(output_dims, input_dims)
         delay = torch.zeros(output_dims, input_dims)
         phase = torch.zeros(output_dims)
 
@@ -179,9 +179,9 @@ class CrossSpectralKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims=1, Rq=1, active_dims=None, name="CSM"):
         super().__init__(output_dims, input_dims, active_dims, name)
 
-        amplitude = torch.rand(output_dims, Rq)
-        mean = torch.rand(input_dims)
-        variance = torch.rand(input_dims)
+        amplitude = torch.ones(output_dims, Rq)
+        mean = torch.zeros(input_dims)
+        variance = torch.ones(input_dims)
         shift = torch.zeros(output_dims, Rq)
 
         self.input_dims = input_dims
@@ -238,7 +238,7 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
 
         if Q is None:
             Q = len(kernels)
-        weight = torch.rand(output_dims, Q, Rq)
+        weight = torch.ones(output_dims, Q, Rq)
 
         self.kernels = self._check_kernels(kernels, Q)
         self.weight = Parameter(weight, lower=config.positive_minimum)
@@ -275,9 +275,9 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
     def __init__(self, output_dims, input_dims=1, active_dims=None, name="CONV"):
         super().__init__(output_dims, input_dims, active_dims, name)
 
-        weight = torch.rand(output_dims)
-        variance = torch.rand(output_dims, input_dims)
-        base_variance = torch.rand(input_dims)
+        weight = torch.ones(output_dims)
+        variance = torch.ones(output_dims, input_dims)
+        base_variance = torch.ones(input_dims)
 
         self.input_dims = input_dims
         self.weight = Parameter(weight, lower=config.positive_minimum)
@@ -325,10 +325,10 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
 
         # TODO: incorporate mixtures?
         # TODO: allow different input_dims per channel
-        magnitude = torch.rand(output_dims)
-        mean = torch.rand(output_dims, input_dims)
-        variance = torch.rand(output_dims, input_dims)
-        lengthscale = torch.rand(output_dims)
+        magnitude = torch.ones(output_dims)
+        mean = torch.zeros(output_dims, input_dims)
+        variance = torch.ones(output_dims, input_dims)
+        lengthscale = torch.ones(output_dims)
         delay = torch.zeros(output_dims, input_dims)
         phase = torch.zeros(output_dims)
         center = torch.zeros(input_dims)
