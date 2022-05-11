@@ -1057,9 +1057,22 @@ class Data:
             raise NotImplementedError("two dimensional input data not yet implemented") # TODO
 
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            _, ax = plt.subplots(1, 1, figsize=(18, 6.0), squeeze=True, constrained_layout=True)
 
         legends = []
+        if 0 < len(self.removed_ranges[0]):
+            for removed_range in self.removed_ranges[0]:
+                x0 = removed_range[0]
+                x1 = removed_range[1]
+                y0 = ax.get_ylim()[0]
+                y1 = ax.get_ylim()[1]
+                ax.add_patch(patches.Rectangle(
+                    (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.2, lw=0,
+                ))
+            legends.append(patches.Rectangle(
+                (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
+            ))
+
         if errorbars and self.Y_err is not None:
             x, y = self.get_train_data(transformed=transformed)
             yl = self.Y[self.mask] - self.Y_err[self.mask]
@@ -1090,30 +1103,18 @@ class Data:
             if transformed:
                 y = self.Y.transform(y, x)
 
-            ax.plot(x[0], y, 'r--', lw=1)
-            legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
-
-        _, Y = self.get_data(transformed=transformed)
-        idx = np.argsort(self.X[0])
-        ax.plot(self.X[0][idx], Y[idx], 'k--', alpha=0.8)
-        legends.append(plt.Line2D([0], [0], ls='--', color='k', label='All Points'))
-
-        x, y = self.get_train_data(transformed=transformed)
-        ax.plot(x[0], y, 'k.', mew=0.5, ms=10, markeredgecolor='white')
-        legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Training Points'))
+            ax.plot(x[0], y, 'g--', lw=1)
+            legends.append(plt.Line2D([0], [0], ls='--', color='g', label='True'))
 
         if self.has_test_data():
-            for removed_range in self.removed_ranges[0]:
-                x0 = removed_range[0]
-                x1 = removed_range[1]
-                y0 = ax.get_ylim()[0]
-                y1 = ax.get_ylim()[1]
-                ax.add_patch(patches.Rectangle(
-                    (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.2, lw=0,
-                ))
-            legends.append(patches.Rectangle(
-                (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
-            ))
+            x, y = self.get_test_data(transformed=transformed)
+            idx = np.argsort(self.X[0])
+            ax.plot(x[0], y, 'g.', ms=10)
+            legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Latent'))
+
+        x, y = self.get_train_data(transformed=transformed)
+        ax.plot(x[0], y, 'r.', ms=10)
+        legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Observations'))
 
         if self.X_pred is None:
             xmin = np.min(self.X[0])

@@ -690,7 +690,7 @@ class DataSet:
             >>> fig, axes = dataset.plot(title='Title')
         """
         if figsize is None:
-            figsize = (12, 3.0 * len(self.channels))
+            figsize = (18, 6.0*len(self.channels))
 
         h = figsize[1]
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
@@ -700,8 +700,8 @@ class DataSet:
             self.channels[channel].plot(pred=pred, ax=axes[channel,0], transformed=transformed)
             l = axes[channel,0].get_legend()
             for text, handle in zip(l.texts, l.legendHandles):
-                if text.get_text() == "Training Points":
-                    handle = plt.Line2D([0], [0], ls='-', color='k', marker='.', ms=10, label='Training Points')
+                if text.get_text() == "Observations":
+                    handle = plt.Line2D([0], [0], ls='-', color='r', marker='.', ms=10, label='Observations')
                 legends[text.get_text()] = handle
             l.remove()
 
