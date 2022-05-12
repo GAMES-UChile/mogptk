@@ -6,6 +6,8 @@ class Mean:
     Defines a trainable mean function, complementary to the the way we also have a trainable covariance function (the kernel).
     """
     def __init__(self, name="Mean"):
+        if not isinstance(name, str):
+            raise ValueError("name must be string")
         self.name = name
 
     def __call__(self, X):

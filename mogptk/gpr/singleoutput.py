@@ -432,7 +432,7 @@ class SpectralKernel(Kernel):
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
     """
-    def __init__(self, input_dims=1, active_dims=None, name="SM"):
+    def __init__(self, input_dims=1, active_dims=None, name="Spectral"):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
@@ -450,6 +450,45 @@ class SpectralKernel(Kernel):
         exp = -2.0*np.pi**2 * tau**2 * self.variance().reshape(1,1,-1)  # NxMxD
         cos = 2.0*np.pi * tau * self.mean().reshape(1,1,-1)  # NxMxD
         return self.magnitude()**2 * torch.prod(torch.exp(exp) * torch.cos(cos), dim=2)
+
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.magnitude()**2 * torch.ones(X1.shape[0], dtype=config.dtype, device=config.device)
+
+class SpectralMixtureKernel(Kernel):
+    """
+    A spectral mixture kernel given by
+
+    $$ K(x,x') = \\sum_{q=0}^Q \\sigma_q^2 e^{-2\\pi^2 \\Sigma_q |x-x'|^2} \\cos(2\\pi \\mu_q |x-x'|) $$
+
+    with \\(Q\\) the number of mixtures, \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean.
+
+    Args:
+        Q (int): Number of mixtures.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+    """
+    def __init__(self, Q=1, input_dims=1, active_dims=None, name="SM"):
+        super().__init__(input_dims, active_dims, name)
+
+        magnitude = torch.ones(Q)
+        mean = torch.zeros(Q,input_dims)
+        variance = torch.ones(Q,input_dims)
+
+        self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
+        self.mean = Parameter(mean, lower=config.positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
+
+    def K(self, X1, X2=None):
+        # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
+        tau = self.distance(X1,X2)[None,:,:,:]  # 1xNxMxD
+        exp = -2.0*np.pi**2 * tau**2 * self.variance()[:,None,None,:]  # QxNxMxD
+        cos = 2.0*np.pi * tau * self.mean()[:,None,None,:]  # QxNxMxD
+        Kq = self.magnitude()[:,None,None]**2 * torch.prod(torch.exp(exp) * torch.cos(cos), dim=3)
+        return torch.sum(Kq, dim=0)
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
