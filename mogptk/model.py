@@ -12,9 +12,8 @@ import matplotlib.patches as patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from . import gpr
-from .serie import Serie
 from .dataset import DataSet
-from .errors import mean_absolute_error, mean_absolute_percentage_error, symmetric_mean_absolute_percentage_error, mean_squared_error, root_mean_squared_error
+from .errors import *
 
 logger = logging.getLogger('mogptk')
 

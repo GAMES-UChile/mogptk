@@ -72,6 +72,20 @@ which will show the loss over iterations. When big jumps occur, especially upwar
 model.train('lbfgs', iters=500, lr=0.01)
 ```
 
+### Slow training performance
+There are many ways to speed up the training of Gaussian processes, but we can divide the solutions into two groups: technical and theoretical solutions.
+
+#### Technical
+- Use a bigger computer
+- Use less data points for training with `data.remove_randomly(pct=0.5)`
+- Use a simpler kernel with less parameters (e.g. less mixture components)
+- Use the GPU instead of the CPU with `mogptk.gpr.use_gpu()`
+- Use lower precision such as `mogptk.gpr.use_single_precision()` or `mogptk.gpr.use_half_precision()`
+
+#### Theoretical
+- Use a sparse model such as `mogptk.Titsias(inducing_points=20)` with 20 inducing points and pass it to the model as `inference`
+- Use stochastic gradient descent as `mogptk.train(method='SGD') (WIP)
+
 ### Mixture kernels have equal parameter values
 When all subkernels of a mixture kernel are initialized with the same parameter values, training for each mixture kernel will perform similarly. This results in equal parameters values after optimization. To fix this, you should initialize parameter values, for example
 
@@ -84,4 +98,9 @@ for i in range(Q):
     kernel[i].l.assign(torch.rand(input_dims))
 ```
 
-## Visualization and interpretation
+### Unstable training: NaNs and Infs
+Due to numerical issues this is unfortunately quite frequent in Gaussian process optimization, but there are several ways to mitigate this:
+- Increase the jitter with `mogptk.gpr.Kernel(..., jitter=1e-3)`, be aware that the jitter is multiplied by the average value on the diagonal before being added to the diagonal
+- Make sure all kernel and model parameters are in their valid range and there are no NaNs or Infs
+- Make sure your data has no NaNs or Infs
+- Make sure your data X and Y value ranges are not extremely small or big
