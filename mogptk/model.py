@@ -1,6 +1,8 @@
 import os
 import time
+import math
 import pickle
+import inspect
 import numpy as np
 import torch
 import logging
@@ -266,7 +268,7 @@ class Model:
         Returns the error of the kernel prediction with the removed data points in the data set.
 
         Args:
-            method (str): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE.
+            method (str,function): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE. When a function is given, it should have parameters (y_true,y_pred) or (y_true,y_pred,model).
 
         Returns:
             float: The current error.
@@ -280,7 +282,11 @@ class Model:
             X, Y_true = self.dataset.get_test_data()
         x, y_true  = self._to_kernel_format(X, Y_true)
         y_pred, _ = self.gpr.predict(x, predict_y=False)
-        if method.lower() == 'mae':
+        if callable(method):
+            if len(inspect.signature(method).parameters) == 3:
+                return method(y_true, y_pred, self)
+            return method(y_true, y_pred)
+        elif method.lower() == 'mae':
             return mean_absolute_error(y_true, y_pred)
         elif method.lower() == 'mape':
             return mean_absolute_percentage_error(y_true, y_pred)
@@ -291,7 +297,7 @@ class Model:
         elif method.lower() == 'rmse':
             return root_mean_squared_error(y_true, y_pred)
         else:
-            raise ValueError("valid error calculation methods are MAE, MAPE, and RMSE")
+            raise ValueError("valid error calculation methods are MAE, MAPE, sMAPE, MSE, and RMSE")
 
     def train(
         self,
@@ -308,7 +314,7 @@ class Model:
             method (str): Optimizer to use such as LBFGS, Adam, Adagrad, or SGD.
             iters (int): Number of iterations, or maximum in case of LBFGS optimizer.
             verbose (bool): Print verbose output about the state of the optimizer.
-            error (str): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, or RMSE.
+            error (str,function): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, sMAPE, MSE, or RMSE. When a function is given, it should have parameters (y_true,y_pred) or (y_true,y_pred,model).
             plot (bool): Plot the loss and, if error is data set, the error of the test data points.
             **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
 
@@ -335,36 +341,39 @@ class Model:
             method = 'SGD'
         elif method.lower() == 'adagrad':
             method = 'AdaGrad'
+        else:
+            raise ValueError('optimizer must be LBFGS, Adam, SGD, or AdaGrad')
 
         if verbose:
             training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
             parameters = sum([p.num_parameters if p.trainable else 0 for p in self.gpr.get_parameters()])
             print('\nStarting optimization using', method)
             if self.name is not None:
-                print('‣ Model: {}'.format(self.name))
-            print('‣ Channels: {}'.format(len(self.dataset)))
-            if hasattr(self, 'Q'):
-                print('‣ Mixtures: {}'.format(self.Q))
-            print('‣ Training points: {}'.format(training_points))
-            print('‣ Parameters: {}'.format(parameters))
-            print('‣ Initial loss: {:.3g}'.format(self.loss()))
+                print('‣ Model: %s' % self.name)
+            print('‣ Channels: %d' % len(self.dataset))
+            print('‣ Parameters: %d' % parameters)
+            print('‣ Training points: %d' % training_points)
+            print('‣ Initial loss: %6g' % self.loss())
             if error is not None:
-                print('‣ Initial error: {:.3g}'.format(self.error(error, error_use_all_data)))
+                print('‣ Initial error: %6g' % self.error(error, error_use_all_data))
 
-        losses = np.empty((iters+1,))
+        times = np.zeros((iters+1,))
+        losses = np.zeros((iters+1,))
         errors = np.zeros((iters+1,))
         initial_time = time.time()
 
+        iters_len = int(math.log10(iters)) + 1
         def progress(i, loss):
             elapsed_time = time.time() - initial_time
             write = verbose and i % max(1,iters/100) == 0
+            times[i] = elapsed_time
             losses[i] = loss
             if error is not None:
                 errors[i] = self.error(error, error_use_all_data)
                 if write:
-                    print("% 5d/%d %s  loss=%10g  error=%10g" % (i, iters, _format_time(elapsed_time), losses[i], errors[i]))
+                    print("%*d/%*d %s  loss=%12g  error=%12g" % (iters_len, i, iters_len, iters, _format_time(elapsed_time), losses[i], errors[i]))
             elif write:
-                print("% 5d/%d %s  loss=%10g" % (i, iters, _format_time(elapsed_time), losses[i]))
+                print("%*d/%*d %s  loss=%12g" % (iters_len, i, iters_len, iters, _format_time(elapsed_time), losses[i]))
 
         if verbose:
             print("\nStart %s:" % (method,))
@@ -389,8 +398,6 @@ class Model:
                 optimizer = torch.optim.SGD(self.gpr.parameters(), **kwargs)
             elif method == 'AdaGrad':
                 optimizer = torch.optim.Adagrad(self.gpr.parameters(), **kwargs)
-            else:
-                print("Unknown optimizer:", method)
 
             for i in range(iters):
                 progress(i, self.loss())
@@ -400,16 +407,17 @@ class Model:
         if verbose:
             elapsed_time = time.time() - initial_time
             print("Finished")
-            print('\nOptimization finished in {}'.format(_format_duration(elapsed_time)))
-            print('‣ Function evaluations: {}'.format(iters))
-            print('‣ Final loss: {:.3g}'.format(losses[iters]))
+            print('\nOptimization finished in %s' % _format_duration(elapsed_time))
+            print('‣ Iterations: %d' % iters)
+            print('‣ Final loss: %6g'% losses[iters])
             if error is not None:
-                print('‣ Final error: {:.3g}'.format(errors[iters]))
+                print('‣ Final error: %6g' % errors[iters])
 
         self.iters = iters
-        self.losses = losses[:iters+1,]
+        self.times = times[:iters+1]
+        self.losses = losses[:iters+1]
         if error is not None:
-            self.errors = errors[:iters+1,]
+            self.errors = errors[:iters+1]
         if plot:
             self.plot_losses()
         return losses, errors
@@ -417,8 +425,6 @@ class Model:
     ################################################################################
     # Predictions ##################################################################
     ################################################################################
-
-    # TODO: add get_prediction
 
     def _to_kernel_format(self, X, Y=None):
         """
@@ -497,9 +503,9 @@ class Model:
             >>> model.predict(X)
         """
         if X is None:
-            X = self.dataset.get_prediction_x()
+            X = self.dataset.get_prediction_data()
         else:
-            X = self.dataset._format_prediction_x(X)
+            X = self.dataset._format_prediction_data(X)
         x = self._to_kernel_format(X)
 
         mu, var = self.gpr.predict(x, predict_y=predict_y, tensor=True)
@@ -575,9 +581,9 @@ class Model:
             >>> model.sample(n=10)
         """
         if X is None:
-            X = self.dataset.get_prediction_x()
+            X = self.dataset.get_prediction_data()
         else:
-            X = self.dataset._format_prediction_x(X)
+            X = self.dataset._format_prediction_data(X)
         x = self._to_kernel_format(X)
 
         samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
@@ -604,7 +610,7 @@ class Model:
             return Samples[0]
         return Samples
 
-    def plot_losses(self, title=None, figsize=None, legend=True, errors=True, log=False):
+    def plot_losses(self, title=None, figsize=(18,6), legend=True, errors=True, log=False):
         """
         Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.
 
@@ -622,22 +628,21 @@ class Model:
         if not hasattr(self, 'losses'):
             raise Exception("must be trained in order to plot the losses")
 
-        if figsize is None:
-            figsize = (12,3)
-
         fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
-        ax.plot(np.arange(0,self.iters+1), self.losses[:self.iters+1], c='k', ls='-')
+        x = np.arange(0,self.iters+1)
         ax.set_xlim(0, self.iters)
         ax.set_xlabel('Iteration')
         ax.set_ylabel('Loss')
         if log:
             ax.set_yscale('log')
 
+        ax.plot(x, self.losses, c='k', ls='-')
+
         legends = []
         legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Loss'))
         if errors and hasattr(self, 'errors'):
             ax2 = ax.twinx()
-            ax2.plot(np.arange(0,self.iters+1), self.errors[:self.iters+1], c='k', ls='-.')
+            ax2.plot(x, self.errors, c='k', ls='-.')
             ax2.set_ylabel('Error')
             legends.append(plt.Line2D([0], [0], ls='-.', color='k', label='Error'))
             if log:
@@ -758,7 +763,7 @@ class Model:
             ax.legend(handles=legends[::-1])
         return fig, ax
 
-    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
+    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(18,18)):
         """
         Plot the gram matrix of associated kernel.
 
@@ -820,7 +825,7 @@ class Model:
         ax.tick_params(axis='both', which='both', length=0)
         return fig, ax
 
-    def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
+    def plot_kernel(self, dist=None, n=101, title=None, figsize=(18,18)):
         """
         Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.
 
@@ -867,7 +872,7 @@ def _format_duration(s):
     if s < 60.0:
         return '%.3f seconds' % s
 
-    s = round(s)
+    s = math.floor(s)
     days = int(s/86400)
     hours = int(s%86400/3600)
     minutes = int(s%3600/60)
