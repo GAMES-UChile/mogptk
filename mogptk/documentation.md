@@ -47,5 +47,41 @@ mogptk.gpr.use_half_precision()  # even higher performance and lower energy usag
 ```
 
 ## Advice on training 
+### Training is not converging
+This could be a host of causes, including:
+
+- Data can not be fitted by kernel
+- - Did you remove the bias? Either set `data.transform(mogptk.TransformDetrend(degree=1))` or add a mean function to the model
+- - Range of X axis may be very large, causing the kernel parameters to be orders of magnitude off their optimum
+- - Kernel does not fit the data, i.e. change the kernel
+- - Add more components to mixture kernels
+- Kernel parameters are not properly initialized and training is stuck in a local minimum
+- High learning rate, e.g. set `model.train(..., lr=0.1, ...)`
+- Low learning rate or low amount of iterations
+
+### Loss over iterations has big jumps
+The default learning rate for LBFGS is `1.0` and for Adam `0.001`. Indications that your learning rate may be too high can be visualized after training by calling
+
+```python
+model.plot_losses()
+```
+
+which will show the loss over iterations. When big jumps occur, especially upwards, you should probably lower your learning rate.
+
+```python
+model.train('lbfgs', iters=500, lr=0.01)
+```
+
+### Mixture kernels have equal parameter values
+When all subkernels of a mixture kernel are initialized with the same parameter values, training for each mixture kernel will perform similarly. This results in equal parameters values after optimization. To fix this, you should initialize parameter values, for example
+
+```python
+Q = 10
+input_dims = 1
+kernel = mogptk.gpr.MixtureKernel(mogptk.gpr.SquaredExponentialKernel(), Q=Q)
+for i in range(Q):
+    kernel[i].magnitude.assign(torch.rand(1))
+    kernel[i].l.assign(torch.rand(input_dims))
+```
 
 ## Visualization and interpretation

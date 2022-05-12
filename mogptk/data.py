@@ -767,7 +767,7 @@ class Data:
     
     ################################################################
 
-    def _format_prediction_x(self, X):
+    def _format_prediction_data(self, X):
         if isinstance(X, np.ndarray):
             if X.ndim == 1:
                 X = X.reshape(-1,1)
@@ -781,9 +781,9 @@ class Data:
         X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
         return X
     
-    def get_prediction_x(self):
+    def get_prediction_data(self):
         """
-        Returns the prediction X range.
+        Returns the prediction points.
 
         Returns:
             numpy.ndarray: X prediction of shape [(n,)] * input_dims.
@@ -795,9 +795,9 @@ class Data:
             return self.X.copy()
         return self.X_pred.copy()
 
-    def set_prediction_x(self, X):
+    def set_prediction_data(self, X):
         """
-        Set the prediction range directly for saved predictions. This will clear old predictions.
+        Set the prediction points.
 
         Args:
             X (list, numpy.ndarray): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims used for predictions.
@@ -805,7 +805,7 @@ class Data:
         Examples:
             >>> data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
         """
-        X = self._format_prediction_x(X)
+        X = self._format_prediction_data(X)
         self.X_pred = [Serie(X[i], self.X[i].transformers) for i in range(self.get_input_dims())]
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
@@ -828,9 +828,9 @@ class Data:
             >>> data.set_prediction_range('2016-01-15', '2016-06-15', step='1D')
         """
         if start is None:
-            start = [x[0] for x in self.X]
+            start = [np.min(x) for x in self.X]
         if end is None:
-            end = [x[-1] for x in self.X]
+            end = [np.max(x) for x in self.X]
         
         start = self._normalize_x_val(start)
         end = self._normalize_x_val(end)
@@ -1199,9 +1199,8 @@ class Data:
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
-        # TODO: normalize periodograms
         # normalize
-        #Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
+        Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
 
         ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
         #if len(Y_freq_err) != 0:

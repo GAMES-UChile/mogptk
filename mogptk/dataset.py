@@ -442,53 +442,8 @@ class DataSet:
             >>> x, y = dataset.get_test_data()
         """
         return [channel.get_test_data(transformed=transformed)[0] for channel in self.channels], [channel.get_test_data(transformed=transformed)[1] for channel in self.channels]
-    
-    def get_prediction_x(self):
-        """
-        Returns the prediction X range for all channels.
 
-        Returns:
-            list: X prediction of shape [(n,)] * input_dims per channel.
-
-        Examples:
-            >>> x = dataset.get_prediction_x()
-        """
-        x = []
-        for channel in self.channels:
-            x.append(channel.get_prediction_x())
-        return x
-    
-    def get_prediction(self, name, sigma=2.0, transformed=False):
-        """
-        Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
-
-        Args:
-            name (str): Name of the model of the prediction.
-            sigma (float): The confidence interval's number of standard deviations.
-            transformed (boolean): Return transformed data as used for training.
-
-        Returns:
-            list: X prediction of shape [(n,)] * input_dims per channel.
-            list: Y mean prediction of shape (n,) per channel.
-            list: Y lower prediction of uncertainty interval of shape (n,) per channel.
-            list: Y upper prediction of uncertainty interval of shape (n,) per channel.
-
-        Examples:
-            >>> x, y_mean, y_var_lower, y_var_upper = dataset.get_prediction('MOSM', sigma=1)
-        """
-        x = []
-        mu = []
-        lower = []
-        upper = []
-        for channel in self.channels:
-            cx, cmu, clower, cupper = channel.get_prediction(name, sigma, transformed=transformed)
-            x.append(cx)
-            mu.append(cmu)
-            lower.append(clower)
-            upper.append(cupper)
-        return x, mu, lower, upper
-
-    def _format_prediction_x(self, X):
+    def _format_prediction_data(self, X):
         if isinstance(X, dict):
             x_dict = X
             X = self.get_prediction()
@@ -502,10 +457,25 @@ class DataSet:
             raise ValueError("X must be a list of shape [(n,)] * input_dims for each channel")
 
         for j, channel in enumerate(self.channels):
-            X[j] = channel._format_prediction_x(X[j])
+            X[j] = channel._format_prediction_data(X[j])
         return X
 
-    def set_prediction_x(self, X):
+    def get_prediction_data(self):
+        """
+        Returns the prediction X range for all channels.
+
+        Returns:
+            list: X prediction of shape [(n,)] * input_dims per channel.
+
+        Examples:
+            >>> x = dataset.get_prediction_data()
+        """
+        x = []
+        for channel in self.channels:
+            x.append(channel.get_prediction_data())
+        return x
+
+    def set_prediction_data(self, X):
         """
         Set the prediction range directly for saved predictions per channel. This will clear old predictions.
 
@@ -513,21 +483,21 @@ class DataSet:
             X (list, dict): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
-            >>> dataset.set_prediction_x([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
-            >>> dataset.set_prediction_x({'A': [5.0, 5.5, 6.0, 6.5, 7.0], 'B': [0.1, 0.2, 0.3]})
+            >>> dataset.set_prediction_data([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
+            >>> dataset.set_prediction_data({'A': [5.0, 5.5, 6.0, 6.5, 7.0], 'B': [0.1, 0.2, 0.3]})
         """
         if isinstance(X, list):
             if len(X) != len(self.channels):
                 raise ValueError("prediction x expected to be a list of shape (output_dims,n)")
 
             for i, channel in enumerate(self.channels):
-                channel.set_prediction_x(X[i])
+                channel.set_prediction_data(X[i])
         elif isinstance(X, dict):
             for name in X:
-                self.get(name).set_prediction_x(X[name])
+                self.get(name).set_prediction_data(X[name])
         else:
             for i, channel in enumerate(self.channels):
-                channel.set_prediction_x(X)
+                channel.set_prediction_data(X)
 
     def set_prediction_range(self, start, end, n=None, step=None):
         """
@@ -569,13 +539,6 @@ class DataSet:
 
         for i, channel in enumerate(self.channels):
             channel.set_prediction_range(start[i], end[i], n[i], step[i])
-
-    def clear_predictions(self):
-        """
-        Clear all saved predictions for all channels.
-        """
-        for i, channel in enumerate(self.channels):
-            channel.clear_predictions()
     
     def get_nyquist_estimation(self):
         """
