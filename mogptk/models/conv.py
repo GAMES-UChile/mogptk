@@ -14,7 +14,6 @@ class CONV(Model):
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
-        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -38,7 +37,7 @@ class CONV(Model):
 
     [1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009
     """
-    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="CONV", rescale_x=False):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="CONV"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -52,7 +51,7 @@ class CONV(Model):
             input_dims=dataset.get_input_dims()[0],
         )
         kernel = MixtureKernel(conv, Q)
-        super().__init__(dataset, kernel, inference, mean, name, rescale_x)
+        super().__init__(dataset, kernel, inference, mean, name)
 
         self.Q = Q
 

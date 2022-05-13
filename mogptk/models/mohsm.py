@@ -17,7 +17,6 @@ class MOHSM(Model):
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
-        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
     Atributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -40,7 +39,7 @@ class MOHSM(Model):
 
     [1] M. Altamirano, "Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
     """
-    def __init__(self, dataset, P=1, Q=1, model=Exact(), mean=None, name="MOHSM", rescale_x=False):
+    def __init__(self, dataset, P=1, Q=1, model=Exact(), mean=None, name="MOHSM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -52,7 +51,7 @@ class MOHSM(Model):
         
         kernel = MixtureKernel(kernel_p, P)
         
-        super(MOHSM, self).__init__(dataset, kernel, model, mean, name, rescale_x)
+        super(MOHSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.P = P
         self.rescale_x = rescale_x
