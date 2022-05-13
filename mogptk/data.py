@@ -1148,11 +1148,12 @@ class Data:
             dist = np.abs(X[1:]-X[:-1])
             nyquist = float(0.5 / np.average(dist))
 
+        Y_freq_err = np.array([])
         if method.lower() == 'ls':
             X_freq = np.linspace(0.0, nyquist, n)[1:]
             Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq, normalize=True)
         elif method.lower() == 'bnse':
-            X_freq, Y_freq = BNSE(X, Y, max_freq=nyquist, n=n)
+            X_freq, Y_freq, Y_freq_err = BNSE(X, Y, max_freq=nyquist, n=n)
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
@@ -1160,8 +1161,8 @@ class Data:
         Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
 
         ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
-        #if len(Y_freq_err) != 0:
-        #    ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
+        if len(Y_freq_err) != 0:
+            ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
         ax.set_title((self.name + ' Spectrum' if self.name is not None else '') if title is None else title, fontsize=14)
 
         if log:

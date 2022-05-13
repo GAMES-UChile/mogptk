@@ -73,7 +73,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         variance = variance.reshape(1,-1)
         gamma = 2.0*np.pi**2*variance
         Lq_inv = np.pi**2 * (1.0/alpha + 1.0/gamma)  # 1xD
-        Lq_inv = 1.0/Lq_inv  # TODO: this line must be kept, is this wrong in the paper?
+        Lq_inv = 1.0/Lq_inv  # this line must be kept, is this wrong in the paper?
 
         const = torch.sqrt(np.pi/(alpha+gamma.prod()))  # 1
         exp1 = -np.pi**2 * torch.tensordot(t**2, Lq_inv.T, dims=1)  # Nx1
@@ -108,7 +108,12 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         var_real = Kff_real - b.T.mm(b)
         var_imag = Kff_imag - c.T.mm(c)
 
-        psd = mu_real**2 + mu_imag**2 + (var_real + var_imag).diagonal().reshape(-1,1)
-        w = w.cpu().numpy()
-        psd = psd.cpu().numpy()
-    return w, psd
+        var_real = var_real.diagonal().reshape(-1,1)
+        var_imag = var_imag.diagonal().reshape(-1,1)
+        mu = mu_real**2 + mu_imag**2 + var_real + var_imag
+        var = 2.0*var_real**2 + 2.0*var_imag**2 + 4.0*var_real*mu_real**2 + 4.0*var_imag*mu_imag**2
+
+        w = w.cpu().numpy().reshape(-1)
+        mu = mu.cpu().numpy().reshape(-1)
+        var = var.cpu().numpy().reshape(-1)
+    return w, mu, var
