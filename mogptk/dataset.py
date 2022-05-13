@@ -180,6 +180,25 @@ class DataSet:
         for arg in args:
             self.append(arg)
 
+    def _format_X(self, X):
+        if isinstance(X, dict):
+            x_dict = X
+            X = self.get_prediction()
+            for name, channel_x in x_dict.items():
+                X[self.get_index(name)] = channel_x
+        elif isinstance(X, np.ndarray):
+            X = [X] * self.get_output_dims()
+        elif not isinstance(X, list):
+            raise ValueError("X must be a list, dict or numpy.ndarray")
+        elif not any(isinstance(x, (list,np.ndarray)) for x in X):
+            X = [X] * self.get_output_dims()
+        if len(X) != self.get_output_dims():
+            raise ValueError("X must be of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims for each channel")
+
+        for j, channel in enumerate(self.channels):
+            X[j] = channel._format_X(X[j])
+        return X
+
     def __iter__(self):
         return self.channels.__iter__()
 
@@ -246,19 +265,6 @@ class DataSet:
         """
         return copy.deepcopy(self)
 
-    def rescale_x(self, upper=1000.0):
-        """
-        Rescale the X axis so that it is in the interval [0.0,upper] for each channel. This helps training most kernels.
-
-        Args:
-            upper (float): Upper end of the interval.
-
-        Examples:
-            >>> dataset.rescale_x()
-        """
-        for channel in self.channels:
-            channel.rescale_x(upper)
-
     def transform(self, transformer):
         """
         Transform each channel by using one of the provided transformers, such as `TransformDetrend`, `TransformLinear`, `TransformLog`, `TransformNormalize`, `TransformStandard`, etc.
@@ -293,7 +299,7 @@ class DataSet:
         for channel in self.channels:
             channel.filter(start, end, dim=dim)
 
-    def aggregate(self, duration, f=np.mean, dim=0):
+    def aggregate(self, duration, f=np.mean):
         """
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -302,7 +308,6 @@ class DataSet:
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
             f (function): Function to use to reduce data.
-            dim (int): Input dimension to apply to, defaults to the first input dimension.
 
         Examples:
             >>> dataset.aggregate(5)
@@ -310,7 +315,7 @@ class DataSet:
             >>> dataset.aggregate('2W', f=np.sum)
         """
         for channel in self.channels:
-            channel.aggregate(duration, f, dim=dim)
+            channel.aggregate(duration, f)
 
     def get_input_dims(self):
         """
@@ -403,8 +408,8 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape [(n,)] * input_dims per channel.
-            list: Y data of shape (n,) per channel.
+            list: X data of shape (data_points,input_dims) per channel.
+            list: Y data of shape (data_points,) per channel.
 
         Examples:
             >>> x, y = dataset.get_data()
@@ -419,8 +424,8 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape [(n,)] * input_dims per channel.
-            list: Y data of shape (n,) per channel.
+            list: X data of shape (data_points,input_dims) per channel.
+            list: Y data of shape (data_points,) per channel.
 
         Examples:
             >>> x, y = dataset.get_train_data()
@@ -435,37 +440,20 @@ class DataSet:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list: X data of shape [(n,)] * input_dims per channel.
-            list: Y data of shape (n,) per channel.
+            list: X data of shape (data_points,input_dims) per channel.
+            list: Y data of shape (data_points,) per channel.
 
         Examples:
             >>> x, y = dataset.get_test_data()
         """
         return [channel.get_test_data(transformed=transformed)[0] for channel in self.channels], [channel.get_test_data(transformed=transformed)[1] for channel in self.channels]
 
-    def _format_prediction_data(self, X):
-        if isinstance(X, dict):
-            x_dict = X
-            X = self.get_prediction()
-            for name, channel_x in x_dict.items():
-                X[self.get_index(name)] = channel_x
-        elif isinstance(X, np.ndarray):
-            X = [np.array(X) for j in range(self.get_output_dims())]
-        elif not isinstance(X, list):
-            raise ValueError("X must be a list, dict or numpy.ndarray")
-        if len(X) != self.get_output_dims():
-            raise ValueError("X must be a list of shape [(n,)] * input_dims for each channel")
-
-        for j, channel in enumerate(self.channels):
-            X[j] = channel._format_prediction_data(X[j])
-        return X
-
     def get_prediction_data(self):
         """
         Returns the prediction X range for all channels.
 
         Returns:
-            list: X prediction of shape [(n,)] * input_dims per channel.
+            list: X prediction of shape (data_points,input_dims) per channel.
 
         Examples:
             >>> x = dataset.get_prediction_data()
@@ -480,7 +468,7 @@ class DataSet:
         Set the prediction range directly for saved predictions per channel. This will clear old predictions.
 
         Args:
-            X (list, dict): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
+            X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
 
         Examples:
             >>> dataset.set_prediction_data([[5.0, 5.5, 6.0, 6.5, 7.0], [0.1, 0.2, 0.3]])
@@ -664,7 +652,7 @@ class DataSet:
             l = axes[channel,0].get_legend()
             for text, handle in zip(l.texts, l.legendHandles):
                 if text.get_text() == "Observations":
-                    handle = plt.Line2D([0], [0], ls='-', color='r', marker='.', ms=10, label='Observations')
+                    handle = plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Observations')
                 legends[text.get_text()] = handle
             l.remove()
 
@@ -673,10 +661,10 @@ class DataSet:
             fig.suptitle(title, y=(h+0.2+0.4*legend_rows)/h, fontsize=18)
 
         if legend:
-            fig.legend(handles=legends.values(), loc="upper center", bbox_to_anchor=(0.5,(h-0.3+0.5*legend_rows)/h), ncol=5)
+            fig.legend(handles=legends.values(), ncol=5)
         return fig, axes
 
-    def plot_spectrum(self, title=None, method='ls', per=None, maxfreq=None, figsize=None, transformed=False):
+    def plot_spectrum(self, title=None, method='ls', per=None, maxfreq=None, figsize=None, log=False, transformed=False, n=1001):
         """
         Plot the spectrum for each channel.
 
@@ -686,7 +674,9 @@ class DataSet:
             per (list, str): Set the scale of the X axis depending on the formatter used, eg. per=5, per='day', or per='3D'.
             maxfreq (list, float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
             figsize (tuple): Set the figure size.
+            log (boolean): Show X and Y axis in log-scale.
             transformed (boolean): Display transformed Y data as used for training.
+            n (int): Number of points used for periodogram.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -703,12 +693,12 @@ class DataSet:
             maxfreq = [maxfreq] * len(self.channels)
 
         if figsize is None:
-            figsize = (12, 3.0 * len(self.channels))
+            figsize = (12,3*len(self.channels))
 
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         if title != None:
             fig.suptitle(title, fontsize=18)
 
         for channel in range(self.get_output_dims()):
-            ax = self.channels[channel].plot_spectrum(method=method[channel], ax=axes[channel,0], per=per[channel], maxfreq=maxfreq[channel], transformed=transformed)
+            self.channels[channel].plot_spectrum(method=method[channel], ax=axes[channel,0], per=per[channel], maxfreq=maxfreq[channel], log=log, transformed=transformed, n=n)
         return fig, axes

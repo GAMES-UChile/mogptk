@@ -133,7 +133,7 @@ class Hensman:
         return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Model:
-    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None, rescale_x=False):
+    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
         """
         Model is the base class for multi-output Gaussian process models.
 
@@ -143,7 +143,6 @@ class Model:
             model: Gaussian process model to use, such as `mogptk.model.Exact`.
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
-            rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
         Atributes:
             dataset: The associated mogptk.dataset.DataSet.
@@ -158,23 +157,19 @@ class Model:
         if len(set(names)) != len(names):
             raise ValueError("all data channels must have unique names")
 
-        if rescale_x:
-            dataset.rescale_x()
-        else:
-            for channel in dataset:
-                for dim in range(channel.get_input_dims()):
-                    xran = np.max(channel.X[dim].transformed) - np.min(channel.X[dim].transformed)
-                    if xran < 1e-3:
-                        logger.warning("Very small X range may give problems, it is suggested to scale up your X axis")
-                    elif 1e4 < xran:
-                        logger.warning("Very large X range may give problems, it is suggested to scale down your X axis")
+        for channel in dataset:
+            for dim in range(channel.get_input_dims()):
+                xran = np.max(channel.X.transformed[:,dim]) - np.min(channel.X.transformed[:,dim])
+                if xran < 1e-3:
+                    logger.warning("Very small X range may give problems, it is suggested to scale up your X axis")
+                elif 1e4 < xran:
+                    logger.warning("Very large X range may give problems, it is suggested to scale down your X axis")
 
         self.name = name
         self.dataset = dataset
-        self.is_multioutput = issubclass(type(kernel), gpr.MultiOutputKernel)
+        self.is_multioutput = kernel.output_dims is not None
 
-        X = [[x[channel.mask] for x in channel.X] for channel in self.dataset]
-        Y = [np.array(channel.Y[channel.mask]) for channel in self.dataset]
+        X, Y = self.dataset.get_train_data()
         x, y = self._to_kernel_format(X, Y)
 
         y_err = None
@@ -370,9 +365,9 @@ class Model:
             if error is not None:
                 errors[i] = self.error(error, error_use_all_data)
                 if write:
-                    print("%*d/%*d %s  loss=%12g  error=%12g" % (iters_len, i, iters_len, iters, _format_time(elapsed_time), losses[i], errors[i]))
+                    print("  %*d/%*d %s  loss=%12g  error=%12g" % (iters_len, i, iters_len, iters, _format_time(elapsed_time), losses[i], errors[i]))
             elif write:
-                print("%*d/%*d %s  loss=%12g" % (iters_len, i, iters_len, iters, _format_time(elapsed_time), losses[i]))
+                print("  %*d/%*d %s  loss=%12g" % (iters_len, i, iters_len, iters, _format_time(elapsed_time), losses[i]))
 
         if verbose:
             print("\nStart %s:" % (method,))
@@ -430,58 +425,26 @@ class Model:
         Return the data vectors in the format used by the kernels. If Y is not passed, than only X data is returned.
 
         Returns:
-            numpy.ndarray: X data of shape (n,2) where X[:,0] contains the channel indices and X[:,1] the X values.
-            numpy.ndarray: Y data.
+            numpy.ndarray: X data of shape (data_points,input_dims). If the kernel is multi output, an additional input dimension is prepended with the channel indices.
+            numpy.ndarray: Y data of shape (data_points,1).
             numpy.ndarray: Original but normalized X data. Only if no Y is passed.
         """
-        X_orig = X
         X = X.copy()
         for j, channel_x in enumerate(X):
-            if channel_x is None or len(channel_x) == 0:
-                X[j] = np.empty((0, input_dims))
-                continue
+            X[j] = X[j].transformed
 
-            input_dims = self.dataset.get_input_dims()[j]
-            if isinstance(channel_x, np.ndarray):
-                if channel_x.ndim == 1:
-                    channel_x = channel_x.reshape(-1, 1)
-                if channel_x.ndim != 2 or channel_x.shape[1] != input_dims:
-                    raise ValueError("X must be of shape (n,input_dims) or a list [(n,)] * input_dims for each channel")
-                channel_x = [channel_x[:,i] for i in range(input_dims)]
-            elif not isinstance(channel_x, list):
-                raise ValueError("X must be a list of lists or numpy.ndarrays")
-            if not all(isinstance(x, np.ndarray) for x in channel_x) or len(channel_x) != input_dims:
-                raise ValueError("X must be of shape (n,input_dims) or a list [(n,)] * input_dims for each channel")
-            X[j] = np.array([self.dataset[j].X[i].transform(channel_x[i]) for i in range(input_dims)]).T
-
-        if len(X) == 0:
-            x = np.array([])
-        else:
-            x = np.concatenate(X, axis=0)
-            if self.is_multioutput:
-                chan = [i * np.ones(len(X[i])) for i in range(len(X))]
-                chan = np.concatenate(chan).reshape(-1, 1)
-                x = np.concatenate([chan, x], axis=1)
+        x = np.concatenate(X, axis=0)
+        if self.is_multioutput:
+            chan = [j * np.ones(len(X[j])) for j in range(len(X))]
+            chan = np.concatenate(chan).reshape(-1, 1)
+            x = np.concatenate([chan, x], axis=1)
         if Y is None:
             return x
 
-        if isinstance(Y, np.ndarray):
-            Y = list(Y)
-        elif not isinstance(Y, list):
-            raise ValueError("Y must be a list or numpy.ndarray")
-        if len(Y) != len(self.dataset.channels):
-            raise ValueError("Y must be a list of shape (n,) for each channel")
         Y = Y.copy()
         for j, channel_y in enumerate(Y):
-            if channel_y.ndim != 1:
-                raise ValueError("Y must be a list of shape (n,) for each channel")
-            if channel_y.shape[0] != X[j].shape[0]:
-                raise ValueError("Y must have the same number of data points per channel as X")
-            Y[j] = self.dataset[j].Y.transform(channel_y, X_orig[j])
-        if len(Y) == 0:
-            y = np.array([])
-        else:
-            y = np.concatenate(Y, axis=0).reshape(-1, 1)
+            Y[j] = Y[j].transformed
+        y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
     def predict(self, X=None, sigma=2, transformed=False, predict_y=True):
@@ -504,7 +467,7 @@ class Model:
         if X is None:
             X = self.dataset.get_prediction_data()
         else:
-            X = self.dataset._format_prediction_data(X)
+            X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
 
         mu, var = self.gpr.predict(x, predict_y=predict_y, tensor=True)
@@ -522,7 +485,7 @@ class Model:
         Lower = []
         Upper = []
         for j in range(self.dataset.get_output_dims()):
-            N = X[j][0].shape[0]
+            N = X[j].shape[0]
             Mu.append(np.squeeze(mu[i:i+N]))
             Var.append(np.squeeze(var[i:i+N]))
             Lower.append(np.squeeze(lower[i:i+N]))
@@ -555,10 +518,12 @@ class Model:
             >>> channel1 = np.array([[2.5, 534.6], [3.5, 898.22], [4.5, 566.98]])
             >>> model.K([channel0,channel1])
         """
+        X1 = self.dataset._format_X(X1)
         x1 = self._to_kernel_format(X1)
         if X2 is None:
             return self.gpr.K(x1)
         else:
+            X2 = self.dataset._format_X(X2)
             x2 = self._to_kernel_format(X2)
             return self.gpr.K(x1, x2)
 
@@ -582,7 +547,7 @@ class Model:
         if X is None:
             X = self.dataset.get_prediction_data()
         else:
-            X = self.dataset._format_prediction_data(X)
+            X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
 
         samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
@@ -680,7 +645,7 @@ class Model:
             Lower = [Lower]
             Upper = [Upper]
 
-        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(18, 6.0*len(self.dataset)), squeeze=True, constrained_layout=True)
+        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(18,6*len(self.dataset)), squeeze=True, constrained_layout=True)
         for j, data in enumerate(self.dataset):
             # TODO: ability to plot conditional or marginal distribution to reduce input dims
             if data.get_input_dims() > 2:
@@ -689,6 +654,52 @@ class Model:
                 raise NotImplementedError("two dimensional input data not yet implemented") # TODO
 
             legends = []
+            if errorbars and data.Y_err is not None:
+                x, y = data.get_train_data(transformed=transformed)
+                yl = data.Y[data.mask] - data.Y_err[data.mask]
+                yu = data.Y[data.mask] + data.Y_err[data.mask]
+                if transformed:
+                    yl = data.Y.transform(yl, x)
+                    yu = data.Y.transform(yu, x)
+                ax[j].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
+
+            # prediction
+            idx = np.argsort(X[j][:,0])
+            ax.plot(X[j][idx,0], Mu[j][idx], ls=':', color='blue', lw=2)
+            ax.fill_between(X[j][idx,0], Lower[j][idx], Upper[j][idx], color='blue', alpha=0.3)
+            label = 'Posterior Mean'
+            legends.append(patches.Rectangle(
+                (1, 1), 1, 1, fill=True, color='blue', alpha=0.3, lw=0, label='95% Error Bars'
+            ))
+            legends.append(plt.Line2D([0], [0], ls=':', color='blue', lw=2, label=label))
+
+            xmin = min(np.min(data.X), np.min(X[j]))
+            xmax = max(np.max(data.X), np.max(X[j]))
+            if data.F is not None:
+                if np.issubdtype(data.X.dtypes[0], np.datetime64):
+                    dt = np.timedelta64(1,data.X.get_time_unit())
+                    n = int((xmax-xmin) / dt) + 1
+                    x = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt, dtype=data.X.dtypes[0])
+                else:
+                    n = len(data.X)*10
+                    x = np.linspace(xmin, xmax, n)
+
+                y = data.F(x)
+                if transformed:
+                    y = data.Y.transform(y, x)
+
+                ax.plot(x, y, 'r--', lw=1)
+                legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
+
+            if data.has_test_data():
+                x, y = data.get_test_data(transformed=transformed)
+                ax.plot(x, y, 'g.', ms=10)
+                legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Latent'))
+
+            x, y = data.get_train_data(transformed=transformed)
+            ax.plot(x, y, 'r.', ms=10)
+            legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Observations'))
+
             if 0 < len(data.removed_ranges[0]):
                 for removed_range in data.removed_ranges[0]:
                     x0 = removed_range[0]
@@ -702,58 +713,7 @@ class Model:
                     (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
                 ))
 
-            if errorbars and data.Y_err is not None:
-                x, y = data.get_train_data(transformed=transformed)
-                yl = data.Y[data.mask] - data.Y_err[data.mask]
-                yu = data.Y[data.mask] + data.Y_err[data.mask]
-                if transformed:
-                    yl = data.Y.transform(yl, x)
-                    yu = data.Y.transform(yu, x)
-                ax[j].errorbar(x[0], y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
-
-            # prediction
-            idx = np.argsort(X[j][0])
-            ax.plot(X[j][0][idx], Mu[j][idx], ls=':', color='blue', lw=2)
-            ax.fill_between(X[j][0][idx], Lower[j][idx], Upper[j][idx], color='blue', alpha=0.3)
-            label = 'Posterior Mean'
-            legends.append(patches.Rectangle(
-                (1, 1), 1, 1, fill=True, color='blue', alpha=0.3, lw=0, label='95% Error Bars'
-            ))
-            legends.append(plt.Line2D([0], [0], ls=':', color='blue', lw=2, label=label))
-
-            if data.F is not None:
-                xmin = min(np.min(data.X[0]), np.min(X[j][0]))
-                xmax = max(np.max(data.X[0]), np.max(X[j][0]))
-
-                if np.issubdtype(data.X[0].dtype, np.datetime64):
-                    dt = np.timedelta64(1,data.X[0].get_time_unit())
-                    n = int((xmax-xmin) / dt) + 1
-                    x = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt, dtype=data.X[0].dtype)
-                else:
-                    n = len(data.X[0])*10
-                    x = np.linspace(xmin, xmax, n)
-
-                x = [x]
-                y = data.F(*x)
-                if transformed:
-                    y = data.Y.transform(y, x)
-
-                ax.plot(x[0], y, 'r--', lw=1)
-                legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
-
-            if data.has_test_data():
-                x, y = data.get_test_data(transformed=transformed)
-                ax.plot(x[0], y, 'g.', ms=10)
-                legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Latent'))
-
-            x, y = data.get_train_data(transformed=transformed)
-            ax.plot(x[0], y, 'r.', ms=10)
-            legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Observations'))
-
-            xmin = min(np.min(data.X[0]), np.min(X[j][0]))
-            xmax = max(np.max(data.X[0]), np.max(X[j][0]))
             ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
-
             ax.set_xlabel(data.X_labels[0])
             ax.set_ylabel(data.Y_label)
             ax.set_title(data.name if title is None else title, fontsize=14)
@@ -781,9 +741,9 @@ class Model:
             raise ValueError("cannot plot for more than one input dimension")
 
         if start is None:
-            start = [channel.X[0].transformed.min() for channel in self.dataset]
+            start = [channel.X.transformed.min() for channel in self.dataset]
         if end is None:
-            end = [channel.X[0].transformed.max() for channel in self.dataset]
+            end = [channel.X.transformed.max() for channel in self.dataset]
 
         output_dims = len(self.dataset)
         if not isinstance(start, (list, np.ndarray)):
@@ -842,7 +802,7 @@ class Model:
             raise ValueError("cannot plot for more than one input dimension")
 
         if dist is None:
-            dist = [(channel.X[0].transformed.max()-channel.X[0].transformed.min())/4.0 for channel in self.dataset]
+            dist = [(channel.X.transformed.max()-channel.X.transformed.min())/4.0 for channel in self.dataset]
 
         output_dims = len(self.dataset)
         if not isinstance(dist, (list, np.ndarray)):

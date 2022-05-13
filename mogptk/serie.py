@@ -6,7 +6,7 @@ class TransformBase:
     TransformBase is a base class for transformations. Each derived class must at least implement the `forward()` and `backward()` functions.
 
     """
-    def set_data(self, data):
+    def set_data(self, y, x=None):
         pass
 
     def forward(self, y, x=None):
@@ -31,20 +31,19 @@ class TransformDetrend(TransformBase):
     def __repr__(self):
         return 'TransformDetrend(degree=%g)' % (self.degree,)
 
-    def set_data(self, data):
-        x = np.array(data.X[self.dim][data.mask]).astype(np.float64)
-        self.coef = np.polyfit(x, data.Y.transformed[data.mask], self.degree)
+    def set_data(self, y, x=None):
+        self.coef = np.polyfit(x[:,self.dim], y, self.degree)
 
     def forward(self, y, x):
         if x is None:
             raise ValueError("must set X for transformation")
-        x = x[self.dim].astype(np.float64)
+        x = x[:,self.dim]
         return y - np.polyval(self.coef, x)
     
     def backward(self, y, x):
         if x is None:
             raise ValueError("must set X for transformation")
-        x = x[self.dim].astype(np.float64)
+        x = x[:,self.dim]
         return y + np.polyval(self.coef, x)
 
 class TransformLinear(TransformBase):
@@ -57,9 +56,6 @@ class TransformLinear(TransformBase):
 
     def __repr__(self):
         return 'TransformLinear(bias=%g, slope=%g)' % (self.bias, self.slope)
-
-    def set_data(self, data):
-        pass
 
     def forward(self, y, x=None):
         return (y-self.bias)/self.slope
@@ -77,9 +73,9 @@ class TransformNormalize(TransformBase):
     def __repr__(self):
         return 'TransformNormalize(min=%g, max=%g)' % (self.ymin, self.ymax)
 
-    def set_data(self, data):
-        self.ymin = np.amin(data.Y.transformed[data.mask])
-        self.ymax = np.amax(data.Y.transformed[data.mask])
+    def set_data(self, y, x=None):
+        self.ymin = np.amin(y)
+        self.ymax = np.amax(y)
 
     def forward(self, y, x=None):
         return -1.0 + 2.0*(y-self.ymin)/(self.ymax-self.ymin)
@@ -97,9 +93,9 @@ class TransformLog(TransformBase):
     def __repr__(self):
         return 'TransformLog(shift=%g, mean=%g)' % (self.shift, self.mean)
 
-    def set_data(self, data):
-        self.shift = 1 - data.Y.transformed.min()
-        self.mean = np.log(data.Y.transformed + self.shift).mean()
+    def set_data(self, y, x=None):
+        self.shift = 1 - y.min()
+        self.mean = np.log(y + self.shift).mean()
 
     def forward(self, y, x=None):
         return np.log(y + self.shift) - self.mean
@@ -117,10 +113,9 @@ class TransformStandard(TransformBase):
     def __repr__(self):
         return 'TransformStandard(mean=%g, std=%g)' % (self.mean, self.std)
     
-    def set_data(self, data):
-        # take only the non-removed observations
-        self.mean = data.Y.transformed[data.mask].mean()
-        self.std = data.Y.transformed[data.mask].std()
+    def set_data(self, y, x=None):
+        self.mean = y.mean()
+        self.std = y.std()
         
     def forward(self, y, x=None):
         return (y - self.mean) / self.std
@@ -136,16 +131,23 @@ class Serie(np.ndarray):
     """
     Serie is an extension to the `numpy.ndarray` data type and includes transformations for the array. That is, it maintains the original data array, but also keeps a transformed data array to improve training using e.g. Gaussian processes. By storing the chain of transformations, it is possible to detransform predictions done in the transformed space to the original space and thus allows analysis or plotting in the original domain. Automatic conversions is performed for `numpy.datetime64` arrays to `numpy.float` arrays.
     """
-    def __new__(cls, array, transformers=[], x=None, transformed=None):
-        array = np.asarray(array)
-        #if array.ndim != 1 or array.shape[0] == 0:
-        #    raise ValueError('Serie must have one dimension and a length greater than zero')
-        if not np.issubdtype(array.dtype, np.float64) and not np.issubdtype(array.dtype, np.datetime64):
-            raise ValueError('Serie must have a float64 or datetime64 data type')
+    def __new__(cls, array, transformers=[], x=None, transformed=None, dims=None):
+        if dims is None:
+            array = np.asarray(array)
+            dtypes = [array.dtype]
+        else:
+            array = [np.asarray(array[i]) for i in range(dims)]
+            dtypes = [array[i].dtype for i in range(dims)]
+            array = np.array([array[i].astype(np.float64) for i in range(dims)]).T
 
-        obj = np.asarray(array).view(cls)
+        for dtype in dtypes:
+            if not np.issubdtype(dtype, np.float64) and not np.issubdtype(dtype, np.datetime64):
+                raise ValueError('data must have float64 or datetime64 data type')
+
+        obj = array.view(cls)
+        obj.dtypes = dtypes
         if transformed is None:
-            obj.transformed = array.astype(np.float64)
+            obj.transformed = array
             obj.transformers = []
             obj.apply(transformers, x)
         else:
@@ -181,34 +183,33 @@ class Serie(np.ndarray):
         if not isinstance(transformers, list):
             transformers = [transformers]
         if not all(issubclass(type(t), TransformBase) for t in transformers):
-            raise ValueError('transformers must derive from TransformBase')
-        #if x is not None and (x.ndim != 2 or x.shape[0] != self.shape[0]):
-        #    raise ValueError('x must have two dimensions and a length equal to the series')
+            raise ValueError('transformer must derive from TransformBase')
 
         for t in transformers:
-            self.transformed = np.array(t.forward(self.transformed, x))
+            self.transformed = t.forward(self.transformed, x)
             self.transformers.append(t)
 
-    def is_datetime64(self):
-        return np.issubdtype(self.dtype, np.datetime64)
+    def is_datetime64(self, dim=0):
+        return np.issubdtype(self.dtypes[dim], np.datetime64)
 
-    def get_time_unit(self):
-        if not self.is_datetime64():
-            raise ValueError('Serie must have a datetime64 data type')
+    def get_time_unit(self, dim=0):
+        if not self.is_datetime64(dim=dim):
+            raise ValueError('data must have datetime64 data type')
 
-        unit = str(self.dtype)
+        unit = str(self.dtypes[dim])
         locBracket = unit.find('[')
         if locBracket == -1:
             return ''
         return unit[locBracket+1:-1]
 
     def transform(self, array, x=None):
-        array = array.astype(self.dtype).astype(np.float64)
+        array = array.astype(np.float64)
         for t in self.transformers:
-            array = np.array(t.forward(array, x))
+            array = t.forward(array, x)
         return array
 
     def detransform(self, array, x=None):
+        array = array.astype(np.float64)
         for t in self.transformers[::-1]:
-            array = np.array(t.backward(array, x))
-        return array.astype(self.dtype)
+            array = t.backward(array, x)
+        return array
