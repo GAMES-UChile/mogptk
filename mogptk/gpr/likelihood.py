@@ -71,7 +71,7 @@ class Likelihood:
     def __init__(self, name="Likelihood", quadratures=20):
         self.name = name
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
-        self.output_dims = 1
+        self.output_dims = None
 
     def validate_y(self, y, X=None):
         """

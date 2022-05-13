@@ -154,7 +154,7 @@ class Model:
             return X
 
     def _index_channel(self, value, X):
-        if 1 < self.kernel.output_dims and 0 < value.ndim and value.shape[0] == self.kernel.output_dims:
+        if self.kernel.output_dims is not None and 0 < value.ndim and value.shape[0] == self.kernel.output_dims:
             return torch.index_select(value, dim=0, index=X[:,0].long())
         return value
 
@@ -375,7 +375,10 @@ class Exact(Model):
         self.data_variance = data_variance
 
         variance = Parameter.to_tensor(variance)
-        if 1 < variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
+        channels = 1
+        if kernel.output_dims is not None:
+            channels = kernel.output_dims
+        if 1 < variance.ndim or variance.ndim == 1 and variance.shape[0] != channels:
             raise ValueError("variance must be float or have shape (channels,)")
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
@@ -464,13 +467,13 @@ class Snelson(Model):
 
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
 
-        Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims if issubclass(type(kernel), MultiOutputKernel) else None)
+        Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
         Z = self._check_input(Z)
         
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name="induction_points")
-        if 1 < kernel.output_dims:
+        if kernel.output_dims is not None:
             self.Z.num_parameters -= self.Z().shape[0]
 
     def log_marginal_likelihood(self):
@@ -664,13 +667,13 @@ class Titsias(Model):
         # TODO: variance per channel
         super().__init__(kernel, X, y, GaussianLikelihood(variance), jitter, mean, name)
 
-        Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims if issubclass(type(kernel), MultiOutputKernel) else None)
+        Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
         Z = self._check_input(Z)
 
         self.eye = torch.eye(Z.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
         self.Z = Parameter(Z, name="induction_points")
-        if 1 < kernel.output_dims:
+        if kernel.output_dims is not None:
             self.Z.num_parameters -= self.Z().shape[0]
 
     def elbo(self):
@@ -776,7 +779,7 @@ class SparseHensman(Model):
         n = self.X.shape[0]
         self.is_sparse = Z is not None
         if self.is_sparse:
-            Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims if issubclass(type(kernel), MultiOutputKernel) else None)
+            Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
             Z = self._check_input(Z)
             n = Z.shape[0]
 
@@ -787,7 +790,7 @@ class SparseHensman(Model):
         self.q_sqrt.num_parameters = int((n*n+n)/2)
         if self.is_sparse:
             self.Z = Parameter(Z, name="induction_points")
-            if 1 < kernel.output_dims:
+            if kernel.output_dims is not None:
                 self.Z.num_parameters -= self.Z().shape[0]
         else:
             self.Z = Parameter(self.X, trainable=False)  # don't use inducing points

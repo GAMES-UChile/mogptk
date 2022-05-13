@@ -19,6 +19,7 @@ class Kernel:
 
         self.input_dims = input_dims
         self.active_dims = active_dims  # checks input
+        self.output_dims = None
         self.name = name
 
     def __call__(self, X1, X2=None):
@@ -96,12 +97,12 @@ class Kernel:
                 raise ValueError("must pass kernels")
         if any(kernel.input_dims != kernels[0].input_dims for kernel in kernels[1:]):
             raise ValueError("kernels must have same input dimensions")
-        output_dims = [kernel.output_dims for kernel in kernels if issubclass(type(kernel), MultiOutputKernel)]
+        output_dims = [kernel.output_dims for kernel in kernels if kernel.output_dims is not None]
         if any(output_dim != output_dims[0] for output_dim in output_dims[1:]):
-            raise ValueError("MultiOutput kernels must have same output dimensions")
+            raise ValueError("multi-output kernels must have same output dimensions")
         if len(output_dims) != 0:
             for kernel in kernels:
-                if kernel.active_dims is None and not issubclass(type(kernel), MultiOutputKernel):
+                if kernel.active_dims is None and kernel.output_dims is None:
                     input_dims = kernel.input_dims if kernel.input_dims is not None else 1
                     kernel.active_dims = [input_dim+1 for input_dim in range(input_dims)]
         return kernels
@@ -128,10 +129,6 @@ class Kernel:
         Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the `AddKernel`).
         """
         yield self
-
-    @property
-    def output_dims(self):
-        return 1
 
     def copy_parameters(self, other):
         """
@@ -168,7 +165,6 @@ class Kernel:
             torch.tensor: Kernel matrix diagonal of shape (data_points,).
         """
         # X1 is NxD, then ret is N
-        # TODO: implement for all kernels
         return self.K(X1).diagonal()
 
     @staticmethod
@@ -220,6 +216,12 @@ class Kernels(Kernel):
             i += 1
         self.kernels = kernels
 
+        output_dims = [kernel.output_dims for kernel in kernels if kernel.output_dims is not None]
+        if len(output_dims) == 0:
+            self.output_dims = None
+        else:
+            self.output_dims = output_dims[0]  # they are all equal
+
     def __getitem__(self, key):
         return self.kernels[key]
 
@@ -227,11 +229,6 @@ class Kernels(Kernel):
         yield self
         for kernel in self.kernels:
             yield kernel
-
-    @property
-    def output_dims(self):
-        # _check_kernels make sure it's the same for all kernels
-        return self.kernels[0].output_dims
 
 class AddKernel(Kernels):
     """
@@ -315,7 +312,7 @@ class MultiOutputKernel(Kernel):
 
     def __init__(self, output_dims, input_dims=None, active_dims=None, name=None):
         super().__init__(input_dims, active_dims, name)
-        self._output_dims = output_dims
+        self.output_dims = output_dims
 
     def _check_input(self, X1, X2=None):
         X1, X2 = super()._check_input(X1, X2)
@@ -324,10 +321,6 @@ class MultiOutputKernel(Kernel):
         if X2 is not None and not torch.all(X2[:,0] == X2[:,0].long()) or not torch.all(X1[:,0] < self.output_dims):
             raise ValueError("X must have integers for the channel IDs in the first input dimension")
         return X1, X2
-
-    @property
-    def output_dims(self):
-        return self._output_dims
 
     def K(self, X1, X2=None):
         # X has shape (data_points,1+input_dims) where the first column is the channel ID
