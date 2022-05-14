@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mohsm.py#L1-L153" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/mohsm.py#L1-L152" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -48,7 +48,6 @@ class MOHSM(Model):
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
-        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
     Atributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -71,7 +70,7 @@ class MOHSM(Model):
 
     [1] M. Altamirano, &#34;Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
     &#34;&#34;&#34;
-    def __init__(self, dataset, P=1, Q=1, model=Exact(), mean=None, name=&#34;MOHSM&#34;, rescale_x=False):
+    def __init__(self, dataset, P=1, Q=1, model=Exact(), mean=None, name=&#34;MOHSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -83,7 +82,7 @@ class MOHSM(Model):
         
         kernel = MixtureKernel(kernel_p, P)
         
-        super(MOHSM, self).__init__(dataset, kernel, model, mean, name, rescale_x)
+        super(MOHSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.P = P
         self.rescale_x = rescale_x
@@ -195,7 +194,7 @@ class MOHSM(Model):
 <dl>
 <dt id="mogptk.models.mohsm.MOHSM"><code class="flex name class">
 <span>class <span class="ident">MOHSM</span></span>
-<span>(</span><span>dataset, P=1, Q=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='MOHSM', rescale_x=False)</span>
+<span>(</span><span>dataset, P=1, Q=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='MOHSM')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Multi-output harmonizable spectral kernel with <code>P</code> components and <code>Q</code> subcomponents [1]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
@@ -213,8 +212,6 @@ class MOHSM(Model):
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Rescale the X axis to [0,1000] to help training.</dd>
 </dl>
 <h2 id="atributes">Atributes</h2>
 <p>dataset: The associated mogptk.dataset.DataSet.
@@ -248,8 +245,6 @@ gpr: The mogptk.gpr.model.Model.</p>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Rescale the X axis to [0,1000] to help training.</dd>
 </dl>
 <h2 id="atributes_1">Atributes</h2>
 <p>dataset: The associated mogptk.dataset.DataSet.
@@ -257,7 +252,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mohsm.py#L9-L153" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/mohsm.py#L9-L152" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MOHSM(Model):
     &#34;&#34;&#34;
@@ -270,7 +265,6 @@ gpr: The mogptk.gpr.model.Model.</p></div>
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
-        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
     Atributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -293,7 +287,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 
     [1] M. Altamirano, &#34;Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
     &#34;&#34;&#34;
-    def __init__(self, dataset, P=1, Q=1, model=Exact(), mean=None, name=&#34;MOHSM&#34;, rescale_x=False):
+    def __init__(self, dataset, P=1, Q=1, model=Exact(), mean=None, name=&#34;MOHSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -305,7 +299,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
         
         kernel = MixtureKernel(kernel_p, P)
         
-        super(MOHSM, self).__init__(dataset, kernel, model, mean, name, rescale_x)
+        super(MOHSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.P = P
         self.rescale_x = rescale_x
@@ -438,7 +432,7 @@ In all cases the noise is initialized with 1/30 of the variance of each channel.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mohsm.py#L61-L153" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/mohsm.py#L60-L152" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;SM&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={},sm_plot=False):
     &#34;&#34;&#34;

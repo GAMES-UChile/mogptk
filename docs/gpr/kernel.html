@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L1-L406" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L1-L399" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import copy
@@ -50,6 +50,7 @@ class Kernel:
 
         self.input_dims = input_dims
         self.active_dims = active_dims  # checks input
+        self.output_dims = None
         self.name = name
 
     def __call__(self, X1, X2=None):
@@ -127,12 +128,12 @@ class Kernel:
                 raise ValueError(&#34;must pass kernels&#34;)
         if any(kernel.input_dims != kernels[0].input_dims for kernel in kernels[1:]):
             raise ValueError(&#34;kernels must have same input dimensions&#34;)
-        output_dims = [kernel.output_dims for kernel in kernels if issubclass(type(kernel), MultiOutputKernel)]
+        output_dims = [kernel.output_dims for kernel in kernels if kernel.output_dims is not None]
         if any(output_dim != output_dims[0] for output_dim in output_dims[1:]):
-            raise ValueError(&#34;MultiOutput kernels must have same output dimensions&#34;)
+            raise ValueError(&#34;multi-output kernels must have same output dimensions&#34;)
         if len(output_dims) != 0:
             for kernel in kernels:
-                if kernel.active_dims is None and not issubclass(type(kernel), MultiOutputKernel):
+                if kernel.active_dims is None and kernel.output_dims is None:
                     input_dims = kernel.input_dims if kernel.input_dims is not None else 1
                     kernel.active_dims = [input_dim+1 for input_dim in range(input_dims)]
         return kernels
@@ -159,10 +160,6 @@ class Kernel:
         Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the `AddKernel`).
         &#34;&#34;&#34;
         yield self
-
-    @property
-    def output_dims(self):
-        return 1
 
     def copy_parameters(self, other):
         &#34;&#34;&#34;
@@ -199,7 +196,6 @@ class Kernel:
             torch.tensor: Kernel matrix diagonal of shape (data_points,).
         &#34;&#34;&#34;
         # X1 is NxD, then ret is N
-        # TODO: implement for all kernels
         return self.K(X1).diagonal()
 
     @staticmethod
@@ -251,6 +247,12 @@ class Kernels(Kernel):
             i += 1
         self.kernels = kernels
 
+        output_dims = [kernel.output_dims for kernel in kernels if kernel.output_dims is not None]
+        if len(output_dims) == 0:
+            self.output_dims = None
+        else:
+            self.output_dims = output_dims[0]  # they are all equal
+
     def __getitem__(self, key):
         return self.kernels[key]
 
@@ -258,11 +260,6 @@ class Kernels(Kernel):
         yield self
         for kernel in self.kernels:
             yield kernel
-
-    @property
-    def output_dims(self):
-        # _check_kernels make sure it&#39;s the same for all kernels
-        return self.kernels[0].output_dims
 
 class AddKernel(Kernels):
     &#34;&#34;&#34;
@@ -346,7 +343,7 @@ class MultiOutputKernel(Kernel):
 
     def __init__(self, output_dims, input_dims=None, active_dims=None, name=None):
         super().__init__(input_dims, active_dims, name)
-        self._output_dims = output_dims
+        self.output_dims = output_dims
 
     def _check_input(self, X1, X2=None):
         X1, X2 = super()._check_input(X1, X2)
@@ -355,10 +352,6 @@ class MultiOutputKernel(Kernel):
         if X2 is not None and not torch.all(X2[:,0] == X2[:,0].long()) or not torch.all(X1[:,0] &lt; self.output_dims):
             raise ValueError(&#34;X must have integers for the channel IDs in the first input dimension&#34;)
         return X1, X2
-
-    @property
-    def output_dims(self):
-        return self._output_dims
 
     def K(self, X1, X2=None):
         # X has shape (data_points,1+input_dims) where the first column is the channel ID
@@ -462,7 +455,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L236-L251" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L233-L248" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AddKernel(Kernels):
     &#34;&#34;&#34;
@@ -520,7 +513,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L285-L300" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L282-L297" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AutomaticRelevanceDeterminationKernel(MulKernel):
     &#34;&#34;&#34;
@@ -575,7 +568,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L5-L200" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L5-L196" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernel:
     &#34;&#34;&#34;
@@ -594,6 +587,7 @@ class MultiOutputKernel(Kernel):
 
         self.input_dims = input_dims
         self.active_dims = active_dims  # checks input
+        self.output_dims = None
         self.name = name
 
     def __call__(self, X1, X2=None):
@@ -671,12 +665,12 @@ class MultiOutputKernel(Kernel):
                 raise ValueError(&#34;must pass kernels&#34;)
         if any(kernel.input_dims != kernels[0].input_dims for kernel in kernels[1:]):
             raise ValueError(&#34;kernels must have same input dimensions&#34;)
-        output_dims = [kernel.output_dims for kernel in kernels if issubclass(type(kernel), MultiOutputKernel)]
+        output_dims = [kernel.output_dims for kernel in kernels if kernel.output_dims is not None]
         if any(output_dim != output_dims[0] for output_dim in output_dims[1:]):
-            raise ValueError(&#34;MultiOutput kernels must have same output dimensions&#34;)
+            raise ValueError(&#34;multi-output kernels must have same output dimensions&#34;)
         if len(output_dims) != 0:
             for kernel in kernels:
-                if kernel.active_dims is None and not issubclass(type(kernel), MultiOutputKernel):
+                if kernel.active_dims is None and kernel.output_dims is None:
                     input_dims = kernel.input_dims if kernel.input_dims is not None else 1
                     kernel.active_dims = [input_dim+1 for input_dim in range(input_dims)]
         return kernels
@@ -703,10 +697,6 @@ class MultiOutputKernel(Kernel):
         Iterator of all kernels and subkernels. This is useful as some kernels are composed of other kernels (for example the `AddKernel`).
         &#34;&#34;&#34;
         yield self
-
-    @property
-    def output_dims(self):
-        return 1
 
     def copy_parameters(self, other):
         &#34;&#34;&#34;
@@ -743,7 +733,6 @@ class MultiOutputKernel(Kernel):
             torch.tensor: Kernel matrix diagonal of shape (data_points,).
         &#34;&#34;&#34;
         # X1 is NxD, then ret is N
-        # TODO: implement for all kernels
         return self.K(X1).diagonal()
 
     @staticmethod
@@ -790,6 +779,7 @@ class MultiOutputKernel(Kernel):
 <li><a title="mogptk.gpr.singleoutput.RationalQuadraticKernel" href="singleoutput.html#mogptk.gpr.singleoutput.RationalQuadraticKernel">RationalQuadraticKernel</a></li>
 <li><a title="mogptk.gpr.singleoutput.SincKernel" href="singleoutput.html#mogptk.gpr.singleoutput.SincKernel">SincKernel</a></li>
 <li><a title="mogptk.gpr.singleoutput.SpectralKernel" href="singleoutput.html#mogptk.gpr.singleoutput.SpectralKernel">SpectralKernel</a></li>
+<li><a title="mogptk.gpr.singleoutput.SpectralMixtureKernel" href="singleoutput.html#mogptk.gpr.singleoutput.SpectralMixtureKernel">SpectralMixtureKernel</a></li>
 <li><a title="mogptk.gpr.singleoutput.SquaredExponentialKernel" href="singleoutput.html#mogptk.gpr.singleoutput.SquaredExponentialKernel">SquaredExponentialKernel</a></li>
 <li><a title="mogptk.gpr.singleoutput.WhiteKernel" href="singleoutput.html#mogptk.gpr.singleoutput.WhiteKernel">WhiteKernel</a></li>
 </ul>
@@ -803,7 +793,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L174-L179" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L170-L175" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def average(X1, X2=None):
@@ -821,7 +811,7 @@ def average(X1, X2=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L181-L186" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L177-L182" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def distance(X1, X2=None):
@@ -839,7 +829,7 @@ def distance(X1, X2=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L188-L194" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L184-L190" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def squared_distance(X1, X2=None):
@@ -859,24 +849,11 @@ def squared_distance(X1, X2=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L109-L111" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L110-L112" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def active_dims(self):
     return self._active_dims</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.kernel.Kernel.output_dims"><code class="name">var <span class="ident">output_dims</span></code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L132-L134" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@property
-def output_dims(self):
-    return 1</code></pre>
 </details>
 </dd>
 </dl>
@@ -902,7 +879,7 @@ def output_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L146-L158" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L143-L155" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -937,7 +914,7 @@ def output_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L160-L172" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L157-L168" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K_diag(self, X1):
     &#34;&#34;&#34;
@@ -950,7 +927,6 @@ def output_dims(self):
         torch.tensor: Kernel matrix diagonal of shape (data_points,).
     &#34;&#34;&#34;
     # X1 is NxD, then ret is N
-    # TODO: implement for all kernels
     return self.K(X1).diagonal()</code></pre>
 </details>
 </dd>
@@ -967,7 +943,7 @@ def output_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L136-L144" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L133-L141" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy_parameters(self, other):
     &#34;&#34;&#34;
@@ -988,7 +964,7 @@ def output_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L126-L130" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L127-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def iterkernels(self):
     &#34;&#34;&#34;
@@ -1015,7 +991,7 @@ def output_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L202-L234" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L198-L231" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernels(Kernel):
     &#34;&#34;&#34;
@@ -1038,18 +1014,19 @@ def output_dims(self):
             i += 1
         self.kernels = kernels
 
+        output_dims = [kernel.output_dims for kernel in kernels if kernel.output_dims is not None]
+        if len(output_dims) == 0:
+            self.output_dims = None
+        else:
+            self.output_dims = output_dims[0]  # they are all equal
+
     def __getitem__(self, key):
         return self.kernels[key]
 
     def iterkernels(self):
         yield self
         for kernel in self.kernels:
-            yield kernel
-
-    @property
-    def output_dims(self):
-        # _check_kernels make sure it&#39;s the same for all kernels
-        return self.kernels[0].output_dims</code></pre>
+            yield kernel</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1060,23 +1037,6 @@ def output_dims(self):
 <li><a title="mogptk.gpr.kernel.AddKernel" href="#mogptk.gpr.kernel.AddKernel">AddKernel</a></li>
 <li><a title="mogptk.gpr.kernel.MulKernel" href="#mogptk.gpr.kernel.MulKernel">MulKernel</a></li>
 </ul>
-<h3>Instance variables</h3>
-<dl>
-<dt id="mogptk.gpr.kernel.Kernels.output_dims"><code class="name">var <span class="ident">output_dims</span></code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L231-L234" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@property
-def output_dims(self):
-    # _check_kernels make sure it&#39;s the same for all kernels
-    return self.kernels[0].output_dims</code></pre>
-</details>
-</dd>
-</dl>
 <h3>Inherited members</h3>
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></b></code>:
@@ -1107,7 +1067,7 @@ def output_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L270-L283" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L267-L280" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MixtureKernel(AddKernel):
     &#34;&#34;&#34;
@@ -1158,7 +1118,7 @@ def output_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L253-L268" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L250-L265" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MulKernel(Kernels):
     &#34;&#34;&#34;
@@ -1219,7 +1179,7 @@ def output_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L302-L406" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L299-L399" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputKernel(Kernel):
     &#34;&#34;&#34;
@@ -1237,7 +1197,7 @@ def output_dims(self):
 
     def __init__(self, output_dims, input_dims=None, active_dims=None, name=None):
         super().__init__(input_dims, active_dims, name)
-        self._output_dims = output_dims
+        self.output_dims = output_dims
 
     def _check_input(self, X1, X2=None):
         X1, X2 = super()._check_input(X1, X2)
@@ -1246,10 +1206,6 @@ def output_dims(self):
         if X2 is not None and not torch.all(X2[:,0] == X2[:,0].long()) or not torch.all(X1[:,0] &lt; self.output_dims):
             raise ValueError(&#34;X must have integers for the channel IDs in the first input dimension&#34;)
         return X1, X2
-
-    @property
-    def output_dims(self):
-        return self._output_dims
 
     def K(self, X1, X2=None):
         # X has shape (data_points,1+input_dims) where the first column is the channel ID
@@ -1339,24 +1295,9 @@ def output_dims(self):
 <li><a title="mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel" href="multioutput.html#mogptk.gpr.multioutput.LinearModelOfCoregionalizationKernel">LinearModelOfCoregionalizationKernel</a></li>
 <li><a title="mogptk.gpr.multioutput.MultiOutputHarmonizableSpectralKernel" href="multioutput.html#mogptk.gpr.multioutput.MultiOutputHarmonizableSpectralKernel">MultiOutputHarmonizableSpectralKernel</a></li>
 <li><a title="mogptk.gpr.multioutput.MultiOutputSpectralKernel" href="multioutput.html#mogptk.gpr.multioutput.MultiOutputSpectralKernel">MultiOutputSpectralKernel</a></li>
+<li><a title="mogptk.gpr.multioutput.MultiOutputSpectralMixtureKernel" href="multioutput.html#mogptk.gpr.multioutput.MultiOutputSpectralMixtureKernel">MultiOutputSpectralMixtureKernel</a></li>
 <li><a title="mogptk.gpr.multioutput.UncoupledMultiOutputSpectralKernel" href="multioutput.html#mogptk.gpr.multioutput.UncoupledMultiOutputSpectralKernel">UncoupledMultiOutputSpectralKernel</a></li>
 </ul>
-<h3>Instance variables</h3>
-<dl>
-<dt id="mogptk.gpr.kernel.MultiOutputKernel.output_dims"><code class="name">var <span class="ident">output_dims</span></code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L328-L330" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">@property
-def output_dims(self):
-    return self._output_dims</code></pre>
-</details>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.gpr.kernel.MultiOutputKernel.Ksub"><code class="name flex">
@@ -1379,7 +1320,7 @@ def output_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L383-L394" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L376-L387" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     &#34;&#34;&#34;
@@ -1413,7 +1354,7 @@ def output_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/kernel.py#L396-L406" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/kernel.py#L389-L399" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub_diag(self, i, X1):
     &#34;&#34;&#34;
@@ -1473,15 +1414,11 @@ def output_dims(self):
 <li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.distance" href="#mogptk.gpr.kernel.Kernel.distance">distance</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.output_dims" href="#mogptk.gpr.kernel.Kernel.output_dims">output_dims</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.Kernel.squared_distance" href="#mogptk.gpr.kernel.Kernel.squared_distance">squared_distance</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></code></h4>
-<ul class="">
-<li><code><a title="mogptk.gpr.kernel.Kernels.output_dims" href="#mogptk.gpr.kernel.Kernels.output_dims">output_dims</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.kernel.MixtureKernel" href="#mogptk.gpr.kernel.MixtureKernel">MixtureKernel</a></code></h4>
@@ -1494,7 +1431,6 @@ def output_dims(self):
 <ul class="">
 <li><code><a title="mogptk.gpr.kernel.MultiOutputKernel.Ksub" href="#mogptk.gpr.kernel.MultiOutputKernel.Ksub">Ksub</a></code></li>
 <li><code><a title="mogptk.gpr.kernel.MultiOutputKernel.Ksub_diag" href="#mogptk.gpr.kernel.MultiOutputKernel.Ksub_diag">Ksub_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.MultiOutputKernel.output_dims" href="#mogptk.gpr.kernel.MultiOutputKernel.output_dims">output_dims</a></code></li>
 </ul>
 </li>
 </ul>

@@ -67,11 +67,75 @@ mogptk.gpr.use_single_precision()  # higher performance and lower energy usage
 mogptk.gpr.use_half_precision()  # even higher performance and lower energy usage
 </code></pre>
 <h2 id="advice-on-training">Advice on training</h2>
-<h2 id="visualization-and-interpretation">Visualization and interpretation</h2>
+<h3 id="training-is-not-converging">Training is not converging</h3>
+<p>This could be a host of causes, including:</p>
+<ul>
+<li>Data can not be fitted by kernel</li>
+<li>
+<ul>
+<li>Did you remove the bias? Either set <code>data.transform(mogptk.TransformDetrend(degree=1))</code> or add a mean function to the model</li>
+</ul>
+</li>
+<li>
+<ul>
+<li>Range of X axis may be very large, causing the kernel parameters to be orders of magnitude off their optimum</li>
+</ul>
+</li>
+<li>
+<ul>
+<li>Kernel does not fit the data, i.e. change the kernel</li>
+</ul>
+</li>
+<li>
+<ul>
+<li>Add more components to mixture kernels</li>
+</ul>
+</li>
+<li>Kernel parameters are not properly initialized and training is stuck in a local minimum</li>
+<li>High learning rate, e.g. set <code>model.train(..., lr=0.1, ...)</code></li>
+<li>Low learning rate or low amount of iterations</li>
+</ul>
+<h3 id="loss-over-iterations-has-big-jumps">Loss over iterations has big jumps</h3>
+<p>The default learning rate for LBFGS is <code>1.0</code> and for Adam <code>0.001</code>. Indications that your learning rate may be too high can be visualized after training by calling</p>
+<pre><code class="language-python">model.plot_losses()
+</code></pre>
+<p>which will show the loss over iterations. When big jumps occur, especially upwards, you should probably lower your learning rate.</p>
+<pre><code class="language-python">model.train('lbfgs', iters=500, lr=0.01)
+</code></pre>
+<h3 id="slow-training-performance">Slow training performance</h3>
+<p>There are many ways to speed up the training of Gaussian processes, but we can divide the solutions into two groups: technical and theoretical solutions.</p>
+<h4 id="technical">Technical</h4>
+<ul>
+<li>Use a bigger computer</li>
+<li>Use less data points for training with <code>data.remove_randomly(pct=0.5)</code></li>
+<li>Use a simpler kernel with less parameters (e.g. less mixture components)</li>
+<li>Use the GPU instead of the CPU with <code>mogptk.gpr.use_gpu()</code></li>
+<li>Use lower precision such as <code>mogptk.gpr.use_single_precision()</code> or <code>mogptk.gpr.use_half_precision()</code></li>
+</ul>
+<h4 id="theoretical">Theoretical</h4>
+<ul>
+<li>Use a sparse model such as <code>mogptk.Titsias(inducing_points=20)</code> with 20 inducing points and pass it to the model as <code>inference</code></li>
+<li>Use stochastic gradient descent as `mogptk.train(method='SGD') (WIP)</li>
+</ul>
+<h3 id="mixture-kernels-have-equal-parameter-values">Mixture kernels have equal parameter values</h3>
+<p>When all subkernels of a mixture kernel are initialized with the same parameter values, training for each mixture kernel will perform similarly. This results in equal parameters values after optimization. To fix this, you should initialize parameter values, for example</p>
+<pre><code class="language-python">Q = 10
+input_dims = 1
+kernel = mogptk.gpr.MixtureKernel(mogptk.gpr.SquaredExponentialKernel(), Q=Q)
+for i in range(Q):
+    kernel[i].magnitude.assign(torch.rand(1))
+    kernel[i].l.assign(torch.rand(input_dims))
+</code></pre>
+<h3 id="unstable-training-nans-and-infs">Unstable training: NaNs and Infs</h3>
+<p>Due to numerical issues this is unfortunately quite frequent in Gaussian process optimization, but there are several ways to mitigate this:
+- Increase the jitter with <code>mogptk.gpr.Kernel(..., jitter=1e-3)</code>, be aware that the jitter is multiplied by the average value on the diagonal before being added to the diagonal
+- Make sure all kernel and model parameters are in their valid range and there are no NaNs or Infs
+- Make sure your data has no NaNs or Infs
+- Make sure your data X and Y value ranges are not extremely small or big</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/__init__.py#L1-L17" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/__init__.py#L1-L17" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
 .. include:: ./documentation.md
@@ -147,8 +211,18 @@ from .models.mohsm import *</code></pre>
 <li><a href="#installation">Installation</a></li>
 <li><a href="#glossary">Glossary</a></li>
 <li><a href="#using-the-gpu">Using the GPU</a></li>
-<li><a href="#advice-on-training">Advice on training</a></li>
-<li><a href="#visualization-and-interpretation">Visualization and interpretation</a></li>
+<li><a href="#advice-on-training">Advice on training</a><ul>
+<li><a href="#training-is-not-converging">Training is not converging</a></li>
+<li><a href="#loss-over-iterations-has-big-jumps">Loss over iterations has big jumps</a></li>
+<li><a href="#slow-training-performance">Slow training performance</a><ul>
+<li><a href="#technical">Technical</a></li>
+<li><a href="#theoretical">Theoretical</a></li>
+</ul>
+</li>
+<li><a href="#mixture-kernels-have-equal-parameter-values">Mixture kernels have equal parameter values</a></li>
+<li><a href="#unstable-training-nans-and-infs">Unstable training: NaNs and Infs</a></li>
+</ul>
+</li>
 </ul>
 </div>
 <ul id="index">

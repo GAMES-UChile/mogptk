@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/plot.py#L1-L110" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/plot.py#L1-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import matplotlib.pyplot as plt
@@ -103,7 +103,7 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
                 axes[j,i].axvline(means[q,j,i], ymin=0.001, ymax=0.05, lw=3, color=&#39;C1&#39;)
                 psd += single_psd
             if noises is not None:
-                psd += noises[j]
+                psd += noises[j]**2
 
             # normalize
             psd /= psd.sum() * (x[1]-x[0])
@@ -155,7 +155,7 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/plot.py#L6-L109" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/plot.py#L6-L109" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noises=None, log=False, titles=None, show=True, filename=None, title=None):
     &#34;&#34;&#34;
@@ -226,7 +226,7 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
                 axes[j,i].axvline(means[q,j,i], ymin=0.001, ymax=0.05, lw=3, color=&#39;C1&#39;)
                 psd += single_psd
             if noises is not None:
-                psd += noises[j]
+                psd += noises[j]**2
 
             # normalize
             psd /= psd.sum() * (x[1]-x[0])

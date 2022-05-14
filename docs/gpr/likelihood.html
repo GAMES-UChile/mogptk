@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L1-L750" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L1-L774" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -102,7 +102,7 @@ class Likelihood:
     def __init__(self, name=&#34;Likelihood&#34;, quadratures=20):
         self.name = name
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
-        self.output_dims = 1
+        self.output_dims = None
 
     def validate_y(self, y, X=None):
         &#34;&#34;&#34;
@@ -311,41 +311,44 @@ class GaussianLikelihood(Likelihood):
 
     $$ p(y|f) = \\frac{1}{\\sigma\\sqrt{2\\pi}}e^{-\\frac{(y-f)^2}{2\\sigma^2}} $$
 
-    with \\(\\sigma^2\\) the variance.
+    with \\(\\sigma\\) the scale.
 
     Args:
-        variance (float): Gaussian variance.
+        scale (float): Scale.
         name (str): Name of the likelihood.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
-    def __init__(self, variance=1.0, name=&#34;Gaussian&#34;):
+    def __init__(self, scale=1.0, name=&#34;Gaussian&#34;):
         super().__init__(name)
 
-        self.scale = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+        self.scale = Parameter(scale, name=&#34;scale&#34;, lower=config.positive_minimum)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -0.5 * (np.log(2.0 * np.pi) + self.scale().log() + (y-f).square()/self.scale())
+        p = -0.5 * (np.log(2.0*np.pi) + 2.0*self.scale().log() + ((y-f)/self.scale()).square())
         return p  # NxM
 
     def variational_expectation(self, y, mu, var, X=None):
         # y,mu,var: Nx1
-        p = -((y-mu).square() + var) / self.scale()
+        p = -((y-mu).square() + var) / self.scale().square()
         p -= np.log(2.0 * np.pi)
-        p -= self.scale().log()
+        p -= 2.0*self.scale().log()
         return 0.5*p.sum()  # sum over N
 
     def mean(self, f, X=None):
         return f
 
     def variance(self, f, X=None):
-        return self.scale()
+        return self.scale().square()
 
     def predict(self, mu, var, X=None, full=False):
         if full:
-            return mu, var + self.scale()*torch.eye(var.shape[0])
+            return mu, var + self.scale().square()*torch.eye(var.shape[0])
         else:
-            return mu, var + self.scale()
+            return mu, var + self.scale().square()
 
 class StudentTLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -360,6 +363,9 @@ class StudentTLikelihood(Likelihood):
         scale (float): Scale.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
     def __init__(self, dof=3, scale=1.0, name=&#34;StudentT&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -435,6 +441,9 @@ class LaplaceLikelihood(Likelihood):
         scale (float): Scale.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
     def __init__(self, scale=1.0, name=&#34;Laplace&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -509,6 +518,9 @@ class BetaLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
     def __init__(self, scale=1.0, link=inv_probit, name=&#34;Beta&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -554,6 +566,9 @@ class GammaLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, name=&#34;Gamma&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -637,6 +652,9 @@ class WeibullLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, name=&#34;Weibull&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -680,6 +698,9 @@ class LogLogisticLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, name=&#34;LogLogistic&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -719,17 +740,20 @@ class LogGaussianLikelihood(Likelihood):
 
     $$ p(y|f) = \\frac{1}{y\\sqrt{2\\pi\\sigma^2}} e^{-\\frac{(\\log(y) - f)^2}{2\\sigma^2}} $$
 
-    with \\(\\sigma^2\\) the variance and \\(y \\in (0.0,\\infty)\\).
+    with \\(\\sigma\\) the scale and \\(y \\in (0.0,\\infty)\\).
 
     Args:
-        variance (float): Variance.
+        scale (float): Scale.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
-    def __init__(self, variance=1.0, name=&#34;LogGaussian&#34;, quadratures=20):
+    def __init__(self, scale=1.0, name=&#34;LogGaussian&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
-        self.scale = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+        self.scale = Parameter(scale, name=&#34;scale&#34;, lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any(y &lt;= 0.0):
@@ -739,15 +763,15 @@ class LogGaussianLikelihood(Likelihood):
         # y: Nx1
         # f: NxM
         logy = y.log()
-        p = -0.5*(np.log(2.0*np.pi) + self.scale().log() + (logy-f).square()/self.scale())
+        p = -0.5 * (np.log(2.0*np.pi) + 2.0*self.scale().log() + ((logy-f)/self.scale()).square())
         p -= logy
         return p  # NxM
 
     def mean(self, f, X=None):
-        return torch.exp(f + 0.5*self.scale())
+        return torch.exp(f + 0.5*self.scale().square())
 
     def variance(self, f, X=None):
-        return (self.scale().exp() - 1.0) * torch.exp(2.0*f + self.scale())
+        return (self.scale().square().exp() - 1.0) * torch.exp(2.0*f + self.scale().square())
 
 class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -797,7 +821,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L21-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L21-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def exp(x):
     &#34;&#34;&#34;
@@ -817,7 +841,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L5-L11" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L5-L11" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def identity(x):
     &#34;&#34;&#34;
@@ -837,7 +861,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L29-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L29-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inv_probit(x):
     &#34;&#34;&#34;
@@ -858,7 +882,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L39-L45" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L39-L45" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def logistic(x):
     &#34;&#34;&#34;
@@ -878,7 +902,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L13-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L13-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def square(x):
     &#34;&#34;&#34;
@@ -914,7 +938,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L425-L466" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L434-L475" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class BernoulliLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -995,11 +1019,16 @@ class ChiSquaredLikelihood(Likelihood):
 <dd>Name of the likelihood.</dd>
 <dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>scale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Scale <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L468-L511" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L477-L523" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class BetaLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1014,6 +1043,9 @@ class ChiSquaredLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
     def __init__(self, scale=1.0, link=inv_probit, name=&#34;Beta&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -1082,7 +1114,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L721-L750" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L745-L774" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1153,7 +1185,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L358-L393" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L364-L399" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ExponentialLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1228,11 +1260,16 @@ class ChiSquaredLikelihood(Likelihood):
 <dd>Name of the likelihood.</dd>
 <dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>shape</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Shape <span><span class="MathJax_Preview">k</span><script type="math/tex">k</script></span>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L513-L553" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L525-L568" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GammaLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1247,6 +1284,9 @@ class ChiSquaredLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, name=&#34;Gamma&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -1303,7 +1343,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L47-L61" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L47-L61" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussHermiteQuadrature:
     def __init__(self, deg=20, t_scale=None, w_scale=None):
@@ -1324,23 +1364,28 @@ class ChiSquaredLikelihood(Likelihood):
 </dd>
 <dt id="mogptk.gpr.likelihood.GaussianLikelihood"><code class="flex name class">
 <span>class <span class="ident">GaussianLikelihood</span></span>
-<span>(</span><span>variance=1.0, name='Gaussian')</span>
+<span>(</span><span>scale=1.0, name='Gaussian')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Gaussian likelihood given by</p>
 <p><span><span class="MathJax_Preview"> p(y|f) = \frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(y-f)^2}{2\sigma^2}} </span><script type="math/tex; mode=display"> p(y|f) = \frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(y-f)^2}{2\sigma^2}} </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the variance.</p>
+<p>with <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span> the scale.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>variance</code></strong> :&ensp;<code>float</code></dt>
-<dd>Gaussian variance.</dd>
+<dt><strong><code>scale</code></strong> :&ensp;<code>float</code></dt>
+<dd>Scale.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the likelihood.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>scale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Scale <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L277-L317" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L277-L320" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1348,41 +1393,44 @@ class ChiSquaredLikelihood(Likelihood):
 
     $$ p(y|f) = \\frac{1}{\\sigma\\sqrt{2\\pi}}e^{-\\frac{(y-f)^2}{2\\sigma^2}} $$
 
-    with \\(\\sigma^2\\) the variance.
+    with \\(\\sigma\\) the scale.
 
     Args:
-        variance (float): Gaussian variance.
+        scale (float): Scale.
         name (str): Name of the likelihood.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
-    def __init__(self, variance=1.0, name=&#34;Gaussian&#34;):
+    def __init__(self, scale=1.0, name=&#34;Gaussian&#34;):
         super().__init__(name)
 
-        self.scale = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+        self.scale = Parameter(scale, name=&#34;scale&#34;, lower=config.positive_minimum)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -0.5 * (np.log(2.0 * np.pi) + self.scale().log() + (y-f).square()/self.scale())
+        p = -0.5 * (np.log(2.0*np.pi) + 2.0*self.scale().log() + ((y-f)/self.scale()).square())
         return p  # NxM
 
     def variational_expectation(self, y, mu, var, X=None):
         # y,mu,var: Nx1
-        p = -((y-mu).square() + var) / self.scale()
+        p = -((y-mu).square() + var) / self.scale().square()
         p -= np.log(2.0 * np.pi)
-        p -= self.scale().log()
+        p -= 2.0*self.scale().log()
         return 0.5*p.sum()  # sum over N
 
     def mean(self, f, X=None):
         return f
 
     def variance(self, f, X=None):
-        return self.scale()
+        return self.scale().square()
 
     def predict(self, mu, var, X=None, full=False):
         if full:
-            return mu, var + self.scale()*torch.eye(var.shape[0])
+            return mu, var + self.scale().square()*torch.eye(var.shape[0])
         else:
-            return mu, var + self.scale()</code></pre>
+            return mu, var + self.scale().square()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1418,11 +1466,16 @@ class ChiSquaredLikelihood(Likelihood):
 <dd>Name of the likelihood.</dd>
 <dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>scale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Scale <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L395-L423" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L401-L432" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LaplaceLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1436,6 +1489,9 @@ class ChiSquaredLikelihood(Likelihood):
         scale (float): Scale.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
     def __init__(self, scale=1.0, name=&#34;Laplace&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -1488,7 +1544,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L63-L166" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L63-L166" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Likelihood:
     &#34;&#34;&#34;
@@ -1501,7 +1557,7 @@ class ChiSquaredLikelihood(Likelihood):
     def __init__(self, name=&#34;Likelihood&#34;, quadratures=20):
         self.name = name
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
-        self.output_dims = 1
+        self.output_dims = None
 
     def validate_y(self, y, X=None):
         &#34;&#34;&#34;
@@ -1623,7 +1679,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L82-L92" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L82-L92" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prob(self, y, f, X=None):
     &#34;&#34;&#34;
@@ -1658,7 +1714,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L112-L124" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L112-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean(self, f, X=None):
     &#34;&#34;&#34;
@@ -1704,7 +1760,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L140-L166" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L140-L166" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, mu, var, X=None, full=False):
     &#34;&#34;&#34;
@@ -1743,7 +1799,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L76-L80" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L76-L80" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def validate_y(self, y, X=None):
     &#34;&#34;&#34;
@@ -1772,7 +1828,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L126-L138" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L126-L138" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def variance(self, f, X=None):
     &#34;&#34;&#34;
@@ -1810,7 +1866,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L94-L110" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L94-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def variational_expectation(self, y, mu, var, X=None):
     &#34;&#34;&#34;
@@ -1835,25 +1891,30 @@ class ChiSquaredLikelihood(Likelihood):
 </dd>
 <dt id="mogptk.gpr.likelihood.LogGaussianLikelihood"><code class="flex name class">
 <span>class <span class="ident">LogGaussianLikelihood</span></span>
-<span>(</span><span>variance=1.0, name='LogGaussian', quadratures=20)</span>
+<span>(</span><span>scale=1.0, name='LogGaussian', quadratures=20)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Log-Gaussian likelihood given by</p>
 <p><span><span class="MathJax_Preview"> p(y|f) = \frac{1}{y\sqrt{2\pi\sigma^2}} e^{-\frac{(\log(y) - f)^2}{2\sigma^2}} </span><script type="math/tex; mode=display"> p(y|f) = \frac{1}{y\sqrt{2\pi\sigma^2}} e^{-\frac{(\log(y) - f)^2}{2\sigma^2}} </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the variance and <span><span class="MathJax_Preview">y \in (0.0,\infty)</span><script type="math/tex">y \in (0.0,\infty)</script></span>.</p>
+<p>with <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span> the scale and <span><span class="MathJax_Preview">y \in (0.0,\infty)</span><script type="math/tex">y \in (0.0,\infty)</script></span>.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>variance</code></strong> :&ensp;<code>float</code></dt>
-<dd>Variance.</dd>
+<dt><strong><code>scale</code></strong> :&ensp;<code>float</code></dt>
+<dd>Scale.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the likelihood.</dd>
 <dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>scale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Scale <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L685-L719" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L706-L743" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LogGaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1861,17 +1922,20 @@ class ChiSquaredLikelihood(Likelihood):
 
     $$ p(y|f) = \\frac{1}{y\\sqrt{2\\pi\\sigma^2}} e^{-\\frac{(\\log(y) - f)^2}{2\\sigma^2}} $$
 
-    with \\(\\sigma^2\\) the variance and \\(y \\in (0.0,\\infty)\\).
+    with \\(\\sigma\\) the scale and \\(y \\in (0.0,\\infty)\\).
 
     Args:
-        variance (float): Variance.
+        scale (float): Scale.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
-    def __init__(self, variance=1.0, name=&#34;LogGaussian&#34;, quadratures=20):
+    def __init__(self, scale=1.0, name=&#34;LogGaussian&#34;, quadratures=20):
         super().__init__(name, quadratures)
 
-        self.scale = Parameter(variance, name=&#34;variance&#34;, lower=config.positive_minimum)
+        self.scale = Parameter(scale, name=&#34;scale&#34;, lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any(y &lt;= 0.0):
@@ -1881,15 +1945,15 @@ class ChiSquaredLikelihood(Likelihood):
         # y: Nx1
         # f: NxM
         logy = y.log()
-        p = -0.5*(np.log(2.0*np.pi) + self.scale().log() + (logy-f).square()/self.scale())
+        p = -0.5 * (np.log(2.0*np.pi) + 2.0*self.scale().log() + ((logy-f)/self.scale()).square())
         p -= logy
         return p  # NxM
 
     def mean(self, f, X=None):
-        return torch.exp(f + 0.5*self.scale())
+        return torch.exp(f + 0.5*self.scale().square())
 
     def variance(self, f, X=None):
-        return (self.scale().exp() - 1.0) * torch.exp(2.0*f + self.scale())</code></pre>
+        return (self.scale().square().exp() - 1.0) * torch.exp(2.0*f + self.scale().square())</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1927,11 +1991,16 @@ class ChiSquaredLikelihood(Likelihood):
 <dd>Name of the likelihood.</dd>
 <dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>shape</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Shape <span><span class="MathJax_Preview">k</span><script type="math/tex">k</script></span>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L639-L683" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L657-L704" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LogLogisticLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1946,6 +2015,9 @@ class ChiSquaredLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, name=&#34;LogLogistic&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -2013,7 +2085,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L168-L275" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L168-L275" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2162,7 +2234,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L555-L594" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L570-L609" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PoissonLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2241,11 +2313,16 @@ class ChiSquaredLikelihood(Likelihood):
 <dd>Name of the likelihood.</dd>
 <dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>scale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Scale <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L319-L356" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L322-L362" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class StudentTLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2260,6 +2337,9 @@ class ChiSquaredLikelihood(Likelihood):
         scale (float): Scale.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
     def __init__(self, dof=3, scale=1.0, name=&#34;StudentT&#34;, quadratures=20):
         super().__init__(name, quadratures)
@@ -2322,11 +2402,16 @@ class ChiSquaredLikelihood(Likelihood):
 <dd>Name of the likelihood.</dd>
 <dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>shape</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Shape <span><span class="MathJax_Preview">k</span><script type="math/tex">k</script></span>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/likelihood.py#L596-L637" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/likelihood.py#L611-L655" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class WeibullLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2341,6 +2426,9 @@ class ChiSquaredLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, name=&#34;Weibull&#34;, quadratures=20):
         super().__init__(name, quadratures)

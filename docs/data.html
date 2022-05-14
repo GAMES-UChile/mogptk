@@ -27,14 +27,13 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L1-L1392" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L1-L1324" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import copy
 import inspect
 import datetime
 import logging
-import math
 import collections
 
 import numpy as np
@@ -53,14 +52,66 @@ register_matplotlib_converters()
 
 logger = logging.getLogger(&#39;mogptk&#39;)
 
+def LoadSplitData(x_train, x_test, y_train, y_test, name=&#34;&#34;):
+    &#34;&#34;&#34;
+    Load from a split data set.
+
+    Args:
+        x_train (numpy.ndarray): Training input of shape (data_points,input_dims).
+        x_test (numpy.ndarray): Testing input of shape (test_points,input_dims).
+        y_train (numpy.ndarray): Training output of shape (data_points,).
+        y_test (numpy.ndarray): Testing output of shape (test_points,).
+        name (str): Name of data.
+
+    Returns:
+        mogptk.data.Data
+
+    Examples:
+        &gt;&gt;&gt; LoadSplitData(x_train, x_test, y_train, y_test, name=&#39;Sine wave&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+    &#34;&#34;&#34;
+    if not isinstance(x_train, np.ndarray):
+        x_train = np.array(x_train)
+    if not isinstance(x_test, np.ndarray):
+        x_test = np.array(x_test)
+    if not isinstance(y_train, np.ndarray):
+        y_train = np.array(y_train)
+    if not isinstance(y_test, np.ndarray):
+        y_test = np.array(y_test)
+    if x_train.ndim == 1:
+        x_train = x_train.reshape(-1,1)
+    if x_test.ndim == 1:
+        x_test = x_test.reshape(-1,1)
+    if y_train.ndim == 2 and y_train.shape[1] == 1:
+        y_train = y_train.reshape(-1)
+    if y_test.ndim == 2 and y_test.shape[1] == 1:
+        y_test = y_test.reshape(-1)
+
+    if x_train.ndim != 2 or x_test.ndim != 2:
+        raise ValueError(&#34;x data must have shape (data_points,input_dims)&#34;)
+    if y_train.ndim != 1 or y_test.ndim != 1:
+        raise ValueError(&#34;y data must have shape (data_points,)&#34;)
+    if x_train.shape[0] != y_train.shape[0]:
+        raise ValueError(&#34;x_train and y_train must have the same number of data points&#34;)
+    if x_test.shape[0] != y_test.shape[0]:
+        raise ValueError(&#34;x_test and y_test must have the same number of data points&#34;)
+    if x_train.shape[1] != x_test.shape[1]:
+        raise ValueError(&#34;x_train and x_test must have the same number of input dimensions&#34;)
+
+    x = np.concatenate((x_train, x_test))
+    y = np.concatenate((y_train, y_test))
+    test_indices = np.arange(len(x_train),len(x))
+
+    data = Data(x, y, name=name)
+    data.remove_index(test_indices)
+    return data
+
 def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
     &#34;&#34;&#34;
     LoadFunction loads a dataset from a given function y = f(x) + Normal(0,var). It will pick `n` data points between start and end for the X axis for which `f` is being evaluated. By default the `n` points are spread equally over the interval, with `random=True` they will be picked randomly.
 
-    The given function should take one argument X which is a list of `numpy.ndarray` of shape (n,) for every input dimension and returns an `numpy.ndarray` Y of shape (n,). If your data has only one input dimension, you can use X[0] to select the first (and only) input dimension.
-
     Args:
-        f (function): Function taking X a list with elements of shape (n,) for each input dimension and returning shape (n,) as Y.
+        f (function): Function taking a numpy.ndarray X of shape (data_points,) for each input dimension and returning a numpy.ndarray Y of shape (data_points,).
         start (float, list): Define start of interval.
         end (float, list): Define end of interval.
         n (int, list): Number of data points to pick between start and end.
@@ -72,7 +123,7 @@ def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
         mogptk.data.Data
 
     Examples:
-        &gt;&gt;&gt; LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+        &gt;&gt;&gt; LoadFunction(lambda x,y: np.sin(3*x)+np.cos(2*y), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
         &lt;mogptk.data.Data at ...&gt;
     &#34;&#34;&#34;
 
@@ -156,14 +207,14 @@ def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
         else:
             x[i] = np.linspace(start[i], end[i], n[i])
 
-        N_tile = math.prod(n[:i])
-        N_repeat = math.prod(n[i+1:])
+        N_tile = np.prod(n[:i])
+        N_repeat = np.prod(n[i+1:])
         x[i] = np.tile(np.repeat(x[i], N_repeat), N_tile)
 
     y = f(*x)
     if y.ndim == 2 and y.shape[1] == 1:
         y = y[:,0]
-    N = math.prod(n)
+    N = np.prod(n)
     y += np.random.normal(0.0, var, (N,))
 
     data = Data(x, y, name=name)
@@ -184,8 +235,8 @@ class Data:
         It is possible to use the format given by `numpy.meshgrid` for X as a list of numpy arrays for each input dimension, and its values in Y. Each input dimension and Y must have shape (N1,N2,...,Nn) where n is the number of input dimensions and N the number of data points per input dimension.
 
         Args:
-            X (list, numpy.ndarray, dict): Independent variable data of shape (n,) or (n,input_dims), or a list with elements of shape (n,) for each input dimension.
-            Y (list, numpy.ndarray): Dependent variable data of shape (n,).
+            X (list, numpy.ndarray, dict): Independent variable data of shape (data_points,) or (data_points,input_dims), or a list with elements of shape (data_points,) for each input dimension.
+            Y (list, numpy.ndarray): Dependent variable data of shape (data_points,).
             Y_err (list, numpy.ndarray): Standard deviation of the dependent variable data of shape (n,).
             name (str): Name of data.
             x_labels (str, list of str): Name or names of input dimensions.
@@ -206,12 +257,63 @@ class Data:
                 it = iter(X.values())
                 first = len(next(it))
                 if not all(isinstance(x, (list, np.ndarray)) for x in X.values()) or not all(len(x) == first for x in it):
-                    raise ValueError(&#34;X dict should contain all lists or np.ndarrays where each has the same length&#34;)
+                    raise ValueError(&#34;X dict should contain all lists or numpy.ndarrays where each has the same length&#34;)
                 if not all(key in X for key in x_labels):
                     raise ValueError(&#34;X dict must contain all keys listed in x_labels&#34;)
                 X = [X[key] for key in x_labels]
 
-        # check if X is correct
+        X = self._format_X(X)
+        Y = self._format_Y(Y)
+        if Y_err is not None:
+            Y_err = self._format_Y(Y_err)
+
+        # convert meshgrids to flat arrays
+        if 1 &lt; X[0].ndim and 1 &lt; Y.ndim and X[0].shape == Y.shape:
+            X = [np.ravel(x) for x in X]
+            Y = np.ravel(Y)
+            if Y_err is not None:
+                Y_err = np.ravel(Y_err)
+
+        if X.ndim != 2:
+            raise ValueError(&#34;X must have shape (data_points,input_dims)&#34;)
+        if Y.ndim != 1:
+            raise ValueError(&#34;Y must have shape (data_points,)&#34;)
+        if Y.shape[0] == 0:
+            raise ValueError(&#34;X and Y must have a length greater than zero&#34;)
+        if X.shape[0] != Y.shape[0]:
+            raise ValueError(&#34;X and Y must be of the same length&#34;)
+        if Y_err is not None and Y.shape != Y_err.shape:
+            raise ValueError(&#34;Y and Y_err must have the same shape&#34;)
+
+        self.X = X # shape (n,input_dims)
+        self.Y = Y # shape (n)
+        self.Y_err = None
+        if Y_err is not None:
+            self.Y_err = Y_err # shape (n)
+        self.mask = np.array([True] * Y.shape[0])
+        self.F = None
+        self.X_pred = None
+
+        input_dims = X.shape[1]
+        self.removed_ranges = [[]] * input_dims
+        self.X_labels = [&#39;X&#39;] * input_dims
+        if 1 &lt; input_dims:
+            for i in range(input_dims):
+                self.X_labels[i] = &#39;X%d&#39; % (i,)
+        if isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
+            self.X_labels = x_labels
+
+        self.name = None
+        if isinstance(name, str):
+            self.name = name
+        elif isinstance(y_label, str):
+            self.name = y_label
+
+        self.Y_label = &#39;Y&#39;
+        if isinstance(y_label, str):
+            self.Y_label = y_label
+
+    def _format_X(self, X):
         if isinstance(X, list):
             if all(isinstance(x, list) for x in X):
                 m = len(X[0])
@@ -258,7 +360,12 @@ class Data:
             if np.issubdtype(X[i].dtype, np.datetime64):
                 X[i] = _datetime64_to_higher_unit(X[i])
 
-        # check if Y is correct
+        transformers = []
+        if hasattr(self, &#39;X&#39;):
+            transformers = self.X.transformers
+        return Serie(X, transformers, dims=input_dims) # shape (n,input_dims)
+
+    def _format_Y(self, Y):
         if isinstance(Y, list):
             if not all(isinstance(y, (int, float)) for y in Y):
                 raise ValueError(&#34;Y list items must all be numbers&#34;)
@@ -274,75 +381,18 @@ class Data:
         except:
             raise ValueError(&#34;Y data must have a number data type&#34;)
 
-        if Y_err is not None:
-            # check if Y_err is correct
-            if isinstance(Y_err, list):
-                if not all(isinstance(y, (int, float)) for y in Y_err):
-                    raise ValueError(&#34;Y_err list items must all be numbers&#34;)
-                elif not _is_homogeneous_type(Y_err):
-                    raise ValueError(&#34;Y_err list items must all have elements of the same type&#34;)
-                Y_err = np.array(Y_err)
-            elif not isinstance(Y_err, np.ndarray):
-                raise ValueError(&#34;Y_err must be list or numpy array&#34;)
-            if Y.shape != Y_err.shape:
-                raise ValueError(&#34;Y and Y_err must have the same shape&#34;)
+        if Y.ndim == 2 and Y.shape[1] == 1:
+            Y = Y.reshape(-1)
 
-            # try to cast unknown data types, Y becomes np.float64
-            try:
-                Y_err = Y_err.astype(np.float64)
-            except:
-                raise ValueError(&#34;Y_err data must have a number data type&#34;)
-
-        # convert meshgrids to flat arrays
-        if 1 &lt; X[0].ndim and 1 &lt; Y.ndim and X[0].shape == Y.shape:
-            X = [np.ravel(x) for x in X]
-            Y = np.ravel(Y)
-            if Y_err is not None:
-                Y_err = np.ravel(Y_err)
-
-        if any(x.ndim != 1 for x in X):
-            raise ValueError(&#34;X must be a one dimensional array of data for every input dimension&#34;)
-        if Y.ndim != 1:
-            raise ValueError(&#34;Y must be a one dimensional array of data&#34;)
-        if Y.shape[0] == 0:
-            raise ValueError(&#34;X and Y must have a length greater than zero&#34;)
-        if any(x.shape[0] != Y.shape[0] for x in X):
-            raise ValueError(&#34;X and Y must be of the same length for each input dimension&#34;)
-
-
-        self.X = [Serie(X[i]) for i in range(input_dims)] # [shape (n)] * input_dims
-        self.Y = Serie(Y) # shape (n)
-        self.Y_err = None
-        if Y_err is not None:
-            self.Y_err = Y_err # shape (n)
-        self.mask = np.array([True] * Y.shape[0])
-        self.F = None
-        self.X_pred = None
-        self.Y_mu_pred = {}
-        self.Y_var_pred = {}
-        self.removed_ranges = [[]] * input_dims
-
-        self.X_labels = [&#39;X&#39;] * input_dims
-        if 1 &lt; input_dims:
-            for i in range(input_dims):
-                self.X_labels[i] = &#39;X%d&#39; % (i,)
-        if isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
-            self.X_labels = x_labels
-
-        self.name = None
-        if isinstance(name, str):
-            self.name = name
-        elif isinstance(y_label, str):
-            self.name = y_label
-
-        self.Y_label = &#39;Y&#39;
-        if isinstance(y_label, str):
-            self.Y_label = y_label
+        transformers = []
+        if hasattr(self, &#39;Y&#39;):
+            transformers = self.Y.transformers
+        return Serie(Y) # shape (n,)
 
     def __repr__(self):
         df = pd.DataFrame()
-        for i in range(len(self.X)):
-            df[self.X_labels[i]] = self.X[i]
+        for i in range(self.X.shape[1]):
+            df[self.X_labels[i]] = self.X[:,i]
         df[self.Y_label] = self.Y
         return repr(df)
 
@@ -397,35 +447,14 @@ class Data:
         &#34;&#34;&#34;
         Set the (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
     
-        The function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
-
         Args:
-            f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
+        f (function): Function taking a numpy.ndarray X of shape (data_points,) for each input dimension and returning a numpy.ndarray Y of shape (data_points,).
 
         Examples:
-            &gt;&gt;&gt; data.set_function(lambda x: np.sin(3*x[:,0])
+            &gt;&gt;&gt; data.set_function(lambda x,y: np.sin(3*x)+np.cos(2*y))
         &#34;&#34;&#34;
-        _check_function(f, self.get_input_dims(), [x.is_datetime64() for x in self.X])
+        _check_function(f, self.get_input_dims(), [self.X.is_datetime64(dim=i) for i in range(self.get_input_dims())])
         self.F = f
-
-    def rescale_x(self, upper=1000.0):
-        &#34;&#34;&#34;
-        Rescale the X axis so that it is in the interval [0.0,upper]. This helps training most kernels.
-
-        Args:
-            upper (float): Upper end of the interval.
-
-        Examples:
-            &gt;&gt;&gt; data.rescale_x()
-        &#34;&#34;&#34;
-
-        for i in range(self.get_input_dims()):
-            X = self.X[i].transformed
-            xmin = np.min(X)
-            xmax = np.max(X)
-            t = TransformLinear(xmin, (xmax-xmin)/upper)
-            t.set_data(X)
-            self.X[i].apply(t)
 
     def transform(self, transformer):
         &#34;&#34;&#34;
@@ -447,8 +476,7 @@ class Data:
             t = transformer()
         else:
             t = copy.deepcopy(t)
-        t.set_data(self)
-
+        t.set_data(self.Y.transformed, self.X.transformed)
         self.Y.apply(t, self.X)
     
     def filter(self, start, end, dim=None):
@@ -469,17 +497,17 @@ class Data:
         end = self._normalize_x_val(end)
         
         if dim is not None:
-            ind = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
+            ind = np.logical_and(self.X[:,dim] &gt;= start[dim], self.X[:,dim] &lt; end[dim])
         else:
-            ind = np.logical_and(self.X[0] &gt;= start[0], self.X[0] &lt; end[0])
+            ind = np.logical_and(self.X[:,0] &gt;= start[0], self.X[:,0] &lt; end[0])
             for i in range(1,self.get_input_dims()):
-                ind = np.logical_and(ind, np.logical_and(self.X[i] &gt;= start[i], self.X[i] &lt; end[i]))
+                ind = np.logical_and(ind, np.logical_and(self.X[:,i] &gt;= start[i], self.X[:,i] &lt; end[i]))
 
-        self.X = [x[ind] for x in self.X]
+        self.X = self.X[ind,:]
         self.Y = self.Y[ind]
         self.mask = self.mask[ind]
 
-    def aggregate(self, duration, f=np.mean, dim=0):
+    def aggregate(self, duration, f=np.mean):
         &#34;&#34;&#34;
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -488,24 +516,26 @@ class Data:
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
             f (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`.
-            dim (int): Input dimension to apply to, defaults to the first input dimension.
 
         Examples:
             &gt;&gt;&gt; data.aggregate(5)
 
             &gt;&gt;&gt; data.aggregate(&#39;2W&#39;, f=np.sum)
         &#34;&#34;&#34;
-        start = np.min(self.X[dim])
-        end = np.max(self.X[dim])
+        if 1 &lt; self.get_input_dims():
+            raise ValueError(&#34;aggregate works only with a single input dimension&#34;)
+
+        start = np.min(self.X[:,0])
+        end = np.max(self.X[:,0])
         step = _parse_delta(duration)
 
-        X = np.arange(start+step/2, end+step/2, step)
-        Y = np.empty((len(X)))
-        for i in range(len(X)):
-            ind = (self.X[dim] &gt;= X[i]-step/2) &amp; (self.X[dim] &lt; X[i]+step/2)
+        X = np.arange(start+step/2, end+step/2, step).reshape(-1,1)
+        Y = np.empty((X.shape[0],))
+        for i in range(X.shape[0]):
+            ind = (self.X[:,0] &gt;= X[i,0]-step/2) &amp; (self.X[:,0] &lt; X[i,0]+step/2)
             Y[i] = f(self.Y[ind])
 
-        self.X[dim] = Serie(X, self.X[dim].transformers)
+        self.X = Serie(X, self.X.transformers)
         self.Y = Serie(Y, self.Y.transformers, self.X)
         self.mask = np.array([True] * len(self.Y))
 
@@ -548,7 +578,7 @@ class Data:
             &gt;&gt;&gt; data.get_input_dims()
             2
         &#34;&#34;&#34;
-        return len(self.X)
+        return self.X.shape[1]
     
     def get_data(self, transformed=False):
         &#34;&#34;&#34;
@@ -558,15 +588,15 @@ class Data:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list of numpy.ndarray: X data of shape [(n,)] * input_dims.
-            numpy.ndarray: Y data of shape (n,).
+            numpy.ndarray: X data of shape (data_points,input_dims).
+            numpy.ndarray: Y data of shape (data_points,).
 
         Examples:
             &gt;&gt;&gt; x, y = data.get_data()
         &#34;&#34;&#34;
         if transformed:
             return self.X, self.Y.transformed
-        return self.X, np.array(self.Y)
+        return self.X, self.Y
 
     def get_train_data(self, transformed=False):
         &#34;&#34;&#34;
@@ -576,15 +606,15 @@ class Data:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list of numpy.ndarray: X data of shape [(n,)] * input_dims.
-            numpy.ndarray: Y data of shape (n,).
+            numpy.ndarray: X data of shape (data_points,input_dims).
+            numpy.ndarray: Y data of shape (data_points,).
 
         Examples:
             &gt;&gt;&gt; x, y = data.get_train_data()
         &#34;&#34;&#34;
         if transformed:
-            return [x[self.mask] for x in self.X], self.Y.transformed[self.mask]
-        return [x[self.mask] for x in self.X], np.array(self.Y[self.mask])
+            return self.X[self.mask,:], self.Y.transformed[self.mask]
+        return self.X[self.mask,:], self.Y[self.mask]
 
     def get_test_data(self, transformed=False):
         &#34;&#34;&#34;
@@ -600,27 +630,28 @@ class Data:
         Examples:
             &gt;&gt;&gt; x, y = data.get_test_data()
         &#34;&#34;&#34;
-        X = [x[~self.mask] for x in self.X]
+        X = self.X[~self.mask,:]
         if self.F is not None:
-            if X[0].shape[0] == 0:
+            if X.shape[0] == 0:
                 X, _ = self.get_data()
-            Y = self.F(*X)
+            Y = self.F(X)
             if transformed:
                 Y = self.Y.transform(Y, X)
             return X, Y
         if transformed:
             return X, self.Y.transformed[~self.mask]
-        return X, np.array(self.Y[~self.mask])
+        return X, self.Y[~self.mask]
 
     ################################################################
 
     def reset(self):
         &#34;&#34;&#34;
-        Reset the data set and undo the removal of data points. That is, this reverts any calls to `remove_randomly`, `remove_range`, `remove_relative_range`, `remove_random_ranges`, and `remove_index`.
+        Reset the dataset and undo the removal of data points. That is, this reverts any calls to `remove_randomly`, `remove_range`, `remove_relative_range`, `remove_random_ranges`, and `remove_index`. Additionally, also resets the prediction range to the original dataset.
         &#34;&#34;&#34;
         self.mask[:] = True
         for i in range(len(self.removed_ranges)):
             self.removed_ranges[i] = []
+        self.X_pred = None
     
     def remove_randomly(self, n=None, pct=None):
         &#34;&#34;&#34;
@@ -661,20 +692,20 @@ class Data:
             &gt;&gt;&gt; data.remove_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         if start is None:
-            start = [np.min(x) for x in self.X]
+            start = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
         if end is None:
-            end = [np.max(x) for x in self.X]
+            end = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
 
         start = self._normalize_x_val(start)
         end = self._normalize_x_val(end)
 
         if dim is not None:
-            mask = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
+            mask = np.logical_and(self.X[:,dim] &gt;= start[dim], self.X[:,dim] &lt; end[dim])
             self.removed_ranges[dim].append([start[dim], end[dim]])
         else:
-            mask = np.logical_and(self.X[0] &gt;= start[0], self.X[0] &lt; end[0])
+            mask = np.logical_and(self.X[:,0] &gt;= start[0], self.X[:,0] &lt; end[0])
             for i in range(1,self.get_input_dims()):
-                mask = np.logical_or(mask, np.logical_and(self.X[i] &gt;= start[i], self.X[i] &lt; end[i]))
+                mask = np.logical_or(mask, np.logical_and(self.X[:,i] &gt;= start[i], self.X[:,i] &lt; end[i]))
             for i in range(self.get_input_dims()):
                 self.removed_ranges[i].append([start[i], end[i]])
         self.mask[np.where(mask)] = False
@@ -691,11 +722,11 @@ class Data:
         start = self._normalize_x_val(start)
         end = self._normalize_x_val(end)
 
-        x_min = [np.min(x) for x in self.X]
-        x_max = [np.max(x) for x in self.X]
+        xmin = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
+        xmax = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
         for i in range(self.get_input_dims()):
-            start[i] = x_min[i] + max(0.0, min(1.0, start[i])) * (x_max[i]-x_min[i])
-            end[i] = x_min[i] + max(0.0, min(1.0, end[i])) * (x_max[i]-x_min[i])
+            start[i] = xmin[i] + max(0.0, min(1.0, start[i])) * (xmax[i]-xmin[i])
+            end[i] = xmin[i] + max(0.0, min(1.0, end[i])) * (xmax[i]-xmin[i])
 
         self.remove_range(start, end, dim)
 
@@ -717,129 +748,63 @@ class Data:
             return
 
         delta = _parse_delta(duration)
-        m = (np.max(self.X[dim])-np.min(self.X[dim])) - n*delta
+        m = (np.max(self.X[:,dim])-np.min(self.X[:,dim])) - n*delta
         if m &lt;= 0:
             raise ValueError(&#34;no data left after removing ranges&#34;)
 
-        locs = self.X[dim] &lt;= (np.max(self.X[dim])-delta)
+        locs = self.X[:,dim] &lt;= (np.max(self.X[:,dim])-delta)
         locs[sum(locs)] = True # make sure the last data point can be deleted
         for i in range(n):
-            if len(self.X[dim][locs]) == 0:
+            if self.X[locs,dim].shape[0] == 0:
                 break # range could not be removed, there is no remaining data range of width delta
-            x = self.X[dim][locs][np.random.randint(len(self.X[dim][locs]))]
-            locs[(self.X[dim] &gt; x-delta) &amp; (self.X[dim] &lt; x+delta)] = False
-            self.mask[(self.X[dim] &gt;= x) &amp; (self.X[dim] &lt; x+delta)] = False
+            x = self.X[locs,dim][np.random.randint(self.X[locs,dim].shape[0])]
+            locs[(self.X[:,dim] &gt; x-delta) &amp; (self.X[:,dim] &lt; x+delta)] = False
+            self.mask[(self.X[:,dim] &gt;= x) &amp; (self.X[:,dim] &lt; x+delta)] = False
             self.removed_ranges[dim].append([x, x+delta])
 
-    def remove_index(self, index):
+    def remove_indices(self, indices):
         &#34;&#34;&#34;
-        Removes observations of given index
+        Removes observations of given indices.
 
         Args:
-            index(list, numpy.ndarray): Array of indexes of the data to remove.
+            ind (list, numpy.ndarray): Array of indexes of the data to remove.
         &#34;&#34;&#34;
-        if isinstance(index, list):
-            index = np.array(index)
-        elif not isinstance(index, np.ndarray):
-            raise ValueError(&#34;index must be list or numpy array&#34;)
-
-        self.mask[index] = False
+        if isinstance(indices, list):
+            indices = np.array(indices)
+        elif not isinstance(indices, np.ndarray):
+            raise ValueError(&#34;indices must be list or numpy array&#34;)
+        self.mask[indices] = False
     
     ################################################################
     
-    def get_prediction_names(self):
+    def get_prediction_data(self):
         &#34;&#34;&#34;
-        Returns the model names of the saved predictions.
+        Returns the prediction points.
 
         Returns:
-            list: List of prediction names.
+            numpy.ndarray: X prediction of shape (data_points,input_dims).
 
         Examples:
-            &gt;&gt;&gt; data.get_prediction_names()
-            [&#39;MOSM&#39;, &#39;CSM&#39;, &#39;SM-LMC&#39;, &#39;CONV&#39;]
-        &#34;&#34;&#34;
-        return self.Y_mu_pred.keys()
-    
-    def get_prediction_x(self):
-        &#34;&#34;&#34;
-        Returns the prediction X range.
-
-        Returns:
-            numpy.ndarray: X prediction of shape [(n,)] * input_dims.
-
-        Examples:
-            &gt;&gt;&gt; x = data.get_prediction_x()
+            &gt;&gt;&gt; x = data.get_prediction_data()
         &#34;&#34;&#34;
         if self.X_pred is None:
             return self.X.copy()
         return self.X_pred.copy()
-    
-    def get_prediction(self, name, sigma=2.0, transformed=False):
+
+    def set_prediction_data(self, X):
         &#34;&#34;&#34;
-        Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
+        Set the prediction points.
 
         Args:
-            name (str): Name of the model of the prediction.
-            sigma (float): The confidence interval&#39;s number of standard deviations.
-            transformed (boolean): Return transformed data as used for training.
-
-        Returns:
-            numpy.ndarray: X prediction of shape [(n,)] * input_dims.
-            numpy.ndarray: Y mean prediction of shape (n,).
-            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
-            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
+            X (list,numpy.ndarray): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims used for predictions.
 
         Examples:
-            &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction(&#39;MOSM&#39;, sigma=1)
+            &gt;&gt;&gt; data.set_prediction_data([5.0, 5.5, 6.0, 6.5, 7.0])
         &#34;&#34;&#34;
-        if name not in self.Y_mu_pred:
-            raise ValueError(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
-       
-        if self.X_pred is None:
-            X = self.X.copy()
-        else:
-            X = self.X_pred.copy()
-        mu = self.Y_mu_pred[name]
-        lower = mu - sigma*np.sqrt(self.Y_var_pred[name])
-        upper = mu + sigma*np.sqrt(self.Y_var_pred[name])
-
-        if transformed:
-            return X, mu, lower, upper
-
-        mu = Serie(self.Y.detransform(mu, X), self.Y.transformers, transformed=mu)
-        lower = Serie(self.Y.detransform(lower, X), self.Y.transformers, transformed=lower)
-        upper = Serie(self.Y.detransform(upper, X), self.Y.transformers, transformed=upper)
-        return X, mu, lower, upper
-
-    def _format_prediction_x(self, X):
-        if isinstance(X, np.ndarray):
-            if X.ndim == 1:
-                X = X.reshape(-1,1)
-            if X.ndim != 2 or X.shape[1] != self.get_input_dims():
-                raise ValueError(&#34;X shape must be (n,input_dims) for each channel&#34;)
-            X = [X[:,i] for i in range(self.get_input_dims())]
-        elif not isinstance(X, list):
-            raise ValueError(&#34;X expected to be a list or numpy.ndarray for each channel&#34;)
-        if not all(x.ndim == 1 for x in X) or len(X) != self.get_input_dims():
-            raise ValueError(&#34;X shape must be (n,), (n,input_dims), or [(n,)] * input_dims for each channel&#34;)
-        X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
-        return X
-
-    def set_prediction_x(self, X):
-        &#34;&#34;&#34;
-        Set the prediction range directly for saved predictions. This will clear old predictions.
-
-        Args:
-            X (list, numpy.ndarray): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims used for predictions.
-
-        Examples:
-            &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
-        &#34;&#34;&#34;
-        X = self._format_prediction_x(X)
-        self.X_pred = [Serie(X[i], self.X[i].transformers) for i in range(self.get_input_dims())]
-
-        # clear old prediction data now that X_pred has been updated
-        self.clear_predictions()
+        X_pred = self._format_X(X)
+        if X_pred.shape[1] != self.X.shape[1]:
+            raise ValueError(&#34;X must have the same number of input dimensions as the data&#34;)
+        self.X_pred = X_pred
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
@@ -861,9 +826,9 @@ class Data:
             &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1D&#39;)
         &#34;&#34;&#34;
         if start is None:
-            start = [x[0] for x in self.X]
+            start = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
         if end is None:
-            end = [x[-1] for x in self.X]
+            end = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
         
         start = self._normalize_x_val(start)
         end = self._normalize_x_val(end)
@@ -872,7 +837,7 @@ class Data:
         for i in range(self.get_input_dims()):
             if n is not None and not isinstance(n[i], int):
                 raise ValueError(&#34;n must be integer&#34;)
-            if step is not None and np.issubdtype(self.X[i].dtype, np.datetime64):
+            if step is not None and self.X.is_datetime64(dim=i):
                 step[i] = _parse_delta(step[i])
 
         if np.any(end &lt;= start):
@@ -889,17 +854,7 @@ class Data:
                 else:
                     x_step = _parse_delta(step[i])
                 X_pred[i] = np.arange(start[i], end[i]+x_step, x_step)
-        self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(X_pred)]
-
-        # clear old prediction data now that X_pred has been updated
-        self.clear_predictions()
-
-    def clear_predictions(self):
-        &#34;&#34;&#34;
-        Clear all saved predictions.
-        &#34;&#34;&#34;
-        self.Y_mu_pred = {}
-        self.Y_var_pred = {}
+        self.X_pred = Serie(X_pred, self.X.transformers, dims=self.get_input_dims())
 
     ################################################################
 
@@ -914,10 +869,9 @@ class Data:
             &gt;&gt;&gt; freqs = data.get_nyquist_estimation()
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
-
         nyquist = np.empty((input_dims,))
         for i in range(self.get_input_dims()):
-            x = np.sort(self.X[i].transformed[self.mask])
+            x = np.sort(self.X.transformed[self.mask,i])
             dist = np.abs(x[1:]-x[:-1])
             dist = np.min(dist[np.nonzero(dist)])
             nyquist[i] = 0.5/dist
@@ -962,8 +916,8 @@ class Data:
         C = np.zeros((Q, input_dims))
 
         nyquist = self.get_nyquist_estimation()
+        x, y = self.get_train_data(transformed=True)
         for i in range(input_dims):
-            x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
             w = np.linspace(0.0, nyquist[i], n+1)[1:]
             psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, w)
 
@@ -1006,8 +960,8 @@ class Data:
         C = np.zeros((Q, input_dims))
 
         nyquist = self.get_nyquist_estimation()
+        x, y = self.get_train_data(transformed=True)
         for i in range(input_dims):
-            x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
             w, psd = BNSE(x[:,i], y, max_freq=nyquist[i], n=n)
             amplitudes, positions, variances = self._get_psd_peaks(w[:,0], psd[:,0])
             if len(positions) == 0:
@@ -1061,8 +1015,8 @@ class Data:
 
         if plot:
             nyquist = self.get_nyquist_estimation()
+            weights = np.array([sm.gpr.kernel[0][q].magnitude.numpy()**2 for q in range(Q)])
             means = np.array([sm.gpr.kernel[0][q].mean.numpy() for q in range(Q)])
-            weights = np.array([sm.gpr.kernel[0][q].sigma.numpy()**2 for q in range(Q)])
             scales = np.array([sm.gpr.kernel[0][q].variance.numpy() for q in range(Q)])
             nyquist = np.expand_dims(nyquist, 0)
             means = np.expand_dims(means, 1)
@@ -1070,7 +1024,7 @@ class Data:
             plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
         for q in range(Q):
-            A[q,:] = sm.gpr.kernel[0][q].sigma.numpy()**2  # TODO: weight is not per input_dims
+            A[q,:] = sm.gpr.kernel[0][q].magnitude.numpy()**2  # TODO: weight is not per input_dims
             B[q,:] = sm.gpr.kernel[0][q].mean.numpy()
             C[q,:] = sm.gpr.kernel[0][q].variance.numpy()
         return A, B, C
@@ -1084,6 +1038,7 @@ class Data:
             title (str): Set the title of the plot.
             ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
             legend (boolean): Display legend.
+            errorbars (boolean): Plot data error bars if available.
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
@@ -1099,7 +1054,7 @@ class Data:
             raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            _, ax = plt.subplots(1, 1, figsize=(18,6), squeeze=True, constrained_layout=True)
 
         legends = []
         if errorbars and self.Y_err is not None:
@@ -1109,58 +1064,41 @@ class Data:
             if transformed:
                 yl = self.Y.transform(yl, x)
                 yu = self.Y.transform(yu, x)
-            plt.errorbar(x[0], y, [y-yl, yu-y], elinewidth=0.5, ecolor=&#39;k&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
+            ax.errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor=&#39;lightgray&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
 
-        colors = list(matplotlib.colors.TABLEAU_COLORS)
-        for i, name in enumerate(self.Y_mu_pred):
-            if self.Y_mu_pred[name].size != 0 and (pred is None or name.lower() == pred.lower()):
-                X_pred, mu, lower, upper = self.get_prediction(name, transformed=transformed)
-
-                idx = np.argsort(X_pred[0])
-                ax.plot(X_pred[0][idx], mu[idx], ls=&#39;-&#39;, color=colors[i], lw=2)
-                ax.fill_between(X_pred[0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
-                #ax.plot(X_pred[:,0][idx], lower[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-                #ax.plot(X_pred[:,0][idx], upper[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-
-                label = &#39;Prediction&#39;
-                if name is not None:
-                    label += &#39; &#39; + name
-                legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=label))
+        if self.X_pred is None:
+            xmin = np.min(self.X)
+            xmax = np.max(self.X)
+        else:
+            xmin = min(np.min(self.X), np.min(self.X_pred))
+            xmax = max(np.max(self.X), np.max(self.X_pred))
 
         if self.F is not None:
-            if self.X_pred is None:
-                xmin = np.min(self.X[0])
-                xmax = np.max(self.X[0])
-            else:
-                xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
-                xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
-
-            if np.issubdtype(self.X[0].dtype, np.datetime64):
-                dt = np.timedelta64(1,self.X[0].get_time_unit())
+            if self.X.is_datetime64(dim=0):
+                dt = np.timedelta64(1,self.X.get_time_unit(dim=0))
                 n = int((xmax-xmin) / dt) + 1
-                x = np.arange(xmin, xmax+np.timedelta64(1,&#39;us&#39;), dt, dtype=self.X[0].dtype)
+                x = np.arange(xmin, xmax+np.timedelta64(1,&#39;us&#39;), dt, dtype=self.X.dtypes[0])
             else:
                 n = len(self.X[0])*10
                 x = np.linspace(xmin, xmax, n)
 
-            x = [x]
-            y = self.F(*x)
+            y = self.F(x)
             if transformed:
                 y = self.Y.transform(y, x)
 
-            ax.plot(x[0], y, &#39;r--&#39;, lw=1)
-            legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
-
-        _, Y = self.get_data(transformed=transformed)
-        idx = np.argsort(self.X[0])
-        ax.plot(self.X[0][idx], Y[idx], &#39;k--&#39;, alpha=0.8)
-        legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
-
-        x, y = self.get_train_data(transformed=transformed)
-        ax.plot(x[0], y, &#39;k.&#39;, mew=0.5, ms=10, markeredgecolor=&#39;white&#39;)
-        legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;))
+            ax.plot(x, y, &#39;g--&#39;, lw=1)
+            legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;g&#39;, label=&#39;True&#39;))
 
         if self.has_test_data():
+            x, y = self.get_test_data(transformed=transformed)
+            ax.plot(x, y, &#39;g.&#39;, ms=10)
+            legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;g&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Latent&#39;))
+
+        x, y = self.get_train_data(transformed=transformed)
+        ax.plot(x, y, &#39;r.&#39;, ms=10)
+        legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;r&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Observations&#39;))
+
+        if 0 &lt; len(self.removed_ranges[0]):
             for removed_range in self.removed_ranges[0]:
                 x0 = removed_range[0]
                 x1 = removed_range[1]
@@ -1173,22 +1111,13 @@ class Data:
                 (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.5, lw=0, label=&#39;Removed Ranges&#39;
             ))
 
-        if self.X_pred is None:
-            xmin = np.min(self.X[0])
-            xmax = np.max(self.X[0])
-        else:
-            xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
-            xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
         ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
-
         ax.set_xlabel(self.X_labels[0])
         ax.set_ylabel(self.Y_label)
         ax.set_title(self.name if title is None else title, fontsize=14)
 
         if legend:
-            legend_rows = (len(legends)-1)/5 + 1
-            ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
-
+            ax.legend(handles=legends, ncol=5)
         return ax
 
     def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, log=False, transformed=True, n=1001):
@@ -1219,15 +1148,15 @@ class Data:
 
         ax_set = ax is not None
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            _, ax = plt.subplots(1, 1, figsize=(12,3), squeeze=True, constrained_layout=True)
         
         X_scale = 1.0
-        if np.issubdtype(self.X[0].dtype, np.datetime64):
+        if self.X.is_datetime64(dim=0):
             if per is None:
-                per = _datetime64_unit_names[self.X[0].get_time_unit()]
+                per = _datetime64_unit_names[self.X.get_time_unit(dim=0)]
             else:
                 unit = _parse_delta(per)
-                X_scale = np.timedelta64(1,self.X[0].get_time_unit()) / unit
+                X_scale = np.timedelta64(1,self.X.get_time_unit(dim=0)) / unit
                 if not isinstance(per, str):
                     per = &#39;%s&#39; % (unit,)
 
@@ -1236,13 +1165,13 @@ class Data:
         else:
             ax.set_xlabel(&#39;Frequency&#39;)
         
-        X = self.X[0].astype(np.float)
+        X = self.X
         Y = self.Y
         if transformed:
             Y = self.Y.transformed
 
-        idx = np.argsort(X)
-        X = X[idx] * X_scale
+        idx = np.argsort(X[:,0])
+        X = X[idx,0] * X_scale
         Y = Y[idx]
 
         nyquist = maxfreq
@@ -1250,33 +1179,35 @@ class Data:
             dist = np.abs(X[1:]-X[:-1])
             nyquist = float(0.5 / np.average(dist))
 
+        Y_freq_err = np.array([])
         if method.lower() == &#39;ls&#39;:
             X_freq = np.linspace(0.0, nyquist, n)[1:]
             Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq, normalize=True)
         elif method.lower() == &#39;bnse&#39;:
-            X_freq, Y_freq = BNSE(np.array(X), np.array(Y), max_freq=nyquist, n=n)
+            X_freq, Y_freq, Y_freq_err = BNSE(X, Y, max_freq=nyquist, n=n)
         else:
             raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
-        # TODO: normalize periodograms
         # normalize
-        #Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
+        Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
 
         ax.plot(X_freq, Y_freq, &#39;-&#39;, c=&#39;k&#39;, lw=2)
-        #if len(Y_freq_err) != 0:
-        #    ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
+        if len(Y_freq_err) != 0:
+            Y_freq_err = 2.0*np.sqrt(Y_freq_err)
+            ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, color=&#39;k&#39;, alpha=0.3)
         ax.set_title((self.name + &#39; Spectrum&#39; if self.name is not None else &#39;&#39;) if title is None else title, fontsize=14)
 
         if log:
             ax.set_xscale(&#39;log&#39;)
             ax.set_yscale(&#39;log&#39;)
+        else:
+            ax.set_ylim(0, None)
 
         if not ax_set:
             xmin = X_freq.min()
             xmax = X_freq.max()
-            ax.set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
-            ax.set_yticks([])
-            ax.set_ylim(0, None)
+            ax.set_xlim(xmin-(xmax-xmin)*0.005, xmax+(xmax-xmin)*0.005)
+        ax.set_yticks([])
         return ax
 
     def _normalize_val(self, val):
@@ -1301,9 +1232,9 @@ class Data:
         val = self._normalize_val(val)
         for i in range(self.get_input_dims()):
             try:
-                val[i] = self.X[i].dtype.type(val[i])
+                val[i] = self.X.dtypes[i].type(val[i])
             except:
-                raise ValueError(&#34;value must be of type %s&#34; % (self.X[i].dtype,))
+                raise ValueError(&#34;value must be of type %s&#34; % (self.X.dtypes[i],))
         return val
 
 def _is_iterable(val):
@@ -1323,9 +1254,10 @@ def _check_function(f, input_dims, is_datetime64):
         raise ValueError(&#34;must pass a function with input dimensions as parameters&#34;)
 
     x = [np.array([np.datetime64(&#39;2000&#39;, &#39;us&#39;)]) if is_datetime64[i] else np.ones((1,)) for i in range(input_dims)]
+
     y = f(*x)
     if y.ndim != 1 or y.shape[0] != 1:
-        raise ValueError(&#34;function must return Y with shape (n,), note that all inputs are of shape (n,)&#34;)
+        raise ValueError(&#34;function must return Y with shape (data_points,), note that all inputs are of shape (data_points,)&#34;)
 
 _datetime64_unit_names = {
     &#39;Y&#39;: &#39;year&#39;,
@@ -1435,11 +1367,10 @@ def _timedelta64_to_higher_unit(array):
 </code></dt>
 <dd>
 <div class="desc"><p>LoadFunction loads a dataset from a given function y = f(x) + Normal(0,var). It will pick <code>n</code> data points between start and end for the X axis for which <code>f</code> is being evaluated. By default the <code>n</code> points are spread equally over the interval, with <code>random=True</code> they will be picked randomly.</p>
-<p>The given function should take one argument X which is a list of <code>numpy.ndarray</code> of shape (n,) for every input dimension and returns an <code>numpy.ndarray</code> Y of shape (n,). If your data has only one input dimension, you can use X[0] to select the first (and only) input dimension.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong> :&ensp;<code>function</code></dt>
-<dd>Function taking X a list with elements of shape (n,) for each input dimension and returning shape (n,) as Y.</dd>
+<dd>Function taking a numpy.ndarray X of shape (data_points,) for each input dimension and returning a numpy.ndarray Y of shape (data_points,).</dd>
 <dt><strong><code>start</code></strong> :&ensp;<code>float, list</code></dt>
 <dd>Define start of interval.</dd>
 <dt><strong><code>end</code></strong> :&ensp;<code>float, list</code></dt>
@@ -1456,22 +1387,20 @@ def _timedelta64_to_higher_unit(array):
 <h2 id="returns">Returns</h2>
 <p>mogptk.data.Data</p>
 <h2 id="examples">Examples</h2>
-<pre><code class="language-python-repl">&gt;&gt;&gt; LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name='Sine wave')
+<pre><code class="language-python-repl">&gt;&gt;&gt; LoadFunction(lambda x,y: np.sin(3*x)+np.cos(2*y), 0, 10, n=200, var=0.1, name='Sine wave')
 &lt;mogptk.data.Data at ...&gt;
 </code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L25-L140" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L78-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
     &#34;&#34;&#34;
     LoadFunction loads a dataset from a given function y = f(x) + Normal(0,var). It will pick `n` data points between start and end for the X axis for which `f` is being evaluated. By default the `n` points are spread equally over the interval, with `random=True` they will be picked randomly.
 
-    The given function should take one argument X which is a list of `numpy.ndarray` of shape (n,) for every input dimension and returns an `numpy.ndarray` Y of shape (n,). If your data has only one input dimension, you can use X[0] to select the first (and only) input dimension.
-
     Args:
-        f (function): Function taking X a list with elements of shape (n,) for each input dimension and returning shape (n,) as Y.
+        f (function): Function taking a numpy.ndarray X of shape (data_points,) for each input dimension and returning a numpy.ndarray Y of shape (data_points,).
         start (float, list): Define start of interval.
         end (float, list): Define end of interval.
         n (int, list): Number of data points to pick between start and end.
@@ -1483,7 +1412,7 @@ def _timedelta64_to_higher_unit(array):
         mogptk.data.Data
 
     Examples:
-        &gt;&gt;&gt; LoadFunction(lambda x: np.sin(3*x[:,0]), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
+        &gt;&gt;&gt; LoadFunction(lambda x,y: np.sin(3*x)+np.cos(2*y), 0, 10, n=200, var=0.1, name=&#39;Sine wave&#39;)
         &lt;mogptk.data.Data at ...&gt;
     &#34;&#34;&#34;
 
@@ -1567,18 +1496,102 @@ def _timedelta64_to_higher_unit(array):
         else:
             x[i] = np.linspace(start[i], end[i], n[i])
 
-        N_tile = math.prod(n[:i])
-        N_repeat = math.prod(n[i+1:])
+        N_tile = np.prod(n[:i])
+        N_repeat = np.prod(n[i+1:])
         x[i] = np.tile(np.repeat(x[i], N_repeat), N_tile)
 
     y = f(*x)
     if y.ndim == 2 and y.shape[1] == 1:
         y = y[:,0]
-    N = math.prod(n)
+    N = np.prod(n)
     y += np.random.normal(0.0, var, (N,))
 
     data = Data(x, y, name=name)
     data.set_function(f)
+    return data</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.LoadSplitData"><code class="name flex">
+<span>def <span class="ident">LoadSplitData</span></span>(<span>x_train, x_test, y_train, y_test, name='')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Load from a split data set.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x_train</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Training input of shape (data_points,input_dims).</dd>
+<dt><strong><code>x_test</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Testing input of shape (test_points,input_dims).</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Training output of shape (data_points,).</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Testing output of shape (test_points,).</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of data.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>mogptk.data.Data</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; LoadSplitData(x_train, x_test, y_train, y_test, name='Sine wave')
+&lt;mogptk.data.Data at ...&gt;
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L24-L76" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def LoadSplitData(x_train, x_test, y_train, y_test, name=&#34;&#34;):
+    &#34;&#34;&#34;
+    Load from a split data set.
+
+    Args:
+        x_train (numpy.ndarray): Training input of shape (data_points,input_dims).
+        x_test (numpy.ndarray): Testing input of shape (test_points,input_dims).
+        y_train (numpy.ndarray): Training output of shape (data_points,).
+        y_test (numpy.ndarray): Testing output of shape (test_points,).
+        name (str): Name of data.
+
+    Returns:
+        mogptk.data.Data
+
+    Examples:
+        &gt;&gt;&gt; LoadSplitData(x_train, x_test, y_train, y_test, name=&#39;Sine wave&#39;)
+        &lt;mogptk.data.Data at ...&gt;
+    &#34;&#34;&#34;
+    if not isinstance(x_train, np.ndarray):
+        x_train = np.array(x_train)
+    if not isinstance(x_test, np.ndarray):
+        x_test = np.array(x_test)
+    if not isinstance(y_train, np.ndarray):
+        y_train = np.array(y_train)
+    if not isinstance(y_test, np.ndarray):
+        y_test = np.array(y_test)
+    if x_train.ndim == 1:
+        x_train = x_train.reshape(-1,1)
+    if x_test.ndim == 1:
+        x_test = x_test.reshape(-1,1)
+    if y_train.ndim == 2 and y_train.shape[1] == 1:
+        y_train = y_train.reshape(-1)
+    if y_test.ndim == 2 and y_test.shape[1] == 1:
+        y_test = y_test.reshape(-1)
+
+    if x_train.ndim != 2 or x_test.ndim != 2:
+        raise ValueError(&#34;x data must have shape (data_points,input_dims)&#34;)
+    if y_train.ndim != 1 or y_test.ndim != 1:
+        raise ValueError(&#34;y data must have shape (data_points,)&#34;)
+    if x_train.shape[0] != y_train.shape[0]:
+        raise ValueError(&#34;x_train and y_train must have the same number of data points&#34;)
+    if x_test.shape[0] != y_test.shape[0]:
+        raise ValueError(&#34;x_test and y_test must have the same number of data points&#34;)
+    if x_train.shape[1] != x_test.shape[1]:
+        raise ValueError(&#34;x_train and x_test must have the same number of input dimensions&#34;)
+
+    x = np.concatenate((x_train, x_test))
+    y = np.concatenate((y_train, y_test))
+    test_indices = np.arange(len(x_train),len(x))
+
+    data = Data(x, y, name=name)
+    data.remove_index(test_indices)
     return data</code></pre>
 </details>
 </dd>
@@ -1598,9 +1611,9 @@ def _timedelta64_to_higher_unit(array):
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>X</code></strong> :&ensp;<code>list, numpy.ndarray, dict</code></dt>
-<dd>Independent variable data of shape (n,) or (n,input_dims), or a list with elements of shape (n,) for each input dimension.</dd>
+<dd>Independent variable data of shape (data_points,) or (data_points,input_dims), or a list with elements of shape (data_points,) for each input dimension.</dd>
 <dt><strong><code>Y</code></strong> :&ensp;<code>list, numpy.ndarray</code></dt>
-<dd>Dependent variable data of shape (n,).</dd>
+<dd>Dependent variable data of shape (data_points,).</dd>
 <dt><strong><code>Y_err</code></strong> :&ensp;<code>list, numpy.ndarray</code></dt>
 <dd>Standard deviation of the dependent variable data of shape (n,).</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -1616,7 +1629,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L146-L1276" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L197-L1207" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Data:
     def __init__(self, X, Y, Y_err=None, name=None, x_labels=None, y_label=None):
@@ -1628,8 +1641,8 @@ def _timedelta64_to_higher_unit(array):
         It is possible to use the format given by `numpy.meshgrid` for X as a list of numpy arrays for each input dimension, and its values in Y. Each input dimension and Y must have shape (N1,N2,...,Nn) where n is the number of input dimensions and N the number of data points per input dimension.
 
         Args:
-            X (list, numpy.ndarray, dict): Independent variable data of shape (n,) or (n,input_dims), or a list with elements of shape (n,) for each input dimension.
-            Y (list, numpy.ndarray): Dependent variable data of shape (n,).
+            X (list, numpy.ndarray, dict): Independent variable data of shape (data_points,) or (data_points,input_dims), or a list with elements of shape (data_points,) for each input dimension.
+            Y (list, numpy.ndarray): Dependent variable data of shape (data_points,).
             Y_err (list, numpy.ndarray): Standard deviation of the dependent variable data of shape (n,).
             name (str): Name of data.
             x_labels (str, list of str): Name or names of input dimensions.
@@ -1650,12 +1663,63 @@ def _timedelta64_to_higher_unit(array):
                 it = iter(X.values())
                 first = len(next(it))
                 if not all(isinstance(x, (list, np.ndarray)) for x in X.values()) or not all(len(x) == first for x in it):
-                    raise ValueError(&#34;X dict should contain all lists or np.ndarrays where each has the same length&#34;)
+                    raise ValueError(&#34;X dict should contain all lists or numpy.ndarrays where each has the same length&#34;)
                 if not all(key in X for key in x_labels):
                     raise ValueError(&#34;X dict must contain all keys listed in x_labels&#34;)
                 X = [X[key] for key in x_labels]
 
-        # check if X is correct
+        X = self._format_X(X)
+        Y = self._format_Y(Y)
+        if Y_err is not None:
+            Y_err = self._format_Y(Y_err)
+
+        # convert meshgrids to flat arrays
+        if 1 &lt; X[0].ndim and 1 &lt; Y.ndim and X[0].shape == Y.shape:
+            X = [np.ravel(x) for x in X]
+            Y = np.ravel(Y)
+            if Y_err is not None:
+                Y_err = np.ravel(Y_err)
+
+        if X.ndim != 2:
+            raise ValueError(&#34;X must have shape (data_points,input_dims)&#34;)
+        if Y.ndim != 1:
+            raise ValueError(&#34;Y must have shape (data_points,)&#34;)
+        if Y.shape[0] == 0:
+            raise ValueError(&#34;X and Y must have a length greater than zero&#34;)
+        if X.shape[0] != Y.shape[0]:
+            raise ValueError(&#34;X and Y must be of the same length&#34;)
+        if Y_err is not None and Y.shape != Y_err.shape:
+            raise ValueError(&#34;Y and Y_err must have the same shape&#34;)
+
+        self.X = X # shape (n,input_dims)
+        self.Y = Y # shape (n)
+        self.Y_err = None
+        if Y_err is not None:
+            self.Y_err = Y_err # shape (n)
+        self.mask = np.array([True] * Y.shape[0])
+        self.F = None
+        self.X_pred = None
+
+        input_dims = X.shape[1]
+        self.removed_ranges = [[]] * input_dims
+        self.X_labels = [&#39;X&#39;] * input_dims
+        if 1 &lt; input_dims:
+            for i in range(input_dims):
+                self.X_labels[i] = &#39;X%d&#39; % (i,)
+        if isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
+            self.X_labels = x_labels
+
+        self.name = None
+        if isinstance(name, str):
+            self.name = name
+        elif isinstance(y_label, str):
+            self.name = y_label
+
+        self.Y_label = &#39;Y&#39;
+        if isinstance(y_label, str):
+            self.Y_label = y_label
+
+    def _format_X(self, X):
         if isinstance(X, list):
             if all(isinstance(x, list) for x in X):
                 m = len(X[0])
@@ -1702,7 +1766,12 @@ def _timedelta64_to_higher_unit(array):
             if np.issubdtype(X[i].dtype, np.datetime64):
                 X[i] = _datetime64_to_higher_unit(X[i])
 
-        # check if Y is correct
+        transformers = []
+        if hasattr(self, &#39;X&#39;):
+            transformers = self.X.transformers
+        return Serie(X, transformers, dims=input_dims) # shape (n,input_dims)
+
+    def _format_Y(self, Y):
         if isinstance(Y, list):
             if not all(isinstance(y, (int, float)) for y in Y):
                 raise ValueError(&#34;Y list items must all be numbers&#34;)
@@ -1718,75 +1787,18 @@ def _timedelta64_to_higher_unit(array):
         except:
             raise ValueError(&#34;Y data must have a number data type&#34;)
 
-        if Y_err is not None:
-            # check if Y_err is correct
-            if isinstance(Y_err, list):
-                if not all(isinstance(y, (int, float)) for y in Y_err):
-                    raise ValueError(&#34;Y_err list items must all be numbers&#34;)
-                elif not _is_homogeneous_type(Y_err):
-                    raise ValueError(&#34;Y_err list items must all have elements of the same type&#34;)
-                Y_err = np.array(Y_err)
-            elif not isinstance(Y_err, np.ndarray):
-                raise ValueError(&#34;Y_err must be list or numpy array&#34;)
-            if Y.shape != Y_err.shape:
-                raise ValueError(&#34;Y and Y_err must have the same shape&#34;)
+        if Y.ndim == 2 and Y.shape[1] == 1:
+            Y = Y.reshape(-1)
 
-            # try to cast unknown data types, Y becomes np.float64
-            try:
-                Y_err = Y_err.astype(np.float64)
-            except:
-                raise ValueError(&#34;Y_err data must have a number data type&#34;)
-
-        # convert meshgrids to flat arrays
-        if 1 &lt; X[0].ndim and 1 &lt; Y.ndim and X[0].shape == Y.shape:
-            X = [np.ravel(x) for x in X]
-            Y = np.ravel(Y)
-            if Y_err is not None:
-                Y_err = np.ravel(Y_err)
-
-        if any(x.ndim != 1 for x in X):
-            raise ValueError(&#34;X must be a one dimensional array of data for every input dimension&#34;)
-        if Y.ndim != 1:
-            raise ValueError(&#34;Y must be a one dimensional array of data&#34;)
-        if Y.shape[0] == 0:
-            raise ValueError(&#34;X and Y must have a length greater than zero&#34;)
-        if any(x.shape[0] != Y.shape[0] for x in X):
-            raise ValueError(&#34;X and Y must be of the same length for each input dimension&#34;)
-
-
-        self.X = [Serie(X[i]) for i in range(input_dims)] # [shape (n)] * input_dims
-        self.Y = Serie(Y) # shape (n)
-        self.Y_err = None
-        if Y_err is not None:
-            self.Y_err = Y_err # shape (n)
-        self.mask = np.array([True] * Y.shape[0])
-        self.F = None
-        self.X_pred = None
-        self.Y_mu_pred = {}
-        self.Y_var_pred = {}
-        self.removed_ranges = [[]] * input_dims
-
-        self.X_labels = [&#39;X&#39;] * input_dims
-        if 1 &lt; input_dims:
-            for i in range(input_dims):
-                self.X_labels[i] = &#39;X%d&#39; % (i,)
-        if isinstance(x_labels, list) and all(isinstance(item, str) for item in x_labels):
-            self.X_labels = x_labels
-
-        self.name = None
-        if isinstance(name, str):
-            self.name = name
-        elif isinstance(y_label, str):
-            self.name = y_label
-
-        self.Y_label = &#39;Y&#39;
-        if isinstance(y_label, str):
-            self.Y_label = y_label
+        transformers = []
+        if hasattr(self, &#39;Y&#39;):
+            transformers = self.Y.transformers
+        return Serie(Y) # shape (n,)
 
     def __repr__(self):
         df = pd.DataFrame()
-        for i in range(len(self.X)):
-            df[self.X_labels[i]] = self.X[i]
+        for i in range(self.X.shape[1]):
+            df[self.X_labels[i]] = self.X[:,i]
         df[self.Y_label] = self.Y
         return repr(df)
 
@@ -1841,35 +1853,14 @@ def _timedelta64_to_higher_unit(array):
         &#34;&#34;&#34;
         Set the (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
     
-        The function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
-
         Args:
-            f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
+        f (function): Function taking a numpy.ndarray X of shape (data_points,) for each input dimension and returning a numpy.ndarray Y of shape (data_points,).
 
         Examples:
-            &gt;&gt;&gt; data.set_function(lambda x: np.sin(3*x[:,0])
+            &gt;&gt;&gt; data.set_function(lambda x,y: np.sin(3*x)+np.cos(2*y))
         &#34;&#34;&#34;
-        _check_function(f, self.get_input_dims(), [x.is_datetime64() for x in self.X])
+        _check_function(f, self.get_input_dims(), [self.X.is_datetime64(dim=i) for i in range(self.get_input_dims())])
         self.F = f
-
-    def rescale_x(self, upper=1000.0):
-        &#34;&#34;&#34;
-        Rescale the X axis so that it is in the interval [0.0,upper]. This helps training most kernels.
-
-        Args:
-            upper (float): Upper end of the interval.
-
-        Examples:
-            &gt;&gt;&gt; data.rescale_x()
-        &#34;&#34;&#34;
-
-        for i in range(self.get_input_dims()):
-            X = self.X[i].transformed
-            xmin = np.min(X)
-            xmax = np.max(X)
-            t = TransformLinear(xmin, (xmax-xmin)/upper)
-            t.set_data(X)
-            self.X[i].apply(t)
 
     def transform(self, transformer):
         &#34;&#34;&#34;
@@ -1891,8 +1882,7 @@ def _timedelta64_to_higher_unit(array):
             t = transformer()
         else:
             t = copy.deepcopy(t)
-        t.set_data(self)
-
+        t.set_data(self.Y.transformed, self.X.transformed)
         self.Y.apply(t, self.X)
     
     def filter(self, start, end, dim=None):
@@ -1913,17 +1903,17 @@ def _timedelta64_to_higher_unit(array):
         end = self._normalize_x_val(end)
         
         if dim is not None:
-            ind = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
+            ind = np.logical_and(self.X[:,dim] &gt;= start[dim], self.X[:,dim] &lt; end[dim])
         else:
-            ind = np.logical_and(self.X[0] &gt;= start[0], self.X[0] &lt; end[0])
+            ind = np.logical_and(self.X[:,0] &gt;= start[0], self.X[:,0] &lt; end[0])
             for i in range(1,self.get_input_dims()):
-                ind = np.logical_and(ind, np.logical_and(self.X[i] &gt;= start[i], self.X[i] &lt; end[i]))
+                ind = np.logical_and(ind, np.logical_and(self.X[:,i] &gt;= start[i], self.X[:,i] &lt; end[i]))
 
-        self.X = [x[ind] for x in self.X]
+        self.X = self.X[ind,:]
         self.Y = self.Y[ind]
         self.mask = self.mask[ind]
 
-    def aggregate(self, duration, f=np.mean, dim=0):
+    def aggregate(self, duration, f=np.mean):
         &#34;&#34;&#34;
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -1932,24 +1922,26 @@ def _timedelta64_to_higher_unit(array):
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
             f (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`.
-            dim (int): Input dimension to apply to, defaults to the first input dimension.
 
         Examples:
             &gt;&gt;&gt; data.aggregate(5)
 
             &gt;&gt;&gt; data.aggregate(&#39;2W&#39;, f=np.sum)
         &#34;&#34;&#34;
-        start = np.min(self.X[dim])
-        end = np.max(self.X[dim])
+        if 1 &lt; self.get_input_dims():
+            raise ValueError(&#34;aggregate works only with a single input dimension&#34;)
+
+        start = np.min(self.X[:,0])
+        end = np.max(self.X[:,0])
         step = _parse_delta(duration)
 
-        X = np.arange(start+step/2, end+step/2, step)
-        Y = np.empty((len(X)))
-        for i in range(len(X)):
-            ind = (self.X[dim] &gt;= X[i]-step/2) &amp; (self.X[dim] &lt; X[i]+step/2)
+        X = np.arange(start+step/2, end+step/2, step).reshape(-1,1)
+        Y = np.empty((X.shape[0],))
+        for i in range(X.shape[0]):
+            ind = (self.X[:,0] &gt;= X[i,0]-step/2) &amp; (self.X[:,0] &lt; X[i,0]+step/2)
             Y[i] = f(self.Y[ind])
 
-        self.X[dim] = Serie(X, self.X[dim].transformers)
+        self.X = Serie(X, self.X.transformers)
         self.Y = Serie(Y, self.Y.transformers, self.X)
         self.mask = np.array([True] * len(self.Y))
 
@@ -1992,7 +1984,7 @@ def _timedelta64_to_higher_unit(array):
             &gt;&gt;&gt; data.get_input_dims()
             2
         &#34;&#34;&#34;
-        return len(self.X)
+        return self.X.shape[1]
     
     def get_data(self, transformed=False):
         &#34;&#34;&#34;
@@ -2002,15 +1994,15 @@ def _timedelta64_to_higher_unit(array):
             transformed (boolean): Return transformed data.
 
         Returns:
-            list of numpy.ndarray: X data of shape [(n,)] * input_dims.
-            numpy.ndarray: Y data of shape (n,).
+            numpy.ndarray: X data of shape (data_points,input_dims).
+            numpy.ndarray: Y data of shape (data_points,).
 
         Examples:
             &gt;&gt;&gt; x, y = data.get_data()
         &#34;&#34;&#34;
         if transformed:
             return self.X, self.Y.transformed
-        return self.X, np.array(self.Y)
+        return self.X, self.Y
 
     def get_train_data(self, transformed=False):
         &#34;&#34;&#34;
@@ -2020,15 +2012,15 @@ def _timedelta64_to_higher_unit(array):
             transformed (boolean): Return transformed data.
 
         Returns:
-            list of numpy.ndarray: X data of shape [(n,)] * input_dims.
-            numpy.ndarray: Y data of shape (n,).
+            numpy.ndarray: X data of shape (data_points,input_dims).
+            numpy.ndarray: Y data of shape (data_points,).
 
         Examples:
             &gt;&gt;&gt; x, y = data.get_train_data()
         &#34;&#34;&#34;
         if transformed:
-            return [x[self.mask] for x in self.X], self.Y.transformed[self.mask]
-        return [x[self.mask] for x in self.X], np.array(self.Y[self.mask])
+            return self.X[self.mask,:], self.Y.transformed[self.mask]
+        return self.X[self.mask,:], self.Y[self.mask]
 
     def get_test_data(self, transformed=False):
         &#34;&#34;&#34;
@@ -2044,27 +2036,28 @@ def _timedelta64_to_higher_unit(array):
         Examples:
             &gt;&gt;&gt; x, y = data.get_test_data()
         &#34;&#34;&#34;
-        X = [x[~self.mask] for x in self.X]
+        X = self.X[~self.mask,:]
         if self.F is not None:
-            if X[0].shape[0] == 0:
+            if X.shape[0] == 0:
                 X, _ = self.get_data()
-            Y = self.F(*X)
+            Y = self.F(X)
             if transformed:
                 Y = self.Y.transform(Y, X)
             return X, Y
         if transformed:
             return X, self.Y.transformed[~self.mask]
-        return X, np.array(self.Y[~self.mask])
+        return X, self.Y[~self.mask]
 
     ################################################################
 
     def reset(self):
         &#34;&#34;&#34;
-        Reset the data set and undo the removal of data points. That is, this reverts any calls to `remove_randomly`, `remove_range`, `remove_relative_range`, `remove_random_ranges`, and `remove_index`.
+        Reset the dataset and undo the removal of data points. That is, this reverts any calls to `remove_randomly`, `remove_range`, `remove_relative_range`, `remove_random_ranges`, and `remove_index`. Additionally, also resets the prediction range to the original dataset.
         &#34;&#34;&#34;
         self.mask[:] = True
         for i in range(len(self.removed_ranges)):
             self.removed_ranges[i] = []
+        self.X_pred = None
     
     def remove_randomly(self, n=None, pct=None):
         &#34;&#34;&#34;
@@ -2105,20 +2098,20 @@ def _timedelta64_to_higher_unit(array):
             &gt;&gt;&gt; data.remove_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
         &#34;&#34;&#34;
         if start is None:
-            start = [np.min(x) for x in self.X]
+            start = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
         if end is None:
-            end = [np.max(x) for x in self.X]
+            end = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
 
         start = self._normalize_x_val(start)
         end = self._normalize_x_val(end)
 
         if dim is not None:
-            mask = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
+            mask = np.logical_and(self.X[:,dim] &gt;= start[dim], self.X[:,dim] &lt; end[dim])
             self.removed_ranges[dim].append([start[dim], end[dim]])
         else:
-            mask = np.logical_and(self.X[0] &gt;= start[0], self.X[0] &lt; end[0])
+            mask = np.logical_and(self.X[:,0] &gt;= start[0], self.X[:,0] &lt; end[0])
             for i in range(1,self.get_input_dims()):
-                mask = np.logical_or(mask, np.logical_and(self.X[i] &gt;= start[i], self.X[i] &lt; end[i]))
+                mask = np.logical_or(mask, np.logical_and(self.X[:,i] &gt;= start[i], self.X[:,i] &lt; end[i]))
             for i in range(self.get_input_dims()):
                 self.removed_ranges[i].append([start[i], end[i]])
         self.mask[np.where(mask)] = False
@@ -2135,11 +2128,11 @@ def _timedelta64_to_higher_unit(array):
         start = self._normalize_x_val(start)
         end = self._normalize_x_val(end)
 
-        x_min = [np.min(x) for x in self.X]
-        x_max = [np.max(x) for x in self.X]
+        xmin = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
+        xmax = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
         for i in range(self.get_input_dims()):
-            start[i] = x_min[i] + max(0.0, min(1.0, start[i])) * (x_max[i]-x_min[i])
-            end[i] = x_min[i] + max(0.0, min(1.0, end[i])) * (x_max[i]-x_min[i])
+            start[i] = xmin[i] + max(0.0, min(1.0, start[i])) * (xmax[i]-xmin[i])
+            end[i] = xmin[i] + max(0.0, min(1.0, end[i])) * (xmax[i]-xmin[i])
 
         self.remove_range(start, end, dim)
 
@@ -2161,129 +2154,63 @@ def _timedelta64_to_higher_unit(array):
             return
 
         delta = _parse_delta(duration)
-        m = (np.max(self.X[dim])-np.min(self.X[dim])) - n*delta
+        m = (np.max(self.X[:,dim])-np.min(self.X[:,dim])) - n*delta
         if m &lt;= 0:
             raise ValueError(&#34;no data left after removing ranges&#34;)
 
-        locs = self.X[dim] &lt;= (np.max(self.X[dim])-delta)
+        locs = self.X[:,dim] &lt;= (np.max(self.X[:,dim])-delta)
         locs[sum(locs)] = True # make sure the last data point can be deleted
         for i in range(n):
-            if len(self.X[dim][locs]) == 0:
+            if self.X[locs,dim].shape[0] == 0:
                 break # range could not be removed, there is no remaining data range of width delta
-            x = self.X[dim][locs][np.random.randint(len(self.X[dim][locs]))]
-            locs[(self.X[dim] &gt; x-delta) &amp; (self.X[dim] &lt; x+delta)] = False
-            self.mask[(self.X[dim] &gt;= x) &amp; (self.X[dim] &lt; x+delta)] = False
+            x = self.X[locs,dim][np.random.randint(self.X[locs,dim].shape[0])]
+            locs[(self.X[:,dim] &gt; x-delta) &amp; (self.X[:,dim] &lt; x+delta)] = False
+            self.mask[(self.X[:,dim] &gt;= x) &amp; (self.X[:,dim] &lt; x+delta)] = False
             self.removed_ranges[dim].append([x, x+delta])
 
-    def remove_index(self, index):
+    def remove_indices(self, indices):
         &#34;&#34;&#34;
-        Removes observations of given index
+        Removes observations of given indices.
 
         Args:
-            index(list, numpy.ndarray): Array of indexes of the data to remove.
+            ind (list, numpy.ndarray): Array of indexes of the data to remove.
         &#34;&#34;&#34;
-        if isinstance(index, list):
-            index = np.array(index)
-        elif not isinstance(index, np.ndarray):
-            raise ValueError(&#34;index must be list or numpy array&#34;)
-
-        self.mask[index] = False
+        if isinstance(indices, list):
+            indices = np.array(indices)
+        elif not isinstance(indices, np.ndarray):
+            raise ValueError(&#34;indices must be list or numpy array&#34;)
+        self.mask[indices] = False
     
     ################################################################
     
-    def get_prediction_names(self):
+    def get_prediction_data(self):
         &#34;&#34;&#34;
-        Returns the model names of the saved predictions.
+        Returns the prediction points.
 
         Returns:
-            list: List of prediction names.
+            numpy.ndarray: X prediction of shape (data_points,input_dims).
 
         Examples:
-            &gt;&gt;&gt; data.get_prediction_names()
-            [&#39;MOSM&#39;, &#39;CSM&#39;, &#39;SM-LMC&#39;, &#39;CONV&#39;]
-        &#34;&#34;&#34;
-        return self.Y_mu_pred.keys()
-    
-    def get_prediction_x(self):
-        &#34;&#34;&#34;
-        Returns the prediction X range.
-
-        Returns:
-            numpy.ndarray: X prediction of shape [(n,)] * input_dims.
-
-        Examples:
-            &gt;&gt;&gt; x = data.get_prediction_x()
+            &gt;&gt;&gt; x = data.get_prediction_data()
         &#34;&#34;&#34;
         if self.X_pred is None:
             return self.X.copy()
         return self.X_pred.copy()
-    
-    def get_prediction(self, name, sigma=2.0, transformed=False):
+
+    def set_prediction_data(self, X):
         &#34;&#34;&#34;
-        Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
+        Set the prediction points.
 
         Args:
-            name (str): Name of the model of the prediction.
-            sigma (float): The confidence interval&#39;s number of standard deviations.
-            transformed (boolean): Return transformed data as used for training.
-
-        Returns:
-            numpy.ndarray: X prediction of shape [(n,)] * input_dims.
-            numpy.ndarray: Y mean prediction of shape (n,).
-            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
-            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
+            X (list,numpy.ndarray): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims used for predictions.
 
         Examples:
-            &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction(&#39;MOSM&#39;, sigma=1)
+            &gt;&gt;&gt; data.set_prediction_data([5.0, 5.5, 6.0, 6.5, 7.0])
         &#34;&#34;&#34;
-        if name not in self.Y_mu_pred:
-            raise ValueError(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
-       
-        if self.X_pred is None:
-            X = self.X.copy()
-        else:
-            X = self.X_pred.copy()
-        mu = self.Y_mu_pred[name]
-        lower = mu - sigma*np.sqrt(self.Y_var_pred[name])
-        upper = mu + sigma*np.sqrt(self.Y_var_pred[name])
-
-        if transformed:
-            return X, mu, lower, upper
-
-        mu = Serie(self.Y.detransform(mu, X), self.Y.transformers, transformed=mu)
-        lower = Serie(self.Y.detransform(lower, X), self.Y.transformers, transformed=lower)
-        upper = Serie(self.Y.detransform(upper, X), self.Y.transformers, transformed=upper)
-        return X, mu, lower, upper
-
-    def _format_prediction_x(self, X):
-        if isinstance(X, np.ndarray):
-            if X.ndim == 1:
-                X = X.reshape(-1,1)
-            if X.ndim != 2 or X.shape[1] != self.get_input_dims():
-                raise ValueError(&#34;X shape must be (n,input_dims) for each channel&#34;)
-            X = [X[:,i] for i in range(self.get_input_dims())]
-        elif not isinstance(X, list):
-            raise ValueError(&#34;X expected to be a list or numpy.ndarray for each channel&#34;)
-        if not all(x.ndim == 1 for x in X) or len(X) != self.get_input_dims():
-            raise ValueError(&#34;X shape must be (n,), (n,input_dims), or [(n,)] * input_dims for each channel&#34;)
-        X = [X[i].astype(self.X[i].dtype) for i in range(self.get_input_dims())]
-        return X
-
-    def set_prediction_x(self, X):
-        &#34;&#34;&#34;
-        Set the prediction range directly for saved predictions. This will clear old predictions.
-
-        Args:
-            X (list, numpy.ndarray): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims used for predictions.
-
-        Examples:
-            &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
-        &#34;&#34;&#34;
-        X = self._format_prediction_x(X)
-        self.X_pred = [Serie(X[i], self.X[i].transformers) for i in range(self.get_input_dims())]
-
-        # clear old prediction data now that X_pred has been updated
-        self.clear_predictions()
+        X_pred = self._format_X(X)
+        if X_pred.shape[1] != self.X.shape[1]:
+            raise ValueError(&#34;X must have the same number of input dimensions as the data&#34;)
+        self.X_pred = X_pred
 
     def set_prediction_range(self, start=None, end=None, n=None, step=None):
         &#34;&#34;&#34;
@@ -2305,9 +2232,9 @@ def _timedelta64_to_higher_unit(array):
             &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1D&#39;)
         &#34;&#34;&#34;
         if start is None:
-            start = [x[0] for x in self.X]
+            start = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
         if end is None:
-            end = [x[-1] for x in self.X]
+            end = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
         
         start = self._normalize_x_val(start)
         end = self._normalize_x_val(end)
@@ -2316,7 +2243,7 @@ def _timedelta64_to_higher_unit(array):
         for i in range(self.get_input_dims()):
             if n is not None and not isinstance(n[i], int):
                 raise ValueError(&#34;n must be integer&#34;)
-            if step is not None and np.issubdtype(self.X[i].dtype, np.datetime64):
+            if step is not None and self.X.is_datetime64(dim=i):
                 step[i] = _parse_delta(step[i])
 
         if np.any(end &lt;= start):
@@ -2333,17 +2260,7 @@ def _timedelta64_to_higher_unit(array):
                 else:
                     x_step = _parse_delta(step[i])
                 X_pred[i] = np.arange(start[i], end[i]+x_step, x_step)
-        self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(X_pred)]
-
-        # clear old prediction data now that X_pred has been updated
-        self.clear_predictions()
-
-    def clear_predictions(self):
-        &#34;&#34;&#34;
-        Clear all saved predictions.
-        &#34;&#34;&#34;
-        self.Y_mu_pred = {}
-        self.Y_var_pred = {}
+        self.X_pred = Serie(X_pred, self.X.transformers, dims=self.get_input_dims())
 
     ################################################################
 
@@ -2358,10 +2275,9 @@ def _timedelta64_to_higher_unit(array):
             &gt;&gt;&gt; freqs = data.get_nyquist_estimation()
         &#34;&#34;&#34;
         input_dims = self.get_input_dims()
-
         nyquist = np.empty((input_dims,))
         for i in range(self.get_input_dims()):
-            x = np.sort(self.X[i].transformed[self.mask])
+            x = np.sort(self.X.transformed[self.mask,i])
             dist = np.abs(x[1:]-x[:-1])
             dist = np.min(dist[np.nonzero(dist)])
             nyquist[i] = 0.5/dist
@@ -2406,8 +2322,8 @@ def _timedelta64_to_higher_unit(array):
         C = np.zeros((Q, input_dims))
 
         nyquist = self.get_nyquist_estimation()
+        x, y = self.get_train_data(transformed=True)
         for i in range(input_dims):
-            x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
             w = np.linspace(0.0, nyquist[i], n+1)[1:]
             psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, w)
 
@@ -2450,8 +2366,8 @@ def _timedelta64_to_higher_unit(array):
         C = np.zeros((Q, input_dims))
 
         nyquist = self.get_nyquist_estimation()
+        x, y = self.get_train_data(transformed=True)
         for i in range(input_dims):
-            x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
             w, psd = BNSE(x[:,i], y, max_freq=nyquist[i], n=n)
             amplitudes, positions, variances = self._get_psd_peaks(w[:,0], psd[:,0])
             if len(positions) == 0:
@@ -2505,8 +2421,8 @@ def _timedelta64_to_higher_unit(array):
 
         if plot:
             nyquist = self.get_nyquist_estimation()
+            weights = np.array([sm.gpr.kernel[0][q].magnitude.numpy()**2 for q in range(Q)])
             means = np.array([sm.gpr.kernel[0][q].mean.numpy() for q in range(Q)])
-            weights = np.array([sm.gpr.kernel[0][q].sigma.numpy()**2 for q in range(Q)])
             scales = np.array([sm.gpr.kernel[0][q].variance.numpy() for q in range(Q)])
             nyquist = np.expand_dims(nyquist, 0)
             means = np.expand_dims(means, 1)
@@ -2514,7 +2430,7 @@ def _timedelta64_to_higher_unit(array):
             plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
         for q in range(Q):
-            A[q,:] = sm.gpr.kernel[0][q].sigma.numpy()**2  # TODO: weight is not per input_dims
+            A[q,:] = sm.gpr.kernel[0][q].magnitude.numpy()**2  # TODO: weight is not per input_dims
             B[q,:] = sm.gpr.kernel[0][q].mean.numpy()
             C[q,:] = sm.gpr.kernel[0][q].variance.numpy()
         return A, B, C
@@ -2528,6 +2444,7 @@ def _timedelta64_to_higher_unit(array):
             title (str): Set the title of the plot.
             ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
             legend (boolean): Display legend.
+            errorbars (boolean): Plot data error bars if available.
             transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
@@ -2543,7 +2460,7 @@ def _timedelta64_to_higher_unit(array):
             raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            _, ax = plt.subplots(1, 1, figsize=(18,6), squeeze=True, constrained_layout=True)
 
         legends = []
         if errorbars and self.Y_err is not None:
@@ -2553,58 +2470,41 @@ def _timedelta64_to_higher_unit(array):
             if transformed:
                 yl = self.Y.transform(yl, x)
                 yu = self.Y.transform(yu, x)
-            plt.errorbar(x[0], y, [y-yl, yu-y], elinewidth=0.5, ecolor=&#39;k&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
+            ax.errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor=&#39;lightgray&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
 
-        colors = list(matplotlib.colors.TABLEAU_COLORS)
-        for i, name in enumerate(self.Y_mu_pred):
-            if self.Y_mu_pred[name].size != 0 and (pred is None or name.lower() == pred.lower()):
-                X_pred, mu, lower, upper = self.get_prediction(name, transformed=transformed)
-
-                idx = np.argsort(X_pred[0])
-                ax.plot(X_pred[0][idx], mu[idx], ls=&#39;-&#39;, color=colors[i], lw=2)
-                ax.fill_between(X_pred[0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
-                #ax.plot(X_pred[:,0][idx], lower[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-                #ax.plot(X_pred[:,0][idx], upper[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-
-                label = &#39;Prediction&#39;
-                if name is not None:
-                    label += &#39; &#39; + name
-                legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=label))
+        if self.X_pred is None:
+            xmin = np.min(self.X)
+            xmax = np.max(self.X)
+        else:
+            xmin = min(np.min(self.X), np.min(self.X_pred))
+            xmax = max(np.max(self.X), np.max(self.X_pred))
 
         if self.F is not None:
-            if self.X_pred is None:
-                xmin = np.min(self.X[0])
-                xmax = np.max(self.X[0])
-            else:
-                xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
-                xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
-
-            if np.issubdtype(self.X[0].dtype, np.datetime64):
-                dt = np.timedelta64(1,self.X[0].get_time_unit())
+            if self.X.is_datetime64(dim=0):
+                dt = np.timedelta64(1,self.X.get_time_unit(dim=0))
                 n = int((xmax-xmin) / dt) + 1
-                x = np.arange(xmin, xmax+np.timedelta64(1,&#39;us&#39;), dt, dtype=self.X[0].dtype)
+                x = np.arange(xmin, xmax+np.timedelta64(1,&#39;us&#39;), dt, dtype=self.X.dtypes[0])
             else:
                 n = len(self.X[0])*10
                 x = np.linspace(xmin, xmax, n)
 
-            x = [x]
-            y = self.F(*x)
+            y = self.F(x)
             if transformed:
                 y = self.Y.transform(y, x)
 
-            ax.plot(x[0], y, &#39;r--&#39;, lw=1)
-            legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
-
-        _, Y = self.get_data(transformed=transformed)
-        idx = np.argsort(self.X[0])
-        ax.plot(self.X[0][idx], Y[idx], &#39;k--&#39;, alpha=0.8)
-        legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
-
-        x, y = self.get_train_data(transformed=transformed)
-        ax.plot(x[0], y, &#39;k.&#39;, mew=0.5, ms=10, markeredgecolor=&#39;white&#39;)
-        legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;))
+            ax.plot(x, y, &#39;g--&#39;, lw=1)
+            legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;g&#39;, label=&#39;True&#39;))
 
         if self.has_test_data():
+            x, y = self.get_test_data(transformed=transformed)
+            ax.plot(x, y, &#39;g.&#39;, ms=10)
+            legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;g&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Latent&#39;))
+
+        x, y = self.get_train_data(transformed=transformed)
+        ax.plot(x, y, &#39;r.&#39;, ms=10)
+        legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;r&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Observations&#39;))
+
+        if 0 &lt; len(self.removed_ranges[0]):
             for removed_range in self.removed_ranges[0]:
                 x0 = removed_range[0]
                 x1 = removed_range[1]
@@ -2617,22 +2517,13 @@ def _timedelta64_to_higher_unit(array):
                 (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.5, lw=0, label=&#39;Removed Ranges&#39;
             ))
 
-        if self.X_pred is None:
-            xmin = np.min(self.X[0])
-            xmax = np.max(self.X[0])
-        else:
-            xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
-            xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
         ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
-
         ax.set_xlabel(self.X_labels[0])
         ax.set_ylabel(self.Y_label)
         ax.set_title(self.name if title is None else title, fontsize=14)
 
         if legend:
-            legend_rows = (len(legends)-1)/5 + 1
-            ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
-
+            ax.legend(handles=legends, ncol=5)
         return ax
 
     def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, log=False, transformed=True, n=1001):
@@ -2663,15 +2554,15 @@ def _timedelta64_to_higher_unit(array):
 
         ax_set = ax is not None
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+            _, ax = plt.subplots(1, 1, figsize=(12,3), squeeze=True, constrained_layout=True)
         
         X_scale = 1.0
-        if np.issubdtype(self.X[0].dtype, np.datetime64):
+        if self.X.is_datetime64(dim=0):
             if per is None:
-                per = _datetime64_unit_names[self.X[0].get_time_unit()]
+                per = _datetime64_unit_names[self.X.get_time_unit(dim=0)]
             else:
                 unit = _parse_delta(per)
-                X_scale = np.timedelta64(1,self.X[0].get_time_unit()) / unit
+                X_scale = np.timedelta64(1,self.X.get_time_unit(dim=0)) / unit
                 if not isinstance(per, str):
                     per = &#39;%s&#39; % (unit,)
 
@@ -2680,13 +2571,13 @@ def _timedelta64_to_higher_unit(array):
         else:
             ax.set_xlabel(&#39;Frequency&#39;)
         
-        X = self.X[0].astype(np.float)
+        X = self.X
         Y = self.Y
         if transformed:
             Y = self.Y.transformed
 
-        idx = np.argsort(X)
-        X = X[idx] * X_scale
+        idx = np.argsort(X[:,0])
+        X = X[idx,0] * X_scale
         Y = Y[idx]
 
         nyquist = maxfreq
@@ -2694,33 +2585,35 @@ def _timedelta64_to_higher_unit(array):
             dist = np.abs(X[1:]-X[:-1])
             nyquist = float(0.5 / np.average(dist))
 
+        Y_freq_err = np.array([])
         if method.lower() == &#39;ls&#39;:
             X_freq = np.linspace(0.0, nyquist, n)[1:]
             Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq, normalize=True)
         elif method.lower() == &#39;bnse&#39;:
-            X_freq, Y_freq = BNSE(np.array(X), np.array(Y), max_freq=nyquist, n=n)
+            X_freq, Y_freq, Y_freq_err = BNSE(X, Y, max_freq=nyquist, n=n)
         else:
             raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
-        # TODO: normalize periodograms
         # normalize
-        #Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
+        Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
 
         ax.plot(X_freq, Y_freq, &#39;-&#39;, c=&#39;k&#39;, lw=2)
-        #if len(Y_freq_err) != 0:
-        #    ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
+        if len(Y_freq_err) != 0:
+            Y_freq_err = 2.0*np.sqrt(Y_freq_err)
+            ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, color=&#39;k&#39;, alpha=0.3)
         ax.set_title((self.name + &#39; Spectrum&#39; if self.name is not None else &#39;&#39;) if title is None else title, fontsize=14)
 
         if log:
             ax.set_xscale(&#39;log&#39;)
             ax.set_yscale(&#39;log&#39;)
+        else:
+            ax.set_ylim(0, None)
 
         if not ax_set:
             xmin = X_freq.min()
             xmax = X_freq.max()
-            ax.set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
-            ax.set_yticks([])
-            ax.set_ylim(0, None)
+            ax.set_xlim(xmin-(xmax-xmin)*0.005, xmax+(xmax-xmin)*0.005)
+        ax.set_yticks([])
         return ax
 
     def _normalize_val(self, val):
@@ -2745,15 +2638,15 @@ def _timedelta64_to_higher_unit(array):
         val = self._normalize_val(val)
         for i in range(self.get_input_dims()):
             try:
-                val[i] = self.X[i].dtype.type(val[i])
+                val[i] = self.X.dtypes[i].type(val[i])
             except:
-                raise ValueError(&#34;value must be of type %s&#34; % (self.X[i].dtype,))
+                raise ValueError(&#34;value must be of type %s&#34; % (self.X.dtypes[i],))
         return val</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.data.Data.aggregate"><code class="name flex">
-<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=&lt;function mean&gt;, dim=0)</span>
+<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=&lt;function mean&gt;)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
@@ -2764,8 +2657,6 @@ def _timedelta64_to_higher_unit(array):
 <dd>Duration along the X axis or as a string in the duration format.</dd>
 <dt><strong><code>f</code></strong> :&ensp;<code>function</code></dt>
 <dd>Function to use to reduce data mapping a numpy array to a scalar, such as <code>numpy.mean</code>.</dd>
-<dt><strong><code>dim</code></strong> :&ensp;<code>int</code></dt>
-<dd>Input dimension to apply to, defaults to the first input dimension.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code class="language-python-repl">&gt;&gt;&gt; data.aggregate(5)
@@ -2775,9 +2666,9 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L451-L479" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L479-L509" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def aggregate(self, duration, f=np.mean, dim=0):
+<pre><code class="python">def aggregate(self, duration, f=np.mean):
     &#34;&#34;&#34;
     Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -2786,44 +2677,28 @@ def _timedelta64_to_higher_unit(array):
     Args:
         duration (float, str): Duration along the X axis or as a string in the duration format.
         f (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`.
-        dim (int): Input dimension to apply to, defaults to the first input dimension.
 
     Examples:
         &gt;&gt;&gt; data.aggregate(5)
 
         &gt;&gt;&gt; data.aggregate(&#39;2W&#39;, f=np.sum)
     &#34;&#34;&#34;
-    start = np.min(self.X[dim])
-    end = np.max(self.X[dim])
+    if 1 &lt; self.get_input_dims():
+        raise ValueError(&#34;aggregate works only with a single input dimension&#34;)
+
+    start = np.min(self.X[:,0])
+    end = np.max(self.X[:,0])
     step = _parse_delta(duration)
 
-    X = np.arange(start+step/2, end+step/2, step)
-    Y = np.empty((len(X)))
-    for i in range(len(X)):
-        ind = (self.X[dim] &gt;= X[i]-step/2) &amp; (self.X[dim] &lt; X[i]+step/2)
+    X = np.arange(start+step/2, end+step/2, step).reshape(-1,1)
+    Y = np.empty((X.shape[0],))
+    for i in range(X.shape[0]):
+        ind = (self.X[:,0] &gt;= X[i,0]-step/2) &amp; (self.X[:,0] &lt; X[i,0]+step/2)
         Y[i] = f(self.Y[ind])
 
-    self.X[dim] = Serie(X, self.X[dim].transformers)
+    self.X = Serie(X, self.X.transformers)
     self.Y = Serie(Y, self.Y.transformers, self.X)
     self.mask = np.array([True] * len(self.Y))</code></pre>
-</details>
-</dd>
-<dt id="mogptk.data.Data.clear_predictions"><code class="name flex">
-<span>def <span class="ident">clear_predictions</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Clear all saved predictions.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L866-L871" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def clear_predictions(self):
-    &#34;&#34;&#34;
-    Clear all saved predictions.
-    &#34;&#34;&#34;
-    self.Y_mu_pred = {}
-    self.Y_var_pred = {}</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.copy"><code class="name flex">
@@ -2839,7 +2714,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L318-L328" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L368-L378" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -2876,7 +2751,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L423-L449" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L451-L477" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def filter(self, start, end, dim=None):
     &#34;&#34;&#34;
@@ -2896,13 +2771,13 @@ def _timedelta64_to_higher_unit(array):
     end = self._normalize_x_val(end)
     
     if dim is not None:
-        ind = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
+        ind = np.logical_and(self.X[:,dim] &gt;= start[dim], self.X[:,dim] &lt; end[dim])
     else:
-        ind = np.logical_and(self.X[0] &gt;= start[0], self.X[0] &lt; end[0])
+        ind = np.logical_and(self.X[:,0] &gt;= start[0], self.X[:,0] &lt; end[0])
         for i in range(1,self.get_input_dims()):
-            ind = np.logical_and(ind, np.logical_and(self.X[i] &gt;= start[i], self.X[i] &lt; end[i]))
+            ind = np.logical_and(ind, np.logical_and(self.X[:,i] &gt;= start[i], self.X[:,i] &lt; end[i]))
 
-    self.X = [x[ind] for x in self.X]
+    self.X = self.X[ind,:]
     self.Y = self.Y[ind]
     self.mask = self.mask[ind]</code></pre>
 </details>
@@ -2934,7 +2809,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L953-L995" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L907-L949" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
     &#34;&#34;&#34;
@@ -2961,8 +2836,8 @@ def _timedelta64_to_higher_unit(array):
     C = np.zeros((Q, input_dims))
 
     nyquist = self.get_nyquist_estimation()
+    x, y = self.get_train_data(transformed=True)
     for i in range(input_dims):
-        x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
         w, psd = BNSE(x[:,i], y, max_freq=nyquist[i], n=n)
         amplitudes, positions, variances = self._get_psd_peaks(w[:,0], psd[:,0])
         if len(positions) == 0:
@@ -2990,10 +2865,10 @@ def _timedelta64_to_higher_unit(array):
 <p>transformed (boolean): Return transformed data.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>list</code> of <code>numpy.ndarray</code></dt>
-<dd>X data of shape [(n,)] * input_dims.</dd>
 <dt><code>numpy.ndarray</code></dt>
-<dd>Y data of shape (n,).</dd>
+<dd>X data of shape (data_points,input_dims).</dd>
+<dt><code>numpy.ndarray</code></dt>
+<dd>Y data of shape (data_points,).</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code class="language-python-repl">&gt;&gt;&gt; x, y = data.get_data()
@@ -3001,7 +2876,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L522-L538" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L552-L568" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3011,15 +2886,15 @@ def _timedelta64_to_higher_unit(array):
         transformed (boolean): Return transformed data.
 
     Returns:
-        list of numpy.ndarray: X data of shape [(n,)] * input_dims.
-        numpy.ndarray: Y data of shape (n,).
+        numpy.ndarray: X data of shape (data_points,input_dims).
+        numpy.ndarray: Y data of shape (data_points,).
 
     Examples:
         &gt;&gt;&gt; x, y = data.get_data()
     &#34;&#34;&#34;
     if transformed:
         return self.X, self.Y.transformed
-    return self.X, np.array(self.Y)</code></pre>
+    return self.X, self.Y</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_input_dims"><code class="name flex">
@@ -3039,7 +2914,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L509-L520" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L539-L550" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -3052,7 +2927,7 @@ def _timedelta64_to_higher_unit(array):
         &gt;&gt;&gt; data.get_input_dims()
         2
     &#34;&#34;&#34;
-    return len(self.X)</code></pre>
+    return self.X.shape[1]</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_lombscargle_estimation"><code class="name flex">
@@ -3082,7 +2957,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L909-L951" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L863-L905" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
@@ -3109,8 +2984,8 @@ def _timedelta64_to_higher_unit(array):
     C = np.zeros((Q, input_dims))
 
     nyquist = self.get_nyquist_estimation()
+    x, y = self.get_train_data(transformed=True)
     for i in range(input_dims):
-        x, y = np.array([x.transformed[self.mask] for x in self.X]).T, self.Y.transformed[self.mask]
         w = np.linspace(0.0, nyquist[i], n+1)[1:]
         psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, w)
 
@@ -3143,7 +3018,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L483-L494" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L513-L524" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_name(self):
     &#34;&#34;&#34;
@@ -3175,7 +3050,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L875-L893" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L830-L847" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -3188,147 +3063,42 @@ def _timedelta64_to_higher_unit(array):
         &gt;&gt;&gt; freqs = data.get_nyquist_estimation()
     &#34;&#34;&#34;
     input_dims = self.get_input_dims()
-
     nyquist = np.empty((input_dims,))
     for i in range(self.get_input_dims()):
-        x = np.sort(self.X[i].transformed[self.mask])
+        x = np.sort(self.X.transformed[self.mask,i])
         dist = np.abs(x[1:]-x[:-1])
         dist = np.min(dist[np.nonzero(dist)])
         nyquist[i] = 0.5/dist
     return nyquist</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.get_prediction"><code class="name flex">
-<span>def <span class="ident">get_prediction</span></span>(<span>self, name, sigma=2.0, transformed=False)</span>
+<dt id="mogptk.data.Data.get_prediction_data"><code class="name flex">
+<span>def <span class="ident">get_prediction_data</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns the prediction of a given name with a confidence interval of <code>sigma</code> times the standard deviation.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
-<dd>Name of the model of the prediction.</dd>
-<dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
-<dd>The confidence interval's number of standard deviations.</dd>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
-<dd>Return transformed data as used for training.</dd>
-</dl>
+<div class="desc"><p>Returns the prediction points.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>numpy.ndarray</code></dt>
-<dd>X prediction of shape [(n,)] * input_dims.</dd>
-<dt><code>numpy.ndarray</code></dt>
-<dd>Y mean prediction of shape (n,).</dd>
-<dt><code>numpy.ndarray</code></dt>
-<dd>Y lower prediction of uncertainty interval of shape (n,).</dd>
-<dt><code>numpy.ndarray</code></dt>
-<dd>Y upper prediction of uncertainty interval of shape (n,).</dd>
+<dd>X prediction of shape (data_points,input_dims).</dd>
 </dl>
 <h2 id="examples">Examples</h2>
-<pre><code class="language-python-repl">&gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction('MOSM', sigma=1)
+<pre><code class="language-python-repl">&gt;&gt;&gt; x = data.get_prediction_data()
 </code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L746-L781" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L749-L761" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def get_prediction(self, name, sigma=2.0, transformed=False):
+<pre><code class="python">def get_prediction_data(self):
     &#34;&#34;&#34;
-    Returns the prediction of a given name with a confidence interval of `sigma` times the standard deviation.
-
-    Args:
-        name (str): Name of the model of the prediction.
-        sigma (float): The confidence interval&#39;s number of standard deviations.
-        transformed (boolean): Return transformed data as used for training.
+    Returns the prediction points.
 
     Returns:
-        numpy.ndarray: X prediction of shape [(n,)] * input_dims.
-        numpy.ndarray: Y mean prediction of shape (n,).
-        numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,).
-        numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,).
+        numpy.ndarray: X prediction of shape (data_points,input_dims).
 
     Examples:
-        &gt;&gt;&gt; x, y_mean, y_var_lower, y_var_upper = data.get_prediction(&#39;MOSM&#39;, sigma=1)
-    &#34;&#34;&#34;
-    if name not in self.Y_mu_pred:
-        raise ValueError(&#34;prediction name &#39;%s&#39; does not exist&#34; % (name))
-   
-    if self.X_pred is None:
-        X = self.X.copy()
-    else:
-        X = self.X_pred.copy()
-    mu = self.Y_mu_pred[name]
-    lower = mu - sigma*np.sqrt(self.Y_var_pred[name])
-    upper = mu + sigma*np.sqrt(self.Y_var_pred[name])
-
-    if transformed:
-        return X, mu, lower, upper
-
-    mu = Serie(self.Y.detransform(mu, X), self.Y.transformers, transformed=mu)
-    lower = Serie(self.Y.detransform(lower, X), self.Y.transformers, transformed=lower)
-    upper = Serie(self.Y.detransform(upper, X), self.Y.transformers, transformed=upper)
-    return X, mu, lower, upper</code></pre>
-</details>
-</dd>
-<dt id="mogptk.data.Data.get_prediction_names"><code class="name flex">
-<span>def <span class="ident">get_prediction_names</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns the model names of the saved predictions.</p>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>list</code></dt>
-<dd>List of prediction names.</dd>
-</dl>
-<h2 id="examples">Examples</h2>
-<pre><code class="language-python-repl">&gt;&gt;&gt; data.get_prediction_names()
-['MOSM', 'CSM', 'SM-LMC', 'CONV']
-</code></pre></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L719-L730" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def get_prediction_names(self):
-    &#34;&#34;&#34;
-    Returns the model names of the saved predictions.
-
-    Returns:
-        list: List of prediction names.
-
-    Examples:
-        &gt;&gt;&gt; data.get_prediction_names()
-        [&#39;MOSM&#39;, &#39;CSM&#39;, &#39;SM-LMC&#39;, &#39;CONV&#39;]
-    &#34;&#34;&#34;
-    return self.Y_mu_pred.keys()</code></pre>
-</details>
-</dd>
-<dt id="mogptk.data.Data.get_prediction_x"><code class="name flex">
-<span>def <span class="ident">get_prediction_x</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns the prediction X range.</p>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>numpy.ndarray</code></dt>
-<dd>X prediction of shape [(n,)] * input_dims.</dd>
-</dl>
-<h2 id="examples">Examples</h2>
-<pre><code class="language-python-repl">&gt;&gt;&gt; x = data.get_prediction_x()
-</code></pre></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L732-L744" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def get_prediction_x(self):
-    &#34;&#34;&#34;
-    Returns the prediction X range.
-
-    Returns:
-        numpy.ndarray: X prediction of shape [(n,)] * input_dims.
-
-    Examples:
-        &gt;&gt;&gt; x = data.get_prediction_x()
+        &gt;&gt;&gt; x = data.get_prediction_data()
     &#34;&#34;&#34;
     if self.X_pred is None:
         return self.X.copy()
@@ -3370,7 +3140,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L997-L1045" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L951-L999" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;LS&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
     &#34;&#34;&#34;
@@ -3408,8 +3178,8 @@ def _timedelta64_to_higher_unit(array):
 
     if plot:
         nyquist = self.get_nyquist_estimation()
+        weights = np.array([sm.gpr.kernel[0][q].magnitude.numpy()**2 for q in range(Q)])
         means = np.array([sm.gpr.kernel[0][q].mean.numpy() for q in range(Q)])
-        weights = np.array([sm.gpr.kernel[0][q].sigma.numpy()**2 for q in range(Q)])
         scales = np.array([sm.gpr.kernel[0][q].variance.numpy() for q in range(Q)])
         nyquist = np.expand_dims(nyquist, 0)
         means = np.expand_dims(means, 1)
@@ -3417,7 +3187,7 @@ def _timedelta64_to_higher_unit(array):
         plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
 
     for q in range(Q):
-        A[q,:] = sm.gpr.kernel[0][q].sigma.numpy()**2  # TODO: weight is not per input_dims
+        A[q,:] = sm.gpr.kernel[0][q].magnitude.numpy()**2  # TODO: weight is not per input_dims
         B[q,:] = sm.gpr.kernel[0][q].mean.numpy()
         C[q,:] = sm.gpr.kernel[0][q].variance.numpy()
     return A, B, C</code></pre>
@@ -3443,7 +3213,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L558-L582" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L588-L612" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3459,17 +3229,17 @@ def _timedelta64_to_higher_unit(array):
     Examples:
         &gt;&gt;&gt; x, y = data.get_test_data()
     &#34;&#34;&#34;
-    X = [x[~self.mask] for x in self.X]
+    X = self.X[~self.mask,:]
     if self.F is not None:
-        if X[0].shape[0] == 0:
+        if X.shape[0] == 0:
             X, _ = self.get_data()
-        Y = self.F(*X)
+        Y = self.F(X)
         if transformed:
             Y = self.Y.transform(Y, X)
         return X, Y
     if transformed:
         return X, self.Y.transformed[~self.mask]
-    return X, np.array(self.Y[~self.mask])</code></pre>
+    return X, self.Y[~self.mask]</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.get_train_data"><code class="name flex">
@@ -3481,10 +3251,10 @@ def _timedelta64_to_higher_unit(array):
 <p>transformed (boolean): Return transformed data.</p>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>list</code> of <code>numpy.ndarray</code></dt>
-<dd>X data of shape [(n,)] * input_dims.</dd>
 <dt><code>numpy.ndarray</code></dt>
-<dd>Y data of shape (n,).</dd>
+<dd>X data of shape (data_points,input_dims).</dd>
+<dt><code>numpy.ndarray</code></dt>
+<dd>Y data of shape (data_points,).</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code class="language-python-repl">&gt;&gt;&gt; x, y = data.get_train_data()
@@ -3492,7 +3262,7 @@ def _timedelta64_to_higher_unit(array):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L540-L556" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L570-L586" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3502,15 +3272,15 @@ def _timedelta64_to_higher_unit(array):
         transformed (boolean): Return transformed data.
 
     Returns:
-        list of numpy.ndarray: X data of shape [(n,)] * input_dims.
-        numpy.ndarray: Y data of shape (n,).
+        numpy.ndarray: X data of shape (data_points,input_dims).
+        numpy.ndarray: Y data of shape (data_points,).
 
     Examples:
         &gt;&gt;&gt; x, y = data.get_train_data()
     &#34;&#34;&#34;
     if transformed:
-        return [x[self.mask] for x in self.X], self.Y.transformed[self.mask]
-    return [x[self.mask] for x in self.X], np.array(self.Y[self.mask])</code></pre>
+        return self.X[self.mask,:], self.Y.transformed[self.mask]
+    return self.X[self.mask,:], self.Y[self.mask]</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.has_test_data"><code class="name flex">
@@ -3527,7 +3297,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L496-L507" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L526-L537" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def has_test_data(self):
     &#34;&#34;&#34;
@@ -3558,6 +3328,8 @@ True
 <dd>Draw to this axes, otherwise draw to the current axes.</dd>
 <dt><strong><code>legend</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Display legend.</dd>
+<dt><strong><code>errorbars</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Plot data error bars if available.</dd>
 <dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Display transformed Y data as used for training.</dd>
 </dl>
@@ -3569,7 +3341,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L1047-L1161" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L1001-L1090" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, pred=None, title=None, ax=None, legend=True, errorbars=True, transformed=False):
     &#34;&#34;&#34;
@@ -3580,6 +3352,7 @@ True
         title (str): Set the title of the plot.
         ax (matplotlib.axes.Axes): Draw to this axes, otherwise draw to the current axes.
         legend (boolean): Display legend.
+        errorbars (boolean): Plot data error bars if available.
         transformed (boolean): Display transformed Y data as used for training.
 
     Returns:
@@ -3595,7 +3368,7 @@ True
         raise NotImplementedError(&#34;two dimensional input data not yet implemented&#34;) # TODO
 
     if ax is None:
-        _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+        _, ax = plt.subplots(1, 1, figsize=(18,6), squeeze=True, constrained_layout=True)
 
     legends = []
     if errorbars and self.Y_err is not None:
@@ -3605,58 +3378,41 @@ True
         if transformed:
             yl = self.Y.transform(yl, x)
             yu = self.Y.transform(yu, x)
-        plt.errorbar(x[0], y, [y-yl, yu-y], elinewidth=0.5, ecolor=&#39;k&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
+        ax.errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor=&#39;lightgray&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
 
-    colors = list(matplotlib.colors.TABLEAU_COLORS)
-    for i, name in enumerate(self.Y_mu_pred):
-        if self.Y_mu_pred[name].size != 0 and (pred is None or name.lower() == pred.lower()):
-            X_pred, mu, lower, upper = self.get_prediction(name, transformed=transformed)
-
-            idx = np.argsort(X_pred[0])
-            ax.plot(X_pred[0][idx], mu[idx], ls=&#39;-&#39;, color=colors[i], lw=2)
-            ax.fill_between(X_pred[0][idx], lower[idx], upper[idx], color=colors[i], alpha=0.1)
-            #ax.plot(X_pred[:,0][idx], lower[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-            #ax.plot(X_pred[:,0][idx], upper[idx], ls=&#39;-&#39;, color=colors[i], lw=1, alpha=0.5)
-
-            label = &#39;Prediction&#39;
-            if name is not None:
-                label += &#39; &#39; + name
-            legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=colors[i], lw=2, label=label))
+    if self.X_pred is None:
+        xmin = np.min(self.X)
+        xmax = np.max(self.X)
+    else:
+        xmin = min(np.min(self.X), np.min(self.X_pred))
+        xmax = max(np.max(self.X), np.max(self.X_pred))
 
     if self.F is not None:
-        if self.X_pred is None:
-            xmin = np.min(self.X[0])
-            xmax = np.max(self.X[0])
-        else:
-            xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
-            xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
-
-        if np.issubdtype(self.X[0].dtype, np.datetime64):
-            dt = np.timedelta64(1,self.X[0].get_time_unit())
+        if self.X.is_datetime64(dim=0):
+            dt = np.timedelta64(1,self.X.get_time_unit(dim=0))
             n = int((xmax-xmin) / dt) + 1
-            x = np.arange(xmin, xmax+np.timedelta64(1,&#39;us&#39;), dt, dtype=self.X[0].dtype)
+            x = np.arange(xmin, xmax+np.timedelta64(1,&#39;us&#39;), dt, dtype=self.X.dtypes[0])
         else:
             n = len(self.X[0])*10
             x = np.linspace(xmin, xmax, n)
 
-        x = [x]
-        y = self.F(*x)
+        y = self.F(x)
         if transformed:
             y = self.Y.transform(y, x)
 
-        ax.plot(x[0], y, &#39;r--&#39;, lw=1)
-        legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
-
-    _, Y = self.get_data(transformed=transformed)
-    idx = np.argsort(self.X[0])
-    ax.plot(self.X[0][idx], Y[idx], &#39;k--&#39;, alpha=0.8)
-    legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;All Points&#39;))
-
-    x, y = self.get_train_data(transformed=transformed)
-    ax.plot(x[0], y, &#39;k.&#39;, mew=0.5, ms=10, markeredgecolor=&#39;white&#39;)
-    legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;k&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Training Points&#39;))
+        ax.plot(x, y, &#39;g--&#39;, lw=1)
+        legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;g&#39;, label=&#39;True&#39;))
 
     if self.has_test_data():
+        x, y = self.get_test_data(transformed=transformed)
+        ax.plot(x, y, &#39;g.&#39;, ms=10)
+        legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;g&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Latent&#39;))
+
+    x, y = self.get_train_data(transformed=transformed)
+    ax.plot(x, y, &#39;r.&#39;, ms=10)
+    legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;r&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Observations&#39;))
+
+    if 0 &lt; len(self.removed_ranges[0]):
         for removed_range in self.removed_ranges[0]:
             x0 = removed_range[0]
             x1 = removed_range[1]
@@ -3669,22 +3425,13 @@ True
             (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.5, lw=0, label=&#39;Removed Ranges&#39;
         ))
 
-    if self.X_pred is None:
-        xmin = np.min(self.X[0])
-        xmax = np.max(self.X[0])
-    else:
-        xmin = min(np.min(self.X[0]), np.min(self.X_pred[0]))
-        xmax = max(np.max(self.X[0]), np.max(self.X_pred[0]))
     ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
-
     ax.set_xlabel(self.X_labels[0])
     ax.set_ylabel(self.Y_label)
     ax.set_title(self.name if title is None else title, fontsize=14)
 
     if legend:
-        legend_rows = (len(legends)-1)/5 + 1
-        ax.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(3.0+0.5+0.3*legend_rows)/3.0), ncol=5)
-
+        ax.legend(handles=legends, ncol=5)
     return ax</code></pre>
 </details>
 </dd>
@@ -3720,7 +3467,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L1163-L1249" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L1092-L1180" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, log=False, transformed=True, n=1001):
     &#34;&#34;&#34;
@@ -3750,15 +3497,15 @@ True
 
     ax_set = ax is not None
     if ax is None:
-        _, ax = plt.subplots(1, 1, figsize=(12, 3.0), squeeze=True, constrained_layout=True)
+        _, ax = plt.subplots(1, 1, figsize=(12,3), squeeze=True, constrained_layout=True)
     
     X_scale = 1.0
-    if np.issubdtype(self.X[0].dtype, np.datetime64):
+    if self.X.is_datetime64(dim=0):
         if per is None:
-            per = _datetime64_unit_names[self.X[0].get_time_unit()]
+            per = _datetime64_unit_names[self.X.get_time_unit(dim=0)]
         else:
             unit = _parse_delta(per)
-            X_scale = np.timedelta64(1,self.X[0].get_time_unit()) / unit
+            X_scale = np.timedelta64(1,self.X.get_time_unit(dim=0)) / unit
             if not isinstance(per, str):
                 per = &#39;%s&#39; % (unit,)
 
@@ -3767,13 +3514,13 @@ True
     else:
         ax.set_xlabel(&#39;Frequency&#39;)
     
-    X = self.X[0].astype(np.float)
+    X = self.X
     Y = self.Y
     if transformed:
         Y = self.Y.transformed
 
-    idx = np.argsort(X)
-    X = X[idx] * X_scale
+    idx = np.argsort(X[:,0])
+    X = X[idx,0] * X_scale
     Y = Y[idx]
 
     nyquist = maxfreq
@@ -3781,61 +3528,65 @@ True
         dist = np.abs(X[1:]-X[:-1])
         nyquist = float(0.5 / np.average(dist))
 
+    Y_freq_err = np.array([])
     if method.lower() == &#39;ls&#39;:
         X_freq = np.linspace(0.0, nyquist, n)[1:]
         Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq, normalize=True)
     elif method.lower() == &#39;bnse&#39;:
-        X_freq, Y_freq = BNSE(np.array(X), np.array(Y), max_freq=nyquist, n=n)
+        X_freq, Y_freq, Y_freq_err = BNSE(X, Y, max_freq=nyquist, n=n)
     else:
         raise ValueError(&#39;periodogram method &#34;%s&#34; does not exist&#39; % (method))
 
-    # TODO: normalize periodograms
     # normalize
-    #Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
+    Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
 
     ax.plot(X_freq, Y_freq, &#39;-&#39;, c=&#39;k&#39;, lw=2)
-    #if len(Y_freq_err) != 0:
-    #    ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
+    if len(Y_freq_err) != 0:
+        Y_freq_err = 2.0*np.sqrt(Y_freq_err)
+        ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, color=&#39;k&#39;, alpha=0.3)
     ax.set_title((self.name + &#39; Spectrum&#39; if self.name is not None else &#39;&#39;) if title is None else title, fontsize=14)
 
     if log:
         ax.set_xscale(&#39;log&#39;)
         ax.set_yscale(&#39;log&#39;)
+    else:
+        ax.set_ylim(0, None)
 
     if not ax_set:
         xmin = X_freq.min()
         xmax = X_freq.max()
-        ax.set_xlim(xmin - (xmax - xmin)*0.005, xmax + (xmax - xmin)*0.005)
-        ax.set_yticks([])
-        ax.set_ylim(0, None)
+        ax.set_xlim(xmin-(xmax-xmin)*0.005, xmax+(xmax-xmin)*0.005)
+    ax.set_yticks([])
     return ax</code></pre>
 </details>
 </dd>
-<dt id="mogptk.data.Data.remove_index"><code class="name flex">
-<span>def <span class="ident">remove_index</span></span>(<span>self, index)</span>
+<dt id="mogptk.data.Data.remove_indices"><code class="name flex">
+<span>def <span class="ident">remove_indices</span></span>(<span>self, indices)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Removes observations of given index</p>
+<div class="desc"><p>Removes observations of given indices.</p>
 <h2 id="args">Args</h2>
-<p>index(list, numpy.ndarray): Array of indexes of the data to remove.</p></div>
+<dl>
+<dt><strong><code>ind</code></strong> :&ensp;<code>list, numpy.ndarray</code></dt>
+<dd>Array of indexes of the data to remove.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L703-L715" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L734-L745" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def remove_index(self, index):
+<pre><code class="python">def remove_indices(self, indices):
     &#34;&#34;&#34;
-    Removes observations of given index
+    Removes observations of given indices.
 
     Args:
-        index(list, numpy.ndarray): Array of indexes of the data to remove.
+        ind (list, numpy.ndarray): Array of indexes of the data to remove.
     &#34;&#34;&#34;
-    if isinstance(index, list):
-        index = np.array(index)
-    elif not isinstance(index, np.ndarray):
-        raise ValueError(&#34;index must be list or numpy array&#34;)
-
-    self.mask[index] = False</code></pre>
+    if isinstance(indices, list):
+        indices = np.array(indices)
+    elif not isinstance(indices, np.ndarray):
+        raise ValueError(&#34;indices must be list or numpy array&#34;)
+    self.mask[indices] = False</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.remove_random_ranges"><code class="name flex">
@@ -3860,7 +3611,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L671-L701" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L702-L732" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_random_ranges(self, n, duration, dim=0):
     &#34;&#34;&#34;
@@ -3880,18 +3631,18 @@ True
         return
 
     delta = _parse_delta(duration)
-    m = (np.max(self.X[dim])-np.min(self.X[dim])) - n*delta
+    m = (np.max(self.X[:,dim])-np.min(self.X[:,dim])) - n*delta
     if m &lt;= 0:
         raise ValueError(&#34;no data left after removing ranges&#34;)
 
-    locs = self.X[dim] &lt;= (np.max(self.X[dim])-delta)
+    locs = self.X[:,dim] &lt;= (np.max(self.X[:,dim])-delta)
     locs[sum(locs)] = True # make sure the last data point can be deleted
     for i in range(n):
-        if len(self.X[dim][locs]) == 0:
+        if self.X[locs,dim].shape[0] == 0:
             break # range could not be removed, there is no remaining data range of width delta
-        x = self.X[dim][locs][np.random.randint(len(self.X[dim][locs]))]
-        locs[(self.X[dim] &gt; x-delta) &amp; (self.X[dim] &lt; x+delta)] = False
-        self.mask[(self.X[dim] &gt;= x) &amp; (self.X[dim] &lt; x+delta)] = False
+        x = self.X[locs,dim][np.random.randint(self.X[locs,dim].shape[0])]
+        locs[(self.X[:,dim] &gt; x-delta) &amp; (self.X[:,dim] &lt; x+delta)] = False
+        self.mask[(self.X[:,dim] &gt;= x) &amp; (self.X[:,dim] &lt; x+delta)] = False
         self.removed_ranges[dim].append([x, x+delta])</code></pre>
 </details>
 </dd>
@@ -3915,7 +3666,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L594-L614" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L625-L645" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_randomly(self, n=None, pct=None):
     &#34;&#34;&#34;
@@ -3964,7 +3715,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L616-L649" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L647-L680" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_range(self, start=None, end=None, dim=None):
     &#34;&#34;&#34;
@@ -3983,20 +3734,20 @@ True
         &gt;&gt;&gt; data.remove_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;)
     &#34;&#34;&#34;
     if start is None:
-        start = [np.min(x) for x in self.X]
+        start = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
     if end is None:
-        end = [np.max(x) for x in self.X]
+        end = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
 
     start = self._normalize_x_val(start)
     end = self._normalize_x_val(end)
 
     if dim is not None:
-        mask = np.logical_and(self.X[dim] &gt;= start[dim], self.X[dim] &lt; end[dim])
+        mask = np.logical_and(self.X[:,dim] &gt;= start[dim], self.X[:,dim] &lt; end[dim])
         self.removed_ranges[dim].append([start[dim], end[dim]])
     else:
-        mask = np.logical_and(self.X[0] &gt;= start[0], self.X[0] &lt; end[0])
+        mask = np.logical_and(self.X[:,0] &gt;= start[0], self.X[:,0] &lt; end[0])
         for i in range(1,self.get_input_dims()):
-            mask = np.logical_or(mask, np.logical_and(self.X[i] &gt;= start[i], self.X[i] &lt; end[i]))
+            mask = np.logical_or(mask, np.logical_and(self.X[:,i] &gt;= start[i], self.X[:,i] &lt; end[i]))
         for i in range(self.get_input_dims()):
             self.removed_ranges[i].append([start[i], end[i]])
     self.mask[np.where(mask)] = False</code></pre>
@@ -4019,7 +3770,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L651-L669" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L682-L700" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_relative_range(self, start=0.0, end=1.0, dim=None):
     &#34;&#34;&#34;
@@ -4033,70 +3784,33 @@ True
     start = self._normalize_x_val(start)
     end = self._normalize_x_val(end)
 
-    x_min = [np.min(x) for x in self.X]
-    x_max = [np.max(x) for x in self.X]
+    xmin = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
+    xmax = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
     for i in range(self.get_input_dims()):
-        start[i] = x_min[i] + max(0.0, min(1.0, start[i])) * (x_max[i]-x_min[i])
-        end[i] = x_min[i] + max(0.0, min(1.0, end[i])) * (x_max[i]-x_min[i])
+        start[i] = xmin[i] + max(0.0, min(1.0, start[i])) * (xmax[i]-xmin[i])
+        end[i] = xmin[i] + max(0.0, min(1.0, end[i])) * (xmax[i]-xmin[i])
 
     self.remove_range(start, end, dim)</code></pre>
-</details>
-</dd>
-<dt id="mogptk.data.Data.rescale_x"><code class="name flex">
-<span>def <span class="ident">rescale_x</span></span>(<span>self, upper=1000.0)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Rescale the X axis so that it is in the interval [0.0,upper]. This helps training most kernels.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>upper</code></strong> :&ensp;<code>float</code></dt>
-<dd>Upper end of the interval.</dd>
-</dl>
-<h2 id="examples">Examples</h2>
-<pre><code class="language-python-repl">&gt;&gt;&gt; data.rescale_x()
-</code></pre></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L380-L397" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def rescale_x(self, upper=1000.0):
-    &#34;&#34;&#34;
-    Rescale the X axis so that it is in the interval [0.0,upper]. This helps training most kernels.
-
-    Args:
-        upper (float): Upper end of the interval.
-
-    Examples:
-        &gt;&gt;&gt; data.rescale_x()
-    &#34;&#34;&#34;
-
-    for i in range(self.get_input_dims()):
-        X = self.X[i].transformed
-        xmin = np.min(X)
-        xmax = np.max(X)
-        t = TransformLinear(xmin, (xmax-xmin)/upper)
-        t.set_data(X)
-        self.X[i].apply(t)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.reset"><code class="name flex">
 <span>def <span class="ident">reset</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Reset the data set and undo the removal of data points. That is, this reverts any calls to <code>remove_randomly</code>, <code>remove_range</code>, <code>remove_relative_range</code>, <code>remove_random_ranges</code>, and <code>remove_index</code>.</p></div>
+<div class="desc"><p>Reset the dataset and undo the removal of data points. That is, this reverts any calls to <code>remove_randomly</code>, <code>remove_range</code>, <code>remove_relative_range</code>, <code>remove_random_ranges</code>, and <code>remove_index</code>. Additionally, also resets the prediction range to the original dataset.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L586-L592" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L616-L623" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def reset(self):
     &#34;&#34;&#34;
-    Reset the data set and undo the removal of data points. That is, this reverts any calls to `remove_randomly`, `remove_range`, `remove_relative_range`, `remove_random_ranges`, and `remove_index`.
+    Reset the dataset and undo the removal of data points. That is, this reverts any calls to `remove_randomly`, `remove_range`, `remove_relative_range`, `remove_random_ranges`, and `remove_index`. Additionally, also resets the prediction range to the original dataset.
     &#34;&#34;&#34;
     self.mask[:] = True
     for i in range(len(self.removed_ranges)):
-        self.removed_ranges[i] = []</code></pre>
+        self.removed_ranges[i] = []
+    self.X_pred = None</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.set_function"><code class="name flex">
@@ -4104,33 +3818,27 @@ True
 </code></dt>
 <dd>
 <div class="desc"><p>Set the (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.</p>
-<p>The function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>f</code></strong> :&ensp;<code>function</code></dt>
-<dd>Function taking X with shape (n,input_dims) and returning shape (n,) as Y.</dd>
-</dl>
+<p>Args:
+f (function): Function taking a numpy.ndarray X of shape (data_points,) for each input dimension and returning a numpy.ndarray Y of shape (data_points,).</p>
 <h2 id="examples">Examples</h2>
-<pre><code class="language-python-repl">&gt;&gt;&gt; data.set_function(lambda x: np.sin(3*x[:,0])
+<pre><code class="language-python-repl">&gt;&gt;&gt; data.set_function(lambda x,y: np.sin(3*x)+np.cos(2*y))
 </code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L365-L378" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L415-L426" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_function(self, f):
     &#34;&#34;&#34;
     Set the (latent) function for the data, ie. the theoretical or true signal. This is used for plotting purposes and is optional.
 
-    The function should take one argument X of shape (n,input_dims) and return Y of shape (n,). If your data has only one input dimension, you can use X[:,0] to select the first (and only) input dimension.
-
     Args:
-        f (function): Function taking X with shape (n,input_dims) and returning shape (n,) as Y.
+    f (function): Function taking a numpy.ndarray X of shape (data_points,) for each input dimension and returning a numpy.ndarray Y of shape (data_points,).
 
     Examples:
-        &gt;&gt;&gt; data.set_function(lambda x: np.sin(3*x[:,0])
+        &gt;&gt;&gt; data.set_function(lambda x,y: np.sin(3*x)+np.cos(2*y))
     &#34;&#34;&#34;
-    _check_function(f, self.get_input_dims(), [x.is_datetime64() for x in self.X])
+    _check_function(f, self.get_input_dims(), [self.X.is_datetime64(dim=i) for i in range(self.get_input_dims())])
     self.F = f</code></pre>
 </details>
 </dd>
@@ -4152,7 +3860,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L342-L363" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L392-L413" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_labels(self, x_labels, y_label):
     &#34;&#34;&#34;
@@ -4194,7 +3902,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L330-L340" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L380-L390" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_name(self, name):
     &#34;&#34;&#34;
@@ -4207,6 +3915,40 @@ True
         &gt;&gt;&gt; data.set_name(&#39;Channel A&#39;)
     &#34;&#34;&#34;
     self.name = name</code></pre>
+</details>
+</dd>
+<dt id="mogptk.data.Data.set_prediction_data"><code class="name flex">
+<span>def <span class="ident">set_prediction_data</span></span>(<span>self, X)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Set the prediction points.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>list,numpy.ndarray</code></dt>
+<dd>Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims used for predictions.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; data.set_prediction_data([5.0, 5.5, 6.0, 6.5, 7.0])
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L763-L776" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def set_prediction_data(self, X):
+    &#34;&#34;&#34;
+    Set the prediction points.
+
+    Args:
+        X (list,numpy.ndarray): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims used for predictions.
+
+    Examples:
+        &gt;&gt;&gt; data.set_prediction_data([5.0, 5.5, 6.0, 6.5, 7.0])
+    &#34;&#34;&#34;
+    X_pred = self._format_X(X)
+    if X_pred.shape[1] != self.X.shape[1]:
+        raise ValueError(&#34;X must have the same number of input dimensions as the data&#34;)
+    self.X_pred = X_pred</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.set_prediction_range"><code class="name flex">
@@ -4236,7 +3978,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L813-L864" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L778-L826" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start=None, end=None, n=None, step=None):
     &#34;&#34;&#34;
@@ -4258,9 +4000,9 @@ True
         &gt;&gt;&gt; data.set_prediction_range(&#39;2016-01-15&#39;, &#39;2016-06-15&#39;, step=&#39;1D&#39;)
     &#34;&#34;&#34;
     if start is None:
-        start = [x[0] for x in self.X]
+        start = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
     if end is None:
-        end = [x[-1] for x in self.X]
+        end = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
     
     start = self._normalize_x_val(start)
     end = self._normalize_x_val(end)
@@ -4269,7 +4011,7 @@ True
     for i in range(self.get_input_dims()):
         if n is not None and not isinstance(n[i], int):
             raise ValueError(&#34;n must be integer&#34;)
-        if step is not None and np.issubdtype(self.X[i].dtype, np.datetime64):
+        if step is not None and self.X.is_datetime64(dim=i):
             step[i] = _parse_delta(step[i])
 
     if np.any(end &lt;= start):
@@ -4286,45 +4028,7 @@ True
             else:
                 x_step = _parse_delta(step[i])
             X_pred[i] = np.arange(start[i], end[i]+x_step, x_step)
-    self.X_pred = [Serie(x, self.X[i].transformers) for i, x in enumerate(X_pred)]
-
-    # clear old prediction data now that X_pred has been updated
-    self.clear_predictions()</code></pre>
-</details>
-</dd>
-<dt id="mogptk.data.Data.set_prediction_x"><code class="name flex">
-<span>def <span class="ident">set_prediction_x</span></span>(<span>self, X)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Set the prediction range directly for saved predictions. This will clear old predictions.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>X</code></strong> :&ensp;<code>list, numpy.ndarray</code></dt>
-<dd>Array of shape (n,), (n,input_dims), or [(n,)] * input_dims used for predictions.</dd>
-</dl>
-<h2 id="examples">Examples</h2>
-<pre><code class="language-python-repl">&gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
-</code></pre></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L797-L811" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def set_prediction_x(self, X):
-    &#34;&#34;&#34;
-    Set the prediction range directly for saved predictions. This will clear old predictions.
-
-    Args:
-        X (list, numpy.ndarray): Array of shape (n,), (n,input_dims), or [(n,)] * input_dims used for predictions.
-
-    Examples:
-        &gt;&gt;&gt; data.set_prediction_x([5.0, 5.5, 6.0, 6.5, 7.0])
-    &#34;&#34;&#34;
-    X = self._format_prediction_x(X)
-    self.X_pred = [Serie(X[i], self.X[i].transformers) for i in range(self.get_input_dims())]
-
-    # clear old prediction data now that X_pred has been updated
-    self.clear_predictions()</code></pre>
+    self.X_pred = Serie(X_pred, self.X.transformers, dims=self.get_input_dims())</code></pre>
 </details>
 </dd>
 <dt id="mogptk.data.Data.transform"><code class="name flex">
@@ -4347,7 +4051,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/data.py#L399-L421" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/data.py#L428-L449" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;
@@ -4369,8 +4073,7 @@ True
         t = transformer()
     else:
         t = copy.deepcopy(t)
-    t.set_data(self)
-
+    t.set_data(self.Y.transformed, self.X.transformed)
     self.Y.apply(t, self.X)</code></pre>
 </details>
 </dd>
@@ -4393,6 +4096,7 @@ True
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="mogptk.data.LoadFunction" href="#mogptk.data.LoadFunction">LoadFunction</a></code></li>
+<li><code><a title="mogptk.data.LoadSplitData" href="#mogptk.data.LoadSplitData">LoadSplitData</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -4401,7 +4105,6 @@ True
 <h4><code><a title="mogptk.data.Data" href="#mogptk.data.Data">Data</a></code></h4>
 <ul class="">
 <li><code><a title="mogptk.data.Data.aggregate" href="#mogptk.data.Data.aggregate">aggregate</a></code></li>
-<li><code><a title="mogptk.data.Data.clear_predictions" href="#mogptk.data.Data.clear_predictions">clear_predictions</a></code></li>
 <li><code><a title="mogptk.data.Data.copy" href="#mogptk.data.Data.copy">copy</a></code></li>
 <li><code><a title="mogptk.data.Data.filter" href="#mogptk.data.Data.filter">filter</a></code></li>
 <li><code><a title="mogptk.data.Data.get_bnse_estimation" href="#mogptk.data.Data.get_bnse_estimation">get_bnse_estimation</a></code></li>
@@ -4410,27 +4113,24 @@ True
 <li><code><a title="mogptk.data.Data.get_lombscargle_estimation" href="#mogptk.data.Data.get_lombscargle_estimation">get_lombscargle_estimation</a></code></li>
 <li><code><a title="mogptk.data.Data.get_name" href="#mogptk.data.Data.get_name">get_name</a></code></li>
 <li><code><a title="mogptk.data.Data.get_nyquist_estimation" href="#mogptk.data.Data.get_nyquist_estimation">get_nyquist_estimation</a></code></li>
-<li><code><a title="mogptk.data.Data.get_prediction" href="#mogptk.data.Data.get_prediction">get_prediction</a></code></li>
-<li><code><a title="mogptk.data.Data.get_prediction_names" href="#mogptk.data.Data.get_prediction_names">get_prediction_names</a></code></li>
-<li><code><a title="mogptk.data.Data.get_prediction_x" href="#mogptk.data.Data.get_prediction_x">get_prediction_x</a></code></li>
+<li><code><a title="mogptk.data.Data.get_prediction_data" href="#mogptk.data.Data.get_prediction_data">get_prediction_data</a></code></li>
 <li><code><a title="mogptk.data.Data.get_sm_estimation" href="#mogptk.data.Data.get_sm_estimation">get_sm_estimation</a></code></li>
 <li><code><a title="mogptk.data.Data.get_test_data" href="#mogptk.data.Data.get_test_data">get_test_data</a></code></li>
 <li><code><a title="mogptk.data.Data.get_train_data" href="#mogptk.data.Data.get_train_data">get_train_data</a></code></li>
 <li><code><a title="mogptk.data.Data.has_test_data" href="#mogptk.data.Data.has_test_data">has_test_data</a></code></li>
 <li><code><a title="mogptk.data.Data.plot" href="#mogptk.data.Data.plot">plot</a></code></li>
 <li><code><a title="mogptk.data.Data.plot_spectrum" href="#mogptk.data.Data.plot_spectrum">plot_spectrum</a></code></li>
-<li><code><a title="mogptk.data.Data.remove_index" href="#mogptk.data.Data.remove_index">remove_index</a></code></li>
+<li><code><a title="mogptk.data.Data.remove_indices" href="#mogptk.data.Data.remove_indices">remove_indices</a></code></li>
 <li><code><a title="mogptk.data.Data.remove_random_ranges" href="#mogptk.data.Data.remove_random_ranges">remove_random_ranges</a></code></li>
 <li><code><a title="mogptk.data.Data.remove_randomly" href="#mogptk.data.Data.remove_randomly">remove_randomly</a></code></li>
 <li><code><a title="mogptk.data.Data.remove_range" href="#mogptk.data.Data.remove_range">remove_range</a></code></li>
 <li><code><a title="mogptk.data.Data.remove_relative_range" href="#mogptk.data.Data.remove_relative_range">remove_relative_range</a></code></li>
-<li><code><a title="mogptk.data.Data.rescale_x" href="#mogptk.data.Data.rescale_x">rescale_x</a></code></li>
 <li><code><a title="mogptk.data.Data.reset" href="#mogptk.data.Data.reset">reset</a></code></li>
 <li><code><a title="mogptk.data.Data.set_function" href="#mogptk.data.Data.set_function">set_function</a></code></li>
 <li><code><a title="mogptk.data.Data.set_labels" href="#mogptk.data.Data.set_labels">set_labels</a></code></li>
 <li><code><a title="mogptk.data.Data.set_name" href="#mogptk.data.Data.set_name">set_name</a></code></li>
+<li><code><a title="mogptk.data.Data.set_prediction_data" href="#mogptk.data.Data.set_prediction_data">set_prediction_data</a></code></li>
 <li><code><a title="mogptk.data.Data.set_prediction_range" href="#mogptk.data.Data.set_prediction_range">set_prediction_range</a></code></li>
-<li><code><a title="mogptk.data.Data.set_prediction_x" href="#mogptk.data.Data.set_prediction_x">set_prediction_x</a></code></li>
 <li><code><a title="mogptk.data.Data.transform" href="#mogptk.data.Data.transform">transform</a></code></li>
 </ul>
 </li>

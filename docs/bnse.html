@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/bnse.py#L1-L114" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/bnse.py#L1-L119" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -35,7 +35,7 @@ from . import gpr
 
 def BNSE(x, y, max_freq=None, n=1000, iters=500):
     &#34;&#34;&#34;
-    Bayesian non-parametric spectral estimation [1] is a method for estimating the power spectral density of a signal that uses a Gaussian process with a spectral mixture kernel to learn the spectral representation of the signal.
+    Bayesian non-parametric spectral estimation [1] is a method for estimating the power spectral density of a signal that uses a Gaussian process with a spectral mixture kernel to learn the spectral representation of the signal. The resulting power spectral density is distributed as a generalized Chi-Squared distributions.
 
     Args:
         x (numpy.ndarray): Input data of shape (data_points,input_dims).
@@ -46,12 +46,12 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
 
     Returns:
         numpy.ndarray: Frequencies of shape (n,).
-        numpy.ndarray: Power spectral density at each frequency of shape (n,).
+        numpy.ndarray: Power spectral density mean of shape (n,).
+        numpy.ndarray: Power spectral density variance of shape (n,).
 
     [1] F. Tobar, Bayesian nonparametric spectral estimation, Advances in Neural Information Processing Systems, 2018
     &#34;&#34;&#34;
     x -= np.median(x)
-
     x_range = np.max(x)-np.min(x)
     x_dist = x_range/len(x)
     if max_freq is None:
@@ -68,11 +68,11 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
     model = gpr.Exact(kernel, x, y)
 
     # initialize parameters
-    sigma = y.std()
+    magnitude = y.std()
     mean = 0.01
     variance = 0.25 / np.pi**2 / x_dist**2
     noise = y.std()/10.0
-    model.kernel.sigma.assign(sigma)
+    model.kernel.magnitude.assign(magnitude)
     model.kernel.mean.assign(mean, upper=max_freq)
     model.kernel.variance.assign(variance)
     model.likelihood.scale.assign(noise)
@@ -84,12 +84,12 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
     #for i in range(iters):
     #    loss = optimizer.step(model.loss)
 
-    alpha = 0.5/x_range**2
+    alpha = float(0.5/x_range**2)
     w = torch.linspace(0.0, max_freq, n, device=gpr.config.device, dtype=gpr.config.dtype).reshape(-1,1)
 
-    def kernel_ff(f1, f2, sigma, mean, variance, alpha):
+    def kernel_ff(f1, f2, magnitude, mean, variance, alpha):
         # f1,f2: MxD,  mean,variance: D
-        const = 0.5 * np.pi * sigma**2 / torch.sqrt(alpha**2 + 4.0*np.pi**2*alpha*variance.prod())
+        const = 0.5 * np.pi * magnitude**2 / torch.sqrt(alpha**2 + 4.0*np.pi**2*alpha*variance.prod())
         mean = mean.reshape(1,1,-1)
         variance = variance.reshape(1,1,-1)
         exp1 = -0.5 * np.pi**2 / alpha * gpr.Kernel.squared_distance(f1,f2)  # MxMxD
@@ -98,13 +98,13 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         exp2b = -2.0 * np.pi**2 / (alpha+4.0*np.pi**2*variance) * (gpr.Kernel.average(f1,f2)+mean)**2  # MxMxD
         return const * (torch.exp(exp1+exp2a) + torch.exp(exp1+exp2b)).sum(dim=2)
 
-    def kernel_tf(t, f, sigma, mean, variance, alpha):
+    def kernel_tf(t, f, magnitude, mean, variance, alpha):
         # t: NxD,  f: MxD,  mean,variance: D
         mean = mean.reshape(1,-1)
         variance = variance.reshape(1,-1)
         gamma = 2.0*np.pi**2*variance
         Lq_inv = np.pi**2 * (1.0/alpha + 1.0/gamma)  # 1xD
-        Lq_inv = 1.0/Lq_inv  # TODO: this line must be kept, is this wrong in the paper?
+        Lq_inv = 1.0/Lq_inv  # this line must be kept, is this wrong in the paper?
 
         const = torch.sqrt(np.pi/(alpha+gamma.prod()))  # 1
         exp1 = -np.pi**2 * torch.tensordot(t**2, Lq_inv.T, dims=1)  # Nx1
@@ -113,22 +113,22 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         exp3a = -2.0*np.pi * torch.tensordot(t.mm(Lq_inv), np.pi**2 * (f/alpha + mean/gamma).T, dims=1)  # NxM
         exp3b = -2.0*np.pi * torch.tensordot(t.mm(Lq_inv), np.pi**2 * (f/alpha - mean/gamma).T, dims=1)  # NxM
 
-        a = 0.5 * sigma**2 * const * torch.exp(exp1)
+        a = 0.5 * magnitude**2 * const * torch.exp(exp1)
         real = torch.exp(exp2a)*torch.cos(exp3a) + torch.exp(exp2b)*torch.cos(exp3b)
         imag = torch.exp(exp2a)*torch.sin(exp3a) + torch.exp(exp2b)*torch.sin(exp3b)
         return a * real, a * imag
 
     with torch.no_grad():
         Ktt = kernel(x)
-        Ktt += model.likelihood.scale() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
+        Ktt += model.likelihood.scale().square() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
         Ltt = model._cholesky(Ktt, add_jitter=True)
 
-        Kff = kernel_ff(w, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
-        Pff = kernel_ff(w, -w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
+        Kff = kernel_ff(w, w, kernel.magnitude(), kernel.mean(), kernel.variance(), alpha)
+        Pff = kernel_ff(w, -w, kernel.magnitude(), kernel.mean(), kernel.variance(), alpha)
         Kff_real = 0.5 * (Kff + Pff)
         Kff_imag = 0.5 * (Kff - Pff)
 
-        Ktf_real, Ktf_imag = kernel_tf(x, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
+        Ktf_real, Ktf_imag = kernel_tf(x, w, kernel.magnitude(), kernel.mean(), kernel.variance(), alpha)
 
         a = torch.cholesky_solve(y,Ltt)
         b = torch.linalg.solve_triangular(Ltt,Ktf_real,upper=False)
@@ -139,10 +139,15 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         var_real = Kff_real - b.T.mm(b)
         var_imag = Kff_imag - c.T.mm(c)
 
-        psd = mu_real**2 + mu_imag**2 + (var_real + var_imag).diagonal().reshape(-1,1)
-        w = w.cpu().numpy()
-        psd = psd.cpu().numpy()
-    return w, psd</code></pre>
+        var_real = var_real.diagonal().reshape(-1,1)
+        var_imag = var_imag.diagonal().reshape(-1,1)
+        mu = mu_real**2 + mu_imag**2 + var_real + var_imag
+        var = 2.0*var_real**2 + 2.0*var_imag**2 + 4.0*var_real*mu_real**2 + 4.0*var_imag*mu_imag**2
+
+        w = w.cpu().numpy().reshape(-1)
+        mu = mu.cpu().numpy().reshape(-1)
+        var = var.cpu().numpy().reshape(-1)
+    return w, mu, var</code></pre>
 </details>
 </section>
 <section>
@@ -156,7 +161,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
 <span>def <span class="ident">BNSE</span></span>(<span>x, y, max_freq=None, n=1000, iters=500)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Bayesian non-parametric spectral estimation [1] is a method for estimating the power spectral density of a signal that uses a Gaussian process with a spectral mixture kernel to learn the spectral representation of the signal.</p>
+<div class="desc"><p>Bayesian non-parametric spectral estimation [1] is a method for estimating the power spectral density of a signal that uses a Gaussian process with a spectral mixture kernel to learn the spectral representation of the signal. The resulting power spectral density is distributed as a generalized Chi-Squared distributions.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
@@ -175,17 +180,19 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
 <dt><code>numpy.ndarray</code></dt>
 <dd>Frequencies of shape (n,).</dd>
 <dt><code>numpy.ndarray</code></dt>
-<dd>Power spectral density at each frequency of shape (n,).</dd>
+<dd>Power spectral density mean of shape (n,).</dd>
+<dt><code>numpy.ndarray</code></dt>
+<dd>Power spectral density variance of shape (n,).</dd>
 </dl>
 <p>[1] F. Tobar, Bayesian nonparametric spectral estimation, Advances in Neural Information Processing Systems, 2018</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/bnse.py#L5-L114" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/bnse.py#L5-L119" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def BNSE(x, y, max_freq=None, n=1000, iters=500):
     &#34;&#34;&#34;
-    Bayesian non-parametric spectral estimation [1] is a method for estimating the power spectral density of a signal that uses a Gaussian process with a spectral mixture kernel to learn the spectral representation of the signal.
+    Bayesian non-parametric spectral estimation [1] is a method for estimating the power spectral density of a signal that uses a Gaussian process with a spectral mixture kernel to learn the spectral representation of the signal. The resulting power spectral density is distributed as a generalized Chi-Squared distributions.
 
     Args:
         x (numpy.ndarray): Input data of shape (data_points,input_dims).
@@ -196,12 +203,12 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
 
     Returns:
         numpy.ndarray: Frequencies of shape (n,).
-        numpy.ndarray: Power spectral density at each frequency of shape (n,).
+        numpy.ndarray: Power spectral density mean of shape (n,).
+        numpy.ndarray: Power spectral density variance of shape (n,).
 
     [1] F. Tobar, Bayesian nonparametric spectral estimation, Advances in Neural Information Processing Systems, 2018
     &#34;&#34;&#34;
     x -= np.median(x)
-
     x_range = np.max(x)-np.min(x)
     x_dist = x_range/len(x)
     if max_freq is None:
@@ -218,11 +225,11 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
     model = gpr.Exact(kernel, x, y)
 
     # initialize parameters
-    sigma = y.std()
+    magnitude = y.std()
     mean = 0.01
     variance = 0.25 / np.pi**2 / x_dist**2
     noise = y.std()/10.0
-    model.kernel.sigma.assign(sigma)
+    model.kernel.magnitude.assign(magnitude)
     model.kernel.mean.assign(mean, upper=max_freq)
     model.kernel.variance.assign(variance)
     model.likelihood.scale.assign(noise)
@@ -234,12 +241,12 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
     #for i in range(iters):
     #    loss = optimizer.step(model.loss)
 
-    alpha = 0.5/x_range**2
+    alpha = float(0.5/x_range**2)
     w = torch.linspace(0.0, max_freq, n, device=gpr.config.device, dtype=gpr.config.dtype).reshape(-1,1)
 
-    def kernel_ff(f1, f2, sigma, mean, variance, alpha):
+    def kernel_ff(f1, f2, magnitude, mean, variance, alpha):
         # f1,f2: MxD,  mean,variance: D
-        const = 0.5 * np.pi * sigma**2 / torch.sqrt(alpha**2 + 4.0*np.pi**2*alpha*variance.prod())
+        const = 0.5 * np.pi * magnitude**2 / torch.sqrt(alpha**2 + 4.0*np.pi**2*alpha*variance.prod())
         mean = mean.reshape(1,1,-1)
         variance = variance.reshape(1,1,-1)
         exp1 = -0.5 * np.pi**2 / alpha * gpr.Kernel.squared_distance(f1,f2)  # MxMxD
@@ -248,13 +255,13 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         exp2b = -2.0 * np.pi**2 / (alpha+4.0*np.pi**2*variance) * (gpr.Kernel.average(f1,f2)+mean)**2  # MxMxD
         return const * (torch.exp(exp1+exp2a) + torch.exp(exp1+exp2b)).sum(dim=2)
 
-    def kernel_tf(t, f, sigma, mean, variance, alpha):
+    def kernel_tf(t, f, magnitude, mean, variance, alpha):
         # t: NxD,  f: MxD,  mean,variance: D
         mean = mean.reshape(1,-1)
         variance = variance.reshape(1,-1)
         gamma = 2.0*np.pi**2*variance
         Lq_inv = np.pi**2 * (1.0/alpha + 1.0/gamma)  # 1xD
-        Lq_inv = 1.0/Lq_inv  # TODO: this line must be kept, is this wrong in the paper?
+        Lq_inv = 1.0/Lq_inv  # this line must be kept, is this wrong in the paper?
 
         const = torch.sqrt(np.pi/(alpha+gamma.prod()))  # 1
         exp1 = -np.pi**2 * torch.tensordot(t**2, Lq_inv.T, dims=1)  # Nx1
@@ -263,22 +270,22 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         exp3a = -2.0*np.pi * torch.tensordot(t.mm(Lq_inv), np.pi**2 * (f/alpha + mean/gamma).T, dims=1)  # NxM
         exp3b = -2.0*np.pi * torch.tensordot(t.mm(Lq_inv), np.pi**2 * (f/alpha - mean/gamma).T, dims=1)  # NxM
 
-        a = 0.5 * sigma**2 * const * torch.exp(exp1)
+        a = 0.5 * magnitude**2 * const * torch.exp(exp1)
         real = torch.exp(exp2a)*torch.cos(exp3a) + torch.exp(exp2b)*torch.cos(exp3b)
         imag = torch.exp(exp2a)*torch.sin(exp3a) + torch.exp(exp2b)*torch.sin(exp3b)
         return a * real, a * imag
 
     with torch.no_grad():
         Ktt = kernel(x)
-        Ktt += model.likelihood.scale() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
+        Ktt += model.likelihood.scale().square() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
         Ltt = model._cholesky(Ktt, add_jitter=True)
 
-        Kff = kernel_ff(w, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
-        Pff = kernel_ff(w, -w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
+        Kff = kernel_ff(w, w, kernel.magnitude(), kernel.mean(), kernel.variance(), alpha)
+        Pff = kernel_ff(w, -w, kernel.magnitude(), kernel.mean(), kernel.variance(), alpha)
         Kff_real = 0.5 * (Kff + Pff)
         Kff_imag = 0.5 * (Kff - Pff)
 
-        Ktf_real, Ktf_imag = kernel_tf(x, w, kernel.sigma(), kernel.mean(), kernel.variance(), alpha)
+        Ktf_real, Ktf_imag = kernel_tf(x, w, kernel.magnitude(), kernel.mean(), kernel.variance(), alpha)
 
         a = torch.cholesky_solve(y,Ltt)
         b = torch.linalg.solve_triangular(Ltt,Ktf_real,upper=False)
@@ -289,10 +296,15 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         var_real = Kff_real - b.T.mm(b)
         var_imag = Kff_imag - c.T.mm(c)
 
-        psd = mu_real**2 + mu_imag**2 + (var_real + var_imag).diagonal().reshape(-1,1)
-        w = w.cpu().numpy()
-        psd = psd.cpu().numpy()
-    return w, psd</code></pre>
+        var_real = var_real.diagonal().reshape(-1,1)
+        var_imag = var_imag.diagonal().reshape(-1,1)
+        mu = mu_real**2 + mu_imag**2 + var_real + var_imag
+        var = 2.0*var_real**2 + 2.0*var_imag**2 + 4.0*var_real*mu_real**2 + 4.0*var_imag*mu_imag**2
+
+        w = w.cpu().numpy().reshape(-1)
+        mu = mu.cpu().numpy().reshape(-1)
+        var = var.cpu().numpy().reshape(-1)
+    return w, mu, var</code></pre>
 </details>
 </dd>
 </dl>

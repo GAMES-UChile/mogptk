@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mosm.py#L1-L285" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/mosm.py#L1-L284" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import matplotlib.pyplot as plt
@@ -47,7 +47,6 @@ class MOSM(Model):
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
-        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
     Atributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -70,7 +69,7 @@ class MOSM(Model):
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name=&#34;MOSM&#34;, rescale_x=False):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name=&#34;MOSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -79,7 +78,7 @@ class MOSM(Model):
             input_dims=dataset.get_input_dims()[0],
         )
         kernel = MixtureKernel(spectral, Q)
-        super().__init__(dataset, kernel, inference, mean, name, rescale_x)
+        super().__init__(dataset, kernel, inference, mean, name)
 
         self.Q = Q
         nyquist = np.array(self.dataset.get_nyquist_estimation())
@@ -327,7 +326,7 @@ class MOSM(Model):
 <dl>
 <dt id="mogptk.models.mosm.MOSM"><code class="flex name class">
 <span>class <span class="ident">MOSM</span></span>
-<span>(</span><span>dataset, Q=1, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name='MOSM', rescale_x=False)</span>
+<span>(</span><span>dataset, Q=1, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name='MOSM')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Multi-Output Spectral Mixture kernel with <code>Q</code> components as proposed by [1]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
@@ -343,8 +342,6 @@ class MOSM(Model):
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Rescale the X axis to [0,1000] to help training.</dd>
 </dl>
 <h2 id="atributes">Atributes</h2>
 <p>dataset: The associated mogptk.dataset.DataSet.
@@ -378,8 +375,6 @@ gpr: The mogptk.gpr.model.Model.</p>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Rescale the X axis to [0,1000] to help training.</dd>
 </dl>
 <h2 id="atributes_1">Atributes</h2>
 <p>dataset: The associated mogptk.dataset.DataSet.
@@ -387,7 +382,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mosm.py#L9-L285" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/mosm.py#L9-L284" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MOSM(Model):
     &#34;&#34;&#34;
@@ -399,7 +394,6 @@ gpr: The mogptk.gpr.model.Model.</p></div>
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
-        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
     Atributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -422,7 +416,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name=&#34;MOSM&#34;, rescale_x=False):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name=&#34;MOSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -431,7 +425,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
             input_dims=dataset.get_input_dims()[0],
         )
         kernel = MixtureKernel(spectral, Q)
-        super().__init__(dataset, kernel, inference, mean, name, rescale_x)
+        super().__init__(dataset, kernel, inference, mean, name)
 
         self.Q = Q
         nyquist = np.array(self.dataset.get_nyquist_estimation())
@@ -681,7 +675,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mosm.py#L123-L132" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/mosm.py#L122-L131" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def check(self):
     &#34;&#34;&#34;
@@ -724,7 +718,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mosm.py#L58-L121" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/mosm.py#L57-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
     &#34;&#34;&#34;
@@ -800,7 +794,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mosm.py#L155-L184" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/mosm.py#L154-L183" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_cross_spectrum(self, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -842,7 +836,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/mosm.py#L134-L153" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/mosm.py#L133-L152" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, log=False, noise=False, title=None):
     &#34;&#34;&#34;

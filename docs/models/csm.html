@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/csm.py#L1-L125" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/csm.py#L1-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
@@ -46,7 +46,6 @@ class CSM(Model):
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
-        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -70,7 +69,7 @@ class CSM(Model):
 
     [1] K.R. Ulrich et al, &#34;GP Kernels for Cross-Spectrum Analysis&#34;, Advances in Neural Information Processing Systems 28, 2015
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name=&#34;CSM&#34;, rescale_x=False):
+    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name=&#34;CSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -80,7 +79,7 @@ class CSM(Model):
             Rq=Rq,
         )
         kernel = MixtureKernel(spectral, Q)
-        super().__init__(dataset, kernel, inference, mean, name, rescale_x)
+        super().__init__(dataset, kernel, inference, mean, name)
 
         self.Q = Q
         self.Rq = Rq
@@ -167,7 +166,7 @@ class CSM(Model):
 <dl>
 <dt id="mogptk.models.csm.CSM"><code class="flex name class">
 <span>class <span class="ident">CSM</span></span>
-<span>(</span><span>dataset, Q=1, Rq=1, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name='CSM', rescale_x=False)</span>
+<span>(</span><span>dataset, Q=1, Rq=1, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name='CSM')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Cross Spectral Mixture kernel [1] with <code>Q</code> components and <code>Rq</code> latent functions. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
@@ -185,8 +184,6 @@ class CSM(Model):
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Rescale the X axis to [0,1000] to help training.</dd>
 </dl>
 <h2 id="attributes">Attributes</h2>
 <dl>
@@ -224,8 +221,6 @@ class CSM(Model):
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
-<dt><strong><code>rescale_x</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Rescale the X axis to [0,1000] to help training.</dd>
 </dl>
 <h2 id="atributes">Atributes</h2>
 <p>dataset: The associated mogptk.dataset.DataSet.
@@ -233,7 +228,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/csm.py#L7-L125" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/csm.py#L7-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CSM(Model):
     &#34;&#34;&#34;
@@ -246,7 +241,6 @@ gpr: The mogptk.gpr.model.Model.</p></div>
         model: Gaussian process model to use, such as `mogptk.model.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
-        rescale_x (bool): Rescale the X axis to [0,1000] to help training.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -270,7 +264,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 
     [1] K.R. Ulrich et al, &#34;GP Kernels for Cross-Spectrum Analysis&#34;, Advances in Neural Information Processing Systems 28, 2015
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name=&#34;CSM&#34;, rescale_x=False):
+    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name=&#34;CSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -280,7 +274,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
             Rq=Rq,
         )
         kernel = MixtureKernel(spectral, Q)
-        super().__init__(dataset, kernel, inference, mean, name, rescale_x)
+        super().__init__(dataset, kernel, inference, mean, name)
 
         self.Q = Q
         self.Rq = Rq
@@ -390,7 +384,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/models/csm.py#L60-L125" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/models/csm.py#L59-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
     &#34;&#34;&#34;

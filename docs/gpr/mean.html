@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/mean.py#L1-L88" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/mean.py#L1-L104" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 from . import Parameter, config
@@ -37,6 +37,8 @@ class Mean:
     Defines a trainable mean function, complementary to the the way we also have a trainable covariance function (the kernel).
     &#34;&#34;&#34;
     def __init__(self, name=&#34;Mean&#34;):
+        if not isinstance(name, str):
+            raise ValueError(&#34;name must be string&#34;)
         self.name = name
 
     def __call__(self, X):
@@ -94,6 +96,12 @@ class ConstantMean(Mean):
     $$ m(X) = b $$
 
     with \\(b\\) the bias.
+
+    Args:
+        name (str): Name of the mean function.
+
+    Attributes:
+        bias (mogptk.gpr.parameter.Parameter): Bias \\(b\\).
     &#34;&#34;&#34;
     def __init__(self, name=&#34;ConstantMean&#34;):
         super().__init__(name)
@@ -109,6 +117,14 @@ class LinearMean(Mean):
     $$ m(X) = aX + b $$
 
     with \\(a\\) the slope and \\(b\\) the bias.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        name (str): Name of the mean function.
+
+    Attributes:
+        bias (mogptk.gpr.parameter.Parameter): Bias \\(b\\).
+        slope (mogptk.gpr.parameter.Parameter): Slope \\(a\\).
     &#34;&#34;&#34;
     def __init__(self, input_dims=1, name=&#34;LinearMean&#34;):
         super().__init__(name)
@@ -135,11 +151,21 @@ class LinearMean(Mean):
 <dd>
 <div class="desc"><p>Constant mean function:</p>
 <p><span><span class="MathJax_Preview"> m(X) = b </span><script type="math/tex; mode=display"> m(X) = b </script></span></p>
-<p>with <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span> the bias.</p></div>
+<p>with <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span> the bias.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the mean function.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>bias</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Bias <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span>.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/mean.py#L59-L72" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/mean.py#L61-L80" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ConstantMean(Mean):
     &#34;&#34;&#34;
@@ -148,6 +174,12 @@ class LinearMean(Mean):
     $$ m(X) = b $$
 
     with \\(b\\) the bias.
+
+    Args:
+        name (str): Name of the mean function.
+
+    Attributes:
+        bias (mogptk.gpr.parameter.Parameter): Bias \\(b\\).
     &#34;&#34;&#34;
     def __init__(self, name=&#34;ConstantMean&#34;):
         super().__init__(name)
@@ -176,11 +208,25 @@ class LinearMean(Mean):
 <dd>
 <div class="desc"><p>Linear mean function:</p>
 <p><span><span class="MathJax_Preview"> m(X) = aX + b </span><script type="math/tex; mode=display"> m(X) = aX + b </script></span></p>
-<p>with <span><span class="MathJax_Preview">a</span><script type="math/tex">a</script></span> the slope and <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span> the bias.</p></div>
+<p>with <span><span class="MathJax_Preview">a</span><script type="math/tex">a</script></span> the slope and <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span> the bias.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of input dimensions.</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the mean function.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>bias</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Bias <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span>.</dd>
+<dt><strong><code>slope</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Slope <span><span class="MathJax_Preview">a</span><script type="math/tex">a</script></span>.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/mean.py#L74-L88" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/mean.py#L82-L104" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearMean(Mean):
     &#34;&#34;&#34;
@@ -189,6 +235,14 @@ class LinearMean(Mean):
     $$ m(X) = aX + b $$
 
     with \\(a\\) the slope and \\(b\\) the bias.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        name (str): Name of the mean function.
+
+    Attributes:
+        bias (mogptk.gpr.parameter.Parameter): Bias \\(b\\).
+        slope (mogptk.gpr.parameter.Parameter): Slope \\(a\\).
     &#34;&#34;&#34;
     def __init__(self, input_dims=1, name=&#34;LinearMean&#34;):
         super().__init__(name)
@@ -220,13 +274,15 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/mean.py#L4-L57" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/mean.py#L4-L59" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mean:
     &#34;&#34;&#34;
     Defines a trainable mean function, complementary to the the way we also have a trainable covariance function (the kernel).
     &#34;&#34;&#34;
     def __init__(self, name=&#34;Mean&#34;):
+        if not isinstance(name, str):
+            raise ValueError(&#34;name must be string&#34;)
         self.name = name
 
     def __call__(self, X):
@@ -302,7 +358,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5d611d57e6abfff569d9151118c0d1dd2cc6a99f/mogptk/gpr/mean.py#L47-L57" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/mean.py#L49-L59" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean(self, X):
     &#34;&#34;&#34;
