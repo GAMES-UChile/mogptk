@@ -280,41 +280,44 @@ class GaussianLikelihood(Likelihood):
 
     $$ p(y|f) = \\frac{1}{\\sigma\\sqrt{2\\pi}}e^{-\\frac{(y-f)^2}{2\\sigma^2}} $$
 
-    with \\(\\sigma^2\\) the variance.
+    with \\(\\sigma\\) the scale.
 
     Args:
-        variance (float): Gaussian variance.
+        scale (float): Scale.
         name (str): Name of the likelihood.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     """
-    def __init__(self, variance=1.0, name="Gaussian"):
+    def __init__(self, scale=1.0, name="Gaussian"):
         super().__init__(name)
 
-        self.scale = Parameter(variance, name="variance", lower=config.positive_minimum)
+        self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        p = -0.5 * (np.log(2.0 * np.pi) + self.scale().log() + (y-f).square()/self.scale())
+        p = -0.5 * (np.log(2.0*np.pi) + 2.0*self.scale().log() + ((y-f)/self.scale()).square())
         return p  # NxM
 
     def variational_expectation(self, y, mu, var, X=None):
         # y,mu,var: Nx1
-        p = -((y-mu).square() + var) / self.scale()
+        p = -((y-mu).square() + var) / self.scale().square()
         p -= np.log(2.0 * np.pi)
-        p -= self.scale().log()
+        p -= 2.0*self.scale().log()
         return 0.5*p.sum()  # sum over N
 
     def mean(self, f, X=None):
         return f
 
     def variance(self, f, X=None):
-        return self.scale()
+        return self.scale().square()
 
     def predict(self, mu, var, X=None, full=False):
         if full:
-            return mu, var + self.scale()*torch.eye(var.shape[0])
+            return mu, var + self.scale().square()*torch.eye(var.shape[0])
         else:
-            return mu, var + self.scale()
+            return mu, var + self.scale().square()
 
 class StudentTLikelihood(Likelihood):
     """
@@ -329,6 +332,9 @@ class StudentTLikelihood(Likelihood):
         scale (float): Scale.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     """
     def __init__(self, dof=3, scale=1.0, name="StudentT", quadratures=20):
         super().__init__(name, quadratures)
@@ -404,6 +410,9 @@ class LaplaceLikelihood(Likelihood):
         scale (float): Scale.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     """
     def __init__(self, scale=1.0, name="Laplace", quadratures=20):
         super().__init__(name, quadratures)
@@ -478,6 +487,9 @@ class BetaLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     """
     def __init__(self, scale=1.0, link=inv_probit, name="Beta", quadratures=20):
         super().__init__(name, quadratures)
@@ -523,6 +535,9 @@ class GammaLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     """
     def __init__(self, shape=1.0, link=exp, name="Gamma", quadratures=20):
         super().__init__(name, quadratures)
@@ -606,6 +621,9 @@ class WeibullLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     """
     def __init__(self, shape=1.0, link=exp, name="Weibull", quadratures=20):
         super().__init__(name, quadratures)
@@ -649,6 +667,9 @@ class LogLogisticLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     """
     def __init__(self, shape=1.0, link=exp, name="LogLogistic", quadratures=20):
         super().__init__(name, quadratures)
@@ -688,17 +709,20 @@ class LogGaussianLikelihood(Likelihood):
 
     $$ p(y|f) = \\frac{1}{y\\sqrt{2\\pi\\sigma^2}} e^{-\\frac{(\\log(y) - f)^2}{2\\sigma^2}} $$
 
-    with \\(\\sigma^2\\) the variance and \\(y \\in (0.0,\\infty)\\).
+    with \\(\\sigma\\) the scale and \\(y \\in (0.0,\\infty)\\).
 
     Args:
-        variance (float): Variance.
+        scale (float): Scale.
         name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
+
+    Attributes:
+        scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     """
-    def __init__(self, variance=1.0, name="LogGaussian", quadratures=20):
+    def __init__(self, scale=1.0, name="LogGaussian", quadratures=20):
         super().__init__(name, quadratures)
 
-        self.scale = Parameter(variance, name="variance", lower=config.positive_minimum)
+        self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any(y <= 0.0):
@@ -708,15 +732,15 @@ class LogGaussianLikelihood(Likelihood):
         # y: Nx1
         # f: NxM
         logy = y.log()
-        p = -0.5*(np.log(2.0*np.pi) + self.scale().log() + (logy-f).square()/self.scale())
+        p = -0.5 * (np.log(2.0*np.pi) + 2.0*self.scale().log() + ((logy-f)/self.scale()).square())
         p -= logy
         return p  # NxM
 
     def mean(self, f, X=None):
-        return torch.exp(f + 0.5*self.scale())
+        return torch.exp(f + 0.5*self.scale().square())
 
     def variance(self, f, X=None):
-        return (self.scale().exp() - 1.0) * torch.exp(2.0*f + self.scale())
+        return (self.scale().square().exp() - 1.0) * torch.exp(2.0*f + self.scale().square())
 
 class ChiSquaredLikelihood(Likelihood):
     """

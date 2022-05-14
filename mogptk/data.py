@@ -1162,7 +1162,8 @@ class Data:
 
         ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
         if len(Y_freq_err) != 0:
-            ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, alpha=0.4)
+            Y_freq_err = 2.0*np.sqrt(Y_freq_err)
+            ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, color='k', alpha=0.3)
         ax.set_title((self.name + ' Spectrum' if self.name is not None else '') if title is None else title, fontsize=14)
 
         if log:

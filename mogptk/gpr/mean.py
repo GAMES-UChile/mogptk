@@ -65,6 +65,12 @@ class ConstantMean(Mean):
     $$ m(X) = b $$
 
     with \\(b\\) the bias.
+
+    Args:
+        name (str): Name of the mean function.
+
+    Attributes:
+        bias (mogptk.gpr.parameter.Parameter): Bias \\(b\\).
     """
     def __init__(self, name="ConstantMean"):
         super().__init__(name)
@@ -80,6 +86,14 @@ class LinearMean(Mean):
     $$ m(X) = aX + b $$
 
     with \\(a\\) the slope and \\(b\\) the bias.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        name (str): Name of the mean function.
+
+    Attributes:
+        bias (mogptk.gpr.parameter.Parameter): Bias \\(b\\).
+        slope (mogptk.gpr.parameter.Parameter): Slope \\(a\\).
     """
     def __init__(self, input_dims=1, name="LinearMean"):
         super().__init__(name)

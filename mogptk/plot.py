@@ -72,7 +72,7 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
                 axes[j,i].axvline(means[q,j,i], ymin=0.001, ymax=0.05, lw=3, color='C1')
                 psd += single_psd
             if noises is not None:
-                psd += noises[j]
+                psd += noises[j]**2
 
             # normalize
             psd /= psd.sum() * (x[1]-x[0])

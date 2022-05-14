@@ -47,7 +47,10 @@ class Exact:
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
         variance = self.variance
         if variance is None:
-            variance = [1.0] * kernel.output_dims
+            if kernel.output_dims is not None:
+                variance = [1.0] * kernel.output_dims
+            else:
+                variance = 1.0
         data_variance = self.data_variance
         if data_variance is None and y_err is not None:
             data_variance = y_err**2
@@ -85,7 +88,7 @@ class OpperArchambeau:
         likelihood (gpr.Likelihood): Likelihood $p(y|f)$.
         jitter (float): Jitter added before calculating a Cholesky.
     """
-    def __init__(self, likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
+    def __init__(self, likelihood=gpr.GaussianLikelihood(1.0), jitter=1e-6):
         self.likelihood = likelihood
         self.jitter = jitter
 
@@ -121,7 +124,7 @@ class Hensman:
         likelihood (gpr.Likelihood): Likelihood $p(y|f)$.
         jitter (float): Jitter added before calculating a Cholesky.
     """
-    def __init__(self, inducing_points=None, init_inducing_points='grid', likelihood=gpr.GaussianLikelihood(variance=1.0), jitter=1e-6):
+    def __init__(self, inducing_points=None, init_inducing_points='grid', likelihood=gpr.GaussianLikelihood(1.0), jitter=1e-6):
         self.inducing_points = inducing_points
         self.init_inducing_points = init_inducing_points
         self.likelihood = likelihood
@@ -182,6 +185,10 @@ class Model:
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
         self.gpr = inference._build(kernel, x, y, y_err, mean, name)
+
+        self.times = np.zeros(0)
+        self.losses = np.zeros(0)
+        self.errors = np.zeros(0)
 
     ################################################################
 
@@ -351,23 +358,30 @@ class Model:
             if error is not None:
                 print('‣ Initial error: %6g' % self.error(error, error_use_all_data))
 
+        iter_offset = 0
         times = np.zeros((iters+1,))
         losses = np.zeros((iters+1,))
         errors = np.zeros((iters+1,))
+        if self.times.shape[0] != 0:
+            iter_offset = self.times.shape[0]-1
+            times = np.concatenate((self.times[:-1],times))
+            losses = np.concatenate((self.losses[:-1],losses))
+            errors = np.concatenate((self.errors[:-1],errors))
         initial_time = time.time()
 
-        iters_len = int(math.log10(iters)) + 1
+        iters_len = int(math.log10(iter_offset+iters)) + 1
         def progress(i, loss):
             elapsed_time = time.time() - initial_time
             write = verbose and i % max(1,iters/100) == 0
+            i += iter_offset
             times[i] = elapsed_time
             losses[i] = loss
             if error is not None:
                 errors[i] = self.error(error, error_use_all_data)
                 if write:
-                    print("  %*d/%*d %s  loss=%12g  error=%12g" % (iters_len, i, iters_len, iters, _format_time(elapsed_time), losses[i], errors[i]))
+                    print("  %*d/%*d %s  loss=%12g  error=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
             elif write:
-                print("  %*d/%*d %s  loss=%12g" % (iters_len, i, iters_len, iters, _format_time(elapsed_time), losses[i]))
+                print("  %*d/%*d %s  loss=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i]))
 
         if verbose:
             print("\nStart %s:" % (method,))
@@ -403,15 +417,15 @@ class Model:
             print("Finished")
             print('\nOptimization finished in %s' % _format_duration(elapsed_time))
             print('‣ Iterations: %d' % iters)
-            print('‣ Final loss: %6g'% losses[iters])
+            print('‣ Final loss: %6g'% losses[iter_offset+iters])
             if error is not None:
-                print('‣ Final error: %6g' % errors[iters])
+                print('‣ Final error: %6g' % errors[iter_offset+iters])
 
-        self.iters = iters
-        self.times = times[:iters+1]
-        self.losses = losses[:iters+1]
+        self.iters = iter_offset+iters
+        self.times = times[:iter_offset+iters+1]
+        self.losses = losses[:iter_offset+iters+1]
         if error is not None:
-            self.errors = errors[:iters+1]
+            self.errors = errors[:iter_offset+iters+1]
         if plot:
             self.plot_losses()
         return losses, errors
@@ -457,6 +471,7 @@ class Model:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
+            numpy.ndarray: X prediction of shape (n,) for each channel.
             numpy.ndarray: Y mean prediction of shape (n,) for each channel.
             numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,) for each channel.
             numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,) for each channel.

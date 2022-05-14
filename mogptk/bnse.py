@@ -4,7 +4,7 @@ from . import gpr
 
 def BNSE(x, y, max_freq=None, n=1000, iters=500):
     """
-    Bayesian non-parametric spectral estimation [1] is a method for estimating the power spectral density of a signal that uses a Gaussian process with a spectral mixture kernel to learn the spectral representation of the signal.
+    Bayesian non-parametric spectral estimation [1] is a method for estimating the power spectral density of a signal that uses a Gaussian process with a spectral mixture kernel to learn the spectral representation of the signal. The resulting power spectral density is distributed as a generalized Chi-Squared distributions.
 
     Args:
         x (numpy.ndarray): Input data of shape (data_points,input_dims).
@@ -15,12 +15,12 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
 
     Returns:
         numpy.ndarray: Frequencies of shape (n,).
-        numpy.ndarray: Power spectral density at each frequency of shape (n,).
+        numpy.ndarray: Power spectral density mean of shape (n,).
+        numpy.ndarray: Power spectral density variance of shape (n,).
 
     [1] F. Tobar, Bayesian nonparametric spectral estimation, Advances in Neural Information Processing Systems, 2018
     """
     x -= np.median(x)
-
     x_range = np.max(x)-np.min(x)
     x_dist = x_range/len(x)
     if max_freq is None:
@@ -89,7 +89,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
 
     with torch.no_grad():
         Ktt = kernel(x)
-        Ktt += model.likelihood.scale() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
+        Ktt += model.likelihood.scale().square() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
         Ltt = model._cholesky(Ktt, add_jitter=True)
 
         Kff = kernel_ff(w, w, kernel.magnitude(), kernel.mean(), kernel.variance(), alpha)
