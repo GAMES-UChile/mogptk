@@ -148,8 +148,11 @@ class Model:
             name (str): Name of the model.
 
         Atributes:
-            dataset: The associated mogptk.dataset.DataSet.
-            gpr: The mogptk.gpr.model.Model.
+            dataset (mogptk.dataset.DataSet): Dataset.
+            gpr (The mogptk.gpr.model.Model): GPR model.
+            times (numpy.ndarray): Training times of shape (iters,).
+            losses (numpy.ndarray): Losses of shape (iters,).
+            errors (numpy.ndarray): Errors of shape (iters,).
         """
         
         if not isinstance(dataset, DataSet):
@@ -277,15 +280,33 @@ class Model:
         Examples:
             >>> model.error()
         """
+
+        if callable(method) and len(inspect.signature(method).parameters) == 1:
+            return method(self)
+
+        # get data
         if use_all_data:
             X, Y_true = self.dataset.get_data()
         else:
             X, Y_true = self.dataset.get_test_data()
-        x, y_true  = self._to_kernel_format(X, Y_true)
+
+        # predict
+        x  = self._to_kernel_format(X)
         y_pred, _ = self.gpr.predict(x, predict_y=False)
+
+        # transform to original
+        i = 0
+        Y_pred = []
+        for j in range(self.dataset.get_output_dims()):
+            N = X[j].shape[0]
+            Y_pred.append(self.dataset[j].Y.detransform(np.squeeze(y_pred[i:i+N]), X[j]))
+            i += N
+
+        # flatten
+        y_true = np.concatenate(Y_true)
+        y_pred = np.concatenate(Y_pred)
+
         if callable(method):
-            if len(inspect.signature(method).parameters) == 3:
-                return method(y_true, y_pred, self)
             return method(y_true, y_pred)
         elif method.lower() == 'mae':
             return mean_absolute_error(y_true, y_pred)
@@ -334,6 +355,14 @@ class Model:
         if error is not None and all(not channel.has_test_data() for channel in self.dataset):
             error_use_all_data = True
 
+        if callable(error):
+            if len(inspect.signature(error).parameters) == 1:
+                e = error(self)
+            else:
+                e = error(np.zeros((1,1)), np.zeros((1,1)))
+            if not isinstance(e, float) and (not isinstance(e, np.ndarray) or e.size != 1):
+                raise ValueError("error function must return a float")
+
         if method.lower() in ('l-bfgs', 'lbfgs', 'l-bfgs-b', 'lbfgsb'):
             method = 'LBFGS'
         elif method.lower() == 'adam':
@@ -377,7 +406,7 @@ class Model:
             times[i] = elapsed_time
             losses[i] = loss
             if error is not None:
-                errors[i] = self.error(error, error_use_all_data)
+                errors[i] = float(self.error(error, error_use_all_data))
                 if write:
                     print("  %*d/%*d %s  loss=%12g  error=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
             elif write:
