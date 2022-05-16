@@ -187,9 +187,9 @@ class ExponentialKernel(Kernel):
     """
     An exponential kernel given by
 
-    $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{|x-x'|}{2l}\\right) $$
+    $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{\\tau}{2l}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale.
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -269,9 +269,9 @@ class RationalQuadraticKernel(Kernel):
     """
     A rational quadratic kernel given by
 
-    $$ K(x,x') = \\sigma^2 \\left(1 + \\frac{|x-x'|^2}{2l^2}\\right)^{-\\alpha} $$
+    $$ K(x,x') = \\sigma^2 \\left(1 + \\frac{\\tau^2}{2l^2}\\right)^{-\\alpha} $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -309,9 +309,9 @@ class PeriodicKernel(Kernel):
     """
     A periodic kernel given by
 
-    $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi |x-x'| / p)}{l^2}\\right) $$
+    $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -351,9 +351,9 @@ class LocallyPeriodicKernel(Kernel):
     """
     A locally periodic kernel given by
 
-    $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi |x-x'| / p)}{l^2}\\right) \\exp\\left(-\\frac{|x-x'|^2}{2l^2}\\right) $$
+    $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) \\exp\\left(-\\frac{\\tau^2}{2l^2}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period.
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -395,9 +395,9 @@ class CosineKernel(Kernel):
     """
     A cosine periodic kernel given by
 
-    $$ K(x,x') = \\sigma^2 \\cos(2\\pi |x-x'| / l) $$
+    $$ K(x,x') = \\sigma^2 \\cos(2\\pi \\tau / l) $$
 
-    with \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -433,9 +433,9 @@ class SincKernel(Kernel):
     """
     A sinc kernel given by
 
-    $$ K(x,x') = \\sigma^2 \\frac{\\sin(\\Delta |x-x'|)}{\\Delta |x-x'|} \\cos(2\\pi \\xi_0 |x-x'|) $$
+    $$ K(x,x') = \\sigma^2 \\frac{\\sin(\\Delta \\tau)}{\\Delta \\tau} \\cos(2\\pi \\xi_0 \\tau) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(\\Delta\\) the bandwidth, and \\(\\xi_0\\) the frequency.
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(\\Delta\\) the bandwidth, and \\(\\xi_0\\) the frequency.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -479,9 +479,9 @@ class SpectralKernel(Kernel):
     """
     A spectral kernel given by
 
-    $$ K(x,x') = \\sigma^2 \\exp\\left(-2\\pi^2 \\Sigma |x-x'|^2\\right) \\cos(2\\pi \\mu |x-x'|) $$
+    $$ K(x,x') = \\sigma^2 \\exp\\left(-2\\pi^2 \\Sigma \\tau^2\\right) \\cos(2\\pi \\mu \\tau) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean. When the mean is zero, this kernel is equivalent to the SquaredExponential kernel with \\(l = \\frac{1}{2\\pi\\sqrt{\\Sigma}}\\).
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean. When the mean is zero, this kernel is equivalent to the SquaredExponential kernel with \\(l = \\frac{1}{2\\pi\\sqrt{\\Sigma}}\\).
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -521,9 +521,9 @@ class SpectralMixtureKernel(Kernel):
     """
     A spectral mixture kernel given by
 
-    $$ K(x,x') = \\sum_{q=0}^Q \\sigma_q^2 \\exp\\left(-2\\pi^2 \\Sigma_q |x-x'|^2\\right) \\cos(2\\pi \\mu_q |x-x'|) $$
+    $$ K(x,x') = \\sum_{q=0}^Q \\sigma_q^2 \\exp\\left(-2\\pi^2 \\Sigma_q \\tau^2\\right) \\cos(2\\pi \\mu_q \\tau) $$
 
-    with \\(Q\\) the number of mixtures, \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean.
+    with \\(Q\\) the number of mixtures, \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean.
 
     Args:
         Q (int): Number of mixture components.
@@ -565,9 +565,9 @@ class MaternKernel(Kernel):
     """
     A Matérn kernel given by
 
-    $$ K(x,x') = \\sigma^2 c \\exp\\left(-\\sqrt{2\\nu |x-x'| / l}\\right) $$
+    $$ K(x,x') = \\sigma^2 c \\exp\\left(-\\sqrt{2\\nu \\tau / l}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(c\\) depending on \\(\\nu\\) is either \\(1.0\\) for \\(\\nu = 0.5\\), or \\(1.0 + \\sqrt{3}|x-x'|/l\\) for \\(\\nu = 1.5\\), or \\(1.0 + \\sqrt{5}|x-x'|/l + \\frac{5|x-x'|^2}{3l^2}\\).
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(c\\) depending on \\(\\nu\\) is either \\(1.0\\) for \\(\\nu = 0.5\\), or \\(1.0 + \\sqrt{3}|x-x'|/l\\) for \\(\\nu = 1.5\\), or \\(1.0 + \\sqrt{5}|x-x'|/l + \\frac{5|x-x'|^2}{3l^2}\\).
 
     Args:
         nu (float): Parameter that must be 0.5, 1.5, or 2.5.

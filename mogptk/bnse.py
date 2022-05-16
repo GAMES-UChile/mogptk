@@ -108,6 +108,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         var_real = Kff_real - b.T.mm(b)
         var_imag = Kff_imag - c.T.mm(c)
 
+        # The PSD equals N(mu_real,var_real)^2 + N(mu_imag,var_imag)^2, which is a generalized Chi-Squared distribution
         var_real = var_real.diagonal().reshape(-1,1)
         var_imag = var_imag.diagonal().reshape(-1,1)
         mu = mu_real**2 + mu_imag**2 + var_real + var_imag

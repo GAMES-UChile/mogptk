@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L1-L607" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L1-L613" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -218,9 +218,9 @@ class ExponentialKernel(Kernel):
     &#34;&#34;&#34;
     An exponential kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{|x-x&#39;|}{2l}\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{\\tau}{2l}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -256,11 +256,12 @@ class SquaredExponentialKernel(Kernel):
     &#34;&#34;&#34;
     A squared exponential kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{|x-x&#39;|^2}{2l^2}\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{1}{2}\\tau^T\\Sigma\\tau\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\Sigma = LL^T + \\mathrm{diag}(l)\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscales, and \\(LL^T\\) the cross lengthscales.
 
     Args:
+        order (float): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
@@ -268,21 +269,26 @@ class SquaredExponentialKernel(Kernel):
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Lower triangular cholesky of the cross lengthscale \\(L\\) of shape (input_dims,order).
     &#34;&#34;&#34;
-    def __init__(self, input_dims=1, active_dims=None, name=&#34;SE&#34;):
+    def __init__(self, order=0, input_dims=1, active_dims=None, name=&#34;SE&#34;):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
         lengthscale = torch.ones(input_dims)
+        cross_lengthscale = torch.ones(input_dims,order)
 
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
         self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
+        self.cross_lengthscale.num_parameters = int((input_dims*input_dims+input_dims)/2)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
-        sqdist = self.squared_distance(X1,X2)  # NxMxD
-        exp = -0.5*torch.tensordot(sqdist, 1.0/self.lengthscale()**2, dims=1)  # NxM
+        dist = self.distance(X1,X2)  # NxMxD
+        lengthscale = self.cross_lengthscale().tril().mm(self.cross_lengthscale().tril().T) + torch.diag(self.lengthscale()**2)  # DxD
+        exp = -0.5*torch.einsum(&#34;ijk,kl,ijl-&gt;ij&#34;,dist,lengthscale,dist)  # NxM
         return self.magnitude() * torch.exp(exp)
 
     def K_diag(self, X1):
@@ -294,9 +300,9 @@ class RationalQuadraticKernel(Kernel):
     &#34;&#34;&#34;
     A rational quadratic kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\left(1 + \\frac{|x-x&#39;|^2}{2l^2}\\right)^{-\\alpha} $$
+    $$ K(x,x&#39;) = \\sigma^2 \\left(1 + \\frac{\\tau^2}{2l^2}\\right)^{-\\alpha} $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -334,9 +340,9 @@ class PeriodicKernel(Kernel):
     &#34;&#34;&#34;
     A periodic kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi |x-x&#39;| / p)}{l^2}\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -376,9 +382,9 @@ class LocallyPeriodicKernel(Kernel):
     &#34;&#34;&#34;
     A locally periodic kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi |x-x&#39;| / p)}{l^2}\\right) \\exp\\left(-\\frac{|x-x&#39;|^2}{2l^2}\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) \\exp\\left(-\\frac{\\tau^2}{2l^2}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -420,9 +426,9 @@ class CosineKernel(Kernel):
     &#34;&#34;&#34;
     A cosine periodic kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\cos(2\\pi |x-x&#39;| / l) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\cos(2\\pi \\tau / l) $$
 
-    with \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -458,9 +464,9 @@ class SincKernel(Kernel):
     &#34;&#34;&#34;
     A sinc kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\frac{\\sin(\\Delta |x-x&#39;|)}{\\Delta |x-x&#39;|} \\cos(2\\pi \\xi_0 |x-x&#39;|) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\frac{\\sin(\\Delta \\tau)}{\\Delta \\tau} \\cos(2\\pi \\xi_0 \\tau) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(\\Delta\\) the bandwidth, and \\(\\xi_0\\) the frequency.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(\\Delta\\) the bandwidth, and \\(\\xi_0\\) the frequency.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -504,9 +510,9 @@ class SpectralKernel(Kernel):
     &#34;&#34;&#34;
     A spectral kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-2\\pi^2 \\Sigma |x-x&#39;|^2\\right) \\cos(2\\pi \\mu |x-x&#39;|) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-2\\pi^2 \\Sigma \\tau^2\\right) \\cos(2\\pi \\mu \\tau) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean. When the mean is zero, this kernel is equivalent to the SquaredExponential kernel with \\(l = \\frac{1}{2\\pi\\sqrt{\\Sigma}}\\).
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean. When the mean is zero, this kernel is equivalent to the SquaredExponential kernel with \\(l = \\frac{1}{2\\pi\\sqrt{\\Sigma}}\\).
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -546,9 +552,9 @@ class SpectralMixtureKernel(Kernel):
     &#34;&#34;&#34;
     A spectral mixture kernel given by
 
-    $$ K(x,x&#39;) = \\sum_{q=0}^Q \\sigma_q^2 \\exp\\left(-2\\pi^2 \\Sigma_q |x-x&#39;|^2\\right) \\cos(2\\pi \\mu_q |x-x&#39;|) $$
+    $$ K(x,x&#39;) = \\sum_{q=0}^Q \\sigma_q^2 \\exp\\left(-2\\pi^2 \\Sigma_q \\tau^2\\right) \\cos(2\\pi \\mu_q \\tau) $$
 
-    with \\(Q\\) the number of mixtures, \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean.
+    with \\(Q\\) the number of mixtures, \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean.
 
     Args:
         Q (int): Number of mixture components.
@@ -590,9 +596,9 @@ class MaternKernel(Kernel):
     &#34;&#34;&#34;
     A Matérn kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 c \\exp\\left(-\\sqrt{2\\nu |x-x&#39;| / l}\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 c \\exp\\left(-\\sqrt{2\\nu \\tau / l}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(c\\) depending on \\(\\nu\\) is either \\(1.0\\) for \\(\\nu = 0.5\\), or \\(1.0 + \\sqrt{3}|x-x&#39;|/l\\) for \\(\\nu = 1.5\\), or \\(1.0 + \\sqrt{5}|x-x&#39;|/l + \\frac{5|x-x&#39;|^2}{3l^2}\\).
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(c\\) depending on \\(\\nu\\) is either \\(1.0\\) for \\(\\nu = 0.5\\), or \\(1.0 + \\sqrt{3}|x-x&#39;|/l\\) for \\(\\nu = 1.5\\), or \\(1.0 + \\sqrt{5}|x-x&#39;|/l + \\frac{5|x-x&#39;|^2}{3l^2}\\).
 
     Args:
         nu (float): Parameter that must be 0.5, 1.5, or 2.5.
@@ -672,7 +678,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L5-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L5-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ConstantKernel(Kernel):
     &#34;&#34;&#34;
@@ -729,8 +735,8 @@ class MaternKernel(Kernel):
 </code></dt>
 <dd>
 <div class="desc"><p>A cosine periodic kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \cos(2\pi |x-x'| / l) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \cos(2\pi |x-x'| / l) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude and <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \cos(2\pi \tau / l) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \cos(2\pi \tau / l) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude and <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -750,15 +756,15 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L388-L424" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L394-L430" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CosineKernel(Kernel):
     &#34;&#34;&#34;
     A cosine periodic kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\cos(2\\pi |x-x&#39;| / l) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\cos(2\\pi \\tau / l) $$
 
-    with \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -812,8 +818,8 @@ class MaternKernel(Kernel):
 </code></dt>
 <dd>
 <div class="desc"><p>An exponential kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{|x-x'|}{2l}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{|x-x'|}{2l}\right) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{\tau}{2l}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{\tau}{2l}\right) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -833,15 +839,15 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L186-L222" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L186-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ExponentialKernel(Kernel):
     &#34;&#34;&#34;
     An exponential kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{|x-x&#39;|}{2l}\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{\\tau}{2l}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -916,7 +922,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L71-L104" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L71-L104" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearKernel(Kernel):
     &#34;&#34;&#34;
@@ -975,8 +981,8 @@ class MaternKernel(Kernel):
 </code></dt>
 <dd>
 <div class="desc"><p>A locally periodic kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi |x-x'| / p)}{l^2}\right) \exp\left(-\frac{|x-x'|^2}{2l^2}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi |x-x'| / p)}{l^2}\right) \exp\left(-\frac{|x-x'|^2}{2l^2}\right) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> the period.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi \tau / p)}{l^2}\right) \exp\left(-\frac{\tau^2}{2l^2}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi \tau / p)}{l^2}\right) \exp\left(-\frac{\tau^2}{2l^2}\right) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> the period.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -998,15 +1004,15 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L344-L386" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L350-L392" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LocallyPeriodicKernel(Kernel):
     &#34;&#34;&#34;
     A locally periodic kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi |x-x&#39;| / p)}{l^2}\\right) \\exp\\left(-\\frac{|x-x&#39;|^2}{2l^2}\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) \\exp\\left(-\\frac{\\tau^2}{2l^2}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -1066,8 +1072,8 @@ class MaternKernel(Kernel):
 </code></dt>
 <dd>
 <div class="desc"><p>A Matérn kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 c \exp\left(-\sqrt{2\nu |x-x'| / l}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 c \exp\left(-\sqrt{2\nu |x-x'| / l}\right) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">c</span><script type="math/tex">c</script></span> depending on <span><span class="MathJax_Preview">\nu</span><script type="math/tex">\nu</script></span> is either <span><span class="MathJax_Preview">1.0</span><script type="math/tex">1.0</script></span> for <span><span class="MathJax_Preview">\nu = 0.5</span><script type="math/tex">\nu = 0.5</script></span>, or <span><span class="MathJax_Preview">1.0 + \sqrt{3}|x-x'|/l</span><script type="math/tex">1.0 + \sqrt{3}|x-x'|/l</script></span> for <span><span class="MathJax_Preview">\nu = 1.5</span><script type="math/tex">\nu = 1.5</script></span>, or <span><span class="MathJax_Preview">1.0 + \sqrt{5}|x-x'|/l + \frac{5|x-x'|^2}{3l^2}</span><script type="math/tex">1.0 + \sqrt{5}|x-x'|/l + \frac{5|x-x'|^2}{3l^2}</script></span>.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 c \exp\left(-\sqrt{2\nu \tau / l}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 c \exp\left(-\sqrt{2\nu \tau / l}\right) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">c</span><script type="math/tex">c</script></span> depending on <span><span class="MathJax_Preview">\nu</span><script type="math/tex">\nu</script></span> is either <span><span class="MathJax_Preview">1.0</span><script type="math/tex">1.0</script></span> for <span><span class="MathJax_Preview">\nu = 0.5</span><script type="math/tex">\nu = 0.5</script></span>, or <span><span class="MathJax_Preview">1.0 + \sqrt{3}|x-x'|/l</span><script type="math/tex">1.0 + \sqrt{3}|x-x'|/l</script></span> for <span><span class="MathJax_Preview">\nu = 1.5</span><script type="math/tex">\nu = 1.5</script></span>, or <span><span class="MathJax_Preview">1.0 + \sqrt{5}|x-x'|/l + \frac{5|x-x'|^2}{3l^2}</span><script type="math/tex">1.0 + \sqrt{5}|x-x'|/l + \frac{5|x-x'|^2}{3l^2}</script></span>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>nu</code></strong> :&ensp;<code>float</code></dt>
@@ -1089,15 +1095,15 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L558-L607" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L564-L613" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MaternKernel(Kernel):
     &#34;&#34;&#34;
     A Matérn kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 c \\exp\\left(-\\sqrt{2\\nu |x-x&#39;| / l}\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 c \\exp\\left(-\\sqrt{2\\nu \\tau / l}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(c\\) depending on \\(\\nu\\) is either \\(1.0\\) for \\(\\nu = 0.5\\), or \\(1.0 + \\sqrt{3}|x-x&#39;|/l\\) for \\(\\nu = 1.5\\), or \\(1.0 + \\sqrt{5}|x-x&#39;|/l + \\frac{5|x-x&#39;|^2}{3l^2}\\).
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(c\\) depending on \\(\\nu\\) is either \\(1.0\\) for \\(\\nu = 0.5\\), or \\(1.0 + \\sqrt{3}|x-x&#39;|/l\\) for \\(\\nu = 1.5\\), or \\(1.0 + \\sqrt{5}|x-x&#39;|/l + \\frac{5|x-x&#39;|^2}{3l^2}\\).
 
     Args:
         nu (float): Parameter that must be 0.5, 1.5, or 2.5.
@@ -1164,8 +1170,8 @@ class MaternKernel(Kernel):
 </code></dt>
 <dd>
 <div class="desc"><p>A periodic kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi |x-x'| / p)}{l^2}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi |x-x'| / p)}{l^2}\right) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> the period parameter.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi \tau / p)}{l^2}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi \tau / p)}{l^2}\right) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> the period parameter.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -1187,15 +1193,15 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L302-L342" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L308-L348" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PeriodicKernel(Kernel):
     &#34;&#34;&#34;
     A periodic kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi |x-x&#39;| / p)}{l^2}\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -1274,7 +1280,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L144-L184" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L144-L184" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PhiKernel(Kernel):
     &#34;&#34;&#34;
@@ -1365,7 +1371,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L106-L142" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L106-L142" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PolynomialKernel(Kernel):
     &#34;&#34;&#34;
@@ -1427,8 +1433,8 @@ class MaternKernel(Kernel):
 </code></dt>
 <dd>
 <div class="desc"><p>A rational quadratic kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \left(1 + \frac{|x-x'|^2}{2l^2}\right)^{-\alpha} </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \left(1 + \frac{|x-x'|^2}{2l^2}\right)^{-\alpha} </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">\alpha</span><script type="math/tex">\alpha</script></span> the relative weighting of small-scale and large-scale fluctuations. When <span><span class="MathJax_Preview">\alpha \to \infty</span><script type="math/tex">\alpha \to \infty</script></span> this kernel becomes equivalent to the squared exponential kernel.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \left(1 + \frac{\tau^2}{2l^2}\right)^{-\alpha} </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \left(1 + \frac{\tau^2}{2l^2}\right)^{-\alpha} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">\alpha</span><script type="math/tex">\alpha</script></span> the relative weighting of small-scale and large-scale fluctuations. When <span><span class="MathJax_Preview">\alpha \to \infty</span><script type="math/tex">\alpha \to \infty</script></span> this kernel becomes equivalent to the squared exponential kernel.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -1450,15 +1456,15 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L262-L300" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L268-L306" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class RationalQuadraticKernel(Kernel):
     &#34;&#34;&#34;
     A rational quadratic kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\left(1 + \\frac{|x-x&#39;|^2}{2l^2}\\right)^{-\\alpha} $$
+    $$ K(x,x&#39;) = \\sigma^2 \\left(1 + \\frac{\\tau^2}{2l^2}\\right)^{-\\alpha} $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -1514,8 +1520,8 @@ class MaternKernel(Kernel):
 </code></dt>
 <dd>
 <div class="desc"><p>A sinc kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \frac{\sin(\Delta |x-x'|)}{\Delta |x-x'|} \cos(2\pi \xi_0 |x-x'|) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \frac{\sin(\Delta |x-x'|)}{\Delta |x-x'|} \cos(2\pi \xi_0 |x-x'|) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">\Delta</span><script type="math/tex">\Delta</script></span> the bandwidth, and <span><span class="MathJax_Preview">\xi_0</span><script type="math/tex">\xi_0</script></span> the frequency.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \frac{\sin(\Delta \tau)}{\Delta \tau} \cos(2\pi \xi_0 \tau) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \frac{\sin(\Delta \tau)}{\Delta \tau} \cos(2\pi \xi_0 \tau) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">\Delta</span><script type="math/tex">\Delta</script></span> the bandwidth, and <span><span class="MathJax_Preview">\xi_0</span><script type="math/tex">\xi_0</script></span> the frequency.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -1537,15 +1543,15 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L426-L470" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L432-L476" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SincKernel(Kernel):
     &#34;&#34;&#34;
     A sinc kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\frac{\\sin(\\Delta |x-x&#39;|)}{\\Delta |x-x&#39;|} \\cos(2\\pi \\xi_0 |x-x&#39;|) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\frac{\\sin(\\Delta \\tau)}{\\Delta \\tau} \\cos(2\\pi \\xi_0 \\tau) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(\\Delta\\) the bandwidth, and \\(\\xi_0\\) the frequency.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(\\Delta\\) the bandwidth, and \\(\\xi_0\\) the frequency.
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -1607,8 +1613,8 @@ class MaternKernel(Kernel):
 </code></dt>
 <dd>
 <div class="desc"><p>A spectral kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-2\pi^2 \Sigma |x-x'|^2\right) \cos(2\pi \mu |x-x'|) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-2\pi^2 \Sigma |x-x'|^2\right) \cos(2\pi \mu |x-x'|) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">\Sigma</span><script type="math/tex">\Sigma</script></span> the variance, and <span><span class="MathJax_Preview">\mu</span><script type="math/tex">\mu</script></span> the mean. When the mean is zero, this kernel is equivalent to the SquaredExponential kernel with <span><span class="MathJax_Preview">l = \frac{1}{2\pi\sqrt{\Sigma}}</span><script type="math/tex">l = \frac{1}{2\pi\sqrt{\Sigma}}</script></span>.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-2\pi^2 \Sigma \tau^2\right) \cos(2\pi \mu \tau) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-2\pi^2 \Sigma \tau^2\right) \cos(2\pi \mu \tau) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">\Sigma</span><script type="math/tex">\Sigma</script></span> the variance, and <span><span class="MathJax_Preview">\mu</span><script type="math/tex">\mu</script></span> the mean. When the mean is zero, this kernel is equivalent to the SquaredExponential kernel with <span><span class="MathJax_Preview">l = \frac{1}{2\pi\sqrt{\Sigma}}</span><script type="math/tex">l = \frac{1}{2\pi\sqrt{\Sigma}}</script></span>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
@@ -1630,15 +1636,15 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L472-L512" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L478-L518" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralKernel(Kernel):
     &#34;&#34;&#34;
     A spectral kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-2\\pi^2 \\Sigma |x-x&#39;|^2\\right) \\cos(2\\pi \\mu |x-x&#39;|) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-2\\pi^2 \\Sigma \\tau^2\\right) \\cos(2\\pi \\mu \\tau) $$
 
-    with \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean. When the mean is zero, this kernel is equivalent to the SquaredExponential kernel with \\(l = \\frac{1}{2\\pi\\sqrt{\\Sigma}}\\).
+    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean. When the mean is zero, this kernel is equivalent to the SquaredExponential kernel with \\(l = \\frac{1}{2\\pi\\sqrt{\\Sigma}}\\).
 
     Args:
         input_dims (int): Number of input dimensions.
@@ -1696,8 +1702,8 @@ class MaternKernel(Kernel):
 </code></dt>
 <dd>
 <div class="desc"><p>A spectral mixture kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sum_{q=0}^Q \sigma_q^2 \exp\left(-2\pi^2 \Sigma_q |x-x'|^2\right) \cos(2\pi \mu_q |x-x'|) </span><script type="math/tex; mode=display"> K(x,x') = \sum_{q=0}^Q \sigma_q^2 \exp\left(-2\pi^2 \Sigma_q |x-x'|^2\right) \cos(2\pi \mu_q |x-x'|) </script></span></p>
-<p>with <span><span class="MathJax_Preview">Q</span><script type="math/tex">Q</script></span> the number of mixtures, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">\Sigma</span><script type="math/tex">\Sigma</script></span> the variance, and <span><span class="MathJax_Preview">\mu</span><script type="math/tex">\mu</script></span> the mean.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sum_{q=0}^Q \sigma_q^2 \exp\left(-2\pi^2 \Sigma_q \tau^2\right) \cos(2\pi \mu_q \tau) </span><script type="math/tex; mode=display"> K(x,x') = \sum_{q=0}^Q \sigma_q^2 \exp\left(-2\pi^2 \Sigma_q \tau^2\right) \cos(2\pi \mu_q \tau) </script></span></p>
+<p>with <span><span class="MathJax_Preview">Q</span><script type="math/tex">Q</script></span> the number of mixtures, <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">\Sigma</span><script type="math/tex">\Sigma</script></span> the variance, and <span><span class="MathJax_Preview">\mu</span><script type="math/tex">\mu</script></span> the mean.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
@@ -1721,15 +1727,15 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L514-L556" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L520-L562" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralMixtureKernel(Kernel):
     &#34;&#34;&#34;
     A spectral mixture kernel given by
 
-    $$ K(x,x&#39;) = \\sum_{q=0}^Q \\sigma_q^2 \\exp\\left(-2\\pi^2 \\Sigma_q |x-x&#39;|^2\\right) \\cos(2\\pi \\mu_q |x-x&#39;|) $$
+    $$ K(x,x&#39;) = \\sum_{q=0}^Q \\sigma_q^2 \\exp\\left(-2\\pi^2 \\Sigma_q \\tau^2\\right) \\cos(2\\pi \\mu_q \\tau) $$
 
-    with \\(Q\\) the number of mixtures, \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean.
+    with \\(Q\\) the number of mixtures, \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(\\Sigma\\) the variance, and \\(\\mu\\) the mean.
 
     Args:
         Q (int): Number of mixture components.
@@ -1785,14 +1791,16 @@ class MaternKernel(Kernel):
 </dd>
 <dt id="mogptk.gpr.singleoutput.SquaredExponentialKernel"><code class="flex name class">
 <span>class <span class="ident">SquaredExponentialKernel</span></span>
-<span>(</span><span>input_dims=1, active_dims=None, name='SE')</span>
+<span>(</span><span>order=0, input_dims=1, active_dims=None, name='SE')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A squared exponential kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{|x-x'|^2}{2l^2}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{|x-x'|^2}{2l^2}\right) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude and <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{1}{2}\tau^T\Sigma\tau\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{1}{2}\tau^T\Sigma\tau\right) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\Sigma = LL^T + \mathrm{diag}(l)</span><script type="math/tex">\Sigma = LL^T + \mathrm{diag}(l)</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscales, and <span><span class="MathJax_Preview">LL^T</span><script type="math/tex">LL^T</script></span> the cross lengthscales.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>order</code></strong> :&ensp;<code>float</code></dt>
+<dd>Order of cross lengthscales.</dd>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of input dimensions.</dd>
 <dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
@@ -1806,21 +1814,24 @@ class MaternKernel(Kernel):
 <dd>Magnitude <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> a scalar.</dd>
 <dt><strong><code>lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Lengthscale <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> of shape (input_dims,).</dd>
+<dt><strong><code>cross_lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Lower triangular cholesky of the cross lengthscale <span><span class="MathJax_Preview">L</span><script type="math/tex">L</script></span> of shape (input_dims,order).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L224-L260" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L224-L266" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SquaredExponentialKernel(Kernel):
     &#34;&#34;&#34;
     A squared exponential kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{|x-x&#39;|^2}{2l^2}\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{1}{2}\\tau^T\\Sigma\\tau\\right) $$
 
-    with \\(\\sigma^2\\) the magnitude and \\(l\\) the lengthscale.
+    with \\(\\tau = |x-x&#39;|\\), \\(\\Sigma = LL^T + \\mathrm{diag}(l)\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscales, and \\(LL^T\\) the cross lengthscales.
 
     Args:
+        order (float): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
@@ -1828,21 +1839,26 @@ class MaternKernel(Kernel):
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Lower triangular cholesky of the cross lengthscale \\(L\\) of shape (input_dims,order).
     &#34;&#34;&#34;
-    def __init__(self, input_dims=1, active_dims=None, name=&#34;SE&#34;):
+    def __init__(self, order=0, input_dims=1, active_dims=None, name=&#34;SE&#34;):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
         lengthscale = torch.ones(input_dims)
+        cross_lengthscale = torch.ones(input_dims,order)
 
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
         self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
+        self.cross_lengthscale.num_parameters = int((input_dims*input_dims+input_dims)/2)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
-        sqdist = self.squared_distance(X1,X2)  # NxMxD
-        exp = -0.5*torch.tensordot(sqdist, 1.0/self.lengthscale()**2, dims=1)  # NxM
+        dist = self.distance(X1,X2)  # NxMxD
+        lengthscale = self.cross_lengthscale().tril().mm(self.cross_lengthscale().tril().T) + torch.diag(self.lengthscale()**2)  # DxD
+        exp = -0.5*torch.einsum(&#34;ijk,kl,ijl-&gt;ij&#34;,dist,lengthscale,dist)  # NxM
         return self.magnitude() * torch.exp(exp)
 
     def K_diag(self, X1):
@@ -1891,7 +1907,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/gpr/singleoutput.py#L38-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L38-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class WhiteKernel(Kernel):
     &#34;&#34;&#34;

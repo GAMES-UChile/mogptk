@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L1-L875" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L1-L904" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import time
@@ -179,8 +179,11 @@ class Model:
             name (str): Name of the model.
 
         Atributes:
-            dataset: The associated mogptk.dataset.DataSet.
-            gpr: The mogptk.gpr.model.Model.
+            dataset (mogptk.dataset.DataSet): Dataset.
+            gpr (The mogptk.gpr.model.Model): GPR model.
+            times (numpy.ndarray): Training times of shape (iters,).
+            losses (numpy.ndarray): Losses of shape (iters,).
+            errors (numpy.ndarray): Errors of shape (iters,).
         &#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
@@ -308,15 +311,33 @@ class Model:
         Examples:
             &gt;&gt;&gt; model.error()
         &#34;&#34;&#34;
+
+        if callable(method) and len(inspect.signature(method).parameters) == 1:
+            return method(self)
+
+        # get data
         if use_all_data:
             X, Y_true = self.dataset.get_data()
         else:
             X, Y_true = self.dataset.get_test_data()
-        x, y_true  = self._to_kernel_format(X, Y_true)
+
+        # predict
+        x  = self._to_kernel_format(X)
         y_pred, _ = self.gpr.predict(x, predict_y=False)
+
+        # transform to original
+        i = 0
+        Y_pred = []
+        for j in range(self.dataset.get_output_dims()):
+            N = X[j].shape[0]
+            Y_pred.append(self.dataset[j].Y.detransform(np.squeeze(y_pred[i:i+N]), X[j]))
+            i += N
+
+        # flatten
+        y_true = np.concatenate(Y_true)
+        y_pred = np.concatenate(Y_pred)
+
         if callable(method):
-            if len(inspect.signature(method).parameters) == 3:
-                return method(y_true, y_pred, self)
             return method(y_true, y_pred)
         elif method.lower() == &#39;mae&#39;:
             return mean_absolute_error(y_true, y_pred)
@@ -365,6 +386,14 @@ class Model:
         if error is not None and all(not channel.has_test_data() for channel in self.dataset):
             error_use_all_data = True
 
+        if callable(error):
+            if len(inspect.signature(error).parameters) == 1:
+                e = error(self)
+            else:
+                e = error(np.zeros((1,1)), np.zeros((1,1)))
+            if not isinstance(e, float) and (not isinstance(e, np.ndarray) or e.size != 1):
+                raise ValueError(&#34;error function must return a float&#34;)
+
         if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
             method = &#39;LBFGS&#39;
         elif method.lower() == &#39;adam&#39;:
@@ -408,7 +437,7 @@ class Model:
             times[i] = elapsed_time
             losses[i] = loss
             if error is not None:
-                errors[i] = self.error(error, error_use_all_data)
+                errors[i] = float(self.error(error, error_use_all_data))
                 if write:
                     print(&#34;  %*d/%*d %s  loss=%12g  error=%12g&#34; % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
             elif write:
@@ -929,7 +958,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L20-L32" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L20-L32" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -967,7 +996,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L34-L60" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L34-L60" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
@@ -1018,7 +1047,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L117-L136" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L117-L136" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman:
     &#34;&#34;&#34;
@@ -1062,12 +1091,15 @@ def _format_time(s):
 <dd>Name of the model.</dd>
 </dl>
 <h2 id="atributes">Atributes</h2>
-<p>dataset: The associated mogptk.dataset.DataSet.
-gpr: The mogptk.gpr.model.Model.</p></div>
+<p>dataset (mogptk.dataset.DataSet): Dataset.
+gpr (The mogptk.gpr.model.Model): GPR model.
+times (numpy.ndarray): Training times of shape (iters,).
+losses (numpy.ndarray): Losses of shape (iters,).
+errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L138-L843" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L138-L872" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
@@ -1082,8 +1114,11 @@ gpr: The mogptk.gpr.model.Model.</p></div>
             name (str): Name of the model.
 
         Atributes:
-            dataset: The associated mogptk.dataset.DataSet.
-            gpr: The mogptk.gpr.model.Model.
+            dataset (mogptk.dataset.DataSet): Dataset.
+            gpr (The mogptk.gpr.model.Model): GPR model.
+            times (numpy.ndarray): Training times of shape (iters,).
+            losses (numpy.ndarray): Losses of shape (iters,).
+            errors (numpy.ndarray): Errors of shape (iters,).
         &#34;&#34;&#34;
         
         if not isinstance(dataset, DataSet):
@@ -1211,15 +1246,33 @@ gpr: The mogptk.gpr.model.Model.</p></div>
         Examples:
             &gt;&gt;&gt; model.error()
         &#34;&#34;&#34;
+
+        if callable(method) and len(inspect.signature(method).parameters) == 1:
+            return method(self)
+
+        # get data
         if use_all_data:
             X, Y_true = self.dataset.get_data()
         else:
             X, Y_true = self.dataset.get_test_data()
-        x, y_true  = self._to_kernel_format(X, Y_true)
+
+        # predict
+        x  = self._to_kernel_format(X)
         y_pred, _ = self.gpr.predict(x, predict_y=False)
+
+        # transform to original
+        i = 0
+        Y_pred = []
+        for j in range(self.dataset.get_output_dims()):
+            N = X[j].shape[0]
+            Y_pred.append(self.dataset[j].Y.detransform(np.squeeze(y_pred[i:i+N]), X[j]))
+            i += N
+
+        # flatten
+        y_true = np.concatenate(Y_true)
+        y_pred = np.concatenate(Y_pred)
+
         if callable(method):
-            if len(inspect.signature(method).parameters) == 3:
-                return method(y_true, y_pred, self)
             return method(y_true, y_pred)
         elif method.lower() == &#39;mae&#39;:
             return mean_absolute_error(y_true, y_pred)
@@ -1268,6 +1321,14 @@ gpr: The mogptk.gpr.model.Model.</p></div>
         if error is not None and all(not channel.has_test_data() for channel in self.dataset):
             error_use_all_data = True
 
+        if callable(error):
+            if len(inspect.signature(error).parameters) == 1:
+                e = error(self)
+            else:
+                e = error(np.zeros((1,1)), np.zeros((1,1)))
+            if not isinstance(e, float) and (not isinstance(e, np.ndarray) or e.size != 1):
+                raise ValueError(&#34;error function must return a float&#34;)
+
         if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
             method = &#39;LBFGS&#39;
         elif method.lower() == &#39;adam&#39;:
@@ -1311,7 +1372,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
             times[i] = elapsed_time
             losses[i] = loss
             if error is not None:
-                errors[i] = self.error(error, error_use_all_data)
+                errors[i] = float(self.error(error, error_use_all_data))
                 if write:
                     print(&#34;  %*d/%*d %s  loss=%12g  error=%12g&#34; % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
             elif write:
@@ -1812,7 +1873,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L520-L543" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L549-L572" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -1848,7 +1909,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L216-L223" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L219-L226" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy_parameters(self, other):
     &#34;&#34;&#34;
@@ -1881,7 +1942,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L267-L301" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L270-L322" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;, use_all_data=False):
     &#34;&#34;&#34;
@@ -1896,15 +1957,33 @@ gpr: The mogptk.gpr.model.Model.</p></div>
     Examples:
         &gt;&gt;&gt; model.error()
     &#34;&#34;&#34;
+
+    if callable(method) and len(inspect.signature(method).parameters) == 1:
+        return method(self)
+
+    # get data
     if use_all_data:
         X, Y_true = self.dataset.get_data()
     else:
         X, Y_true = self.dataset.get_test_data()
-    x, y_true  = self._to_kernel_format(X, Y_true)
+
+    # predict
+    x  = self._to_kernel_format(X)
     y_pred, _ = self.gpr.predict(x, predict_y=False)
+
+    # transform to original
+    i = 0
+    Y_pred = []
+    for j in range(self.dataset.get_output_dims()):
+        N = X[j].shape[0]
+        Y_pred.append(self.dataset[j].Y.detransform(np.squeeze(y_pred[i:i+N]), X[j]))
+        i += N
+
+    # flatten
+    y_true = np.concatenate(Y_true)
+    y_pred = np.concatenate(Y_pred)
+
     if callable(method):
-        if len(inspect.signature(method).parameters) == 3:
-            return method(y_true, y_pred, self)
         return method(y_true, y_pred)
     elif method.lower() == &#39;mae&#39;:
         return mean_absolute_error(y_true, y_pred)
@@ -1936,7 +2015,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L204-L214" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L207-L217" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -1967,7 +2046,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L243-L253" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L246-L256" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -1998,7 +2077,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L255-L265" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L258-L268" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -2041,7 +2120,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L740-L800" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L769-L829" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(18,18)):
     &#34;&#34;&#34;
@@ -2132,7 +2211,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L802-L843" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L831-L872" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_kernel(self, dist=None, n=101, title=None, figsize=(18,18)):
     &#34;&#34;&#34;
@@ -2206,7 +2285,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L592-L635" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L621-L664" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_losses(self, title=None, figsize=(18,6), legend=True, errors=True, log=False):
     &#34;&#34;&#34;
@@ -2287,7 +2366,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L637-L738" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L666-L767" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, predict_y=True, transformed=False):
     &#34;&#34;&#34;
@@ -2424,7 +2503,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L464-L518" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L493-L547" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=2, transformed=False, predict_y=True):
     &#34;&#34;&#34;
@@ -2494,7 +2573,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L195-L202" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L198-L205" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -2535,7 +2614,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L545-L590" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L574-L619" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, X=None, n=None, predict_y=True, transformed=False):
     &#34;&#34;&#34;
@@ -2601,7 +2680,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L225-L241" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L228-L244" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -2659,7 +2738,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L303-L431" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L324-L460" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -2694,6 +2773,14 @@ gpr: The mogptk.gpr.model.Model.</p></div>
     error_use_all_data = False
     if error is not None and all(not channel.has_test_data() for channel in self.dataset):
         error_use_all_data = True
+
+    if callable(error):
+        if len(inspect.signature(error).parameters) == 1:
+            e = error(self)
+        else:
+            e = error(np.zeros((1,1)), np.zeros((1,1)))
+        if not isinstance(e, float) and (not isinstance(e, np.ndarray) or e.size != 1):
+            raise ValueError(&#34;error function must return a float&#34;)
 
     if method.lower() in (&#39;l-bfgs&#39;, &#39;lbfgs&#39;, &#39;l-bfgs-b&#39;, &#39;lbfgsb&#39;):
         method = &#39;LBFGS&#39;
@@ -2738,7 +2825,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
         times[i] = elapsed_time
         losses[i] = loss
         if error is not None:
-            errors[i] = self.error(error, error_use_all_data)
+            errors[i] = float(self.error(error, error_use_all_data))
             if write:
                 print(&#34;  %*d/%*d %s  loss=%12g  error=%12g&#34; % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
         elif write:
@@ -2810,7 +2897,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L83-L96" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L83-L96" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau:
     &#34;&#34;&#34;
@@ -2848,7 +2935,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L62-L81" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L62-L81" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson:
     &#34;&#34;&#34;
@@ -2892,7 +2979,7 @@ gpr: The mogptk.gpr.model.Model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/model.py#L98-L115" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L98-L115" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias:
     &#34;&#34;&#34;

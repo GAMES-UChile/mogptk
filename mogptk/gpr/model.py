@@ -80,6 +80,11 @@ class CholeskyException(Exception):
 class Model:
     """
     Base model class.
+
+    Attributes:
+        kernel (mogptk.gpr.kernel.Kernel): Kernel.
+        likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
+        mean (mogptk.gpr.mean.Mean): Mean.
     """
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0), jitter=1e-8, mean=None, name=None):
         if not issubclass(type(kernel), Kernel):

@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/bnse.py#L1-L119" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/bnse.py#L1-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -139,6 +139,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         var_real = Kff_real - b.T.mm(b)
         var_imag = Kff_imag - c.T.mm(c)
 
+        # The PSD equals N(mu_real,var_real)^2 + N(mu_imag,var_imag)^2, which is a generalized Chi-Squared distribution
         var_real = var_real.diagonal().reshape(-1,1)
         var_imag = var_imag.diagonal().reshape(-1,1)
         mu = mu_real**2 + mu_imag**2 + var_real + var_imag
@@ -188,7 +189,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a052f17a108289cc80a267d138ab6e3810a2a1e7/mogptk/bnse.py#L5-L119" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/bnse.py#L5-L120" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def BNSE(x, y, max_freq=None, n=1000, iters=500):
     &#34;&#34;&#34;
@@ -296,6 +297,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
         var_real = Kff_real - b.T.mm(b)
         var_imag = Kff_imag - c.T.mm(c)
 
+        # The PSD equals N(mu_real,var_real)^2 + N(mu_imag,var_imag)^2, which is a generalized Chi-Squared distribution
         var_real = var_real.diagonal().reshape(-1,1)
         var_imag = var_imag.diagonal().reshape(-1,1)
         mu = mu_real**2 + mu_imag**2 + var_real + var_imag
