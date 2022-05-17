@@ -225,9 +225,9 @@ class SquaredExponentialKernel(Kernel):
     """
     A squared exponential kernel given by
 
-    $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{1}{2}\\tau^T\\Sigma\\tau\\right) $$
+    $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{1}{2}\\tau^TM\\tau\\right) $$
 
-    with \\(\\tau = |x-x'|\\), \\(\\Sigma = LL^T + \\mathrm{diag}(l)\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscales, and \\(LL^T\\) the cross lengthscales.
+    with \\(\\tau = |x-x'|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscales, and \\(LL^T\\) the cross lengthscales.
 
     Args:
         order (float): Order of cross lengthscales.
@@ -238,7 +238,7 @@ class SquaredExponentialKernel(Kernel):
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
-        cross_lengthscale (mogptk.gpr.parameter.Parameter): Lower triangular cholesky of the cross lengthscale \\(L\\) of shape (input_dims,order).
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order).
     """
     def __init__(self, order=0, input_dims=1, active_dims=None, name="SE"):
         super().__init__(input_dims, active_dims, name)
@@ -250,13 +250,12 @@ class SquaredExponentialKernel(Kernel):
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
         self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
         self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
-        self.cross_lengthscale.num_parameters = int((input_dims*input_dims+input_dims)/2)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
         dist = self.distance(X1,X2)  # NxMxD
-        lengthscale = self.cross_lengthscale().tril().mm(self.cross_lengthscale().tril().T) + torch.diag(self.lengthscale()**2)  # DxD
+        lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + torch.diag(self.lengthscale()**2)  # DxD
         exp = -0.5*torch.einsum("ijk,kl,ijl->ij",dist,lengthscale,dist)  # NxM
         return self.magnitude() * torch.exp(exp)
 
