@@ -43,15 +43,21 @@ class SM_LMC(Model):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        spectral = [SpectralKernel(dataset.get_input_dims()[0]) for q in range(Q)]
-        kernel = LinearModelOfCoregionalizationKernel(
-            spectral,
-            output_dims=dataset.get_output_dims(),
-            input_dims=dataset.get_input_dims()[0],
-            Q=Q,
-            Rq=Rq)
-        super().__init__(dataset, kernel, inference, mean, name)
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
+        for input_dim in dataset.get_input_dims()[1:]:
+            if input_dim != input_dims:
+                raise ValueError("input dimensions for all channels must match")
 
+        spectral = [SpectralKernel(input_dims) for q in range(Q)]
+        kernel = LinearModelOfCoregionalizationKernel(spectral, output_dims=output_dims, input_dims=input_dims, Q=Q, Rq=Rq)
+        kernel.weight.assign(np.random.rand(output_dims,Q,Rq))
+        for q in range(Q):
+            kernel[q].magnitude.assign(np.random.rand(1))
+            kernel[q].mean.assign(np.random.rand(input_dims))
+            kernel[q].variance.assign(np.random.rand(input_dims))
+
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)

@@ -122,12 +122,31 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
     """
     Multi-output spectral mixture kernel (MOSM) where each channel and cross-channel is modelled with a spectral kernel as proposed by [1].
 
+    $$ K_{ij}(x,x') = \\sum_{q=0}^Q\\alpha_{ijq} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ijq})^T\\Sigma_{ijq}(\\tau+\\theta_{ijq})\\right) \\cos((\\tau+\\theta_{ijq})^T\\mu_{ijq} + \\phi_{ijq}) $$
+
+    $$ \\alpha_{ijq} = w_{ijq}\\sqrt\\left((2\\pi)^n|\\Sigma_{ijq}|\\right) $$
+
+    $$ w_{ijq} = w_{iq}w_{jq}\\exp\\left(-\\frac{1}{4}(\\mu_{iq}-\\mu_{jq})^T(\\Sigma_{iq}+\\Sigma_{jq})^{-1}(\\mu_{iq}-\\mu_{jq})\\right) $$
+
+    $$ \\mu_{ijq} = (\\Sigma_{iq}+\\Sigma_{jq})^{-1}(\\Sigma_{iq}\\mu_{jq} + \\Sigma_{jq}\\mu_{iq}) $$
+
+    $$ \\Sigma_{ijq} = 2\\Sigma_{iq}(\\Sigma_{iq}+\\Sigma_{jq})^{-1}\\Sigma_{jq}$$
+
+    with \\(\\theta_{ijq} = \\theta_{iq}-\\theta_{jq}\\), \\(\\phi_{ijq} = \\phi_{iq}-\\phi_{jq}\\), \\(\\tau = |x-x'|\\), \\(w\\) the weight, \\(\\mu\\) the mean, \\(\\Sigma\\) the variance, \\(\\theta\\) the delay, and \\(\\phi\\) the phase.
+
     Args:
         Q (int): Number mixture components.
         output_dims (int): Number of output dimensions.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
+
+    Attributes:
+        weight (mogptk.gpr.parameter.Parameter): Weight \\(w\\) of shape (output_dims,Q).
+        mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,Q,input_dims).
+        variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,Q,input_dims).
+        delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,Q,input_dims).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,Q).
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
@@ -157,18 +176,10 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
         tau = self.distance(X1,X2)  # NxMxD
         if i == j:
             variance = self.variance()[i]  # QxD
-            print(variance.shape)
             alpha = self.weight()[i]**2 * self.twopi * variance.prod(dim=1).sqrt()  # Q
-            print(alpha.shape)
-            print(tau[None,:,:,:].shape)
-            print(variance[:,None,None,:].shape)
-            exp = torch.exp(-0.5*torch.tensordot(tau**2, variance.T, dims=1).T)  # NxMxQ
-            print(exp.shape)
-            print(self.mean()[i,:,None,None,:].shape)
-            cos = torch.cos(2.0*np.pi * torch.tensordot(tau, self.mean()[i].T, dims=1))  # NxMxQ
-            print(cos.shape)
-            Kq = alpha[None,None,:] * exp * cos
-            print(Kq.shape)
+            exp = torch.exp(-0.5 * torch.einsum("nmd,qd->qnm", tau**2, variance))  # QxNxM
+            cos = torch.cos(2.0*np.pi * torch.einsum("nmd,qd->qnm", tau, self.mean()[i]))  # QxNxM
+            Kq = alpha[:,None,None] * exp * cos  # QxNxM
         else:
             inv_variances = 1.0/(self.variance()[i] + self.variance()[j])  # QxD
 
@@ -180,12 +191,12 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
             delay = self.delay()[i] - self.delay()[j]  # QxD
             phase = self.phase()[i] - self.phase()[j]  # Q
 
-            # TODO
             alpha = magnitude * self.twopi * variance.prod(dim=1).sqrt()  # Q
-            exp = torch.exp(-0.5 * torch.tensordot((tau[None,:,:,:]+delay[:,None,None,:])**2, variance[:,None,None,:], dims=1))  # QxNxM
-            cos = torch.cos(2.0*np.pi * (torch.tensordot(tau[None,:,:,:]+delay[:,None,None,:], mean[:,None,None,:], dims=1) + phase[:,None,None]))  # QxNxM
-            Kq = alpha * exp * cos
-        return torch.sum(Kq, dim=2)
+            tau_delay = tau[None,:,:,:] + delay[:,None,None,:]  # QxNxMxD
+            exp = torch.exp(-0.5 * torch.einsum("qnmd,qd->qnm", (tau_delay)**2, variance))  # QxNxM
+            cos = torch.cos(2.0*np.pi * (torch.einsum("qnmd,qd->qnm", tau_delay, mean) + phase[:,None,None]))  # QxNxM
+            Kq = alpha[:,None,None] * exp * cos  # QxNxM
+        return torch.sum(Kq, dim=0)
 
     def Ksub_diag(self, i, X1):
         # X has shape (data_points,input_dims)

@@ -43,19 +43,25 @@ class MOHSM(Model):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        spectral = MultiOutputHarmonizableSpectralKernel(
-            output_dims=dataset.get_output_dims(),
-            input_dims=dataset.get_input_dims()[0],
-        )
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
+        for input_dim in dataset.get_input_dims()[1:]:
+            if input_dim != input_dims:
+                raise ValueError("input dimensions for all channels must match")
+
+        spectral = MultiOutputHarmonizableSpectralKernel(output_dims=output_dims, input_dims=input_dims)
         kernel_p = MixtureKernel(spectral, Q)
-        
         kernel = MixtureKernel(kernel_p, P)
+        for p in range(P):
+            for q in range(Q):
+                kernel[p][q].magnitude.assign(np.random.rand(output_dims))
+                kernel[p][q].mean.assign(np.random.rand(output_dims,input_dims))
+                kernel[p][q].variance.assign(np.random.rand(output_dims,input_dims))
+                kernel[p][q].lengthscale.assign(np.random.rand(output_dims))
         
         super(MOHSM, self).__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.P = P
-        self.rescale_x = rescale_x
-
     
     def init_parameters(self, method='BNSE', sm_init='SM', sm_method='Adam', sm_iters=100, sm_params={},sm_plot=False):
         """
@@ -79,13 +85,7 @@ class MOHSM(Model):
         if not method.lower() in ['bnse', 'ls', 'sm']:
             raise ValueError("valid methods of estimation are BNSE, LS, and SM")
 
-
-        #TODO
-        if not self.rescale_x:
-            raise ValueError("method valid only for x rescaled ")
-        
         for p in range(self.P):
-            
             for q in range(self.Q):
                 if self.P!=1:
                     self.gpr.kernel[p*self.Q+q].center.assign((1000*p/(self.P-1))*np.ones(input_dims[0]))

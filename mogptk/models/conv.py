@@ -41,18 +41,20 @@ class CONV(Model):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        input_dims = dataset.get_input_dims()
-        for input_dim in input_dims[1:]:
-            if input_dim != input_dims[0]:
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
+        for input_dim in dataset.get_input_dims()[1:]:
+            if input_dim != input_dims:
                 raise ValueError("input dimensions for all channels must match")
 
-        conv = GaussianConvolutionProcessKernel(
-            output_dims=dataset.get_output_dims(),
-            input_dims=dataset.get_input_dims()[0],
-        )
+        conv = GaussianConvolutionProcessKernel(output_dims=output_dims, input_dims=input_dims)
         kernel = MixtureKernel(conv, Q)
-        super().__init__(dataset, kernel, inference, mean, name)
+        for q in range(Q):
+            kernel[q].weight.assign(np.random.rand(output_dims))
+            kernel[q].variance.assign(np.random.rand(output_dims,input_dims))
+            kernel[q].base_variance.assign(np.random.rand(input_dims))
 
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
 
     def init_parameters(self, method='SM', sm_init='LS', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):

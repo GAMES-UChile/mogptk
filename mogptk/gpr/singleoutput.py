@@ -227,10 +227,10 @@ class SquaredExponentialKernel(Kernel):
 
     $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{1}{2}\\tau^TM\\tau\\right) $$
 
-    with \\(\\tau = |x-x'|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscales, and \\(LL^T\\) the cross lengthscales.
+    with \\(\\tau = |x-x'|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscales, and \\(LL^T\\) the cross lengthscales. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD).
 
     Args:
-        order (float): Order of cross lengthscales.
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
@@ -254,9 +254,9 @@ class SquaredExponentialKernel(Kernel):
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
-        dist = self.distance(X1,X2)  # NxMxD
-        lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + torch.diag(self.lengthscale()**2)  # DxD
-        exp = -0.5*torch.einsum("ijk,kl,ijl->ij",dist,lengthscale,dist)  # NxM
+        tau = self.distance(X1,X2)  # NxMxD
+        lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        exp = -0.5*torch.einsum("nmi,ij,nmj->nm", tau, lengthscale, tau)  # NxM
         return self.magnitude() * torch.exp(exp)
 
     def K_diag(self, X1):
@@ -270,9 +270,11 @@ class RationalQuadraticKernel(Kernel):
 
     $$ K(x,x') = \\sigma^2 \\left(1 + \\frac{\\tau^2}{2l^2}\\right)^{-\\alpha} $$
 
-    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, \\(LL^T\\) the cross lengthscales, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD).
 
     Args:
+        alpha (float): Relative weighting of small-scale and large-scale fluctuations \\(\\alpha\\)
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
@@ -281,22 +283,26 @@ class RationalQuadraticKernel(Kernel):
         alpha (float): Relative weighting of small-scale and large-scale fluctuations \\(\\alpha\\).
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order).
     """
-    def __init__(self, alpha=1.0, input_dims=1, active_dims=None, name="RQ"):
+    def __init__(self, alpha=1.0, order=0, input_dims=1, active_dims=None, name="RQ"):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
         lengthscale = torch.ones(input_dims)
+        cross_lengthscale = torch.ones(input_dims,order)
 
         self.alpha = alpha
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
         self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
-        sqdist = self.squared_distance(X1,X2)  # NxMxD
-        power = 1.0+0.5*torch.tensordot(sqdist, 1.0/self.lengthscale()**2, dims=1)/self.alpha  # NxM
+        tau = self.distance(X1,X2)  # NxMxD
+        lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        power = 1.0 + 0.5*torch.einsum("nmi,ij,nmj->nm", tau, lengthscale, tau)/self.alpha  # NxM
         return self.magnitude() * torch.pow(power,-self.alpha)
 
     def K_diag(self, X1):
@@ -310,35 +316,40 @@ class PeriodicKernel(Kernel):
 
     $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) $$
 
-    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(p\\) the period parameter, \\(l\\) the lengthscale, and \\(LL^T\\) the cross lengthscales. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD).
 
     Args:
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
         period (mogptk.gpr.parameter.Parameter): Period \\(p\\) of shape (input_dims,).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order).
     """
-    def __init__(self, input_dims=1, active_dims=None, name="Periodic"):
+    def __init__(self, order=0, input_dims=1, active_dims=None, name="Periodic"):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
-        lengthscale = torch.ones(input_dims)
         period = torch.ones(input_dims)
+        lengthscale = torch.ones(input_dims)
+        cross_lengthscale = torch.ones(input_dims,order)
 
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
-        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
         self.period = Parameter(period, lower=config.positive_minimum)
+        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)
         sin = torch.sin(np.pi * tau / self.period())  # NxMxD
-        exp = -2.0 * torch.tensordot(sin**2, 1.0/self.lengthscale()**2, dims=1)  # NxM
+        lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        exp = -2.0 * torch.einsum("nmi,ij,nmj->nm", sin, lengthscale, sin)  # NxM
         return self.magnitude() * torch.exp(exp)
 
     def K_diag(self, X1):
@@ -352,37 +363,41 @@ class LocallyPeriodicKernel(Kernel):
 
     $$ K(x,x') = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) \\exp\\left(-\\frac{\\tau^2}{2l^2}\\right) $$
 
-    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period.
+    with \\(\\tau = |x-x'|\\), \\(\\sigma^2\\) the magnitude, \\(p\\) the period, \\(l\\) the lengthscale, and \\(LL^T\\) the cross lengthscales. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD).
 
     Args:
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
         period (mogptk.gpr.parameter.Parameter): Period \\(p\\) of shape (input_dims,).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order).
     """
-    def __init__(self, input_dims=1, active_dims=None, name="LocallyPeriodic"):
+    def __init__(self, order=0, input_dims=1, active_dims=None, name="LocallyPeriodic"):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
-        lengthscale = torch.ones(input_dims)
         period = torch.ones(input_dims)
+        lengthscale = torch.ones(input_dims)
+        cross_lengthscale = torch.ones(input_dims,order)
 
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
-        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
         self.period = Parameter(period, lower=config.positive_minimum)
+        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)
-        sqdist = self.squared_distance(X1,X2)
         sin = torch.sin(np.pi * tau / self.period())  # NxMxD
-        exp1 = -2.0 * torch.tensordot(sin**2, 1.0/self.lengthscale()**2, dims=1)  # NxM
-        exp2 = -0.5 * torch.tensordot(sqdist, 1.0/self.lengthscale()**2, dims=1)  # NxM
+        lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        exp1 = -2.0 * torch.einsum("nmi,ij,nmj->nm", sin, lengthscale, sin)  # NxM
+        exp2 = -0.5 * torch.einsum("nmi,ij,nmj->nm", tau, lengthscale, tau)  # NxM
         return self.magnitude() * torch.exp(exp1) * torch.exp(exp2)
 
     def K_diag(self, X1):

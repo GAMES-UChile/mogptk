@@ -41,16 +41,21 @@ class SM(Model):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
         kernel = IndependentMultiOutputKernel(
-            [MixtureKernel(SpectralKernel(dataset[j].get_input_dims()), Q)
-                for j in range(dataset.get_output_dims())],
-            output_dims=dataset.get_output_dims(),
-        )
-        super().__init__(dataset, kernel, inference, mean, name)
+            [SpectralMixtureKernel(Q=Q, dataset[j].get_input_dims())
+                for j in range(output_dims)],
+            output_dims=output_dims)
+        for j in range(output_dims):
+            kernel[j].magnitude.assign(np.random.rand(Q))
+            kernel[j].mean.assign(np.random.rand(Q,input_dims))
+            kernel[j].variance.assign(np.random.rand(Q,input_dims))
 
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         nyquist = np.array(self.dataset.get_nyquist_estimation())
-        for j in range(self.dataset.get_output_dims()):
+        for j in range(output_dims):
             for q in range(Q):
                 self.gpr.kernel[j][q].mean.assign(upper=nyquist[j])
 

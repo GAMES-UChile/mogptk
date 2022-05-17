@@ -42,13 +42,18 @@ class MOSM(Model):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        spectral = MultiOutputSpectralKernel(
-            output_dims=dataset.get_output_dims(),
-            input_dims=dataset.get_input_dims()[0],
-        )
-        kernel = MixtureKernel(spectral, Q)
-        super().__init__(dataset, kernel, inference, mean, name)
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
+        for input_dim in dataset.get_input_dims()[1:]:
+            if input_dim != input_dims:
+                raise ValueError("input dimensions for all channels must match")
 
+        kernel = MultiOutputSpectralMixtureKernel(Q=Q, output_dims=output_dims, input_dims=input_dims)
+        kernel.weight.assign(np.random.rand(output_dims,Q))
+        kernel.mean.assign(np.random.rand(output_dims,Q,input_dims))
+        kernel.variance.assign(np.random.rand(output_dims,Q,input_dims))
+
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         nyquist = np.array(self.dataset.get_nyquist_estimation())
         for q in range(Q):

@@ -42,14 +42,20 @@ class CSM(Model):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        spectral = CrossSpectralKernel(
-            output_dims=dataset.get_output_dims(),
-            input_dims=dataset.get_input_dims()[0],
-            Rq=Rq,
-        )
-        kernel = MixtureKernel(spectral, Q)
-        super().__init__(dataset, kernel, inference, mean, name)
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
+        for input_dim in dataset.get_input_dims()[1:]:
+            if input_dim != input_dims:
+                raise ValueError("input dimensions for all channels must match")
 
+        spectral = CrossSpectralKernel(output_dims=output_dims, input_dims=input_dims, Rq=Rq)
+        kernel = MixtureKernel(spectral, Q)
+        for q in range(Q):
+            kernel[q].amplitude.assign(np.random.rand(output_dims,Rq))
+            kernel[q].mean.assign(np.random.rand(input_dims))
+            kernel[q].variance.assign(np.random.rand(input_dims))
+
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
