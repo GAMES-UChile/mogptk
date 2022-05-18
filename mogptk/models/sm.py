@@ -44,7 +44,7 @@ class SM(Model):
         output_dims = dataset.get_output_dims()
         input_dims = dataset.get_input_dims()[0]
         kernel = IndependentMultiOutputKernel(
-            [SpectralMixtureKernel(Q=Q, dataset[j].get_input_dims())
+            [SpectralMixtureKernel(Q=Q, input_dims=input_dims)
                 for j in range(output_dims)],
             output_dims=output_dims)
         for j in range(output_dims):
