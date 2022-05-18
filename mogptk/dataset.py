@@ -317,6 +317,19 @@ class DataSet:
         for channel in self.channels:
             channel.aggregate(duration, f)
 
+    def has_test_data(self):
+        """
+        Returns True if observations have been removed using the `remove_*` methods.
+
+        Returns:
+            list: Boolean per channel.
+
+        Examples:
+            >>> data.has_test_data()
+            True
+        """
+        return [channel.has_test_data() for channel in self.channels]
+
     def get_input_dims(self):
         """
         Return the input dimensions per channel.

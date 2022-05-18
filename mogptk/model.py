@@ -285,7 +285,7 @@ class Model:
             return method(self)
 
         # get data
-        if use_all_data:
+        if use_all_data or not any(self.dataset.has_test_data()):
             X, Y_true = self.dataset.get_data()
         else:
             X, Y_true = self.dataset.get_test_data()
