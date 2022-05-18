@@ -255,7 +255,7 @@ class SquaredExponentialKernel(Kernel):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)  # NxMxD
-        lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (self.lengthscale()**2).diag()  # DxD
         exp = -0.5*torch.einsum("nmi,ij,nmj->nm", tau, lengthscale, tau)  # NxM
         return self.magnitude() * torch.exp(exp)
 

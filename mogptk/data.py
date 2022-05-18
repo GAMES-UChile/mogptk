@@ -72,7 +72,7 @@ def LoadSplitData(x_train, x_test, y_train, y_test, name=""):
     test_indices = np.arange(len(x_train),len(x))
 
     data = Data(x, y, name=name)
-    data.remove_index(test_indices)
+    data.remove_indices(test_indices)
     return data
 
 def LoadFunction(f, start, end, n, var=0.0, name="", random=False):

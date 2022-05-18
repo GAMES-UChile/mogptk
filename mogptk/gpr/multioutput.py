@@ -286,6 +286,107 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
         alpha = magnitude[i,i] * self.twopi * variance.prod().sqrt()  # scalar
         return alpha.repeat(X1.shape[0])
 
+class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
+    """
+    Multi-output harmonizable spectral kernel (MOHSM) where each channel and cross-channel is modelled with a spectral kernel as proposed by [1]. You can add the mixture kernel with `MixtureKernel(MultiOutputHarmonizableSpectralKernel(...), Q=3)`.
+
+    $$ K_{ij}(x,x') = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi) \\exp\\left(-\\frac{l_{ij}}{2}|\\bar{x}-c|\\right) $$
+
+    $$ \\alpha_{ij} = w_{ij}(2\\pi)^n\\sqrt\\left(|\\Sigma_{ij}|\\right) $$
+
+    $$ w_{ij} = w_iw_j\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
+
+    $$ \\mu_{ij} = (\\Sigma_i+\\Sigma_j)^{-1}(\\Sigma_i\\mu_j + \\Sigma_j\\mu_i) $$
+
+    $$ \\Sigma_{ij} = 2\\Sigma_i(\\Sigma_i+\\Sigma_j)^{-1}\\Sigma_j$$
+
+    with \\(\\theta_{ij} = \\theta_i-\\theta_j\\), \\(\\phi_{ij} = \\phi_i - \\phi_j\\), \\(\\tau = |x-x'|\\), \\(\\bar{x} = |x+x'|/2\\), \\(w\\) the weight, \\(\\mu\\) the mean, \\(\\Sigma\\) the variance, \\(l\\) the lengthscale, \\(c\\) the center, \\(\\theta\\) the delay, and \\(\\phi\\) the phase.
+
+    Args:
+        output_dims (int): Number of output dimensions.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+
+    Attributes:
+        weight (mogptk.gpr.parameter.Parameter): Weight \\(w\\) of shape (output_dims,).
+        mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,input_dims).
+        variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,input_dims).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (output_dims,).
+        center (mogptk.gpr.parameter.Parameter): Center \\(c\\) of shape (input_dims,).
+        delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
+
+    [1] M. Altamirano, "Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
+    """
+    def __init__(self, output_dims, input_dims=1, active_dims=None, name="MOHSM"):
+        super().__init__(output_dims, input_dims, active_dims, name)
+
+        # TODO: incorporate mixtures?
+        # TODO: allow different input_dims per channel
+        weight = torch.ones(output_dims)
+        mean = torch.zeros(output_dims, input_dims)
+        variance = torch.ones(output_dims, input_dims)
+        lengthscale = torch.ones(output_dims)
+        center = torch.zeros(input_dims)
+        delay = torch.zeros(output_dims, input_dims)
+        phase = torch.zeros(output_dims)
+
+        self.weight = Parameter(weight, lower=config.positive_minimum)
+        self.mean = Parameter(mean, lower=config.positive_minimum)
+        self.variance = Parameter(variance, lower=config.positive_minimum)
+        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        self.center = Parameter(center)
+        if 1 < output_dims:
+            self.delay = Parameter(delay)
+            self.phase = Parameter(phase)
+
+        self.twopi = np.power(2.0*np.pi, float(self.input_dims))
+
+    def Ksub(self, i, j, X1, X2=None):
+        # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
+        tau = self.distance(X1,X2)  # NxMxD
+        avg = self.average(X1,X2)  # NxMxD
+
+        if i == j:
+            variance = self.variance()[i]
+            lengthscale = self.lengthscale()[i]**2
+
+            alpha = self.weight()[i]**2 * self.twopi * variance.prod().sqrt() * torch.pow(lengthscale.sqrt(), float(self.input_dims))  # scalar
+            exp1 = torch.exp(-0.5 * torch.tensordot(tau**2, variance, dims=1))  # NxM
+            exp2 = torch.exp(-0.5 * torch.tensordot((avg-self.center())**2, lengthscale*torch.ones(self.input_dims, device=config.device, dtype=config.dtype), dims=1))  # NxM
+            cos = torch.cos(2.0 * np.pi * torch.tensordot(tau, self.mean()[i], dims=1))  # NxM
+            return alpha * exp1 * cos * exp2
+        else:
+            lengthscale_i = self.lengthscale()[i]**2
+            lengthscale_j = self.lengthscale()[j]**2
+            inv_variances = 1.0/(self.variance()[i] + self.variance()[j])  # D
+            inv_lengthscale = 1.0/(lengthscale_i + lengthscale_j)  # D
+            diff_mean = self.mean()[i] - self.mean()[j]  # D
+
+            magnitude = self.weight()[i]*self.weight()[j] * torch.exp(-np.pi**2 * diff_mean.dot(inv_variances*diff_mean))  # scalar
+            mean = inv_variances * (self.variance()[i]*self.mean()[j] + self.variance()[j]*self.mean()[i])  # D
+            variance = 2.0 * self.variance()[i] * inv_variances * self.variance()[j]  # D
+            lengthscale = 2.0 * lengthscale_i * inv_lengthscale * lengthscale_j  # D
+            delay = self.delay()[i] - self.delay()[j]  # D
+            phase = self.phase()[i] - self.phase()[j]  # scalar
+
+            alpha = magnitude * self.twopi * variance.prod().sqrt()*torch.pow(lengthscale.sqrt(),float(self.input_dims))  # scalar
+            exp1 = torch.exp(-0.5 * torch.tensordot((tau+delay)**2, variance, dims=1))  # NxM
+            exp2 = torch.exp(-0.5 * torch.tensordot((avg-self.center())**2, lengthscale*torch.ones(self.input_dims, device=config.device, dtype=config.dtype), dims=1))  # NxM
+            cos = torch.cos(2.0 * np.pi * torch.tensordot(tau+delay, mean, dims=1) + phase)  # NxM
+            return alpha * exp1 * cos * exp2
+
+    def Ksub_diag(self, i, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        variance = self.variance()[i]
+        lengthscale = self.lengthscale()[i]**2
+        alpha = self.weight()[i]**2 * self.twopi * variance.prod().sqrt() * torch.pow(lengthscale.sqrt(), float(self.input_dims))  # scalar
+        exp2 = torch.exp(-0.5 * torch.tensordot((X1-self.center())**2, lengthscale*torch.ones(self.input_dims, device=config.device, dtype=config.dtype), dims=1))  # NxM
+        return alpha * exp2
+
 class CrossSpectralKernel(MultiOutputKernel):
     """
     Cross Spectral kernel as proposed by [1]. You can add the mixture kernel with `MixtureKernel(CrossSpectralKernel(...), Q=3)`.
@@ -441,104 +542,3 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         variances = 2.0*self.variance()[i] + self.base_variance()  # D
         magnitude = self.weight()[i]**2 * torch.sqrt(self.base_variance().prod()/variances.prod())  # scalar
         return magnitude.repeat(X1.shape[0])
-
-class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
-    """
-    Multi-output harmonizable spectral kernel (MOHSM) where each channel and cross-channel is modelled with a spectral kernel as proposed by [1]. You can add the mixture kernel with `MixtureKernel(MultiOutputHarmonizableSpectralKernel(...), Q=3)`.
-
-    $$ K_{ij}(x,x') = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi) \\exp\\left(-\\frac{l_{ij}}{2}|\\bar{x}-c|\\right) $$
-
-    $$ \\alpha_{ij} = w_{ij}(2\\pi)^n\\sqrt\\left(|\\Sigma_{ij}|\\right) $$ 
-
-    $$ w_{ij} = w_iw_j\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
-
-    $$ \\mu_{ij} = (\\Sigma_i+\\Sigma_j)^{-1}(\\Sigma_i\\mu_j + \\Sigma_j\\mu_i) $$
-
-    $$ \\Sigma_{ij} = 2\\Sigma_i(\\Sigma_i+\\Sigma_j)^{-1}\\Sigma_j$$
-
-    with \\(\\theta_{ij} = \\theta_i-\\theta_j\\), \\(\\phi_{ij} = \\phi_i - \\phi_j\\), \\(\\tau = |x-x'|\\), \\(\\bar{x} = |x+x'|/2\\), \\(w\\) the weight, \\(\\mu\\) the mean, \\(\\Sigma\\) the variance, \\(l\\) the lengthscale, \\(c\\) the center, \\(\\theta\\) the delay, and \\(\\phi\\) the phase.
-
-    Args:
-        output_dims (int): Number of output dimensions.
-        input_dims (int): Number of input dimensions.
-        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
-
-    Attributes:
-        weight (mogptk.gpr.parameter.Parameter): Weight \\(w\\) of shape (output_dims,).
-        mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,input_dims).
-        variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,input_dims).
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (output_dims,).
-        center (mogptk.gpr.parameter.Parameter): Center \\(c\\) of shape (input_dims,).
-        delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
-
-    [1] M. Altamirano, "Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
-    """
-    def __init__(self, output_dims, input_dims=1, active_dims=None, name="MOHSM"):
-        super().__init__(output_dims, input_dims, active_dims, name)
-
-        # TODO: incorporate mixtures?
-        # TODO: allow different input_dims per channel
-        weight = torch.ones(output_dims)
-        mean = torch.zeros(output_dims, input_dims)
-        variance = torch.ones(output_dims, input_dims)
-        lengthscale = torch.ones(output_dims)
-        center = torch.zeros(input_dims)
-        delay = torch.zeros(output_dims, input_dims)
-        phase = torch.zeros(output_dims)
-
-        self.weight = Parameter(weight, lower=config.positive_minimum)
-        self.mean = Parameter(mean, lower=config.positive_minimum)
-        self.variance = Parameter(variance, lower=config.positive_minimum)
-        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
-        self.center = Parameter(center)
-        if 1 < output_dims:
-            self.delay = Parameter(delay)
-            self.phase = Parameter(phase)
-            
-        self.twopi = np.power(2.0*np.pi, float(self.input_dims))
-    
-    def Ksub(self, i, j, X1, X2=None):
-        # X has shape (data_points,input_dims)
-        X1, X2 = self._active_input(X1, X2)
-        tau = self.distance(X1,X2)  # NxMxD
-        avg = self.average(X1,X2)  # NxMxD
-        
-        if i == j:
-            variance = self.variance()[i]
-            lengthscale = self.lengthscale()[i]**2
-            
-            alpha = self.weight()[i]**2 * self.twopi * variance.prod().sqrt() * torch.pow(lengthscale.sqrt(), float(self.input_dims))  # scalar
-            exp1 = torch.exp(-0.5 * torch.tensordot(tau**2, variance, dims=1))  # NxM
-            exp2 = torch.exp(-0.5 * torch.tensordot((avg-self.center())**2, lengthscale*torch.ones(self.input_dims, device=config.device, dtype=config.dtype), dims=1))  # NxM
-            cos = torch.cos(2.0 * np.pi * torch.tensordot(tau, self.mean()[i], dims=1))  # NxM
-            return alpha * exp1 * cos * exp2
-        else:
-            lengthscale_i = self.lengthscale()[i]**2
-            lengthscale_j = self.lengthscale()[j]**2
-            inv_variances = 1.0/(self.variance()[i] + self.variance()[j])  # D
-            inv_lengthscale = 1.0/(lengthscale_i + lengthscale_j)  # D
-            diff_mean = self.mean()[i] - self.mean()[j]  # D
-            
-            magnitude = self.weight()[i]*self.weight()[j] * torch.exp(-np.pi**2 * diff_mean.dot(inv_variances*diff_mean))  # scalar
-            mean = inv_variances * (self.variance()[i]*self.mean()[j] + self.variance()[j]*self.mean()[i])  # D
-            variance = 2.0 * self.variance()[i] * inv_variances * self.variance()[j]  # D
-            lengthscale = 2.0 * lengthscale_i * inv_lengthscale * lengthscale_j  # D
-            delay = self.delay()[i] - self.delay()[j]  # D
-            phase = self.phase()[i] - self.phase()[j]  # scalar
-
-            alpha = magnitude * self.twopi * variance.prod().sqrt()*torch.pow(lengthscale.sqrt(),float(self.input_dims))  # scalar
-            exp1 = torch.exp(-0.5 * torch.tensordot((tau+delay)**2, variance, dims=1))  # NxM
-            exp2 = torch.exp(-0.5 * torch.tensordot((avg-self.center())**2, lengthscale*torch.ones(self.input_dims, device=config.device, dtype=config.dtype), dims=1))  # NxM
-            cos = torch.cos(2.0 * np.pi * torch.tensordot(tau+delay, mean, dims=1) + phase)  # NxM
-            return alpha * exp1 * cos * exp2
-
-    def Ksub_diag(self, i, X1):
-        # X has shape (data_points,input_dims)
-        X1, _ = self._active_input(X1)
-        variance = self.variance()[i]
-        lengthscale = self.lengthscale()[i]**2
-        alpha = self.weight()[i]**2 * self.twopi * variance.prod().sqrt() * torch.pow(lengthscale.sqrt(), float(self.input_dims))  # scalar
-        exp2 = torch.exp(-0.5 * torch.tensordot((X1-self.center())**2, lengthscale*torch.ones(self.input_dims, device=config.device, dtype=config.dtype), dims=1))  # NxM
-        return alpha * exp2
