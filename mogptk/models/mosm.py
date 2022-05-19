@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import MultiOutputSpectralKernel, MixtureKernel, GaussianLikelihood
+from ..gpr import MultiOutputSpectralMixtureKernel, GaussianLikelihood
 from ..plot import plot_spectrum
 
 class MOSM(Model):

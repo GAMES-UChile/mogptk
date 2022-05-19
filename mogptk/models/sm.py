@@ -2,7 +2,7 @@ import numpy as np
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import SpectralKernel, IndependentMultiOutputKernel, MixtureKernel, GaussianLikelihood
+from ..gpr import SpectralMixtureKernel, IndependentMultiOutputKernel, GaussianLikelihood
 from ..plot import plot_spectrum
 
 class SM(Model):

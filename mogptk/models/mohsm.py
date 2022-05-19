@@ -1,10 +1,8 @@
-import torch
 import numpy as np
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import MultiOutputHarmonizableSpectralKernel,MixtureKernel
-
+from ..gpr import MultiOutputHarmonizableSpectralKernel, MixtureKernel
 
 class MOHSM(Model):
     """
