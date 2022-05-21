@@ -62,7 +62,7 @@ class CSM(Model):
         for q in range(Q):
             self.gpr.kernel[q].mean.assign(upper=nyquist)
     
-    def init_parameters(self, method='BNSE', sm_init='LS', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method='BNSE', iters=500):
         """
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -74,57 +74,31 @@ class CSM(Model):
 
         Args:
             method (str): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str): Parameter initialization strategy for SM initialization.
-            sm_method (str): Optimization method for SM initialization.
-            sm_iters (str): Number of iterations for SM initialization.
-            sm_params (object): Additional parameters for PyTorch optimizer for SM initialization.
-            sm_plot (bool): Show the PSD of the kernel after fitting for SM initialization.
+            iters (str): Number of iterations for initialization.
         """
-
-        output_dims = self.dataset.get_output_dims()
-
         if not method.lower() in ['bnse', 'ls', 'sm']:
             raise ValueError("valid methods of estimation are BNSE, LS, and SM")
 
         if method.lower() == 'bnse':
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
         elif method.lower() == 'ls':
-            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, iters=iters)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
 
-        # flatten output_dims and mixtures
-        channels = [channel for channel, amplitude in enumerate(amplitudes) for q in range(amplitude.shape[0])]
-        amplitudes = [amplitude[q,:] for amplitude in amplitudes for q in range(amplitude.shape[0])]
-        means = [mean[q,:] for mean in means for q in range(mean.shape[0])]
-        variances = [variance[q,:] for variance in variances for q in range(variance.shape[0])]
-        idx = np.argsort([amplitude.mean() for amplitude in amplitudes])[::-1]
-
+        output_dims = self.dataset.get_output_dims()
+        means = np.concatenate(means, axis=0)
+        variances = np.concatenate(variances, axis=0)
         constant = np.random.random((output_dims, self.Q, self.Rq))
-        for q in range(len(idx)):
-            i = idx[q]
-            channel = channels[i]
-            constant[channel,q % self.Q,:] = amplitudes[i].mean()
-            if q < self.Q:
-                self.gpr.kernel[q].mean.assign(means[i])
-                self.gpr.kernel[q].variance.assign(variances[i] * 5.0)
-
-        # normalize proportional to channel variance
-        for i, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            if 0.0 < constant[i,:,:].sum():
-                constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
+        for q in range(self.Q):
+            for j in range(len(self.dataset)):
+                constant[j,q,:] = amplitudes[j][q,:].mean() / self.Rq
+            self.gpr.kernel[q].mean.assign(means[q,:])
+            self.gpr.kernel[q].variance.assign(variances[q,:])
 
         for q in range(self.Q):
             self.gpr.kernel[q].amplitude.assign(constant[:,q,:])
-
-        # TODO: noise
-        #noise = np.empty((output_dims,))
-        #for i, channel in enumerate(self.dataset):
-        #    _, y = channel.get_train_data(transformed=True)
-        #    noise[i] = y.var() / 30.0
-        #for q in range(self.Q):
-        #    self.gpr.kernel[q].noise.assign(noise)
+        # TODO: estimate noise

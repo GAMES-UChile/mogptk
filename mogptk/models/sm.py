@@ -54,12 +54,11 @@ class SM(Model):
 
         super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
-        nyquist = np.array(self.dataset.get_nyquist_estimation())
+        nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
         for j in range(output_dims):
-            for q in range(Q):
-                self.gpr.kernel[j][q].mean.assign(upper=nyquist[j])
+            self.gpr.kernel[j].mean.assign(upper=nyquist[j,:,:])
 
-    def init_parameters(self, method='LS'):
+    def init_parameters(self, method='LS', iters=500):
         """
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -71,6 +70,7 @@ class SM(Model):
 
         Args:
             method (str): Method of estimation, such as IPS, LS, or BNSE.
+            iters (str): Number of iterations for initialization.
         """
 
         input_dims = self.dataset.get_input_dims()
@@ -89,65 +89,36 @@ class SM(Model):
                 means = nyquist * np.random.rand(self.Q, input_dims[j])
                 variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
 
-                for q in range(self.Q):
-                    self.gpr.kernel[j][q].sigma.assign(np.sqrt(weights[q]))
-                    self.gpr.kernel[j][q].mean.assign(means[q,:])
-                    self.gpr.kernel[j][q].variance.assign(variances[q,:])
+                self.gpr.kernel[j].magnitude.assign(weights)
+                self.gpr.kernel[j].mean.assign(means)
+                self.gpr.kernel[j].variance.assign(variances)
             return
         elif method.lower() == 'ls':
-            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning('LS could not find peaks for SM')
                 return
         elif method.lower() == 'bnse':
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
             if np.sum(amplitudes) == 0.0:
                 logger.warning('BNSE could not find peaks for SM')
                 return
 
-        #if noise:
-        #    # TODO: remove this and set noise parameter to 1/30
-        #    pct = 1/30.0
-        #    # noise proportional to the values
-        #    noise_amp = np.random.multivariate_normal(
-        #        mean=np.zeros(self.Q),
-        #        cov=np.diag(amplitudes.mean(axis=1) * pct))
-        #    # set value to a minimun value
-        #    amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
-
-        #    noise_mean = np.random.multivariate_normal(
-        #        mean=np.zeros(self.Q),
-        #        cov=np.diag(means.mean(axis=1) * pct))
-        #    means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
-
-        #    noise_var = np.random.multivariate_normal(
-        #        mean=np.zeros(self.Q),
-        #        cov=np.diag(variances.mean(axis=1) * pct))
-        #    variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
-
         for j in range(output_dims):
-            # TODO: check weights for all kernels
-            _, y = self.dataset[j].get_train_data(transformed=True)
-            mixture_weights = amplitudes[j].mean(axis=1)
-            if 0.0 < amplitudes[j].sum():
-                mixture_weights /= amplitudes[j].sum()
-            mixture_weights *= 2.0 * y.std()
-            for q in range(self.Q):
-                self.gpr.kernel[j][q].sigma.assign(np.sqrt(mixture_weights[q]))
-                self.gpr.kernel[j][q].mean.assign(means[j][q,:])
-                self.gpr.kernel[j][q].variance.assign(variances[j][q,:])
+            self.gpr.kernel[j].magnitude.assign(amplitudes[j])
+            self.gpr.kernel[j].mean.assign(means[j])
+            self.gpr.kernel[j].variance.assign(variances[j])
 
     def plot_spectrum(self, log=False, noise=False, title=None):
         """
         Plot spectrum of kernel.
         """
+        output_dims = self.dataset.get_output_dims()
         names = self.dataset.get_names()
         nyquist = self.dataset.get_nyquist_estimation()
-        output_dims = self.dataset.get_output_dims()
-
-        means = np.array([[self.gpr.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
-        scales = np.array([[np.sqrt(self.gpr.kernel[j][q].variance.numpy()) for j in range(output_dims)] for q in range(self.Q)])
-        weights = np.array([[self.gpr.kernel[j][q].sigma.numpy()[0]**2 for j in range(output_dims)] for q in range(self.Q)])
+        means = np.array([self.gpr.kernel[j].mean.numpy() for j in range(output_dims)]).transpose([1,0,2])
+        scales = np.array([np.sqrt(self.gpr.kernel[j].variance.numpy()) for j in range(output_dims)]).transpose([1,0,2])
+        weights = np.array([self.gpr.kernel[j].magnitude.numpy() for j in range(output_dims)]).transpose([1,0])
 
         noises = None
         if noise:

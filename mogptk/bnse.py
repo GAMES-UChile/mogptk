@@ -2,12 +2,12 @@ import torch
 import numpy as np
 from . import gpr
 
-def BNSE(x, y, max_freq=None, n=1000, iters=500):
+def BNSE(x, y, max_freq=None, n=1000, iters=100):
     """
     Bayesian non-parametric spectral estimation [1] is a method for estimating the power spectral density of a signal that uses a Gaussian process with a spectral mixture kernel to learn the spectral representation of the signal. The resulting power spectral density is distributed as a generalized Chi-Squared distributions.
 
     Args:
-        x (numpy.ndarray): Input data of shape (data_points,input_dims).
+        x (numpy.ndarray): Input data of shape (data_points,).
         y (numpy.ndarray): Output data of shape (data_points,).
         max_freq (float): Maximum frequency of the power spectral density. If not given the Nyquist frequency is estimated and used instead.
         n (int): Number of points in frequency space to sample the power spectral density.
@@ -47,11 +47,9 @@ def BNSE(x, y, max_freq=None, n=1000, iters=500):
     model.likelihood.scale.assign(noise)
 
     # train model
-    optimizer = torch.optim.LBFGS(model.parameters(), max_iter=iters)
-    loss = optimizer.step(model.loss)
-    #optimizer = torch.optim.Adam(model.parameters(), lr=0.001, iters=500)
-    #for i in range(iters):
-    #    loss = optimizer.step(model.loss)
+    optimizer = torch.optim.Adam(model.parameters())
+    for i in range(iters):
+        loss = optimizer.step(model.loss)
 
     alpha = float(0.5/x_range**2)
     w = torch.linspace(0.0, max_freq, n, device=gpr.config.device, dtype=gpr.config.dtype).reshape(-1,1)

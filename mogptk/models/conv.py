@@ -57,7 +57,7 @@ class CONV(Model):
         super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
 
-    def init_parameters(self, method='SM', sm_init='LS', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method='SM', iters=500):
         """
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -69,30 +69,25 @@ class CONV(Model):
 
         Args:
             method (str): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str): Parameter initialization strategy for SM initialization.
-            sm_method (str): Optimization method for SM initialization.
-            sm_iters (str): Number of iterations for SM initialization.
-            sm_params (object): Additional parameters for PyTorch optimizer for SM initialization.
-            sm_plot (bool): Show the PSD of the kernel after fitting for SM initialization.
+            iters (str): Number of iterations for initialization.
         """
 
         output_dims = self.dataset.get_output_dims()
 
-        # TODO: doesn't work well
+        # TODO: CONV initialization
         if not method.lower() in ['bnse', 'ls', 'sm']:
             raise ValueError("valid methods of estimation are BNSE, LS, and SM")
 
         if method.lower() == 'bnse':
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
         elif method.lower() == 'ls':
-            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, iters=iters)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
 
-        # input_dims must be the same for all channels (restriction of MOSM)
         constant = np.empty((output_dims, self.Q))
         for q in range(self.Q):
             constant[:,q] = np.array([amplitude[q,:] for amplitude in amplitudes]).mean(axis=1)
@@ -105,11 +100,4 @@ class CONV(Model):
 
         for q in range(self.Q):
             self.gpr.kernel[q].weight.assign(constant[:,q])
-
-        # TODO
-        #noise = np.empty((output_dims,))
-        #for i, channel in enumerate(self.dataset):
-        #    _, y = channel.get_train_data(transformed=True)
-        #    noise[i] = y.var() / 30.0
-        #for q in range(self.Q):
-        #    self.gpr.kernel[q].noise.assign(noise)
+        # TODO: estimate noise

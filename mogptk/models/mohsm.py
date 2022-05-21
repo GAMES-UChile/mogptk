@@ -61,7 +61,7 @@ class MOHSM(Model):
         self.Q = Q
         self.P = P
     
-    def init_parameters(self, method='BNSE', sm_init='SM', sm_method='Adam', sm_iters=100, sm_params={},sm_plot=False):
+    def init_parameters(self, method='BNSE', iters=500):
         """
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
         - BNSE estimates the PSD via Bayesian non-parametris spectral estimation (Tobar 2018) and then selecting the greater Q peaks in the estimated spectrum, and use the peak's position, magnitude and width to initialize the mean, magnitude and variance of the kernel respectively.
@@ -70,11 +70,7 @@ class MOHSM(Model):
         In all cases the noise is initialized with 1/30 of the variance of each channel.
         Args:
             method (str): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str): Parameter initialization strategy for SM initialization.
-            sm_method (str): Optimization method for SM initialization.
-            sm_iters (str): Number of iterations for SM initialization.
-            sm_params (object): Additional parameters for PyTorch optimizer.
-            sm_plot (bool): Show the PSD of the kernel after fitting SM.
+            iters (str): Number of iterations for initialization.
         """
 
         input_dims = self.dataset.get_input_dims()
@@ -109,11 +105,11 @@ class MOHSM(Model):
                             channel.filter(dataset[i].X[0][int(m*p/(self.P+1))], dataset[i].X[0][int(m*(p+2)/(self.P+1))])
 
             if method.lower() == 'bnse':
-                amplitudes, means, variances = dataset.get_bnse_estimation(self.Q)
+                amplitudes, means, variances = dataset.get_bnse_estimation(self.Q, iters=iters)
             elif method.lower() == 'ls':
-                amplitudes, means, variances = dataset.get_lombscargle_estimation(self.Q)
+                amplitudes, means, variances = dataset.get_ls_estimation(self.Q)
             else:
-                amplitudes, means, variances = dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
+                amplitudes, means, variances = dataset.get_sm_estimation(self.Q, iters=iters)
             if len(amplitudes) == 0:
                 logger.warning('{} could not find peaks for MOHSM'.format(method))
                 return

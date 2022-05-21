@@ -847,20 +847,22 @@ class Data:
         return nyquist
 
     def _get_psd_peaks(self, w, psd):
+        # Gaussian: f(x) = A / sqrt(2*pi*C^2) * exp(-(x-B)^2 / (2C^2))
+        # i.e. A is the amplitude or peak height, B the mean or peak position, and C the std.dev. or peak width
         peaks, _ = signal.find_peaks(psd)
         if len(peaks) == 0:
             return np.array([]), np.array([]), np.array([])
         peaks = peaks[np.argsort(psd[peaks])[::-1]] # sort by biggest peak first
 
-        widths, width_heights, _, _ = signal.peak_widths(psd, peaks, rel_height=0.5)
+        widths, _, _, _ = signal.peak_widths(psd, peaks, rel_height=0.5)
         widths *= w[1]-w[0]
 
         positions = w[peaks]
-        amplitudes = psd[peaks]
-        variances = widths / np.sqrt(8 * np.log(amplitudes / width_heights)) # from full-width half-maximum to Gaussian sigma
+        variances = widths / (8.0*np.log(2.0)) # from full-width half-maximum to Gaussian sigma
+        amplitudes = psd[peaks] * np.sqrt(2.0*np.pi*variances)
         return amplitudes, positions, variances
 
-    def get_lombscargle_estimation(self, Q=1, n=10000):
+    def get_ls_estimation(self, Q=1, n=10000):
         """
         Peak estimation of the spectrum using Lomb-Scargle.
 
@@ -877,9 +879,6 @@ class Data:
             >>> amplitudes, means, variances = data.get_lombscargle_estimation()
         """
         input_dims = self.get_input_dims()
-
-        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
-        # i.e. A is the amplitude or peak height, B the mean or peak position, and C the std.dev. or peak width
         A = np.zeros((Q, input_dims))
         B = np.zeros((Q, input_dims))
         C = np.zeros((Q, input_dims))
@@ -888,8 +887,7 @@ class Data:
         x, y = self.get_train_data(transformed=True)
         for i in range(input_dims):
             w = np.linspace(0.0, nyquist[i], n+1)[1:]
-            psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, w)
-
+            psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, w, normalize=True)
             amplitudes, positions, variances = self._get_psd_peaks(w, psd)
             if len(positions) == 0:
                 continue
@@ -899,18 +897,19 @@ class Data:
                 variances = variances[:Q]
 
             n = len(amplitudes)
-            A[:n,i] = np.sqrt(amplitudes)
+            A[:n,i] = amplitudes
             B[:n,i] = positions
             C[:n,i] = variances
         return A, B, C
 
-    def get_bnse_estimation(self, Q=1, n=1000):
+    def get_bnse_estimation(self, Q=1, n=1000, iters=500):
         """
         Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation).
 
         Args:
             Q (int): Number of peaks to find.
             n (int): Number of points of the grid to evaluate frequencies.
+            iters (str): Maximum iteration for SM kernels.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -921,9 +920,6 @@ class Data:
             >>> amplitudes, means, variances = data.get_bnse_estimation()
         """
         input_dims = self.get_input_dims()
-
-        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
-        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
         A = np.zeros((Q, input_dims))
         B = np.zeros((Q, input_dims))
         C = np.zeros((Q, input_dims))
@@ -931,8 +927,8 @@ class Data:
         nyquist = self.get_nyquist_estimation()
         x, y = self.get_train_data(transformed=True)
         for i in range(input_dims):
-            w, psd = BNSE(x[:,i], y, max_freq=nyquist[i], n=n)
-            amplitudes, positions, variances = self._get_psd_peaks(w[:,0], psd[:,0])
+            w, psd, _ = BNSE(x[:,i], y, max_freq=nyquist[i], n=n, iters=iters)
+            amplitudes, positions, variances = self._get_psd_peaks(w, psd)
             if len(positions) == 0:
                 continue
 
@@ -942,13 +938,12 @@ class Data:
                 variances = variances[:Q]
 
             num = len(amplitudes)
-            # division by 100 makes it similar to other estimators (emperically found) TODO: remove?
-            A[:num,i] = np.sqrt(amplitudes) / 100
+            A[:num,i] = amplitudes
             B[:num,i] = positions
             C[:num,i] = variances
         return A, B, C
 
-    def get_sm_estimation(self, Q=1, method='LS', optimizer='Adam', iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method='LS', optimizer='Adam', iters=100, params={}):
         """
         Peak estimation of the spectrum using the spectral mixture kernel.
 
@@ -971,9 +966,6 @@ class Data:
         from .models.sm import SM
 
         input_dims = self.get_input_dims()
-
-        # Gaussian: f(x) = A * exp((x-B)^2 / (2C^2))
-        # Ie. A is the amplitude or peak height, B the mean or peak position, and C the variance or peak width
         A = np.zeros((Q, input_dims))
         B = np.zeros((Q, input_dims))
         C = np.zeros((Q, input_dims))
@@ -982,20 +974,10 @@ class Data:
         sm.init_parameters(method)
         sm.train(method=optimizer, iters=iters, **params)
 
-        if plot:
-            nyquist = self.get_nyquist_estimation()
-            weights = np.array([sm.gpr.kernel[0][q].magnitude.numpy()**2 for q in range(Q)])
-            means = np.array([sm.gpr.kernel[0][q].mean.numpy() for q in range(Q)])
-            scales = np.array([sm.gpr.kernel[0][q].variance.numpy() for q in range(Q)])
-            nyquist = np.expand_dims(nyquist, 0)
-            means = np.expand_dims(means, 1)
-            scales = np.expand_dims(scales, 1)
-            plot_spectrum(means, scales, weights=weights, nyquist=nyquist, title=self.name)
-
         for q in range(Q):
-            A[q,:] = sm.gpr.kernel[0][q].magnitude.numpy()**2  # TODO: weight is not per input_dims
-            B[q,:] = sm.gpr.kernel[0][q].mean.numpy()
-            C[q,:] = sm.gpr.kernel[0][q].variance.numpy()
+            A = sm.gpr.kernel[0].magnitude.numpy().reshape(-1,1).repeat(input_dims, axis=1)
+            B = sm.gpr.kernel[0].mean.numpy()
+            C = sm.gpr.kernel[0].variance.numpy()
         return A, B, C
 
     def plot(self, pred=None, title=None, ax=None, legend=True, errorbars=True, transformed=False):
@@ -1158,7 +1140,7 @@ class Data:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
         # normalize
-        Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
+        #Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
 
         ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
         if len(Y_freq_err) != 0:

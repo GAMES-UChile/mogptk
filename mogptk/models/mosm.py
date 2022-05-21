@@ -55,11 +55,10 @@ class MOSM(Model):
 
         super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
-        nyquist = np.array(self.dataset.get_nyquist_estimation())
-        for q in range(Q):
-            self.gpr.kernel[q].mean.assign(upper=nyquist)
+        nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
+        self.gpr.kernel.mean.assign(upper=nyquist)
 
-    def init_parameters(self, method='BNSE', sm_init='LS', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method='BNSE', iters=500):
         """
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -71,11 +70,7 @@ class MOSM(Model):
 
         Args:
             method (str): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str): Parameter initialization strategy for SM initialization.
-            sm_method (str): Optimization method for SM initialization.
-            sm_iters (str): Number of iterations for SM initialization.
-            sm_params (object): Additional parameters for PyTorch optimizer.
-            sm_plot (bool): Show the PSD of the kernel after fitting SM.
+            iters (str): Number of iterations for initialization.
         """
 
         input_dims = self.dataset.get_input_dims()
@@ -85,44 +80,29 @@ class MOSM(Model):
             raise ValueError("valid methods of estimation are BNSE, LS, and SM")
 
         if method.lower() == 'bnse':
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
         elif method.lower() == 'ls':
-            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, iters=iters)
         if len(amplitudes) == 0:
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
 
-        magnitude = np.zeros((output_dims, self.Q))
+        weight = np.zeros((output_dims,self.Q))
+        mean = np.zeros((output_dims,self.Q,input_dims[0]))
+        variance = np.zeros((output_dims,self.Q,input_dims[0]))
         for q in range(self.Q):
-            mean = np.zeros((output_dims,input_dims[0]))
-            variance = np.zeros((output_dims,input_dims[0]))
             for j in range(output_dims):
                 if q < amplitudes[j].shape[0]:
-                    magnitude[j,q] = amplitudes[j][q,:].mean()
-                    mean[j,:] = means[j][q,:]
-                    # maybe will have problems with higher input dimensions
-                    variance[j,:] = variances[j][q,:] * (4 + 20 * (max(input_dims) - 1)) # 20
-            self.gpr.kernel[q].mean.assign(mean)
-            self.gpr.kernel[q].variance.assign(variance)
+                    weight[j,q] = np.sqrt(amplitudes[j][q,:].mean())
+                    mean[j,q,:] = means[j][q,:]
+                    variance[j,q,:] = variances[j][q,:]
 
-        # normalize proportional to channels variances
-        for j, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            if 0.0 < magnitude[j,:].sum():
-                magnitude[j,:] = np.sqrt(magnitude[j,:] / magnitude[j,:].sum() * y.var()) * 2
-        
-        for q in range(self.Q):
-            self.gpr.kernel[q].magnitude.assign(magnitude[:,q])
-
-        # TODO
-        #noise = np.empty((output_dims,))
-        #for j, channel in enumerate(self.dataset):
-        #    _, y = channel.get_train_data(transformed=True)
-        #    noise[j] = y.var() / 30.0
-        #for q in range(self.Q):
-        #    self.gpr.kernel[q].noise.assign(noise)
+        self.gpr.kernel.weight.assign(weight)
+        self.gpr.kernel.mean.assign(mean)
+        self.gpr.kernel.variance.assign(variance)
+        # TODO: estimate noise
 
     def check(self):
         """
@@ -130,8 +110,8 @@ class MOSM(Model):
         """
         for j in range(self.dataset.get_output_dims()):
             for q in range(self.Q):
-                mean = self.gpr.kernel[q].mean.numpy()[j,:]
-                var = self.gpr.kernel[q].variance.numpy()[j,:]
+                mean = self.gpr.kernel.mean.numpy()[j,q,:]
+                var = self.gpr.kernel.variance.numpy()[j,q,:]
                 if np.linalg.norm(mean) < np.linalg.norm(var):
                     print("‣ MOSM approaches RBF kernel for q=%d in channel='%s'" % (q, self.dataset[j].name))
 
@@ -139,12 +119,12 @@ class MOSM(Model):
         """
         Plot spectrum of kernel.
         """
+        input_dims = self.dataset.get_input_dims()[0]
         names = self.dataset.get_names()
         nyquist = self.dataset.get_nyquist_estimation()
-
-        means = np.array([self.gpr.kernel[q].mean.numpy() for q in range(self.Q)])
-        scales = np.array([np.sqrt(self.gpr.kernel[q].variance.numpy()) for q in range(self.Q)])
-        weights = np.array([self.gpr.kernel[q].magnitude.numpy() for q in range(self.Q)])**2
+        means = self.gpr.kernel.mean.numpy().transpose([1,0,2])
+        scales = np.sqrt(self.gpr.kernel.variance.numpy().transpose([1,0,2]))
+        weights = self.gpr.kernel.weight.numpy().transpose([1,0])**2
 
         noises = None
         if noise:
@@ -254,19 +234,21 @@ class MOSM(Model):
         cross_params['delay'] = np.zeros((m, m, d, Q))
         cross_params['phase'] = np.zeros((m, m, Q))
 
+        weight = self.gpr.kernel.weight.numpy()
+        mean = self.gpr.kernel.mean.numpy()
+        variance = self.gpr.kernel.variance.numpy()
+        phase = self.gpr.kernel.phase.numpy()
+        delay = self.gpr.kernel.delay.numpy()
         for q in range(Q):
             for i in range(m):
                 for j in range(m):
-                    magnitude = self.gpr.kernel[q].magnitude.numpy()
-                    mean = self.gpr.kernel[q].mean.numpy()
-                    variance = self.gpr.kernel[q].variance.numpy()
 
-                    w_i = magnitude[i]
-                    w_j = magnitude[j]
-                    mu_i = mean[i,:]
-                    mu_j = mean[j,:]
-                    var_i = variance[i,:]
-                    var_j = variance[j,:]
+                    w_i = weight[i,q]
+                    w_j = weight[j,q]
+                    mu_i = mean[i,q,:]
+                    mu_j = mean[j,q,:]
+                    var_i = variance[i,q,:]
+                    var_j = variance[j,q,:]
                     sv = var_i + var_j
 
                     # cross covariance
@@ -279,11 +261,10 @@ class MOSM(Model):
                     cross_params['magnitude'][i, j, q] = w_i * w_j * np.exp(exp_term)
             if m>1:
                 # cross phase
-                phase_q = self.gpr.kernel[q].phase.numpy()
-                cross_params['phase'][:, :, q] = np.subtract.outer(phase_q, phase_q)
+                cross_params['phase'][:, :, q] = np.subtract.outer(phase, phase)
                 for n in range(d):
                     # cross delay        
-                    delay_n_q = self.gpr.kernel[q].delay.numpy()[:,n]
+                    delay_n_q = delay[:,n]
                     cross_params['delay'][:, :, n, q] = np.subtract.outer(delay_n_q, delay_n_q)
 
         return cross_params

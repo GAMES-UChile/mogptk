@@ -553,7 +553,7 @@ class DataSet:
         """
         return [channel.get_nyquist_estimation() for channel in self.channels]
     
-    def get_lombscargle_estimation(self, Q=1, n=10000):
+    def get_ls_estimation(self, Q=1, n=10000):
         """
         Peak estimation of the spectrum using Lomb-Scargle per channel.
 
@@ -573,7 +573,7 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_lombscargle_estimation(Q, n)
+            channel_amplitudes, channel_means, channel_variances = channel.get_ls_estimation(Q, n)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)

@@ -689,7 +689,7 @@ class Model:
             Lower = [Lower]
             Upper = [Upper]
 
-        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(18,6*len(self.dataset)), squeeze=True, constrained_layout=True)
+        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(18,6*len(self.dataset)), squeeze=False, constrained_layout=True)
         for j, data in enumerate(self.dataset):
             # TODO: ability to plot conditional or marginal distribution to reduce input dims
             if data.get_input_dims() > 2:
@@ -705,12 +705,12 @@ class Model:
                 if transformed:
                     yl = data.Y.transform(yl, x)
                     yu = data.Y.transform(yu, x)
-                ax[j].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
+                ax[j,0].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
 
             # prediction
             idx = np.argsort(X[j][:,0])
-            ax.plot(X[j][idx,0], Mu[j][idx], ls=':', color='blue', lw=2)
-            ax.fill_between(X[j][idx,0], Lower[j][idx], Upper[j][idx], color='blue', alpha=0.3)
+            ax[j,0].plot(X[j][idx,0], Mu[j][idx], ls=':', color='blue', lw=2)
+            ax[j,0].fill_between(X[j][idx,0], Lower[j][idx], Upper[j][idx], color='blue', alpha=0.3)
             label = 'Posterior Mean'
             legends.append(patches.Rectangle(
                 (1, 1), 1, 1, fill=True, color='blue', alpha=0.3, lw=0, label='95% Error Bars'
@@ -732,38 +732,38 @@ class Model:
                 if transformed:
                     y = data.Y.transform(y, x)
 
-                ax.plot(x, y, 'r--', lw=1)
+                ax[j,0].plot(x, y, 'r--', lw=1)
                 legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
 
             if data.has_test_data():
                 x, y = data.get_test_data(transformed=transformed)
-                ax.plot(x, y, 'g.', ms=10)
+                ax[j,0].plot(x, y, 'g.', ms=10)
                 legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Latent'))
 
             x, y = data.get_train_data(transformed=transformed)
-            ax.plot(x, y, 'r.', ms=10)
+            ax[j,0].plot(x, y, 'r.', ms=10)
             legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Observations'))
 
             if 0 < len(data.removed_ranges[0]):
                 for removed_range in data.removed_ranges[0]:
                     x0 = removed_range[0]
                     x1 = removed_range[1]
-                    y0 = ax.get_ylim()[0]
-                    y1 = ax.get_ylim()[1]
-                    ax.add_patch(patches.Rectangle(
+                    y0 = ax[j,0].get_ylim()[0]
+                    y1 = ax[j,0].get_ylim()[1]
+                    ax[j,0].add_patch(patches.Rectangle(
                         (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.2, lw=0,
                     ))
                 legends.append(patches.Rectangle(
                     (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
                 ))
 
-            ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
-            ax.set_xlabel(data.X_labels[0])
-            ax.set_ylabel(data.Y_label)
-            ax.set_title(data.name if title is None else title, fontsize=14)
+            ax[j,0].set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
+            ax[j,0].set_xlabel(data.X_labels[0])
+            ax[j,0].set_ylabel(data.Y_label)
+            ax[j,0].set_title(data.name if title is None else title, fontsize=14)
 
-        if legend:
-            ax.legend(handles=legends[::-1])
+            if legend:
+                ax[j,0].legend(handles=legends[::-1])
         return fig, ax
 
     def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(18,18)):

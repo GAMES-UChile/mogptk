@@ -51,14 +51,14 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
             x_high = norm.ppf(0.99, loc=means[:,j,i], scale=scales[:,j,i]).max()
 
             if dataset is not None:
-                X = dataset[j].X[i].astype(np.float)
-                idx = np.argsort(X)
-                X = X[idx]
-                dist = np.abs(X[1:]-X[:-1])
-                nyquist_data = 0.5 / np.average(dist)
-
-                x_low = 0.5 / np.abs(X[-1]-X[0])
-                x_high = nyquist_data
+                X = dataset[j].X[:,i]
+                if 1 < len(X):
+                    idx = np.argsort(X)
+                    X = X[idx]
+                    dist = np.abs(X[1:]-X[:-1])
+                    nyquist_data = 0.5 / np.average(dist)
+                    x_low = 0.5 / np.abs(X[-1]-X[0])
+                    x_high = nyquist_data
                 dataset[j].plot_spectrum(ax=axes[j,i], method='ls', transformed=False, log=False)
             elif isinstance(nyquist, np.ndarray):
                 x_high = min(x_high, nyquist[j,i])
@@ -75,7 +75,7 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
                 psd += noises[j]**2
 
             # normalize
-            psd /= psd.sum() * (x[1]-x[0])
+            #psd /= psd.sum() * (x[1]-x[0])
 
             y_low = 0.0
             if log:
