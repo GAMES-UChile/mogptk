@@ -579,13 +579,14 @@ class DataSet:
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_bnse_estimation(self, Q=1, n=1000):
+    def get_bnse_estimation(self, Q=1, n=1000, iters=200):
         """
         Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.
 
         Args:
             Q (int): Number of peaks to find.
             n (int): Number of points of the grid to evaluate frequencies.
+            iters (str): Maximum iterations.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -599,23 +600,22 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n)
+            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n, iters=iters)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method='BNSE', optimizer='Adam', iters=200, params={}):
         """
         Peak estimation of the spectrum using the spectral mixture kernel per channel.
 
         Args:
             Q (int): Number of peaks to find.
-            method (str): Method of estimating SM kernels.
-            optimizer (str): Optimization method for SM kernels.
-            iters (str): Maximum iteration for SM kernels.
+            method (str): Method of estimation.
+            optimizer (str): Optimization method.
+            iters (str): Maximum iterations.
             params (object): Additional parameters for PyTorch optimizer.
-            plot (bool): Show the PSD of the kernel after fitting.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -629,7 +629,7 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, params, plot)
+            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, params)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)

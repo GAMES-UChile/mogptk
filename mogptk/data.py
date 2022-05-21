@@ -496,7 +496,7 @@ class Data:
 
         start = np.min(self.X[:,0])
         end = np.max(self.X[:,0])
-        step = _parse_delta(duration)
+        step = _parse_delta(duration, self.X.dtypes[0])
 
         X = np.arange(start+step/2, end+step/2, step).reshape(-1,1)
         Y = np.empty((X.shape[0],))
@@ -504,7 +504,7 @@ class Data:
             ind = (self.X[:,0] >= X[i,0]-step/2) & (self.X[:,0] < X[i,0]+step/2)
             Y[i] = f(self.Y[ind])
 
-        self.X = Serie(X, self.X.transformers)
+        self.X = Serie(X, self.X.transformers, dtypes=self.X.dtypes)
         self.Y = Serie(Y, self.Y.transformers, self.X)
         self.mask = np.array([True] * len(self.Y))
 
@@ -716,7 +716,7 @@ class Data:
         if n < 1:
             return
 
-        delta = _parse_delta(duration)
+        delta = _parse_delta(duration, self.X.dtypes[dim])
         m = (np.max(self.X[:,dim])-np.min(self.X[:,dim])) - n*delta
         if m <= 0:
             raise ValueError("no data left after removing ranges")
@@ -807,7 +807,7 @@ class Data:
             if n is not None and not isinstance(n[i], int):
                 raise ValueError("n must be integer")
             if step is not None and self.X.is_datetime64(dim=i):
-                step[i] = _parse_delta(step[i])
+                step[i] = _parse_delta(step[i], self.X.dtypes[i])
 
         if np.any(end <= start):
             raise ValueError("start must be lower than end")
@@ -821,7 +821,7 @@ class Data:
                 if step is None or step[i] is None:
                     x_step = (end[i]-start[i])/100
                 else:
-                    x_step = _parse_delta(step[i])
+                    x_step = _parse_delta(step[i], self.X.dtypes[i])
                 X_pred[i] = np.arange(start[i], end[i]+x_step, x_step)
         self.X_pred = Serie(X_pred, self.X.transformers, dims=self.get_input_dims())
 
@@ -902,14 +902,14 @@ class Data:
             C[:n,i] = variances
         return A, B, C
 
-    def get_bnse_estimation(self, Q=1, n=1000, iters=500):
+    def get_bnse_estimation(self, Q=1, n=1000, iters=200):
         """
         Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation).
 
         Args:
             Q (int): Number of peaks to find.
             n (int): Number of points of the grid to evaluate frequencies.
-            iters (str): Maximum iteration for SM kernels.
+            iters (str): Maximum iterations.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -943,17 +943,16 @@ class Data:
             C[:num,i] = variances
         return A, B, C
 
-    def get_sm_estimation(self, Q=1, method='LS', optimizer='Adam', iters=100, params={}):
+    def get_sm_estimation(self, Q=1, method='LS', optimizer='Adam', iters=200, params={}):
         """
         Peak estimation of the spectrum using the spectral mixture kernel.
 
         Args:
             Q (int): Number of peaks to find.
-            method (str): Method of estimating SM kernels.
-            optimizer (str): Optimization method for SM kernels.
-            iters (str): Maximum iteration for SM kernels.
+            method (str): Method of estimation.
+            optimizer (str): Optimization method.
+            iters (str): Maximum iterations.
             params (object): Additional parameters for the PyTorch optimizer.
-            plot (bool): Show the PSD of the kernel after fitting.
 
         Returns:
             numpy.ndarray: Amplitude array of shape (Q,input_dims).
@@ -1106,7 +1105,7 @@ class Data:
             if per is None:
                 per = _datetime64_unit_names[self.X.get_time_unit(dim=0)]
             else:
-                unit = _parse_delta(per)
+                unit = _parse_delta(per, self.X.dtypes[0])
                 X_scale = np.timedelta64(1,self.X.get_time_unit(dim=0)) / unit
                 if not isinstance(per, str):
                     per = '%s' % (unit,)
@@ -1183,7 +1182,7 @@ class Data:
         val = self._normalize_val(val)
         for i in range(self.get_input_dims()):
             try:
-                val[i] = self.X.dtypes[i].type(val[i])
+                val[i] = np.array(val[i]).astype(self.X.dtypes[i]).astype(np.float64)
             except:
                 raise ValueError("value must be of type %s" % (self.X.dtypes[i],))
         return val
@@ -1234,28 +1233,33 @@ duration_regex = re.compile(
     r'((?P<microseconds>[\.\d]+?)us)?$'
 )
 
-def _parse_delta(text):
-    if not isinstance(text, str):
-        return text
+def _parse_delta(text, dtype):
+    if np.issubdtype(dtype, np.datetime64):
+        dtype = 'timedelta64[%s]' % str(dtype)[-2]
 
-    if text == 'year' or text == 'years':
-        return np.timedelta64(1, 'Y')
+    val = None
+    if not isinstance(text, str):
+        val = np.array(text)
+    elif text == 'year' or text == 'years':
+        val = np.timedelta64(1,'Y')
     elif text == 'month' or text == 'months':
-        return np.timedelta64(1, 'M')
+        val = np.timedelta64(1,'M')
     elif text == 'week' or text == 'weeks':
-        return np.timedelta64(1, 'W')
+        val = np.timedelta64(1,'W')
     elif text == 'day' or text == 'days':
-        return np.timedelta64(1, 'D')
+        val = np.timedelta64(1,'D')
     elif text == 'hour' or text == 'hours':
-        return np.timedelta64(1, 'h')
+        val = np.timedelta64(1,'h')
     elif text == 'minute' or text == 'minutes':
-        return np.timedelta64(1, 'm')
+        val = np.timedelta64(1,'m')
     elif text == 'second' or text == 'seconds':
-        return np.timedelta64(1, 's')
+        val = np.timedelta64(1,'s')
     elif text == 'millisecond' or text == 'milliseconds':
-        return np.timedelta64(1, 'ms')
+        val = np.timedelta64(1,'ms')
     elif text == 'microsecond' or text == 'microseconds':
-        return np.timedelta64(1, 'us')
+        val = np.timedelta64(1,'us')
+    if val is not None:
+        return val.astype(dtype).astype(np.float64)
 
     m = duration_regex.match(text)
     if m is None:
@@ -1264,24 +1268,24 @@ def _parse_delta(text):
     delta = 0
     matches = m.groupdict()
     if matches['years']:
-        delta += np.timedelta64(np.int32(matches['years']), 'Y')
+        delta += np.timedelta64(np.int32(matches['years']),'Y')
     if matches['months']:
-        delta += np.timedelta64(np.int32(matches['months']), 'M')
+        delta += np.timedelta64(np.int32(matches['months']),'M')
     if matches['weeks']:
-        delta += np.timedelta64(np.int32(matches['weeks']), 'W')
+        delta += np.timedelta64(np.int32(matches['weeks']),'W')
     if matches['days']:
-        delta += np.timedelta64(np.int32(matches['days']), 'D')
+        delta += np.timedelta64(np.int32(matches['days']),'D')
     if matches['hours']:
-        delta += np.timedelta64(np.int32(matches['hours']), 'h')
+        delta += np.timedelta64(np.int32(matches['hours']),'h')
     if matches['minutes']:
-        delta += np.timedelta64(np.int32(matches['minutes']), 'm')
+        delta += np.timedelta64(np.int32(matches['minutes']),'m')
     if matches['seconds']:
-        delta += np.timedelta64(np.int32(matches['seconds']), 's')
+        delta += np.timedelta64(np.int32(matches['seconds']),'s')
     if matches['milliseconds']:
-        delta += np.timedelta64(np.int32(matches['milliseconds']), 'ms')
+        delta += np.timedelta64(np.int32(matches['milliseconds']),'ms')
     if matches['microseconds']:
-        delta += np.timedelta64(np.int32(matches['microseconds']), 'us')
-    return delta
+        delta += np.timedelta64(np.int32(matches['microseconds']),'us')
+    return delta.astype(dtype).astype(np.float64)
 
 def _datetime64_to_higher_unit(array):
     if array.dtype in ['<M8[Y]', '<M8[M]', '<M8[W]', '<M8[D]']:

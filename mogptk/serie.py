@@ -131,13 +131,15 @@ class Serie(np.ndarray):
     """
     Serie is an extension to the `numpy.ndarray` data type and includes transformations for the array. That is, it maintains the original data array, but also keeps a transformed data array to improve training using e.g. Gaussian processes. By storing the chain of transformations, it is possible to detransform predictions done in the transformed space to the original space and thus allows analysis or plotting in the original domain. Automatic conversions is performed for `numpy.datetime64` arrays to `numpy.float` arrays.
     """
-    def __new__(cls, array, transformers=[], x=None, transformed=None, dims=None):
+    def __new__(cls, array, transformers=[], x=None, transformed=None, dims=None, dtypes=None):
         if dims is None:
             array = np.asarray(array)
-            dtypes = [array.dtype]
+            if dtypes is None:
+                dtypes = [array.dtype]
         else:
             array = [np.asarray(array[i]) for i in range(dims)]
-            dtypes = [array[i].dtype for i in range(dims)]
+            if dtypes is None:
+                dtypes = [array[i].dtype for i in range(dims)]
             array = np.array([array[i].astype(np.float64) for i in range(dims)]).T
 
         for dtype in dtypes:
@@ -161,6 +163,7 @@ class Serie(np.ndarray):
     def __array_finalize__(self, obj):
         if obj is None:
             return
+        self.dtypes = copy.deepcopy(getattr(obj, 'dtypes', None))
         self.transformed = copy.deepcopy(getattr(obj, 'transformed', None))
         self.transformers = copy.deepcopy(getattr(obj, 'transformers', None))
     
@@ -172,10 +175,11 @@ class Serie(np.ndarray):
 
     def __reduce__(self):
         parent = super().__reduce__()
-        return (parent[0], parent[1], parent[2] + (self.transformed,self.transformers))
+        return (parent[0], parent[1], parent[2] + (self.dtypes,self.transformed,self.transformers))
 
     def __setstate__(self, data):
-        super().__setstate__(data[:-2])
+        super().__setstate__(data[:-3])
+        self.dtypes = data[-3]
         self.transformed = data[-2]
         self.transformers = data[-1]
 
