@@ -1139,7 +1139,7 @@ class Data:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
         # normalize
-        #Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
+        Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
 
         ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
         if len(Y_freq_err) != 0:

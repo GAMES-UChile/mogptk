@@ -49,7 +49,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=100):
     # train model
     optimizer = torch.optim.Adam(model.parameters())
     for i in range(iters):
-        loss = optimizer.step(model.loss)
+        optimizer.step(model.loss)
 
     alpha = float(0.5/x_range**2)
     w = torch.linspace(0.0, max_freq, n, device=gpr.config.device, dtype=gpr.config.dtype).reshape(-1,1)

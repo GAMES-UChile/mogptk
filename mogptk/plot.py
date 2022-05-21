@@ -67,22 +67,23 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
             psd = np.zeros(x.shape)
             for q in range(mixtures):
                 single_psd = weights[q,j] * norm.pdf(x, loc=means[q,j,i], scale=scales[q,j,i])
-                #single_psd = np.log(single_psd+1)
-                #axes[j,i].plot(x, single_psd, ls='--', c='k', zorder=2)
-                axes[j,i].axvline(means[q,j,i], ymin=0.001, ymax=0.05, lw=3, color='C1')
+                axes[j,i].axvline(means[q,j,i], ymin=0.001, ymax=0.05, lw=3, color='r')
                 psd += single_psd
+
+                single_psd /= single_psd.sum() * (x[1]-x[0])
+                axes[j,i].plot(x, single_psd, ls='--', c='b')
             if noises is not None:
                 psd += noises[j]**2
 
             # normalize
-            #psd /= psd.sum() * (x[1]-x[0])
+            psd /= psd.sum() * (x[1]-x[0])
 
             y_low = 0.0
             if log:
                 x_low = max(x_low, 1e-8)
                 y_low = 1e-8
            
-            axes[j,i].plot(x, psd, ls='-', c='C0')
+            axes[j,i].plot(x, psd, ls='-', c='b')
             axes[j,i].set_xlim(x_low, x_high)
             axes[j,i].set_ylim(y_low, None)
             axes[j,i].set_yticks([])
@@ -97,14 +98,12 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
     legends = []
     if dataset is not None:
         legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Data (LombScargle)'))
-    legends.append(plt.Line2D([0], [0], ls='-', color='C0', label='Model'))
-    #legends.append(plt.Line2D([0], [0], ls='--', color='k', label='Mixture'))
-    legends.append(plt.Line2D([0], [0], ls='-', color='C1', label='Peak location'))
-    fig.legend(handles=legends)#, loc="upper center", bbox_to_anchor=(0.5,(h+0.4)/h), ncol=3)
+    legends.append(plt.Line2D([0], [0], ls='-', color='b', label='Model'))
+    legends.append(plt.Line2D([0], [0], ls='-', color='r', label='Peak location'))
+    fig.legend(handles=legends)
 
     if filename is not None:
         plt.savefig(filename+'.pdf', dpi=300)
     if show:
         plt.show()
     return fig, axes
-
