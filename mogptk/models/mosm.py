@@ -115,12 +115,13 @@ class MOSM(Model):
                 if np.linalg.norm(mean) < np.linalg.norm(var):
                     print("‣ MOSM approaches RBF kernel for q=%d in channel='%s'" % (q, self.dataset[j].name))
 
-    def plot_spectrum(self, method='LS', log=False, noise=False, title=None):
+    def plot_spectrum(self, method='LS', maxfreq=None, log=False, noise=False, title=None):
         """
         Plot spectrum of kernel.
 
         Args:
             method (str): Set the method to get the spectrum from the data such as LS or BNSE.
+            maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
             log (boolean): Show X and Y axis in log-scale.
             noise (boolean): Add noise to the PSD.
             title (str): Set the title of the plot.
@@ -131,7 +132,10 @@ class MOSM(Model):
         """
         input_dims = self.dataset.get_input_dims()[0]
         names = self.dataset.get_names()
-        nyquist = self.dataset.get_nyquist_estimation()
+        if maxfreq is None:
+            nyquist = self.dataset.get_nyquist_estimation()
+        else:
+            nyquist = [maxfreq] * len(self.dataset)
         means = self.gpr.kernel.mean.numpy().transpose([1,0,2])
         scales = np.sqrt(self.gpr.kernel.variance.numpy().transpose([1,0,2]))
         weights = self.gpr.kernel.weight.numpy().transpose([1,0])**2
