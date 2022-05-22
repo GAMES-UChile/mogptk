@@ -13,9 +13,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from pandas.plotting import register_matplotlib_converters
 
-from .bnse import BNSE
 from .serie import Serie, TransformLinear
-from .plot import plot_spectrum
+from .init import BNSE
+from .misc import plot_spectrum
 
 register_matplotlib_converters()
 
@@ -1001,7 +1001,7 @@ class Data:
         if self.get_input_dims() > 2:
             raise ValueError("cannot plot more than two input dimensions")
         if self.get_input_dims() == 2:
-            raise NotImplementedError("two dimensional input data not yet implemented") # TODO
+            raise NotImplementedError("two dimensional input data not yet implemented")
 
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(18,6), squeeze=True, constrained_layout=True)
@@ -1094,7 +1094,7 @@ class Data:
         if self.get_input_dims() > 2:
             raise ValueError("cannot plot more than two input dimensions")
         if self.get_input_dims() == 2:
-            raise NotImplementedError("two dimensional input data not yet implemented") # TODO
+            raise NotImplementedError("two dimensional input data not yet implemented")
 
         ax_set = ax is not None
         if ax is None:
@@ -1138,13 +1138,12 @@ class Data:
         else:
             raise ValueError('periodogram method "%s" does not exist' % (method))
 
-        # normalize
-        Y_freq /= Y_freq.sum() * (X_freq[1]-X_freq[0])
+        Y_freq /= Y_freq.sum()*(X_freq[1]-X_freq[0]) # normalize
 
         ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
         if len(Y_freq_err) != 0:
             Y_freq_err = 2.0*np.sqrt(Y_freq_err)
-            ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, color='k', alpha=0.3)
+            ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, color='k', alpha=0.2)
         ax.set_title((self.name + ' Spectrum' if self.name is not None else '') if title is None else title, fontsize=14)
 
         if log:

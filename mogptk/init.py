@@ -35,9 +35,15 @@ def BNSE(x, y, max_freq=None, n=1000, iters=100):
 
     kernel = gpr.SpectralKernel()
     model = gpr.Exact(kernel, x, y)
+    # TODO: BNSE does not train well!
+    #model.kernel.magnitude.assign(1359.1762075667123**2)
+    #model.kernel.mean.assign(0.010573109495499442)
+    #model.kernel.variance.assign(1.292997507832212/2.0/np.pi**2)
+    #model.likelihood.scale.assign(6.6134353287382116e-06)
+    #print("LOSS", model.loss().item())
 
     # initialize parameters
-    magnitude = y.std()
+    magnitude = y.var()
     mean = 0.01
     variance = 0.25 / np.pi**2 / x_dist**2
     noise = y.std()/10.0
@@ -47,7 +53,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=100):
     model.likelihood.scale.assign(noise)
 
     # train model
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=2.0)
     for i in range(iters):
         optimizer.step(model.loss)
 
@@ -56,13 +62,13 @@ def BNSE(x, y, max_freq=None, n=1000, iters=100):
 
     def kernel_ff(f1, f2, magnitude, mean, variance, alpha):
         # f1,f2: MxD,  mean,variance: D
-        const = 0.5 * np.pi * magnitude**2 / torch.sqrt(alpha**2 + 4.0*np.pi**2*alpha*variance.prod())
         mean = mean.reshape(1,1,-1)
         variance = variance.reshape(1,1,-1)
+        gamma = 2.0*np.pi**2*variance
+        const = 0.5 * np.pi * magnitude / torch.sqrt(alpha**2 + 2.0*alpha*gamma.prod())
         exp1 = -0.5 * np.pi**2 / alpha * gpr.Kernel.squared_distance(f1,f2)  # MxMxD
-
-        exp2a = -2.0 * np.pi**2 / (alpha+4.0*np.pi**2*variance) * (gpr.Kernel.average(f1,f2)-mean)**2  # MxMxD
-        exp2b = -2.0 * np.pi**2 / (alpha+4.0*np.pi**2*variance) * (gpr.Kernel.average(f1,f2)+mean)**2  # MxMxD
+        exp2a = -2.0 * np.pi**2 / (alpha+2.0*gamma) * (gpr.Kernel.average(f1,f2)-mean)**2  # MxMxD
+        exp2b = -2.0 * np.pi**2 / (alpha+2.0*gamma) * (gpr.Kernel.average(f1,f2)+mean)**2  # MxMxD
         return const * (torch.exp(exp1+exp2a) + torch.exp(exp1+exp2b)).sum(dim=2)
 
     def kernel_tf(t, f, magnitude, mean, variance, alpha):
@@ -80,7 +86,7 @@ def BNSE(x, y, max_freq=None, n=1000, iters=100):
         exp3a = -2.0*np.pi * torch.tensordot(t.mm(Lq_inv), np.pi**2 * (f/alpha + mean/gamma).T, dims=1)  # NxM
         exp3b = -2.0*np.pi * torch.tensordot(t.mm(Lq_inv), np.pi**2 * (f/alpha - mean/gamma).T, dims=1)  # NxM
 
-        a = 0.5 * magnitude**2 * const * torch.exp(exp1)
+        a = 0.5 * magnitude * const * torch.exp(exp1)
         real = torch.exp(exp2a)*torch.cos(exp3a) + torch.exp(exp2b)*torch.cos(exp3b)
         imag = torch.exp(exp2a)*torch.sin(exp3a) + torch.exp(exp2b)*torch.sin(exp3b)
         return a * real, a * imag

@@ -2,12 +2,12 @@
 .. include:: ./documentation.md
 """
 from .gpr.config import *
-from .plot import *
-from .errors import *
+from .misc import *
 
 from .serie import *
 from .data import *
 from .dataset import *
+from .init import *
 from .model import *
 from .models.sm import *
 from .models.mosm import *
