@@ -24,10 +24,10 @@ class Mean:
         return self.mean(X)
 
     def __setattr__(self, name, val):
-        if name == 'trainable':
+        if name == 'train':
             from .util import _find_parameters
             for _, p in _find_parameters(self):
-                p.trainable = val
+                p.train = val
             return
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")

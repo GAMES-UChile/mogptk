@@ -62,7 +62,7 @@ class SM_LMC(Model):
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
         for q in range(Q):
-            self.gpr.kernel[q].magnitude.assign(1.0, trainable=False)  # handled by LMCKernel
+            self.gpr.kernel[q].magnitude.assign(1.0, train=False)  # handled by LMCKernel
             self.gpr.kernel[q].mean.assign(upper=nyquist)
 
     def init_parameters(self, method='BNSE', iters=500):

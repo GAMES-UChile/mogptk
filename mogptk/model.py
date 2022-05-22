@@ -56,7 +56,7 @@ class Exact:
             data_variance = y_err**2
         model = gpr.Exact(kernel, x, y, variance=variance, data_variance=data_variance, jitter=self.jitter, mean=mean, name=name)
         if data_variance is not None:
-            model.likelihood.scale.assign(0.0, trainable=False)
+            model.likelihood.scale.assign(0.0, train=False)
         return model
 
 class Snelson:
@@ -376,7 +376,7 @@ class Model:
 
         if verbose:
             training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
-            parameters = sum([p.num_parameters if p.trainable else 0 for p in self.gpr.get_parameters()])
+            parameters = sum([p.num_parameters if p.train else 0 for p in self.gpr.get_parameters()])
             print('\nStarting optimization using', method)
             if self.name is not None:
                 print('‣ Model: %s' % self.name)

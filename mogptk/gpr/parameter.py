@@ -83,14 +83,14 @@ class Parameter:
         lower (float,torch.tensor): Lower limit.
         upper (float,torch.tensor): Upper limit.
         prior (Likelihood,torch.distribution): Prior distribution.
-        trainable (boolean): Train parameter, otherwise keep its value fixed.
+        train (boolean): Train parameter, otherwise keep its value fixed.
     """
-    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True):
+    def __init__(self, value, name=None, lower=None, upper=None, prior=None, train=True):
         self.name = name
         self.lower = None
         self.upper = None
         self.prior = prior
-        self.trainable = trainable
+        self.train = train
         self.transform = None
         self.unconstrained = None
         self.pegged_parameter = None
@@ -157,7 +157,7 @@ class Parameter:
             value = value.detach().to(config.device, config.dtype)
         return value
 
-    def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+    def assign(self, value=None, name=None, lower=None, upper=None, prior=None, train=None):
         """
         Assign a new value to the parameter. If any of the arguments is not passed, the current value will be kept.
 
@@ -167,7 +167,7 @@ class Parameter:
             lower (float,torch.tensor): Lower limit.
             upper (float,torch.tensor): Upper limit.
             prior (Likelihood,torch.distribution): Prior distribution.
-            trainable (boolean): Train parameter, otherwise keep its value fixed.
+            train (boolean): Train parameter, otherwise keep its value fixed.
         """
         if value is not None:
             value = Parameter.to_tensor(value)
@@ -222,11 +222,11 @@ class Parameter:
                 name = self.name[:idx+1] + name
         if prior is None:
             prior = self.prior
-        if trainable is None:
+        if train is None:
             if self.pegged:
-                trainable = True
+                train = True
             else:
-                trainable = self.trainable
+                train = self.train
 
         transform = None
         if lower is not None and upper is not None:
@@ -250,7 +250,7 @@ class Parameter:
         self.prior = prior
         self.lower = lower
         self.upper = upper
-        self.trainable = trainable
+        self.train = train
         self.transform = transform
         self.unconstrained = value
         self.pegged_parameter = None
@@ -270,7 +270,7 @@ class Parameter:
             raise ValueError("cannot peg parameter to another pegged parameter")
         self.pegged_parameter = other
         self.pegged_transform = transform
-        self.trainable = False
+        self.train = False
 
     def log_prior(self):
         """

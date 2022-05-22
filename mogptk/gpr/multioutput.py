@@ -80,9 +80,8 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
         self.weight = Parameter(weight, lower=config.positive_minimum)
         self.mean = Parameter(mean, lower=config.positive_minimum)
         self.variance = Parameter(variance, lower=config.positive_minimum)
-        if 1 < output_dims:
-            self.delay = Parameter(delay)
-            self.phase = Parameter(phase)
+        self.delay = Parameter(delay)
+        self.phase = Parameter(phase)
 
         self.twopi = np.power(2.0*np.pi,float(input_dims)/2.0)
 
@@ -164,9 +163,8 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
         self.weight = Parameter(weight, lower=config.positive_minimum)
         self.mean = Parameter(mean, lower=config.positive_minimum)
         self.variance = Parameter(variance, lower=config.positive_minimum)
-        if 1 < output_dims:
-            self.delay = Parameter(delay)
-            self.phase = Parameter(phase)
+        self.delay = Parameter(delay)
+        self.phase = Parameter(phase)
 
         self.twopi = np.power(2.0*np.pi,float(self.input_dims)/2.0)
 
@@ -246,9 +244,8 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
         self.weight.num_parameters = int((output_dims*output_dims+output_dims)/2)
         self.mean = Parameter(mean, lower=config.positive_minimum)
         self.variance = Parameter(variance, lower=config.positive_minimum)
-        if 1 < output_dims:
-            self.delay = Parameter(delay)
-            self.phase = Parameter(phase)
+        self.delay = Parameter(delay)
+        self.phase = Parameter(phase)
 
         self.twopi = np.power(2.0*np.pi,float(input_dims)/2.0)
 
@@ -337,9 +334,8 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
         self.variance = Parameter(variance, lower=config.positive_minimum)
         self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
         self.center = Parameter(center)
-        if 1 < output_dims:
-            self.delay = Parameter(delay)
-            self.phase = Parameter(phase)
+        self.delay = Parameter(delay)
+        self.phase = Parameter(phase)
 
         self.twopi = np.power(2.0*np.pi, float(self.input_dims))
 

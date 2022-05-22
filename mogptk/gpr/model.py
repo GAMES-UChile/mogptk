@@ -199,7 +199,7 @@ class Model:
             Parameter generator
         """
         for p in self._params:
-            if p.trainable:
+            if p.train:
                 yield p.unconstrained
 
     def get_parameters(self):
@@ -215,7 +215,7 @@ class Model:
         """
         Print parameters and their values.
         """
-        def param_range(lower, upper, trainable=True, pegged=False):
+        def param_range(lower, upper, train=True, pegged=False):
             if lower is not None:
                 if np.prod(lower.shape) == 1:
                     lower = lower.item()
@@ -229,7 +229,7 @@ class Model:
 
             if pegged:
                 return "pegged"
-            elif not trainable:
+            elif not train:
                 return "fixed"
             if lower is None and upper is None:
                 return "(-∞, ∞)"
@@ -244,7 +244,7 @@ class Model:
                 get_ipython  # fails if we're not in a notebook
                 table = '<table><tr><th style="text-align:left">Name</th><th>Range</th><th>Value</th></tr>'
                 for p in self._params:
-                    table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (p.name, param_range(p.lower, p.upper, p.trainable, p.pegged), p.numpy())
+                    table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (p.name, param_range(p.lower, p.upper, p.train, p.pegged), p.numpy())
                 table += '</table>'
                 display(HTML(table))
                 return
@@ -253,12 +253,13 @@ class Model:
 
         vals = [["Name", "Range", "Value"]]
         for p in self._params:
-            vals.append([p.name, param_range(p.lower, p.upper, p.trainable, p.pegged), str(p.numpy())])
+            vals.append([p.name, param_range(p.lower, p.upper, p.train, p.pegged), p.numpy().tolist()])
 
         nameWidth = max([len(val[0]) for val in vals])
         rangeWidth = max([len(val[1]) for val in vals])
         for val in vals:
-            print("%-*s  %-*s  %s" % (nameWidth, val[0], rangeWidth, val[1], val[2]), file=file)
+            #print("%-*s  %-*s  %s" % (nameWidth, val[0], rangeWidth, val[1], val[2]), file=file)
+            print("%-*s  %s" % (nameWidth, val[0], val[2]), file=file)
 
     def _cholesky(self, K, add_jitter=False):
         if add_jitter:
@@ -799,7 +800,7 @@ class SparseHensman(Model):
             if kernel.output_dims is not None:
                 self.Z.num_parameters -= self.Z().shape[0]
         else:
-            self.Z = Parameter(self.X, trainable=False)  # don't use inducing points
+            self.Z = Parameter(self.X, train=False)  # don't use inducing points
 
     def kl_gaussian(self, q_mu, q_sqrt):
         S_diag = q_sqrt.diagonal().square() # NxN
