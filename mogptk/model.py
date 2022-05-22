@@ -13,7 +13,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from . import gpr
 from .dataset import DataSet
-from .errors import *
 
 logger = logging.getLogger('mogptk')
 
@@ -648,7 +647,7 @@ class Model:
 
         legends = []
         legends.append(plt.Line2D([0], [0], ls='-', color='k', label='Loss'))
-        if errors and hasattr(self, 'errors'):
+        if errors and x.shape[0] == self.errors.shape[0]:
             ax2 = ax.twinx()
             ax2.plot(x, self.errors, c='k', ls='-.')
             ax2.set_ylabel('Error')

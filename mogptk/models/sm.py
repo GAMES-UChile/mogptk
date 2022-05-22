@@ -3,7 +3,7 @@ import numpy as np
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
 from ..gpr import SpectralMixtureKernel, IndependentMultiOutputKernel, GaussianLikelihood
-from ..plot import plot_spectrum
+from ..misc import plot_spectrum
 
 class SM(Model):
     """
@@ -109,9 +109,19 @@ class SM(Model):
             self.gpr.kernel[j].mean.assign(means[j])
             self.gpr.kernel[j].variance.assign(variances[j])
 
-    def plot_spectrum(self, log=False, noise=False, title=None):
+    def plot_spectrum(self, method='LS', log=False, noise=False, title=None):
         """
         Plot spectrum of kernel.
+
+        Args:
+            method (str): Set the method to get the spectrum from the data such as LS or BNSE.
+            log (boolean): Show X and Y axis in log-scale.
+            noise (boolean): Add noise to the PSD.
+            title (str): Set the title of the plot.
+
+        Returns:
+            matplotlib.figure.Figure: Figure.
+            matplotlib.axes.Axes: Axes.
         """
         output_dims = self.dataset.get_output_dims()
         names = self.dataset.get_names()
@@ -128,4 +138,4 @@ class SM(Model):
                 raise ValueError("likelihood variance must not be per data point to enable spectral noise")
             noises = self.gpr.likelihood.scale.numpy()
 
-        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, log=log, titles=names, title=title)
+        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, method=method, log=log, titles=names, title=title)

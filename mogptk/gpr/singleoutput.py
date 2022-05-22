@@ -564,7 +564,7 @@ class SpectralKernel(Kernel):
         tau = self.distance(X1,X2)  # NxMxD
         exp = -2.0*np.pi**2 * tau**2 * self.variance().reshape(1,1,-1)  # NxMxD
         cos = 2.0*np.pi * tau * self.mean().reshape(1,1,-1)  # NxMxD
-        return self.magnitude() * torch.prod(torch.exp(exp) * torch.cos(cos), dim=2)
+        return self.magnitude() * torch.einsum("nmd,nmd->nm", torch.exp(exp), torch.cos(cos))
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
@@ -607,8 +607,7 @@ class SpectralMixtureKernel(Kernel):
         tau = self.distance(X1,X2)[None,:,:,:]  # 1xNxMxD
         exp = -2.0*np.pi**2 * tau**2 * self.variance()[:,None,None,:]  # QxNxMxD
         cos = 2.0*np.pi * tau * self.mean()[:,None,None,:]  # QxNxMxD
-        Kq = self.magnitude()[:,None,None] * torch.prod(torch.exp(exp) * torch.cos(cos), dim=3)
-        return torch.sum(Kq, dim=0)
+        return torch.einsum("q,qnmd,qnmd->nm", self.magnitude(), torch.exp(exp), torch.cos(cos))
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)

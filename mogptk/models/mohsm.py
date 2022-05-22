@@ -136,11 +136,4 @@ class MOHSM(Model):
 
             for q in range(self.Q):
                 self.gpr.kernel[p*self.Q+q].magnitude.assign(magnitude[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale().cpu().detach().numpy()))
-
-            # TODO
-            # noise = np.empty((output_dims,))
-            # for j, channel in enumerate(dataset):
-            #     _, y = channel.get_train_data(transformed=self.rescale_x)
-            #     noise[j] = y.var() / 30.0
-            # for q in range(self.Q):
-            #     self.gpr.kernel[p*self.Q+q].noise.assign(noise)
+            # TODO: estimate noise
