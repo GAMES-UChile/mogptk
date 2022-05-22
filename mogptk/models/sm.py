@@ -105,7 +105,7 @@ class SM(Model):
                 return
 
         for j in range(output_dims):
-            self.gpr.kernel[j].magnitude.assign(amplitudes[j])
+            self.gpr.kernel[j].magnitude.assign(amplitudes[j]**2)
             self.gpr.kernel[j].mean.assign(means[j])
             self.gpr.kernel[j].variance.assign(variances[j])
 

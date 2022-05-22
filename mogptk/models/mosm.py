@@ -95,7 +95,7 @@ class MOSM(Model):
         for q in range(self.Q):
             for j in range(output_dims):
                 if q < amplitudes[j].shape[0]:
-                    weight[j,q] = np.sqrt(amplitudes[j][q,:].mean())
+                    weight[j,q] = amplitudes[j][q,:].mean()
                     mean[j,q,:] = means[j][q,:]
                     variance[j,q,:] = variances[j][q,:]
 
