@@ -283,8 +283,10 @@ class Data:
             self.Y_label = y_label
 
     def _format_X(self, X):
-        if isinstance(X, list):
+        if isinstance(X, list) and 0 < len(X):
+            islist = False
             if all(isinstance(x, list) for x in X):
+                islist = True
                 m = len(X[0])
                 if not all(len(x) == m for x in X[1:]):
                     raise ValueError("X list items must all be lists of the same length")
@@ -293,6 +295,7 @@ class Data:
                 if not all(_is_homogeneous_type(x) for x in X):
                     raise ValueError("X list items must all be lists with elements of the same type")
             elif all(isinstance(x, np.ndarray) for x in X):
+                islist = True
                 m = len(X[0])
                 if not all(len(x) == m for x in X[1:]):
                     raise ValueError("X list items must all be numpy.ndarrays of the same length")
@@ -300,7 +303,11 @@ class Data:
                 raise ValueError("X list items must be all lists, all numpy.ndarrays, or all numbers or datetime")
             elif not _is_homogeneous_type(X):
                 raise ValueError("X list items must all have elements of the same type")
-            X = [np.array(x) for x in X]
+
+            if islist:
+                X = [np.array(x) for x in X]
+            else:
+                X = [np.array(X)]
         elif isinstance(X, np.ndarray):
             if X.ndim == 1:
                 X = X.reshape(-1, 1)
@@ -643,6 +650,30 @@ class Data:
 
         idx = np.random.choice(len(self.Y), n, replace=False)
         self.mask[idx] = False
+
+    def _add_range(self, start, end, dim):
+        # assume current ranges are sorted and non-overlapping
+        ranges = self.removed_ranges[dim]
+
+        # find index that sorts on start, ie. here we will insert the new range
+        idx = 0
+        while idx < len(ranges) and ranges[idx][0] < start:
+            idx += 1
+
+        # merge previous range if it overlaps with new
+        if 0 < idx and start <= ranges[idx-1][1]:
+            start = ranges[idx-1][0]
+            idx -= 1
+
+        # merge other ranges if they overlap with new
+        rem = 0
+        for i in range(idx, len(ranges)):
+            if end < ranges[i][0]:
+                break
+            end = max(end, ranges[i][1])
+            rem += 1
+
+        self.removed_ranges[dim] = ranges[:idx] + [(start,end)] + ranges[idx+rem:]
     
     def remove_range(self, start=None, end=None, dim=None):
         """
@@ -670,14 +701,14 @@ class Data:
 
         if dim is not None:
             mask = np.logical_and(self.X[:,dim] >= start[dim], self.X[:,dim] < end[dim])
-            self.removed_ranges[dim].append([start[dim], end[dim]])
+            self._add_range(start[dim], end[dim], dim)
         else:
             mask = np.logical_and(self.X[:,0] >= start[0], self.X[:,0] < end[0])
             for i in range(1,self.get_input_dims()):
                 mask = np.logical_or(mask, np.logical_and(self.X[:,i] >= start[i], self.X[:,i] < end[i]))
             for i in range(self.get_input_dims()):
-                self.removed_ranges[i].append([start[i], end[i]])
-        self.mask[np.where(mask)] = False
+                self._add_range(start[i], end[i], i)
+        self.mask[mask] = False
     
     def remove_relative_range(self, start=0.0, end=1.0, dim=None):
         """
@@ -696,7 +727,6 @@ class Data:
         for i in range(self.get_input_dims()):
             start[i] = xmin[i] + max(0.0, min(1.0, start[i])) * (xmax[i]-xmin[i])
             end[i] = xmin[i] + max(0.0, min(1.0, end[i])) * (xmax[i]-xmin[i])
-
         self.remove_range(start, end, dim)
 
     def remove_random_ranges(self, n, duration, dim=0):
@@ -728,8 +758,7 @@ class Data:
                 break # range could not be removed, there is no remaining data range of width delta
             x = self.X[locs,dim][np.random.randint(self.X[locs,dim].shape[0])]
             locs[(self.X[:,dim] > x-delta) & (self.X[:,dim] < x+delta)] = False
-            self.mask[(self.X[:,dim] >= x) & (self.X[:,dim] < x+delta)] = False
-            self.removed_ranges[dim].append([x, x+delta])
+            self.remove_range(x, x+delta, dim)
 
     def remove_indices(self, indices):
         """
@@ -842,8 +871,11 @@ class Data:
         for i in range(self.get_input_dims()):
             x = np.sort(self.X.transformed[self.mask,i])
             dist = np.abs(x[1:]-x[:-1])
-            dist = np.min(dist[np.nonzero(dist)])
-            nyquist[i] = 0.5/dist
+            if len(dist) == 0:
+                nyquist[i] = 0.0
+            else:
+                dist = np.min(dist[np.nonzero(dist)])
+                nyquist[i] = 0.5/dist
         return nyquist
 
     def _get_psd_peaks(self, w, psd):
@@ -1059,7 +1091,7 @@ class Data:
                 y0 = ax.get_ylim()[0]
                 y1 = ax.get_ylim()[1]
                 ax.add_patch(patches.Rectangle(
-                    (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.2, lw=0,
+                    (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0,
                 ))
             legends.append(patches.Rectangle(
                 (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
