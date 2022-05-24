@@ -906,8 +906,7 @@ class Data:
 
         positions = w[peaks]
         variances = widths**2 / (8.0*np.log(2.0)) # from full-width half-maximum to Gaussian sigma
-        amplitudes = psd[peaks] * np.sqrt(2.0*np.pi*variances)
-        amplitudes = np.sqrt(amplitudes)
+        amplitudes = np.sqrt(psd[peaks])
         return amplitudes, positions, variances
 
     def get_ls_estimation(self, Q=1, n=10000):
@@ -936,7 +935,7 @@ class Data:
         for i in range(input_dims):
             w = np.linspace(0.0, nyquist[i], n+1)[1:]
             psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, w)
-            psd /= 2.0*np.pi
+            psd /= x.shape[0]/4.0
             amplitudes, positions, variances = self._get_psd_peaks(w, psd)
             if len(positions) == 0:
                 continue
@@ -977,7 +976,9 @@ class Data:
         x, y = self.get_train_data(transformed=True)
         for i in range(input_dims):
             w, psd, _ = BNSE(x[:,i], y, max_freq=nyquist[i], n=n, iters=iters)
-            psd /= np.sqrt(2) # TODO: why? emperically found
+            # TODO: why? emperically found
+            psd /= (np.max(x[:,i])-np.min(x[:,i]))**2
+            psd *= np.pi
             amplitudes, positions, variances = self._get_psd_peaks(w, psd)
             if len(positions) == 0:
                 continue
