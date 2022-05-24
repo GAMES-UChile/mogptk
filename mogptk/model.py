@@ -13,6 +13,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from . import gpr
 from .dataset import DataSet
+from .util import *
 
 logger = logging.getLogger('mogptk')
 
@@ -54,8 +55,6 @@ class Exact:
         if data_variance is None and y_err is not None:
             data_variance = y_err**2
         model = gpr.Exact(kernel, x, y, variance=variance, data_variance=data_variance, jitter=self.jitter, mean=mean, name=name)
-        if data_variance is not None:
-            model.likelihood.scale.assign(0.0, train=False)
         return model
 
 class Snelson:
@@ -681,7 +680,7 @@ class Model:
         Examples:
             >>> fig, axes = dataset.plot(title='Title')
         """
-        X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y)
+        X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y, transformed=transformed)
         if len(self.dataset) == 1:
             X = [X]
             Mu = [Mu]
@@ -750,10 +749,10 @@ class Model:
                     y0 = ax[j,0].get_ylim()[0]
                     y1 = ax[j,0].get_ylim()[1]
                     ax[j,0].add_patch(patches.Rectangle(
-                        (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.2, lw=0,
+                        (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.4, lw=0,
                     ))
-                legends.append(patches.Rectangle(
-                    (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
+                legends.insert(0, patches.Rectangle(
+                    (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.4, lw=0, label='Removed Ranges'
                 ))
 
             ax[j,0].set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)

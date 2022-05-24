@@ -677,7 +677,7 @@ class DataSet:
             fig.legend(handles=legends.values(), ncol=5)
         return fig, axes
 
-    def plot_spectrum(self, title=None, method='ls', per=None, maxfreq=None, figsize=None, log=False, transformed=False, n=1001):
+    def plot_spectrum(self, title=None, method='ls', per=None, maxfreq=None, figsize=None, log=False, transformed=True, n=1001):
         """
         Plot the spectrum for each channel.
 

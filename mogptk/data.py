@@ -15,7 +15,7 @@ from pandas.plotting import register_matplotlib_converters
 
 from .serie import Serie, TransformLinear
 from .init import BNSE
-from .misc import plot_spectrum
+from .util import plot_spectrum
 
 register_matplotlib_converters()
 
@@ -204,9 +204,9 @@ class Data:
         It is possible to use the format given by `numpy.meshgrid` for X as a list of numpy arrays for each input dimension, and its values in Y. Each input dimension and Y must have shape (N1,N2,...,Nn) where n is the number of input dimensions and N the number of data points per input dimension.
 
         Args:
-            X (list, numpy.ndarray, dict): Independent variable data of shape (data_points,) or (data_points,input_dims), or a list with elements of shape (data_points,) for each input dimension.
-            Y (list, numpy.ndarray): Dependent variable data of shape (data_points,).
-            Y_err (list, numpy.ndarray): Standard deviation of the dependent variable data of shape (n,).
+            X (list, numpy.ndarray, pandas.Series, dict): Independent variable data of shape (data_points,) or (data_points,input_dims), or a list with elements of shape (data_points,) for each input dimension.
+            Y (list, numpy.ndarray, pandas.Series): Dependent variable data of shape (data_points,).
+            Y_err (list, numpy.ndarray, pandas.Series): Standard deviation of the dependent variable data of shape (n,).
             name (str): Name of data.
             x_labels (str, list of str): Name or names of input dimensions.
             y_label (str): Name of output dimension.
@@ -308,14 +308,16 @@ class Data:
                 X = [np.array(x) for x in X]
             else:
                 X = [np.array(X)]
-        elif isinstance(X, np.ndarray):
+        elif isinstance(X, (np.ndarray, pd.Series)):
+            if isinstance(X, pd.Series):
+                X = X.to_numpy()
             if X.ndim == 1:
                 X = X.reshape(-1, 1)
             if X.ndim != 2:
                 raise ValueError("X must be either a one or two dimensional array of data")
             X = [X[:,i] for i in range(X.shape[1])]
         else:
-            raise ValueError("X must be list or numpy array, if dict is passed then x_labels must also be set")
+            raise ValueError("X must be list, numpy array, or pandas series")
 
         input_dims = len(X)
         # try to cast unknown data types, X becomes np.float64 or np.datetime64
@@ -336,6 +338,11 @@ class Data:
             if np.issubdtype(X[i].dtype, np.datetime64):
                 X[i] = _datetime64_to_higher_unit(X[i])
 
+        if len(X) == 0 or all(x.shape[0] == 0 for x in X):
+            raise ValueError("X data must not be empty")
+        if not all(np.isfinite(x).all() for x in X):
+            raise ValueError("X data must not contains NaNs or infinities")
+
         transformers = []
         if hasattr(self, 'X'):
             transformers = self.X.transformers
@@ -348,8 +355,10 @@ class Data:
             elif not _is_homogeneous_type(Y):
                 raise ValueError("Y list items must all have elements of the same type")
             Y = np.array(Y)
+        elif isinstance(Y, pd.Series):
+            Y = Y.to_numpy()
         elif not isinstance(Y, np.ndarray):
-            raise ValueError("Y must be list or numpy array")
+            raise ValueError("Y must be list, numpy array, or pandas series")
 
         # try to cast unknown data types, Y becomes np.float64
         try:
@@ -359,6 +368,11 @@ class Data:
 
         if Y.ndim == 2 and Y.shape[1] == 1:
             Y = Y.reshape(-1)
+
+        if Y.shape[0] == 0:
+            raise ValueError("Y data must not be empty")
+        if not np.isfinite(Y).all():
+            raise ValueError("Y data must not contains NaNs or infinities")
 
         transformers = []
         if hasattr(self, 'Y'):
@@ -1091,10 +1105,10 @@ class Data:
                 y0 = ax.get_ylim()[0]
                 y1 = ax.get_ylim()[1]
                 ax.add_patch(patches.Rectangle(
-                    (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0,
+                    (x0, y0), x1-x0, y1-y0, fill=True, color='xkcd:strawberry', alpha=0.4, lw=0,
                 ))
-            legends.append(patches.Rectangle(
-                (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.5, lw=0, label='Removed Ranges'
+            legends.insert(0, patches.Rectangle(
+                (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.4, lw=0, label='Removed Ranges'
             ))
 
         ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)

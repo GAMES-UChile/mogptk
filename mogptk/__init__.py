@@ -2,7 +2,7 @@
 .. include:: ./documentation.md
 """
 from .gpr.config import *
-from .misc import *
+from .util import *
 
 from .serie import *
 from .data import *

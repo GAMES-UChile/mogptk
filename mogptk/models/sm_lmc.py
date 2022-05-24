@@ -98,7 +98,7 @@ class SM_LMC(Model):
         constant = np.random.random((output_dims, self.Q, self.Rq))
         for q in range(self.Q):
             for j in range(len(self.dataset)):
-                constant[j,q,:] = np.sqrt(amplitudes[j][q,:].mean()) / self.Rq
+                constant[j,q,:] = amplitudes[j][q,:].mean() / self.Rq
             self.gpr.kernel[q].mean.assign(means[q,:])
             self.gpr.kernel[q].variance.assign(variances[q,:])
         self.gpr.kernel.weight.assign(constant)

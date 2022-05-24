@@ -322,7 +322,7 @@ class Model:
             numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
         """
         with torch.no_grad():
-            return self.kernel(X1, X2).detach().cpu().numpy()
+            return self.kernel(X1, X2).cpu().numpy()
 
     def sample(self, Z, n=None, predict_y=True):
         """

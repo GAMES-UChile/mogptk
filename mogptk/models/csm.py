@@ -95,7 +95,7 @@ class CSM(Model):
         constant = np.random.random((output_dims, self.Q, self.Rq))
         for q in range(self.Q):
             for j in range(len(self.dataset)):
-                constant[j,q,:] = amplitudes[j][q,:].mean() / self.Rq
+                constant[j,q,:] = amplitudes[j][q,:].mean()**2 / self.Rq
             self.gpr.kernel[q].mean.assign(means[q,:])
             self.gpr.kernel[q].variance.assign(variances[q,:])
 

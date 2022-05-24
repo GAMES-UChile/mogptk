@@ -185,7 +185,7 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
                     nyquist_data = 0.5 / np.average(dist)
                     x_low = 0.5 / np.abs(X[-1]-X[0])
                     x_high = nyquist_data
-                dataset[j].plot_spectrum(ax=axes[j,i], method=method, transformed=False, log=False)
+                dataset[j].plot_spectrum(ax=axes[j,i], method=method, transformed=True, log=False)
             elif isinstance(nyquist, np.ndarray):
                 x_high = min(x_high, nyquist[j,i])
 
