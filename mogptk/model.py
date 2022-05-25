@@ -163,7 +163,7 @@ class Model:
 
         for channel in dataset:
             for dim in range(channel.get_input_dims()):
-                xran = np.max(channel.X.transformed[:,dim]) - np.min(channel.X.transformed[:,dim])
+                xran = np.max(channel.X[:,dim]) - np.min(channel.X[:,dim])
                 if xran < 1e-3:
                     logger.warning("Very small X range may give problems, it is suggested to scale up your X axis")
                 elif 1e4 < xran:
@@ -180,8 +180,8 @@ class Model:
         if all(channel.Y_err is not None for channel in self.dataset):
             # TODO: doesn't transform...
             Y_err = [np.array(channel.Y_err[channel.mask]) for channel in self.dataset]
-            Y_err_lower = [self.dataset[j].Y.transform(Y[j] - Y_err[j], X[j]) for j in range(len(self.dataset))]
-            Y_err_upper = [self.dataset[j].Y.transform(Y[j] + Y_err[j], X[j]) for j in range(len(self.dataset))]
+            Y_err_lower = [self.dataset[j].Y_transformer.forward(Y[j] - Y_err[j], X[j]) for j in range(len(self.dataset))]
+            Y_err_upper = [self.dataset[j].Y_transformer.forward(Y[j] + Y_err[j], X[j]) for j in range(len(self.dataset))]
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
@@ -297,7 +297,7 @@ class Model:
         Y_pred = []
         for j in range(self.dataset.get_output_dims()):
             N = X[j].shape[0]
-            Y_pred.append(self.dataset[j].Y.detransform(np.squeeze(y_pred[i:i+N]), X[j]))
+            Y_pred.append(self.dataset[j].Y_transformer.backward(np.squeeze(y_pred[i:i+N]), X[j]))
             i += N
 
         # flatten
@@ -470,10 +470,6 @@ class Model:
             numpy.ndarray: Y data of shape (data_points,1).
             numpy.ndarray: Original but normalized X data. Only if no Y is passed.
         """
-        X = X.copy()
-        for j, channel_x in enumerate(X):
-            X[j] = X[j].transformed
-
         x = np.concatenate(X, axis=0)
         if self.is_multioutput:
             chan = [j * np.ones(len(X[j])) for j in range(len(X))]
@@ -482,9 +478,9 @@ class Model:
         if Y is None:
             return x
 
-        Y = Y.copy()
+        Y = list(Y) # shallow copy
         for j, channel_y in enumerate(Y):
-            Y[j] = Y[j].transformed
+            Y[j] = self.dataset[j].Y_transformer.forward(Y[j], X[j])
         y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
@@ -536,9 +532,9 @@ class Model:
 
         if not transformed:
             for j in range(self.dataset.get_output_dims()):
-                Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
-                Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
-                Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+                Mu[j] = self.dataset[j].Y_transformer.backward(Mu[j], X[j])
+                Lower[j] = self.dataset[j].Y_transformer.backward(Lower[j], X[j])
+                Upper[j] = self.dataset[j].Y_transformer.backward(Upper[j], X[j])
 
         if len(self.dataset) == 1:
             return X[0], Mu[0], Lower[0], Upper[0]
@@ -601,14 +597,14 @@ class Model:
             if n is None:
                 sample = np.squeeze(samples[i:i+N])
                 if not transformed:
-                    sample = self.dataset[j].Y.detransform(sample, X[j])
+                    sample = self.dataset[j].Y_transformer.backward(sample, X[j])
                 Samples.append(sample)
             else:
                 ss = []
                 for k in range(n):
                     sample = np.squeeze(samples[i:i+N,k])
                     if not transformed:
-                        sample = self.dataset[j].Y.detransform(sample, X[j])
+                        sample = self.dataset[j].Y_transformer.backward(sample, X[j])
                     ss.append(sample)
                 Samples.append(ss)
             i += N
@@ -701,8 +697,8 @@ class Model:
                 yl = data.Y[data.mask] - data.Y_err[data.mask]
                 yu = data.Y[data.mask] + data.Y_err[data.mask]
                 if transformed:
-                    yl = data.Y.transform(yl, x)
-                    yu = data.Y.transform(yu, x)
+                    yl = data.Y_transformer.forward(yl, x)
+                    yu = data.Y_transformer.forward(yu, x)
                 ax[j,0].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
 
             # prediction
@@ -728,7 +724,7 @@ class Model:
 
                 y = data.F(x)
                 if transformed:
-                    y = data.Y.transform(y, x)
+                    y = data.Y_transformer.forward(y, x)
 
                 ax[j,0].plot(x, y, 'r--', lw=1)
                 legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
@@ -783,9 +779,9 @@ class Model:
             raise ValueError("cannot plot for more than one input dimension")
 
         if start is None:
-            start = [channel.X.transformed.min() for channel in self.dataset]
+            start = [channel.X.min() for channel in self.dataset]
         if end is None:
-            end = [channel.X.transformed.max() for channel in self.dataset]
+            end = [channel.X.max() for channel in self.dataset]
 
         output_dims = len(self.dataset)
         if not isinstance(start, (list, np.ndarray)):
@@ -844,7 +840,7 @@ class Model:
             raise ValueError("cannot plot for more than one input dimension")
 
         if dist is None:
-            dist = [(channel.X.transformed.max()-channel.X.transformed.min())/4.0 for channel in self.dataset]
+            dist = [(channel.X.max()-channel.X.min())/4.0 for channel in self.dataset]
 
         output_dims = len(self.dataset)
         if not isinstance(dist, (list, np.ndarray)):

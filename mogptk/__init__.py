@@ -4,7 +4,7 @@
 from .gpr.config import *
 from .util import *
 
-from .serie import *
+from .transformer import *
 from .data import *
 from .dataset import *
 from .init import *

@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from pandas.plotting import register_matplotlib_converters
 
-from .serie import Serie, TransformLinear
+from .transformer import Transformer
 from .init import BNSE
 from .util import plot_spectrum
 
@@ -231,7 +231,7 @@ class Data:
                     raise ValueError("X dict must contain all keys listed in x_labels")
                 X = [X[key] for key in x_labels]
 
-        X = self._format_X(X)
+        X, X_dtypes = self._format_X(X)
         Y = self._format_Y(Y)
         if Y_err is not None:
             Y_err = self._format_Y(Y_err)
@@ -259,9 +259,12 @@ class Data:
         self.Y_err = None
         if Y_err is not None:
             self.Y_err = Y_err # shape (n)
+        self.X_pred = None
         self.mask = np.array([True] * Y.shape[0])
         self.F = None
-        self.X_pred = None
+
+        self.X_dtypes = X_dtypes
+        self.Y_transformer = Transformer()
 
         input_dims = X.shape[1]
         self.removed_ranges = [[]] * input_dims
@@ -319,34 +322,40 @@ class Data:
         else:
             raise ValueError("X must be list, numpy array, or pandas series")
 
-        input_dims = len(X)
-        # try to cast unknown data types, X becomes np.float64 or np.datetime64
-        for i in range(input_dims):
-            if X[i].dtype == np.object_ or np.issubdtype(X[i].dtype, np.character):
-                # convert datetime.datetime or strings to np.datetime64
-                try:
-                    X[i] = X[i].astype(np.datetime64)
-                except:
-                    raise ValueError("X data must have a number or datetime data type")
-            elif not np.issubdtype(X[i].dtype, np.datetime64):
-                try:
-                    X[i] = X[i].astype(np.float64)
-                except:
-                    raise ValueError("X data must have a number or datetime data type")
-
-            # convert X datetime64[us] to a higher unit like s, m, h, D, ...
-            if np.issubdtype(X[i].dtype, np.datetime64):
-                X[i] = _datetime64_to_higher_unit(X[i])
-
         if len(X) == 0 or all(x.shape[0] == 0 for x in X):
             raise ValueError("X data must not be empty")
         if not all(np.isfinite(x).all() for x in X):
             raise ValueError("X data must not contains NaNs or infinities")
 
-        transformers = []
-        if hasattr(self, 'X'):
-            transformers = self.X.transformers
-        return Serie(X, transformers, dims=input_dims) # shape (n,input_dims)
+        # try to cast unknown data types, X becomes np.float64 or np.datetime64
+        input_dims = len(X)
+        if hasattr(self, 'X_dtypes'):
+            for i in range(input_dims):
+                try:
+                    X[i] = X[i].astype(self.X_dtypes[i])
+                except:
+                    raise ValueError("X data must have valid data types for each input dimension")
+        else:
+            for i in range(input_dims):
+                if X[i].dtype == np.object_ or np.issubdtype(X[i].dtype, np.character):
+                    # convert datetime.datetime or strings to np.datetime64
+                    try:
+                        X[i] = X[i].astype(np.datetime64)
+                    except:
+                        raise ValueError("X data must have a number or datetime data type")
+                elif not np.issubdtype(X[i].dtype, np.datetime64):
+                    try:
+                        X[i] = X[i].astype(np.float64)
+                    except:
+                        raise ValueError("X data must have a number or datetime data type")
+
+                # convert X datetime64[us] to a higher unit like s, m, h, D, ...
+                if np.issubdtype(X[i].dtype, np.datetime64):
+                    X[i] = _datetime64_to_higher_unit(X[i])
+
+        dtypes = [x.dtype for x in X]
+        X = np.array([x.astype(np.float64) for x in X]).T
+        return X, dtypes # shape (n,input_dims)
 
     def _format_Y(self, Y):
         if isinstance(Y, list):
@@ -373,11 +382,7 @@ class Data:
             raise ValueError("Y data must not be empty")
         if not np.isfinite(Y).all():
             raise ValueError("Y data must not contains NaNs or infinities")
-
-        transformers = []
-        if hasattr(self, 'Y'):
-            transformers = self.Y.transformers
-        return Serie(Y) # shape (n,)
+        return Y # shape (n,)
 
     def __repr__(self):
         df = pd.DataFrame()
@@ -443,7 +448,7 @@ class Data:
         Examples:
             >>> data.set_function(lambda x,y: np.sin(3*x)+np.cos(2*y))
         """
-        _check_function(f, self.get_input_dims(), [self.X.is_datetime64(dim=i) for i in range(self.get_input_dims())])
+        _check_function(f, self.get_input_dims(), [_is_datetime64(self.X_dtypes[i]) for i in range(self.get_input_dims())])
         self.F = f
 
     def transform(self, transformer):
@@ -460,14 +465,7 @@ class Data:
             >>> data.transform(mogptk.TransformNormalize)                # transform to [-1,1]
             >>> data.transform(mogptk.TransformStandard)                 # transform to mean=0, var=1
         """
-
-        t = transformer
-        if isinstance(t, type):
-            t = transformer()
-        else:
-            t = copy.deepcopy(t)
-        t.set_data(self.Y.transformed, self.X.transformed)
-        self.Y.apply(t, self.X)
+        self.Y_transformer.append(transformer, self.Y, self.X)
     
     def filter(self, start, end, dim=None):
         """
@@ -517,16 +515,15 @@ class Data:
 
         start = np.min(self.X[:,0])
         end = np.max(self.X[:,0])
-        step = _parse_delta(duration, self.X.dtypes[0])
+        step = _parse_delta(duration, self.X_dtypes[0])
 
         X = np.arange(start+step/2, end+step/2, step).reshape(-1,1)
         Y = np.empty((X.shape[0],))
         for i in range(X.shape[0]):
             ind = (self.X[:,0] >= X[i,0]-step/2) & (self.X[:,0] < X[i,0]+step/2)
             Y[i] = f(self.Y[ind])
-
-        self.X = Serie(X, self.X.transformers, dtypes=self.X.dtypes)
-        self.Y = Serie(Y, self.Y.transformers, self.X)
+        self.X = X
+        self.Y = Y
         self.mask = np.array([True] * len(self.Y))
 
     ################################################################
@@ -585,7 +582,7 @@ class Data:
             >>> x, y = data.get_data()
         """
         if transformed:
-            return self.X, self.Y.transformed
+            return self.X, self.Y_transformer.forward(self.Y, self.X)
         return self.X, self.Y
 
     def get_train_data(self, transformed=False):
@@ -603,7 +600,7 @@ class Data:
             >>> x, y = data.get_train_data()
         """
         if transformed:
-            return self.X[self.mask,:], self.Y.transformed[self.mask]
+            return self.X[self.mask,:], self.Y_transformer.forward(self.Y[self.mask], self.X[self.mask,:])
         return self.X[self.mask,:], self.Y[self.mask]
 
     def get_test_data(self, transformed=False):
@@ -626,10 +623,10 @@ class Data:
                 X, _ = self.get_data()
             Y = self.F(X)
             if transformed:
-                Y = self.Y.transform(Y, X)
+                Y = self.Y_transformer.forward(Y, X)
             return X, Y
         if transformed:
-            return X, self.Y.transformed[~self.mask]
+            return X, self.Y_transformer.forward(self.Y[~self.mask], X)
         return X, self.Y[~self.mask]
 
     ################################################################
@@ -813,7 +810,7 @@ class Data:
         Examples:
             >>> data.set_prediction_data([5.0, 5.5, 6.0, 6.5, 7.0])
         """
-        X_pred = self._format_X(X)
+        X_pred, _ = self._format_X(X)
         if X_pred.shape[1] != self.X.shape[1]:
             raise ValueError("X must have the same number of input dimensions as the data")
         self.X_pred = X_pred
@@ -849,8 +846,8 @@ class Data:
         for i in range(self.get_input_dims()):
             if n is not None and not isinstance(n[i], int):
                 raise ValueError("n must be integer")
-            if step is not None and self.X.is_datetime64(dim=i):
-                step[i] = _parse_delta(step[i], self.X.dtypes[i])
+            if step is not None and _is_datetime64(self.X_dtypes[i]):
+                step[i] = _parse_delta(step[i], self.X_dtypes[i])
 
         if np.any(end <= start):
             raise ValueError("start must be lower than end")
@@ -864,9 +861,9 @@ class Data:
                 if step is None or step[i] is None:
                     x_step = (end[i]-start[i])/100
                 else:
-                    x_step = _parse_delta(step[i], self.X.dtypes[i])
+                    x_step = _parse_delta(step[i], self.X_dtypes[i])
                 X_pred[i] = np.arange(start[i], end[i]+x_step, x_step)
-        self.X_pred = Serie(X_pred, self.X.transformers, dims=self.get_input_dims())
+        self.X_pred = X_pred
 
     ################################################################
 
@@ -883,7 +880,7 @@ class Data:
         input_dims = self.get_input_dims()
         nyquist = np.empty((input_dims,))
         for i in range(self.get_input_dims()):
-            x = np.sort(self.X.transformed[self.mask,i])
+            x = np.sort(self.X[self.mask,i])
             dist = np.abs(x[1:]-x[:-1])
             if len(dist) == 0:
                 nyquist[i] = 0.0
@@ -1063,8 +1060,8 @@ class Data:
             yl = self.Y[self.mask] - self.Y_err[self.mask]
             yu = self.Y[self.mask] + self.Y_err[self.mask]
             if transformed:
-                yl = self.Y.transform(yl, x)
-                yu = self.Y.transform(yu, x)
+                yl = self.Y_transformer.forward(yl, x)
+                yu = self.Y_transformer.forward(yu, x)
             ax.errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
 
         if self.X_pred is None:
@@ -1075,17 +1072,17 @@ class Data:
             xmax = max(np.max(self.X), np.max(self.X_pred))
 
         if self.F is not None:
-            if self.X.is_datetime64(dim=0):
-                dt = np.timedelta64(1,self.X.get_time_unit(dim=0))
+            if _is_datetime64(self.X_dtypes[0]):
+                dt = np.timedelta64(1,_get_time_unit(self.X_dtypes[0]))
                 n = int((xmax-xmin) / dt) + 1
-                x = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt, dtype=self.X.dtypes[0])
+                x = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt, dtype=self.X_dtypes[0])
             else:
                 n = len(self.X[0])*10
                 x = np.linspace(xmin, xmax, n)
 
             y = self.F(x)
             if transformed:
-                y = self.Y.transform(y, x)
+                y = self.Y_transformer.forward(y, x)
 
             ax.plot(x, y, 'g--', lw=1)
             legends.append(plt.Line2D([0], [0], ls='--', color='g', label='True'))
@@ -1152,12 +1149,12 @@ class Data:
             _, ax = plt.subplots(1, 1, figsize=(12,3), squeeze=True, constrained_layout=True)
         
         X_scale = 1.0
-        if self.X.is_datetime64(dim=0):
+        if _is_datetime64(self.X_dtypes[0]):
             if per is None:
-                per = _datetime64_unit_names[self.X.get_time_unit(dim=0)]
+                per = _datetime64_unit_names[_get_time_unit(self.X_dtypes[0])]
             else:
-                unit = _parse_delta(per, self.X.dtypes[0])
-                X_scale = np.timedelta64(1,self.X.get_time_unit(dim=0)) / unit
+                unit = _parse_delta(per, self.X_dtypes[0])
+                X_scale = np.timedelta64(1,_get_time_unit(self.X_dtypes[0])) / unit
                 if not isinstance(per, str):
                     per = '%s' % (unit,)
 
@@ -1169,7 +1166,7 @@ class Data:
         X = self.X
         Y = self.Y
         if transformed:
-            Y = self.Y.transformed
+            Y = self.Y_transformer.forward(Y, X)
 
         idx = np.argsort(X[:,0])
         X = X[idx,0] * X_scale
@@ -1232,9 +1229,9 @@ class Data:
         val = self._normalize_val(val)
         for i in range(self.get_input_dims()):
             try:
-                val[i] = np.array(val[i]).astype(self.X.dtypes[i]).astype(np.float64)
+                val[i] = np.array(val[i]).astype(self.X_dtypes[i]).astype(np.float64)
             except:
-                raise ValueError("value must be of type %s" % (self.X.dtypes[i],))
+                raise ValueError("value must be of type %s" % (self.X_dtypes[i],))
         return val
 
 def _is_iterable(val):
@@ -1358,3 +1355,13 @@ def _timedelta64_to_higher_unit(array):
         if not np.any(frac):
             return array.astype('timedelta64[%s]' % (unit,))
     return array
+
+def _is_datetime64(dtype):
+    return np.issubdtype(dtype, np.datetime64)
+
+def _get_time_unit(dtype):
+    unit = str(dtype)
+    locBracket = unit.find('[')
+    if locBracket == -1:
+        return ''
+    return unit[locBracket+1:-1]

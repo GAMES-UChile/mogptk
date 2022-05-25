@@ -82,7 +82,8 @@ class SM(Model):
         if method.lower() == 'ips':
             for j in range(output_dims):
                 nyquist = self.dataset[j].get_nyquist_estimation()
-                x, y = np.array([x.transformed[self.dataset[j].mask] for x in self.dataset[j].X]).T, self.dataset[j].Y.transformed[self.dataset[j].mask]
+                x = self.dataset[j].X[self.dataset[j].mask,:]
+                y = self.dataset[j].Y_transformer.forward(self.dataset[j].Y[self.dataset[j].mask], x)
                 x_range = np.max(x, axis=0) - np.min(x, axis=0)
 
                 weights = [2.0*y.std()/self.Q] * self.Q

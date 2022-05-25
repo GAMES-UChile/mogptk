@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import norm
-from .serie import TransformLinear
 
 def mean_absolute_error(y_true, y_pred):
     """
@@ -169,10 +168,6 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
     
     for j in range(output_dims):
         for i in range(input_dims):
-            if dataset is not None and len(dataset[j].X[i].transformers) == 1 and isinstance(dataset[j].X[i].transformers[0], TransformLinear):
-                means[:,j,:] /= dataset[j].X[i].transformers[0].slope
-                scales[:,j,:] /= dataset[j].X[i].transformers[0].slope
-
             x_low = max(0.0, norm.ppf(0.01, loc=means[:,j,i], scale=scales[:,j,i]).min())
             x_high = norm.ppf(0.99, loc=means[:,j,i], scale=scales[:,j,i]).max()
 

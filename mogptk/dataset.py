@@ -196,7 +196,7 @@ class DataSet:
             raise ValueError("X must be of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims for each channel")
 
         for j, channel in enumerate(self.channels):
-            X[j] = channel._format_X(X[j])
+            X[j], _ = channel._format_X(X[j])
         return X
 
     def __iter__(self):
