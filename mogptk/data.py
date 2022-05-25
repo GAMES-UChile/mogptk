@@ -322,11 +322,6 @@ class Data:
         else:
             raise ValueError("X must be list, numpy array, or pandas series")
 
-        if len(X) == 0 or all(x.shape[0] == 0 for x in X):
-            raise ValueError("X data must not be empty")
-        if not all(np.isfinite(x).all() for x in X):
-            raise ValueError("X data must not contains NaNs or infinities")
-
         # try to cast unknown data types, X becomes np.float64 or np.datetime64
         input_dims = len(X)
         if hasattr(self, 'X_dtypes'):
@@ -355,6 +350,10 @@ class Data:
 
         dtypes = [x.dtype for x in X]
         X = np.array([x.astype(np.float64) for x in X]).T
+        if X.size == 0:
+            raise ValueError("X data must not be empty")
+        if not np.isfinite(X).all():
+            raise ValueError("X data must not contains NaNs or infinities")
         return X, dtypes # shape (n,input_dims)
 
     def _format_Y(self, Y):
@@ -797,8 +796,8 @@ class Data:
             >>> x = data.get_prediction_data()
         """
         if self.X_pred is None:
-            return self.X.copy()
-        return self.X_pred.copy()
+            return self.X
+        return self.X_pred
 
     def set_prediction_data(self, X):
         """
@@ -856,14 +855,20 @@ class Data:
         X_pred = [np.array([])] * self.get_input_dims()
         for i in range(self.get_input_dims()):
             if n is not None and n[i] is not None:
-                X_pred[i] = start[i] + (end[i]-start[i])*np.linspace(0.0, 1.0, int(n[i]))
+                X_pred[i] = start[i] + (end[i]-start[i])*np.linspace(0.0, 1.0, n[i])
             else:
                 if step is None or step[i] is None:
                     x_step = (end[i]-start[i])/100
                 else:
                     x_step = _parse_delta(step[i], self.X_dtypes[i])
                 X_pred[i] = np.arange(start[i], end[i]+x_step, x_step)
-        self.X_pred = X_pred
+
+        n = [X_pred[i].shape[0] for i in range(self.get_input_dims())]
+        for i in range(self.get_input_dims()):
+            n_tile = np.prod(n[:i])
+            n_repeat = np.prod(n[i+1:])
+            X_pred[i] = np.tile(np.repeat(X_pred[i], n_repeat), n_tile)
+        self.X_pred = np.array(X_pred).T
 
     ################################################################
 

@@ -2,7 +2,9 @@ import copy
 import numpy as np
 
 class Transformer:
-    def __init__(self, transformers=[]):
+    def __init__(self, transformers=None):
+        if transformers is None:
+            transformers = []
         if not isinstance(transformers, list):
             transformers = [transformers]
         if not all(issubclass(type(t), TransformBase) for t in transformers):
@@ -11,7 +13,7 @@ class Transformer:
 
     def append(self, t, y, x=None):
         if isinstance(t, type):
-            t = transformer()
+            t = t()
         else:
             t = copy.deepcopy(t)
         y = self.forward(y, x)
