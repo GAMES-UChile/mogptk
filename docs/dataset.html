@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L1-L704" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L1-L719" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import copy
 
@@ -219,15 +219,17 @@ class DataSet:
                 X[self.get_index(name)] = channel_x
         elif isinstance(X, np.ndarray):
             X = [X] * self.get_output_dims()
+        elif isinstance(X, pd.Series):
+            X = [X.to_numpy()] * self.get_output_dims()
         elif not isinstance(X, list):
-            raise ValueError(&#34;X must be a list, dict or numpy.ndarray&#34;)
+            raise ValueError(&#34;X must be a list, dict, numpy.ndarray, or pandas.Series&#34;)
         elif not any(isinstance(x, (list,np.ndarray)) for x in X):
             X = [X] * self.get_output_dims()
         if len(X) != self.get_output_dims():
             raise ValueError(&#34;X must be of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims for each channel&#34;)
 
         for j, channel in enumerate(self.channels):
-            X[j] = channel._format_X(X[j])
+            X[j], _ = channel._format_X(X[j])
         return X
 
     def __iter__(self):
@@ -347,6 +349,19 @@ class DataSet:
         &#34;&#34;&#34;
         for channel in self.channels:
             channel.aggregate(duration, f)
+
+    def has_test_data(self):
+        &#34;&#34;&#34;
+        Returns True if observations have been removed using the `remove_*` methods.
+
+        Returns:
+            list: Boolean per channel.
+
+        Examples:
+            &gt;&gt;&gt; data.has_test_data()
+            True
+        &#34;&#34;&#34;
+        return [channel.has_test_data() for channel in self.channels]
 
     def get_input_dims(self):
         &#34;&#34;&#34;
@@ -571,7 +586,7 @@ class DataSet:
         &#34;&#34;&#34;
         return [channel.get_nyquist_estimation() for channel in self.channels]
     
-    def get_lombscargle_estimation(self, Q=1, n=10000):
+    def get_ls_estimation(self, Q=1, n=10000):
         &#34;&#34;&#34;
         Peak estimation of the spectrum using Lomb-Scargle per channel.
 
@@ -591,19 +606,20 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_lombscargle_estimation(Q, n)
+            channel_amplitudes, channel_means, channel_variances = channel.get_ls_estimation(Q, n)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_bnse_estimation(self, Q=1, n=1000):
+    def get_bnse_estimation(self, Q=1, n=1000, iters=200):
         &#34;&#34;&#34;
         Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.
 
         Args:
             Q (int): Number of peaks to find.
             n (int): Number of points of the grid to evaluate frequencies.
+            iters (str): Maximum iterations.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -617,23 +633,22 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n)
+            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n, iters=iters)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=200, params={}):
         &#34;&#34;&#34;
         Peak estimation of the spectrum using the spectral mixture kernel per channel.
 
         Args:
             Q (int): Number of peaks to find.
-            method (str): Method of estimating SM kernels.
-            optimizer (str): Optimization method for SM kernels.
-            iters (str): Maximum iteration for SM kernels.
+            method (str): Method of estimation.
+            optimizer (str): Optimization method.
+            iters (str): Maximum iterations.
             params (object): Additional parameters for PyTorch optimizer.
-            plot (bool): Show the PSD of the kernel after fitting.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -647,7 +662,7 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, params, plot)
+            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, params)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
@@ -672,7 +687,7 @@ class DataSet:
             &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
         &#34;&#34;&#34;
         if figsize is None:
-            figsize = (18, 6.0*len(self.channels))
+            figsize = (12,4*len(self.channels))
 
         h = figsize[1]
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
@@ -695,7 +710,7 @@ class DataSet:
             fig.legend(handles=legends.values(), ncol=5)
         return fig, axes
 
-    def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, log=False, transformed=False, n=1001):
+    def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, log=False, transformed=True, n=1001):
         &#34;&#34;&#34;
         Plot the spectrum for each channel.
 
@@ -724,7 +739,7 @@ class DataSet:
             maxfreq = [maxfreq] * len(self.channels)
 
         if figsize is None:
-            figsize = (12,3*len(self.channels))
+            figsize = (12,4*len(self.channels))
 
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         if title != None:
@@ -771,7 +786,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L9-L32" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L9-L32" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadCSV(filename, x_col=0, y_col=1, y_err_col=None, name=None, **kwargs):
     &#34;&#34;&#34;
@@ -827,7 +842,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L34-L127" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L34-L127" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadDataFrame(df, x_col=0, y_col=1, y_err_col=None, name=None):
     &#34;&#34;&#34;
@@ -969,7 +984,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L133-L704" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L133-L719" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class DataSet:
     &#34;&#34;&#34;
@@ -1029,15 +1044,17 @@ class DataSet:
                 X[self.get_index(name)] = channel_x
         elif isinstance(X, np.ndarray):
             X = [X] * self.get_output_dims()
+        elif isinstance(X, pd.Series):
+            X = [X.to_numpy()] * self.get_output_dims()
         elif not isinstance(X, list):
-            raise ValueError(&#34;X must be a list, dict or numpy.ndarray&#34;)
+            raise ValueError(&#34;X must be a list, dict, numpy.ndarray, or pandas.Series&#34;)
         elif not any(isinstance(x, (list,np.ndarray)) for x in X):
             X = [X] * self.get_output_dims()
         if len(X) != self.get_output_dims():
             raise ValueError(&#34;X must be of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims for each channel&#34;)
 
         for j, channel in enumerate(self.channels):
-            X[j] = channel._format_X(X[j])
+            X[j], _ = channel._format_X(X[j])
         return X
 
     def __iter__(self):
@@ -1157,6 +1174,19 @@ class DataSet:
         &#34;&#34;&#34;
         for channel in self.channels:
             channel.aggregate(duration, f)
+
+    def has_test_data(self):
+        &#34;&#34;&#34;
+        Returns True if observations have been removed using the `remove_*` methods.
+
+        Returns:
+            list: Boolean per channel.
+
+        Examples:
+            &gt;&gt;&gt; data.has_test_data()
+            True
+        &#34;&#34;&#34;
+        return [channel.has_test_data() for channel in self.channels]
 
     def get_input_dims(self):
         &#34;&#34;&#34;
@@ -1381,7 +1411,7 @@ class DataSet:
         &#34;&#34;&#34;
         return [channel.get_nyquist_estimation() for channel in self.channels]
     
-    def get_lombscargle_estimation(self, Q=1, n=10000):
+    def get_ls_estimation(self, Q=1, n=10000):
         &#34;&#34;&#34;
         Peak estimation of the spectrum using Lomb-Scargle per channel.
 
@@ -1401,19 +1431,20 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_lombscargle_estimation(Q, n)
+            channel_amplitudes, channel_means, channel_variances = channel.get_ls_estimation(Q, n)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_bnse_estimation(self, Q=1, n=1000):
+    def get_bnse_estimation(self, Q=1, n=1000, iters=200):
         &#34;&#34;&#34;
         Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.
 
         Args:
             Q (int): Number of peaks to find.
             n (int): Number of points of the grid to evaluate frequencies.
+            iters (str): Maximum iterations.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -1427,23 +1458,22 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n)
+            channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n, iters=iters)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
         return amplitudes, means, variances
     
-    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
+    def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=200, params={}):
         &#34;&#34;&#34;
         Peak estimation of the spectrum using the spectral mixture kernel per channel.
 
         Args:
             Q (int): Number of peaks to find.
-            method (str): Method of estimating SM kernels.
-            optimizer (str): Optimization method for SM kernels.
-            iters (str): Maximum iteration for SM kernels.
+            method (str): Method of estimation.
+            optimizer (str): Optimization method.
+            iters (str): Maximum iterations.
             params (object): Additional parameters for PyTorch optimizer.
-            plot (bool): Show the PSD of the kernel after fitting.
 
         Returns:
             list: Amplitude array of shape (Q,input_dims) per channel.
@@ -1457,7 +1487,7 @@ class DataSet:
         means = []
         variances = []
         for channel in self.channels:
-            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, params, plot)
+            channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, params)
             amplitudes.append(channel_amplitudes)
             means.append(channel_means)
             variances.append(channel_variances)
@@ -1482,7 +1512,7 @@ class DataSet:
             &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
         &#34;&#34;&#34;
         if figsize is None:
-            figsize = (18, 6.0*len(self.channels))
+            figsize = (12,4*len(self.channels))
 
         h = figsize[1]
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
@@ -1505,7 +1535,7 @@ class DataSet:
             fig.legend(handles=legends.values(), ncol=5)
         return fig, axes
 
-    def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, log=False, transformed=False, n=1001):
+    def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, log=False, transformed=True, n=1001):
         &#34;&#34;&#34;
         Plot the spectrum for each channel.
 
@@ -1534,7 +1564,7 @@ class DataSet:
             maxfreq = [maxfreq] * len(self.channels)
 
         if figsize is None:
-            figsize = (12,3*len(self.channels))
+            figsize = (12,4*len(self.channels))
 
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         if title != None:
@@ -1567,7 +1597,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L302-L318" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L304-L320" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def aggregate(self, duration, f=np.mean):
     &#34;&#34;&#34;
@@ -1604,7 +1634,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L230-L254" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L232-L256" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def append(self, arg):
     &#34;&#34;&#34;
@@ -1646,7 +1676,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L256-L266" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L258-L268" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -1683,7 +1713,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L285-L300" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L287-L302" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def filter(self, start, end, dim=None):
     &#34;&#34;&#34;
@@ -1724,7 +1754,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L359-L379" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L374-L394" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get(self, index):
     &#34;&#34;&#34;
@@ -1750,7 +1780,7 @@ class DataSet:
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_bnse_estimation"><code class="name flex">
-<span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q=1, n=1000)</span>
+<span>def <span class="ident">get_bnse_estimation</span></span>(<span>self, Q=1, n=1000, iters=200)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.</p>
@@ -1760,6 +1790,8 @@ class DataSet:
 <dd>Number of peaks to find.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of points of the grid to evaluate frequencies.</dd>
+<dt><strong><code>iters</code></strong> :&ensp;<code>str</code></dt>
+<dd>Maximum iterations.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1776,15 +1808,16 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L569-L593" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L584-L609" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000):
+<pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000, iters=200):
     &#34;&#34;&#34;
     Peak estimation of the spectrum using BNSE (Bayesian Non-parametric Spectral Estimation) per channel.
 
     Args:
         Q (int): Number of peaks to find.
         n (int): Number of points of the grid to evaluate frequencies.
+        iters (str): Maximum iterations.
 
     Returns:
         list: Amplitude array of shape (Q,input_dims) per channel.
@@ -1798,7 +1831,7 @@ class DataSet:
     means = []
     variances = []
     for channel in self.channels:
-        channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n)
+        channel_amplitudes, channel_means, channel_variances = channel.get_bnse_estimation(Q, n, iters=iters)
         amplitudes.append(channel_amplitudes)
         means.append(channel_means)
         variances.append(channel_variances)
@@ -1825,7 +1858,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L403-L417" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L418-L432" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -1865,7 +1898,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L381-L401" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L396-L416" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_index(self, index):
     &#34;&#34;&#34;
@@ -1907,7 +1940,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L320-L331" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L335-L346" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -1923,8 +1956,8 @@ class DataSet:
     return [channel.get_input_dims() for channel in self.channels]</code></pre>
 </details>
 </dd>
-<dt id="mogptk.dataset.DataSet.get_lombscargle_estimation"><code class="name flex">
-<span>def <span class="ident">get_lombscargle_estimation</span></span>(<span>self, Q=1, n=10000)</span>
+<dt id="mogptk.dataset.DataSet.get_ls_estimation"><code class="name flex">
+<span>def <span class="ident">get_ls_estimation</span></span>(<span>self, Q=1, n=10000)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Peak estimation of the spectrum using Lomb-Scargle per channel.</p>
@@ -1950,9 +1983,9 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L543-L567" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L558-L582" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def get_lombscargle_estimation(self, Q=1, n=10000):
+<pre><code class="python">def get_ls_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
     Peak estimation of the spectrum using Lomb-Scargle per channel.
 
@@ -1972,7 +2005,7 @@ class DataSet:
     means = []
     variances = []
     for channel in self.channels:
-        channel_amplitudes, channel_means, channel_variances = channel.get_lombscargle_estimation(Q, n)
+        channel_amplitudes, channel_means, channel_variances = channel.get_ls_estimation(Q, n)
         amplitudes.append(channel_amplitudes)
         means.append(channel_means)
         variances.append(channel_variances)
@@ -1996,7 +2029,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L346-L357" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L361-L372" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_names(self):
     &#34;&#34;&#34;
@@ -2028,7 +2061,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L531-L541" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L546-L556" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -2060,7 +2093,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L333-L344" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L348-L359" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_output_dims(self):
     &#34;&#34;&#34;
@@ -2092,7 +2125,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L451-L464" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L466-L479" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_data(self):
     &#34;&#34;&#34;
@@ -2111,7 +2144,7 @@ class DataSet:
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.get_sm_estimation"><code class="name flex">
-<span>def <span class="ident">get_sm_estimation</span></span>(<span>self, Q=1, method='BNSE', optimizer='Adam', iters=100, params={}, plot=False)</span>
+<span>def <span class="ident">get_sm_estimation</span></span>(<span>self, Q=1, method='BNSE', optimizer='Adam', iters=200, params={})</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Peak estimation of the spectrum using the spectral mixture kernel per channel.</p>
@@ -2120,15 +2153,13 @@ class DataSet:
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of peaks to find.</dd>
 <dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
-<dd>Method of estimating SM kernels.</dd>
+<dd>Method of estimation.</dd>
 <dt><strong><code>optimizer</code></strong> :&ensp;<code>str</code></dt>
-<dd>Optimization method for SM kernels.</dd>
+<dd>Optimization method.</dd>
 <dt><strong><code>iters</code></strong> :&ensp;<code>str</code></dt>
-<dd>Maximum iteration for SM kernels.</dd>
+<dd>Maximum iterations.</dd>
 <dt><strong><code>params</code></strong> :&ensp;<code>object</code></dt>
 <dd>Additional parameters for PyTorch optimizer.</dd>
-<dt><strong><code>plot</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Show the PSD of the kernel after fitting.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2145,19 +2176,18 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L595-L623" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L611-L638" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=100, params={}, plot=False):
+<pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;BNSE&#39;, optimizer=&#39;Adam&#39;, iters=200, params={}):
     &#34;&#34;&#34;
     Peak estimation of the spectrum using the spectral mixture kernel per channel.
 
     Args:
         Q (int): Number of peaks to find.
-        method (str): Method of estimating SM kernels.
-        optimizer (str): Optimization method for SM kernels.
-        iters (str): Maximum iteration for SM kernels.
+        method (str): Method of estimation.
+        optimizer (str): Optimization method.
+        iters (str): Maximum iterations.
         params (object): Additional parameters for PyTorch optimizer.
-        plot (bool): Show the PSD of the kernel after fitting.
 
     Returns:
         list: Amplitude array of shape (Q,input_dims) per channel.
@@ -2171,7 +2201,7 @@ class DataSet:
     means = []
     variances = []
     for channel in self.channels:
-        channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, params, plot)
+        channel_amplitudes, channel_means, channel_variances = channel.get_sm_estimation(Q, method, optimizer, iters, params)
         amplitudes.append(channel_amplitudes)
         means.append(channel_means)
         variances.append(channel_variances)
@@ -2198,7 +2228,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L435-L449" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L450-L464" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2237,7 +2267,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L419-L433" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L434-L448" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -2254,6 +2284,39 @@ class DataSet:
         &gt;&gt;&gt; x, y = dataset.get_train_data()
     &#34;&#34;&#34;
     return [channel.get_train_data(transformed=transformed)[0] for channel in self.channels], [channel.get_train_data(transformed=transformed)[1] for channel in self.channels]</code></pre>
+</details>
+</dd>
+<dt id="mogptk.dataset.DataSet.has_test_data"><code class="name flex">
+<span>def <span class="ident">has_test_data</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns True if observations have been removed using the <code>remove_*</code> methods.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>list</code></dt>
+<dd>Boolean per channel.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; data.has_test_data()
+True
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L322-L333" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def has_test_data(self):
+    &#34;&#34;&#34;
+    Returns True if observations have been removed using the `remove_*` methods.
+
+    Returns:
+        list: Boolean per channel.
+
+    Examples:
+        &gt;&gt;&gt; data.has_test_data()
+        True
+    &#34;&#34;&#34;
+    return [channel.has_test_data() for channel in self.channels]</code></pre>
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.plot"><code class="name flex">
@@ -2287,7 +2350,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L625-L665" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L640-L680" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, pred=None, title=None, figsize=None, legend=True, transformed=False):
     &#34;&#34;&#34;
@@ -2308,7 +2371,7 @@ class DataSet:
         &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
     &#34;&#34;&#34;
     if figsize is None:
-        figsize = (18, 6.0*len(self.channels))
+        figsize = (12,4*len(self.channels))
 
     h = figsize[1]
     fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
@@ -2333,7 +2396,7 @@ class DataSet:
 </details>
 </dd>
 <dt id="mogptk.dataset.DataSet.plot_spectrum"><code class="name flex">
-<span>def <span class="ident">plot_spectrum</span></span>(<span>self, title=None, method='ls', per=None, maxfreq=None, figsize=None, log=False, transformed=False, n=1001)</span>
+<span>def <span class="ident">plot_spectrum</span></span>(<span>self, title=None, method='ls', per=None, maxfreq=None, figsize=None, log=False, transformed=True, n=1001)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot the spectrum for each channel.</p>
@@ -2369,9 +2432,9 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L667-L704" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L682-L719" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, log=False, transformed=False, n=1001):
+<pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, per=None, maxfreq=None, figsize=None, log=False, transformed=True, n=1001):
     &#34;&#34;&#34;
     Plot the spectrum for each channel.
 
@@ -2400,7 +2463,7 @@ class DataSet:
         maxfreq = [maxfreq] * len(self.channels)
 
     if figsize is None:
-        figsize = (12,3*len(self.channels))
+        figsize = (12,4*len(self.channels))
 
     fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
     if title != None:
@@ -2428,7 +2491,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L466-L488" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L481-L503" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_data(self, X):
     &#34;&#34;&#34;
@@ -2478,7 +2541,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L490-L529" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L505-L544" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start, end, n=None, step=None):
     &#34;&#34;&#34;
@@ -2542,7 +2605,7 @@ class DataSet:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/dataset.py#L268-L283" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/dataset.py#L270-L285" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;
@@ -2598,7 +2661,7 @@ class DataSet:
 <li><code><a title="mogptk.dataset.DataSet.get_data" href="#mogptk.dataset.DataSet.get_data">get_data</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_index" href="#mogptk.dataset.DataSet.get_index">get_index</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_input_dims" href="#mogptk.dataset.DataSet.get_input_dims">get_input_dims</a></code></li>
-<li><code><a title="mogptk.dataset.DataSet.get_lombscargle_estimation" href="#mogptk.dataset.DataSet.get_lombscargle_estimation">get_lombscargle_estimation</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.get_ls_estimation" href="#mogptk.dataset.DataSet.get_ls_estimation">get_ls_estimation</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_names" href="#mogptk.dataset.DataSet.get_names">get_names</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_nyquist_estimation" href="#mogptk.dataset.DataSet.get_nyquist_estimation">get_nyquist_estimation</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_output_dims" href="#mogptk.dataset.DataSet.get_output_dims">get_output_dims</a></code></li>
@@ -2606,6 +2669,7 @@ class DataSet:
 <li><code><a title="mogptk.dataset.DataSet.get_sm_estimation" href="#mogptk.dataset.DataSet.get_sm_estimation">get_sm_estimation</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_test_data" href="#mogptk.dataset.DataSet.get_test_data">get_test_data</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.get_train_data" href="#mogptk.dataset.DataSet.get_train_data">get_train_data</a></code></li>
+<li><code><a title="mogptk.dataset.DataSet.has_test_data" href="#mogptk.dataset.DataSet.has_test_data">has_test_data</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.plot" href="#mogptk.dataset.DataSet.plot">plot</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.plot_spectrum" href="#mogptk.dataset.DataSet.plot_spectrum">plot_spectrum</a></code></li>
 <li><code><a title="mogptk.dataset.DataSet.set_prediction_data" href="#mogptk.dataset.DataSet.set_prediction_data">set_prediction_data</a></code></li>

@@ -135,18 +135,18 @@ for i in range(Q):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/__init__.py#L1-L17" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/__init__.py#L1-L17" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
 .. include:: ./documentation.md
 &#34;&#34;&#34;
 from .gpr.config import *
-from .plot import *
-from .errors import *
+from .util import *
 
-from .serie import *
+from .transformer import *
 from .data import *
 from .dataset import *
+from .init import *
 from .model import *
 from .models.sm import *
 from .models.mosm import *
@@ -159,10 +159,6 @@ from .models.mohsm import *</code></pre>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
-<dt><code class="name"><a title="mogptk.bnse" href="bnse.html">mogptk.bnse</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
 <dt><code class="name"><a title="mogptk.data" href="data.html">mogptk.data</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -171,11 +167,11 @@ from .models.mohsm import *</code></pre>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt><code class="name"><a title="mogptk.errors" href="errors.html">mogptk.errors</a></code></dt>
+<dt><code class="name"><a title="mogptk.gpr" href="gpr/index.html">mogptk.gpr</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt><code class="name"><a title="mogptk.gpr" href="gpr/index.html">mogptk.gpr</a></code></dt>
+<dt><code class="name"><a title="mogptk.init" href="init.html">mogptk.init</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -187,11 +183,11 @@ from .models.mohsm import *</code></pre>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt><code class="name"><a title="mogptk.plot" href="plot.html">mogptk.plot</a></code></dt>
+<dt><code class="name"><a title="mogptk.transformer" href="transformer.html">mogptk.transformer</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt><code class="name"><a title="mogptk.serie" href="serie.html">mogptk.serie</a></code></dt>
+<dt><code class="name"><a title="mogptk.util" href="util.html">mogptk.util</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -228,15 +224,14 @@ from .models.mohsm import *</code></pre>
 <ul id="index">
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
-<li><code><a title="mogptk.bnse" href="bnse.html">mogptk.bnse</a></code></li>
 <li><code><a title="mogptk.data" href="data.html">mogptk.data</a></code></li>
 <li><code><a title="mogptk.dataset" href="dataset.html">mogptk.dataset</a></code></li>
-<li><code><a title="mogptk.errors" href="errors.html">mogptk.errors</a></code></li>
 <li><code><a title="mogptk.gpr" href="gpr/index.html">mogptk.gpr</a></code></li>
+<li><code><a title="mogptk.init" href="init.html">mogptk.init</a></code></li>
 <li><code><a title="mogptk.model" href="model.html">mogptk.model</a></code></li>
 <li><code><a title="mogptk.models" href="models/index.html">mogptk.models</a></code></li>
-<li><code><a title="mogptk.plot" href="plot.html">mogptk.plot</a></code></li>
-<li><code><a title="mogptk.serie" href="serie.html">mogptk.serie</a></code></li>
+<li><code><a title="mogptk.transformer" href="transformer.html">mogptk.transformer</a></code></li>
+<li><code><a title="mogptk.util" href="util.html">mogptk.util</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-tutorials">Tutorials</a></h3>

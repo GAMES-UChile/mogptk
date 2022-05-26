@@ -27,13 +27,13 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/sm_lmc.py#L1-L124" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/sm_lmc.py#L1-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import LinearModelOfCoregionalizationKernel, SpectralKernel
+from ..gpr import LinearModelOfCoregionalizationKernel, SpectralKernel, GaussianLikelihood
 
 class SM_LMC(Model):
     &#34;&#34;&#34;
@@ -43,7 +43,7 @@ class SM_LMC(Model):
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
-        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -70,27 +70,33 @@ class SM_LMC(Model):
     [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, &#34;Geostatistics for Natural Resource Evaluation&#34;, Oxford University Press, 1997
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name=&#34;SM-LMC&#34;):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;SM-LMC&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        spectral = [SpectralKernel(dataset.get_input_dims()[0]) for q in range(Q)]
-        kernel = LinearModelOfCoregionalizationKernel(
-            spectral,
-            output_dims=dataset.get_output_dims(),
-            input_dims=dataset.get_input_dims()[0],
-            Q=Q,
-            Rq=Rq)
-        super().__init__(dataset, kernel, inference, mean, name)
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
+        for input_dim in dataset.get_input_dims()[1:]:
+            if input_dim != input_dims:
+                raise ValueError(&#34;input dimensions for all channels must match&#34;)
 
+        spectral = [SpectralKernel(input_dims) for q in range(Q)]
+        kernel = LinearModelOfCoregionalizationKernel(spectral, output_dims=output_dims, input_dims=input_dims, Q=Q, Rq=Rq)
+        kernel.weight.assign(np.random.rand(output_dims,Q,Rq))
+        for q in range(Q):
+            kernel[q].magnitude.assign(np.random.rand(1))
+            kernel[q].mean.assign(np.random.rand(input_dims))
+            kernel[q].variance.assign(np.random.rand(input_dims))
+
+        super().__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
         for q in range(Q):
-            self.gpr.kernel[q].sigma.assign(1.0, trainable=False)  # handled by LMCKernel
+            self.gpr.kernel[q].magnitude.assign(1.0, train=False)  # handled by LMCKernel
             self.gpr.kernel[q].mean.assign(upper=nyquist)
 
-    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method=&#39;BNSE&#39;, iters=500):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -102,57 +108,40 @@ class SM_LMC(Model):
 
         Args:
             method (str): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str): Parameter initialization strategy for SM initialization.
-            sm_method (str): Optimization method for SM initialization.
-            sm_iters (str): Number of iterations for SM initialization.
-            sm_params (object): Additional parameters for PyTorch optimizer for SM initialization.
-            sm_plot (bool): Show the PSD of the kernel after fitting for SM initialization.
+            iters (str): Number of iterations for initialization.
         &#34;&#34;&#34;
-        
-        output_dims = self.dataset.get_output_dims()
-        
         if not method.lower() in [&#39;bnse&#39;, &#39;ls&#39;, &#39;sm&#39;]:
             raise ValueError(&#34;valid methods of estimation are BNSE, LS, and SM&#34;)
 
         if method.lower() == &#39;bnse&#39;:
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
         elif method.lower() == &#39;ls&#39;:
-            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, iters=iters)
         if len(amplitudes) == 0:
             logger.warning(&#39;{} could not find peaks for SM-LMC&#39;.format(method))
             return
 
-        # flatten output_dims and mixtures
-        channels = [channel for channel, amplitude in enumerate(amplitudes) for q in range(amplitude.shape[0])]
-        amplitudes = [amplitude[q,:] for amplitude in amplitudes for q in range(amplitude.shape[0])]
-        means = [mean[q,:] for mean in means for q in range(mean.shape[0])]
-        variances = [variance[q,:] for variance in variances for q in range(variance.shape[0])]
-        idx = np.argsort([amplitude.mean() for amplitude in amplitudes])[::-1]
-
+        output_dims = self.dataset.get_output_dims()
+        means = np.concatenate(means, axis=0)
+        variances = np.concatenate(variances, axis=0)
         constant = np.random.random((output_dims, self.Q, self.Rq))
-        for q in range(len(idx)):
-            i = idx[q]
-            channel = channels[i]
-            constant[channel,q % self.Q,:] = amplitudes[i].mean()
-            if q &lt; self.Q:
-                self.gpr.kernel[q].mean.assign(means[i])
-                self.gpr.kernel[q].variance.assign(variances[i] * 2.0)
-
-        # normalize proportional to channel variance
-        for i, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            if 0.0 &lt; constant[i,:,:].sum():
-                constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
+        for q in range(self.Q):
+            for j in range(len(self.dataset)):
+                constant[j,q,:] = amplitudes[j][q,:].mean() / self.Rq
+            self.gpr.kernel[q].mean.assign(means[q,:])
+            self.gpr.kernel[q].variance.assign(variances[q,:])
         self.gpr.kernel.weight.assign(constant)
 
-        # TODO
-        #noise = np.empty((output_dims,))
-        #for i, channel in enumerate(self.dataset):
-        #    _, y = channel.get_train_data(transformed=True)
-        #    noise[i] = y.var() / 30.0
-        #self.gpr.kernel.noise.assign(noise)</code></pre>
+        # noise
+        if isinstance(self.gpr.likelihood, GaussianLikelihood):
+            _, Y = self.dataset.get_train_data(transformed=True)
+            Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+            if self.gpr.likelihood.scale().ndim == 0:
+                self.gpr.likelihood.scale.assign(np.mean(Y_std))
+            else:
+                self.gpr.likelihood.scale.assign(Y_std)</code></pre>
 </details>
 </section>
 <section>
@@ -166,7 +155,7 @@ class SM_LMC(Model):
 <dl>
 <dt id="mogptk.models.sm_lmc.SM_LMC"><code class="flex name class">
 <span>class <span class="ident">SM_LMC</span></span>
-<span>(</span><span>dataset, Q=1, Rq=1, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name='SM-LMC')</span>
+<span>(</span><span>dataset, Q=1, Rq=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='SM-LMC')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Spectral Mixture Linear Model of Coregionalization kernel with <code>Q</code> components and <code>Rq</code> latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
@@ -179,7 +168,7 @@ class SM_LMC(Model):
 <dt><strong><code>Rq</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of subcomponents.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code><a title="mogptk.model.Exact" href="../model.html#mogptk.model.Exact">Exact</a></code>.</dd>
+<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -217,7 +206,7 @@ class SM_LMC(Model):
 <dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="../gpr/kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
 <dd>The kernel class.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code><a title="mogptk.model.Exact" href="../model.html#mogptk.model.Exact">Exact</a></code>.</dd>
+<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -225,14 +214,14 @@ class SM_LMC(Model):
 </dl>
 <h2 id="atributes">Atributes</h2>
 <p>dataset (mogptk.dataset.DataSet): Dataset.
-gpr (The mogptk.gpr.model.Model): GPR model.
+gpr (mogptk.gpr.model.Model): GPR model.
 times (numpy.ndarray): Training times of shape (iters,).
 losses (numpy.ndarray): Losses of shape (iters,).
 errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/sm_lmc.py#L7-L124" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/sm_lmc.py#L7-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SM_LMC(Model):
     &#34;&#34;&#34;
@@ -242,7 +231,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
-        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -269,27 +258,33 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, &#34;Geostatistics for Natural Resource Evaluation&#34;, Oxford University Press, 1997
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name=&#34;SM-LMC&#34;):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;SM-LMC&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        spectral = [SpectralKernel(dataset.get_input_dims()[0]) for q in range(Q)]
-        kernel = LinearModelOfCoregionalizationKernel(
-            spectral,
-            output_dims=dataset.get_output_dims(),
-            input_dims=dataset.get_input_dims()[0],
-            Q=Q,
-            Rq=Rq)
-        super().__init__(dataset, kernel, inference, mean, name)
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
+        for input_dim in dataset.get_input_dims()[1:]:
+            if input_dim != input_dims:
+                raise ValueError(&#34;input dimensions for all channels must match&#34;)
 
+        spectral = [SpectralKernel(input_dims) for q in range(Q)]
+        kernel = LinearModelOfCoregionalizationKernel(spectral, output_dims=output_dims, input_dims=input_dims, Q=Q, Rq=Rq)
+        kernel.weight.assign(np.random.rand(output_dims,Q,Rq))
+        for q in range(Q):
+            kernel[q].magnitude.assign(np.random.rand(1))
+            kernel[q].mean.assign(np.random.rand(input_dims))
+            kernel[q].variance.assign(np.random.rand(input_dims))
+
+        super().__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
         for q in range(Q):
-            self.gpr.kernel[q].sigma.assign(1.0, trainable=False)  # handled by LMCKernel
+            self.gpr.kernel[q].magnitude.assign(1.0, train=False)  # handled by LMCKernel
             self.gpr.kernel[q].mean.assign(upper=nyquist)
 
-    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method=&#39;BNSE&#39;, iters=500):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -301,57 +296,40 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
         Args:
             method (str): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str): Parameter initialization strategy for SM initialization.
-            sm_method (str): Optimization method for SM initialization.
-            sm_iters (str): Number of iterations for SM initialization.
-            sm_params (object): Additional parameters for PyTorch optimizer for SM initialization.
-            sm_plot (bool): Show the PSD of the kernel after fitting for SM initialization.
+            iters (str): Number of iterations for initialization.
         &#34;&#34;&#34;
-        
-        output_dims = self.dataset.get_output_dims()
-        
         if not method.lower() in [&#39;bnse&#39;, &#39;ls&#39;, &#39;sm&#39;]:
             raise ValueError(&#34;valid methods of estimation are BNSE, LS, and SM&#34;)
 
         if method.lower() == &#39;bnse&#39;:
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
         elif method.lower() == &#39;ls&#39;:
-            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, iters=iters)
         if len(amplitudes) == 0:
             logger.warning(&#39;{} could not find peaks for SM-LMC&#39;.format(method))
             return
 
-        # flatten output_dims and mixtures
-        channels = [channel for channel, amplitude in enumerate(amplitudes) for q in range(amplitude.shape[0])]
-        amplitudes = [amplitude[q,:] for amplitude in amplitudes for q in range(amplitude.shape[0])]
-        means = [mean[q,:] for mean in means for q in range(mean.shape[0])]
-        variances = [variance[q,:] for variance in variances for q in range(variance.shape[0])]
-        idx = np.argsort([amplitude.mean() for amplitude in amplitudes])[::-1]
-
+        output_dims = self.dataset.get_output_dims()
+        means = np.concatenate(means, axis=0)
+        variances = np.concatenate(variances, axis=0)
         constant = np.random.random((output_dims, self.Q, self.Rq))
-        for q in range(len(idx)):
-            i = idx[q]
-            channel = channels[i]
-            constant[channel,q % self.Q,:] = amplitudes[i].mean()
-            if q &lt; self.Q:
-                self.gpr.kernel[q].mean.assign(means[i])
-                self.gpr.kernel[q].variance.assign(variances[i] * 2.0)
-
-        # normalize proportional to channel variance
-        for i, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            if 0.0 &lt; constant[i,:,:].sum():
-                constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
+        for q in range(self.Q):
+            for j in range(len(self.dataset)):
+                constant[j,q,:] = amplitudes[j][q,:].mean() / self.Rq
+            self.gpr.kernel[q].mean.assign(means[q,:])
+            self.gpr.kernel[q].variance.assign(variances[q,:])
         self.gpr.kernel.weight.assign(constant)
 
-        # TODO
-        #noise = np.empty((output_dims,))
-        #for i, channel in enumerate(self.dataset):
-        #    _, y = channel.get_train_data(transformed=True)
-        #    noise[i] = y.var() / 30.0
-        #self.gpr.kernel.noise.assign(noise)</code></pre>
+        # noise
+        if isinstance(self.gpr.likelihood, GaussianLikelihood):
+            _, Y = self.dataset.get_train_data(transformed=True)
+            Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+            if self.gpr.likelihood.scale().ndim == 0:
+                self.gpr.likelihood.scale.assign(np.mean(Y_std))
+            else:
+                self.gpr.likelihood.scale.assign(Y_std)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -360,7 +338,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.models.sm_lmc.SM_LMC.init_parameters"><code class="name flex">
-<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', sm_init='LS', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False)</span>
+<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', iters=500)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Estimate kernel parameters from the data set. The initialization can be done using three methods:</p>
@@ -374,23 +352,15 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <dl>
 <dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
 <dd>Method of estimation, such as BNSE, LS, or SM.</dd>
-<dt><strong><code>sm_init</code></strong> :&ensp;<code>str</code></dt>
-<dd>Parameter initialization strategy for SM initialization.</dd>
-<dt><strong><code>sm_method</code></strong> :&ensp;<code>str</code></dt>
-<dd>Optimization method for SM initialization.</dd>
-<dt><strong><code>sm_iters</code></strong> :&ensp;<code>str</code></dt>
-<dd>Number of iterations for SM initialization.</dd>
-<dt><strong><code>sm_params</code></strong> :&ensp;<code>object</code></dt>
-<dd>Additional parameters for PyTorch optimizer for SM initialization.</dd>
-<dt><strong><code>sm_plot</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Show the PSD of the kernel after fitting for SM initialization.</dd>
+<dt><strong><code>iters</code></strong> :&ensp;<code>str</code></dt>
+<dd>Number of iterations for initialization.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/sm_lmc.py#L62-L124" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/sm_lmc.py#L68-L113" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
+<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, iters=500):
     &#34;&#34;&#34;
     Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -402,57 +372,40 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
     Args:
         method (str): Method of estimation, such as BNSE, LS, or SM.
-        sm_init (str): Parameter initialization strategy for SM initialization.
-        sm_method (str): Optimization method for SM initialization.
-        sm_iters (str): Number of iterations for SM initialization.
-        sm_params (object): Additional parameters for PyTorch optimizer for SM initialization.
-        sm_plot (bool): Show the PSD of the kernel after fitting for SM initialization.
+        iters (str): Number of iterations for initialization.
     &#34;&#34;&#34;
-    
-    output_dims = self.dataset.get_output_dims()
-    
     if not method.lower() in [&#39;bnse&#39;, &#39;ls&#39;, &#39;sm&#39;]:
         raise ValueError(&#34;valid methods of estimation are BNSE, LS, and SM&#34;)
 
     if method.lower() == &#39;bnse&#39;:
-        amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
     elif method.lower() == &#39;ls&#39;:
-        amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+        amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
     else:
-        amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
+        amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, iters=iters)
     if len(amplitudes) == 0:
         logger.warning(&#39;{} could not find peaks for SM-LMC&#39;.format(method))
         return
 
-    # flatten output_dims and mixtures
-    channels = [channel for channel, amplitude in enumerate(amplitudes) for q in range(amplitude.shape[0])]
-    amplitudes = [amplitude[q,:] for amplitude in amplitudes for q in range(amplitude.shape[0])]
-    means = [mean[q,:] for mean in means for q in range(mean.shape[0])]
-    variances = [variance[q,:] for variance in variances for q in range(variance.shape[0])]
-    idx = np.argsort([amplitude.mean() for amplitude in amplitudes])[::-1]
-
+    output_dims = self.dataset.get_output_dims()
+    means = np.concatenate(means, axis=0)
+    variances = np.concatenate(variances, axis=0)
     constant = np.random.random((output_dims, self.Q, self.Rq))
-    for q in range(len(idx)):
-        i = idx[q]
-        channel = channels[i]
-        constant[channel,q % self.Q,:] = amplitudes[i].mean()
-        if q &lt; self.Q:
-            self.gpr.kernel[q].mean.assign(means[i])
-            self.gpr.kernel[q].variance.assign(variances[i] * 2.0)
-
-    # normalize proportional to channel variance
-    for i, channel in enumerate(self.dataset):
-        _, y = channel.get_train_data(transformed=True)
-        if 0.0 &lt; constant[i,:,:].sum():
-            constant[i,:,:] = constant[i,:,:] / constant[i,:,:].sum() * y.var() * 2
+    for q in range(self.Q):
+        for j in range(len(self.dataset)):
+            constant[j,q,:] = amplitudes[j][q,:].mean() / self.Rq
+        self.gpr.kernel[q].mean.assign(means[q,:])
+        self.gpr.kernel[q].variance.assign(variances[q,:])
     self.gpr.kernel.weight.assign(constant)
 
-    # TODO
-    #noise = np.empty((output_dims,))
-    #for i, channel in enumerate(self.dataset):
-    #    _, y = channel.get_train_data(transformed=True)
-    #    noise[i] = y.var() / 30.0
-    #self.gpr.kernel.noise.assign(noise)</code></pre>
+    # noise
+    if isinstance(self.gpr.likelihood, GaussianLikelihood):
+        _, Y = self.dataset.get_train_data(transformed=True)
+        Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+        if self.gpr.likelihood.scale().ndim == 0:
+            self.gpr.likelihood.scale.assign(np.mean(Y_std))
+        else:
+            self.gpr.likelihood.scale.assign(Y_std)</code></pre>
 </details>
 </dd>
 </dl>
@@ -460,12 +413,17 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <ul class="hlist">
 <li><code><b><a title="mogptk.model.Model" href="../model.html#mogptk.model.Model">Model</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.model.Model.AIC" href="../model.html#mogptk.model.Model.AIC">AIC</a></code></li>
+<li><code><a title="mogptk.model.Model.BIC" href="../model.html#mogptk.model.Model.BIC">BIC</a></code></li>
 <li><code><a title="mogptk.model.Model.K" href="../model.html#mogptk.model.Model.K">K</a></code></li>
 <li><code><a title="mogptk.model.Model.copy_parameters" href="../model.html#mogptk.model.Model.copy_parameters">copy_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.error" href="../model.html#mogptk.model.Model.error">error</a></code></li>
 <li><code><a title="mogptk.model.Model.get_parameters" href="../model.html#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="../model.html#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.model.Model.loss" href="../model.html#mogptk.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.model.Model.num_parameters" href="../model.html#mogptk.model.Model.num_parameters">num_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.num_training_points" href="../model.html#mogptk.model.Model.num_training_points">num_training_points</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_correlation" href="../model.html#mogptk.model.Model.plot_correlation">plot_correlation</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_gram" href="../model.html#mogptk.model.Model.plot_gram">plot_gram</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_kernel" href="../model.html#mogptk.model.Model.plot_kernel">plot_kernel</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_losses" href="../model.html#mogptk.model.Model.plot_losses">plot_losses</a></code></li>

@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/mean.py#L1-L104" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/mean.py#L1-L104" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 from . import Parameter, config
@@ -55,10 +55,10 @@ class Mean:
         return self.mean(X)
 
     def __setattr__(self, name, val):
-        if name == &#39;trainable&#39;:
+        if name == &#39;train&#39;:
             from .util import _find_parameters
             for _, p in _find_parameters(self):
-                p.trainable = val
+                p.train = val
             return
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError(&#34;parameter is read-only, use Parameter.assign()&#34;)
@@ -165,7 +165,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/mean.py#L61-L80" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/mean.py#L61-L80" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ConstantMean(Mean):
     &#34;&#34;&#34;
@@ -226,7 +226,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/mean.py#L82-L104" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/mean.py#L82-L104" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearMean(Mean):
     &#34;&#34;&#34;
@@ -274,7 +274,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/mean.py#L4-L59" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/mean.py#L4-L59" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mean:
     &#34;&#34;&#34;
@@ -299,10 +299,10 @@ class LinearMean(Mean):
         return self.mean(X)
 
     def __setattr__(self, name, val):
-        if name == &#39;trainable&#39;:
+        if name == &#39;train&#39;:
             from .util import _find_parameters
             for _, p in _find_parameters(self):
-                p.trainable = val
+                p.train = val
             return
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError(&#34;parameter is read-only, use Parameter.assign()&#34;)
@@ -358,7 +358,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/mean.py#L49-L59" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/mean.py#L49-L59" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean(self, X):
     &#34;&#34;&#34;

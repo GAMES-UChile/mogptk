@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L1-L613" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L1-L666" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -256,40 +256,49 @@ class SquaredExponentialKernel(Kernel):
     &#34;&#34;&#34;
     A squared exponential kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{1}{2}\\tau^T\\Sigma\\tau\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{1}{2}\\tau^TM\\tau\\right) $$
 
-    with \\(\\tau = |x-x&#39;|\\), \\(\\Sigma = LL^T + \\mathrm{diag}(l)\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscales, and \\(LL^T\\) the cross lengthscales.
+    with \\(\\tau = |x-x&#39;|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscales, and \\(LL^T\\) the cross lengthscales. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD with \\(M = \\mathrm{diag}(l)^{-2}\\)). When `order` equals `-1` we revert to a single lengthscale for all input dimensions (ie. \\(M = l^{-2}I\\)).
 
     Args:
-        order (float): Order of cross lengthscales.
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
-        cross_lengthscale (mogptk.gpr.parameter.Parameter): Lower triangular cholesky of the cross lengthscale \\(L\\) of shape (input_dims,order).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 &lt; order`.
     &#34;&#34;&#34;
     def __init__(self, order=0, input_dims=1, active_dims=None, name=&#34;SE&#34;):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
-        lengthscale = torch.ones(input_dims)
-        cross_lengthscale = torch.ones(input_dims,order)
+        lengthscale = 1.0
+        if -1 &lt; order:
+            lengthscale = torch.ones(input_dims)
+        if 0 &lt; order:
+            cross_lengthscale = torch.ones(input_dims,order)
 
+        self.order = order
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
         self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
-        self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
-        self.cross_lengthscale.num_parameters = int((input_dims*input_dims+input_dims)/2)
+        if 0 &lt; order:
+            self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
-        dist = self.distance(X1,X2)  # NxMxD
-        lengthscale = self.cross_lengthscale().tril().mm(self.cross_lengthscale().tril().T) + torch.diag(self.lengthscale()**2)  # DxD
-        exp = -0.5*torch.einsum(&#34;ijk,kl,ijl-&gt;ij&#34;,dist,lengthscale,dist)  # NxM
-        return self.magnitude() * torch.exp(exp)
+        tau = self.distance(X1,X2)  # NxMxD
+        if self.order == -1:
+            lengthscale = (1.0/self.lengthscale()**2).repeat(self.input_dims).diag()  # DxD
+        elif self.order == 0:
+            lengthscale = (1.0/self.lengthscale()**2).diag()  # DxD
+        else:
+            lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        exp = -0.5 * torch.einsum(&#34;nmi,ij,nmj-&gt;nm&#34;, tau, lengthscale, tau)
+        return self.magnitude() * torch.exp(exp) # NxM
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
@@ -300,11 +309,13 @@ class RationalQuadraticKernel(Kernel):
     &#34;&#34;&#34;
     A rational quadratic kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\left(1 + \\frac{\\tau^2}{2l^2}\\right)^{-\\alpha} $$
+    $$ K(x,x&#39;) = \\sigma^2 \\left(1 + \\frac{1}{2}\\tau^TM\\tau\\right)^{-\\alpha} $$
 
-    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
+    with \\(\\tau = |x-x&#39;|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, \\(LL^T\\) the cross lengthscales, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD with \\(M = \\mathrm{diag}(l)^{-2}\\)). When `order` equals `-1` we revert to a single lengthscale for all input dimensions (ie. \\(M = l^{-2}I\\)).
 
     Args:
+        alpha (float): Relative weighting of small-scale and large-scale fluctuations \\(\\alpha\\)
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
@@ -312,23 +323,37 @@ class RationalQuadraticKernel(Kernel):
     Attributes:
         alpha (float): Relative weighting of small-scale and large-scale fluctuations \\(\\alpha\\).
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 &lt; order`.
     &#34;&#34;&#34;
-    def __init__(self, alpha=1.0, input_dims=1, active_dims=None, name=&#34;RQ&#34;):
+    def __init__(self, alpha=1.0, order=0, input_dims=1, active_dims=None, name=&#34;RQ&#34;):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
-        lengthscale = torch.ones(input_dims)
+        lengthscale = 1.0
+        if -1 &lt; order:
+            lengthscale = torch.ones(input_dims)
+        if 0 &lt; order:
+            cross_lengthscale = torch.ones(input_dims,order)
 
         self.alpha = alpha
+        self.order = order
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
         self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        if 0 &lt; order:
+            self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
-        sqdist = self.squared_distance(X1,X2)  # NxMxD
-        power = 1.0+0.5*torch.tensordot(sqdist, 1.0/self.lengthscale()**2, dims=1)/self.alpha  # NxM
+        tau = self.distance(X1,X2)  # NxMxD
+        if self.order == -1:
+            lengthscale = (1.0/self.lengthscale()**2).repeat(self.input_dims).diag()  # DxD
+        elif self.order == 0:
+            lengthscale = (1.0/self.lengthscale()**2).diag()  # DxD
+        else:
+            lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        power = 1.0 + 0.5*torch.einsum(&#34;nmi,ij,nmj-&gt;nm&#34;, tau, lengthscale, tau)/self.alpha  # NxM
         return self.magnitude() * torch.pow(power,-self.alpha)
 
     def K_diag(self, X1):
@@ -342,35 +367,50 @@ class PeriodicKernel(Kernel):
 
     $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) $$
 
-    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
+    with \\(\\tau = |x-x&#39;|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(p\\) the period parameter, \\(l\\) the lengthscale, and \\(LL^T\\) the cross lengthscales. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD with \\(M = \\mathrm{diag}(l)^{-2}\\)). When `order` equals `-1` we revert to a single lengthscale for all input dimensions (ie. \\(M = l^{-2}I\\)).
 
     Args:
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
         period (mogptk.gpr.parameter.Parameter): Period \\(p\\) of shape (input_dims,).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 &lt; order`.
     &#34;&#34;&#34;
-    def __init__(self, input_dims=1, active_dims=None, name=&#34;Periodic&#34;):
+    def __init__(self, order=0, input_dims=1, active_dims=None, name=&#34;Periodic&#34;):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
-        lengthscale = torch.ones(input_dims)
         period = torch.ones(input_dims)
+        lengthscale = 1.0
+        if -1 &lt; order:
+            lengthscale = torch.ones(input_dims)
+        if 0 &lt; order:
+            cross_lengthscale = torch.ones(input_dims,order)
 
+        self.order = order
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
-        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
         self.period = Parameter(period, lower=config.positive_minimum)
+        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        if 0 &lt; order:
+            self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)
         sin = torch.sin(np.pi * tau / self.period())  # NxMxD
-        exp = -2.0 * torch.tensordot(sin**2, 1.0/self.lengthscale()**2, dims=1)  # NxM
+        if self.order == -1:
+            lengthscale = (1.0/self.lengthscale()**2).repeat(self.input_dims).diag()  # DxD
+        elif self.order == 0:
+            lengthscale = (1.0/self.lengthscale()**2).diag()  # DxD
+        else:
+            lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        exp = -2.0 * torch.einsum(&#34;nmi,ij,nmj-&gt;nm&#34;, sin, lengthscale, sin)  # NxM
         return self.magnitude() * torch.exp(exp)
 
     def K_diag(self, X1):
@@ -384,37 +424,51 @@ class LocallyPeriodicKernel(Kernel):
 
     $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) \\exp\\left(-\\frac{\\tau^2}{2l^2}\\right) $$
 
-    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period.
+    with \\(\\tau = |x-x&#39;|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(p\\) the period, \\(l\\) the lengthscale, and \\(LL^T\\) the cross lengthscales. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD with \\(M = \\mathrm{diag}(l)^{-2}\\)). When `order` equals `-1` we revert to a single lengthscale for all input dimensions (ie. \\(M = l^{-2}I\\)).
 
     Args:
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
         period (mogptk.gpr.parameter.Parameter): Period \\(p\\) of shape (input_dims,).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 &lt; order`.
     &#34;&#34;&#34;
-    def __init__(self, input_dims=1, active_dims=None, name=&#34;LocallyPeriodic&#34;):
+    def __init__(self, order=0, input_dims=1, active_dims=None, name=&#34;LocallyPeriodic&#34;):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
-        lengthscale = torch.ones(input_dims)
         period = torch.ones(input_dims)
+        lengthscale = 1.0
+        if -1 &lt; order:
+            lengthscale = torch.ones(input_dims)
+        if 0 &lt; order:
+            cross_lengthscale = torch.ones(input_dims,order)
 
+        self.order = order
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
-        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
         self.period = Parameter(period, lower=config.positive_minimum)
+        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        if 0 &lt; order:
+            self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)
-        sqdist = self.squared_distance(X1,X2)
         sin = torch.sin(np.pi * tau / self.period())  # NxMxD
-        exp1 = -2.0 * torch.tensordot(sin**2, 1.0/self.lengthscale()**2, dims=1)  # NxM
-        exp2 = -0.5 * torch.tensordot(sqdist, 1.0/self.lengthscale()**2, dims=1)  # NxM
+        if self.order == -1:
+            lengthscale = (1.0/self.lengthscale()**2).repeat(self.input_dims).diag()  # DxD
+        elif self.order == 0:
+            lengthscale = (1.0/self.lengthscale()**2).diag()  # DxD
+        else:
+            lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        exp1 = -2.0 * torch.einsum(&#34;nmi,ij,nmj-&gt;nm&#34;, sin, lengthscale, sin)  # NxM
+        exp2 = -0.5 * torch.einsum(&#34;nmi,ij,nmj-&gt;nm&#34;, tau, lengthscale, tau)  # NxM
         return self.magnitude() * torch.exp(exp1) * torch.exp(exp2)
 
     def K_diag(self, X1):
@@ -541,7 +595,7 @@ class SpectralKernel(Kernel):
         tau = self.distance(X1,X2)  # NxMxD
         exp = -2.0*np.pi**2 * tau**2 * self.variance().reshape(1,1,-1)  # NxMxD
         cos = 2.0*np.pi * tau * self.mean().reshape(1,1,-1)  # NxMxD
-        return self.magnitude() * torch.prod(torch.exp(exp) * torch.cos(cos), dim=2)
+        return self.magnitude() * torch.einsum(&#34;nmd,nmd-&gt;nm&#34;, torch.exp(exp), torch.cos(cos))
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
@@ -584,8 +638,7 @@ class SpectralMixtureKernel(Kernel):
         tau = self.distance(X1,X2)[None,:,:,:]  # 1xNxMxD
         exp = -2.0*np.pi**2 * tau**2 * self.variance()[:,None,None,:]  # QxNxMxD
         cos = 2.0*np.pi * tau * self.mean()[:,None,None,:]  # QxNxMxD
-        Kq = self.magnitude()[:,None,None] * torch.prod(torch.exp(exp) * torch.cos(cos), dim=3)
-        return torch.sum(Kq, dim=0)
+        return torch.einsum(&#34;q,qnmd,qnmd-&gt;nm&#34;, self.magnitude(), torch.exp(exp), torch.cos(cos))
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
@@ -678,7 +731,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L5-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L5-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ConstantKernel(Kernel):
     &#34;&#34;&#34;
@@ -756,7 +809,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L394-L430" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L448-L484" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CosineKernel(Kernel):
     &#34;&#34;&#34;
@@ -839,7 +892,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L186-L222" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L186-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ExponentialKernel(Kernel):
     &#34;&#34;&#34;
@@ -922,7 +975,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L71-L104" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L71-L104" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearKernel(Kernel):
     &#34;&#34;&#34;
@@ -977,14 +1030,16 @@ class MaternKernel(Kernel):
 </dd>
 <dt id="mogptk.gpr.singleoutput.LocallyPeriodicKernel"><code class="flex name class">
 <span>class <span class="ident">LocallyPeriodicKernel</span></span>
-<span>(</span><span>input_dims=1, active_dims=None, name='LocallyPeriodic')</span>
+<span>(</span><span>order=0, input_dims=1, active_dims=None, name='LocallyPeriodic')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A locally periodic kernel given by</p>
 <p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi \tau / p)}{l^2}\right) \exp\left(-\frac{\tau^2}{2l^2}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi \tau / p)}{l^2}\right) \exp\left(-\frac{\tau^2}{2l^2}\right) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> the period.</p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">M = LL^T + \mathrm{diag}(l)^{-2}</span><script type="math/tex">M = LL^T + \mathrm{diag}(l)^{-2}</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> the period, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">LL^T</span><script type="math/tex">LL^T</script></span> the cross lengthscales. When <code>order</code> equals zero this reverts to one lengthscale per input dimension (ie. ARD with <span><span class="MathJax_Preview">M = \mathrm{diag}(l)^{-2}</span><script type="math/tex">M = \mathrm{diag}(l)^{-2}</script></span>). When <code>order</code> equals <code>-1</code> we revert to a single lengthscale for all input dimensions (ie. <span><span class="MathJax_Preview">M = l^{-2}I</span><script type="math/tex">M = l^{-2}I</script></span>).</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>order</code></strong> :&ensp;<code>int</code></dt>
+<dd>Order of cross lengthscales.</dd>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of input dimensions.</dd>
 <dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
@@ -996,15 +1051,17 @@ class MaternKernel(Kernel):
 <dl>
 <dt><strong><code>magnitude</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Magnitude <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> a scalar.</dd>
-<dt><strong><code>lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
-<dd>Lengthscale <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> of shape (input_dims,).</dd>
 <dt><strong><code>period</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Period <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> of shape (input_dims,).</dd>
+<dt><strong><code>lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Lengthscale <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> of shape (input_dims,) or scalar.</dd>
+<dt><strong><code>cross_lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Cross lengthscale <span><span class="MathJax_Preview">L</span><script type="math/tex">L</script></span> of shape (input_dims,order) if <code>0 &lt; order</code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L350-L392" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L390-L446" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LocallyPeriodicKernel(Kernel):
     &#34;&#34;&#34;
@@ -1012,37 +1069,51 @@ class MaternKernel(Kernel):
 
     $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) \\exp\\left(-\\frac{\\tau^2}{2l^2}\\right) $$
 
-    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period.
+    with \\(\\tau = |x-x&#39;|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(p\\) the period, \\(l\\) the lengthscale, and \\(LL^T\\) the cross lengthscales. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD with \\(M = \\mathrm{diag}(l)^{-2}\\)). When `order` equals `-1` we revert to a single lengthscale for all input dimensions (ie. \\(M = l^{-2}I\\)).
 
     Args:
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
         period (mogptk.gpr.parameter.Parameter): Period \\(p\\) of shape (input_dims,).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 &lt; order`.
     &#34;&#34;&#34;
-    def __init__(self, input_dims=1, active_dims=None, name=&#34;LocallyPeriodic&#34;):
+    def __init__(self, order=0, input_dims=1, active_dims=None, name=&#34;LocallyPeriodic&#34;):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
-        lengthscale = torch.ones(input_dims)
         period = torch.ones(input_dims)
+        lengthscale = 1.0
+        if -1 &lt; order:
+            lengthscale = torch.ones(input_dims)
+        if 0 &lt; order:
+            cross_lengthscale = torch.ones(input_dims,order)
 
+        self.order = order
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
-        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
         self.period = Parameter(period, lower=config.positive_minimum)
+        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        if 0 &lt; order:
+            self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)
-        sqdist = self.squared_distance(X1,X2)
         sin = torch.sin(np.pi * tau / self.period())  # NxMxD
-        exp1 = -2.0 * torch.tensordot(sin**2, 1.0/self.lengthscale()**2, dims=1)  # NxM
-        exp2 = -0.5 * torch.tensordot(sqdist, 1.0/self.lengthscale()**2, dims=1)  # NxM
+        if self.order == -1:
+            lengthscale = (1.0/self.lengthscale()**2).repeat(self.input_dims).diag()  # DxD
+        elif self.order == 0:
+            lengthscale = (1.0/self.lengthscale()**2).diag()  # DxD
+        else:
+            lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        exp1 = -2.0 * torch.einsum(&#34;nmi,ij,nmj-&gt;nm&#34;, sin, lengthscale, sin)  # NxM
+        exp2 = -0.5 * torch.einsum(&#34;nmi,ij,nmj-&gt;nm&#34;, tau, lengthscale, tau)  # NxM
         return self.magnitude() * torch.exp(exp1) * torch.exp(exp2)
 
     def K_diag(self, X1):
@@ -1095,7 +1166,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L564-L613" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L617-L666" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MaternKernel(Kernel):
     &#34;&#34;&#34;
@@ -1166,14 +1237,16 @@ class MaternKernel(Kernel):
 </dd>
 <dt id="mogptk.gpr.singleoutput.PeriodicKernel"><code class="flex name class">
 <span>class <span class="ident">PeriodicKernel</span></span>
-<span>(</span><span>input_dims=1, active_dims=None, name='Periodic')</span>
+<span>(</span><span>order=0, input_dims=1, active_dims=None, name='Periodic')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A periodic kernel given by</p>
 <p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi \tau / p)}{l^2}\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi \tau / p)}{l^2}\right) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> the period parameter.</p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">M = LL^T + \mathrm{diag}(l)^{-2}</span><script type="math/tex">M = LL^T + \mathrm{diag}(l)^{-2}</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> the period parameter, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">LL^T</span><script type="math/tex">LL^T</script></span> the cross lengthscales. When <code>order</code> equals zero this reverts to one lengthscale per input dimension (ie. ARD with <span><span class="MathJax_Preview">M = \mathrm{diag}(l)^{-2}</span><script type="math/tex">M = \mathrm{diag}(l)^{-2}</script></span>). When <code>order</code> equals <code>-1</code> we revert to a single lengthscale for all input dimensions (ie. <span><span class="MathJax_Preview">M = l^{-2}I</span><script type="math/tex">M = l^{-2}I</script></span>).</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>order</code></strong> :&ensp;<code>int</code></dt>
+<dd>Order of cross lengthscales.</dd>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of input dimensions.</dd>
 <dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
@@ -1185,15 +1258,17 @@ class MaternKernel(Kernel):
 <dl>
 <dt><strong><code>magnitude</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Magnitude <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> a scalar.</dd>
-<dt><strong><code>lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
-<dd>Lengthscale <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> of shape (input_dims,).</dd>
 <dt><strong><code>period</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Period <span><span class="MathJax_Preview">p</span><script type="math/tex">p</script></span> of shape (input_dims,).</dd>
+<dt><strong><code>lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Lengthscale <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> of shape (input_dims,) or scalar.</dd>
+<dt><strong><code>cross_lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Cross lengthscale <span><span class="MathJax_Preview">L</span><script type="math/tex">L</script></span> of shape (input_dims,order) if <code>0 &lt; order</code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L308-L348" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L333-L388" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PeriodicKernel(Kernel):
     &#34;&#34;&#34;
@@ -1201,35 +1276,50 @@ class MaternKernel(Kernel):
 
     $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{2\\sin^2(\\pi \\tau / p)}{l^2}\\right) $$
 
-    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(p\\) the period parameter.
+    with \\(\\tau = |x-x&#39;|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(p\\) the period parameter, \\(l\\) the lengthscale, and \\(LL^T\\) the cross lengthscales. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD with \\(M = \\mathrm{diag}(l)^{-2}\\)). When `order` equals `-1` we revert to a single lengthscale for all input dimensions (ie. \\(M = l^{-2}I\\)).
 
     Args:
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
         period (mogptk.gpr.parameter.Parameter): Period \\(p\\) of shape (input_dims,).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 &lt; order`.
     &#34;&#34;&#34;
-    def __init__(self, input_dims=1, active_dims=None, name=&#34;Periodic&#34;):
+    def __init__(self, order=0, input_dims=1, active_dims=None, name=&#34;Periodic&#34;):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
-        lengthscale = torch.ones(input_dims)
         period = torch.ones(input_dims)
+        lengthscale = 1.0
+        if -1 &lt; order:
+            lengthscale = torch.ones(input_dims)
+        if 0 &lt; order:
+            cross_lengthscale = torch.ones(input_dims,order)
 
+        self.order = order
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
-        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
         self.period = Parameter(period, lower=config.positive_minimum)
+        self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        if 0 &lt; order:
+            self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
         tau = self.distance(X1,X2)
         sin = torch.sin(np.pi * tau / self.period())  # NxMxD
-        exp = -2.0 * torch.tensordot(sin**2, 1.0/self.lengthscale()**2, dims=1)  # NxM
+        if self.order == -1:
+            lengthscale = (1.0/self.lengthscale()**2).repeat(self.input_dims).diag()  # DxD
+        elif self.order == 0:
+            lengthscale = (1.0/self.lengthscale()**2).diag()  # DxD
+        else:
+            lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        exp = -2.0 * torch.einsum(&#34;nmi,ij,nmj-&gt;nm&#34;, sin, lengthscale, sin)  # NxM
         return self.magnitude() * torch.exp(exp)
 
     def K_diag(self, X1):
@@ -1280,7 +1370,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L144-L184" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L144-L184" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PhiKernel(Kernel):
     &#34;&#34;&#34;
@@ -1371,7 +1461,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L106-L142" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L106-L142" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PolynomialKernel(Kernel):
     &#34;&#34;&#34;
@@ -1429,14 +1519,18 @@ class MaternKernel(Kernel):
 </dd>
 <dt id="mogptk.gpr.singleoutput.RationalQuadraticKernel"><code class="flex name class">
 <span>class <span class="ident">RationalQuadraticKernel</span></span>
-<span>(</span><span>alpha=1.0, input_dims=1, active_dims=None, name='RQ')</span>
+<span>(</span><span>alpha=1.0, order=0, input_dims=1, active_dims=None, name='RQ')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A rational quadratic kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \left(1 + \frac{\tau^2}{2l^2}\right)^{-\alpha} </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \left(1 + \frac{\tau^2}{2l^2}\right)^{-\alpha} </script></span></p>
-<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, and <span><span class="MathJax_Preview">\alpha</span><script type="math/tex">\alpha</script></span> the relative weighting of small-scale and large-scale fluctuations. When <span><span class="MathJax_Preview">\alpha \to \infty</span><script type="math/tex">\alpha \to \infty</script></span> this kernel becomes equivalent to the squared exponential kernel.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \left(1 + \frac{1}{2}\tau^TM\tau\right)^{-\alpha} </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \left(1 + \frac{1}{2}\tau^TM\tau\right)^{-\alpha} </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">M = LL^T + \mathrm{diag}(l)^{-2}</span><script type="math/tex">M = LL^T + \mathrm{diag}(l)^{-2}</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscale, <span><span class="MathJax_Preview">LL^T</span><script type="math/tex">LL^T</script></span> the cross lengthscales, and <span><span class="MathJax_Preview">\alpha</span><script type="math/tex">\alpha</script></span> the relative weighting of small-scale and large-scale fluctuations. When <span><span class="MathJax_Preview">\alpha \to \infty</span><script type="math/tex">\alpha \to \infty</script></span> this kernel becomes equivalent to the squared exponential kernel. When <code>order</code> equals zero this reverts to one lengthscale per input dimension (ie. ARD with <span><span class="MathJax_Preview">M = \mathrm{diag}(l)^{-2}</span><script type="math/tex">M = \mathrm{diag}(l)^{-2}</script></span>). When <code>order</code> equals <code>-1</code> we revert to a single lengthscale for all input dimensions (ie. <span><span class="MathJax_Preview">M = l^{-2}I</span><script type="math/tex">M = l^{-2}I</script></span>).</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>alpha</code></strong> :&ensp;<code>float</code></dt>
+<dd>Relative weighting of small-scale and large-scale fluctuations <span><span class="MathJax_Preview">\alpha</span><script type="math/tex">\alpha</script></span></dd>
+<dt><strong><code>order</code></strong> :&ensp;<code>int</code></dt>
+<dd>Order of cross lengthscales.</dd>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of input dimensions.</dd>
 <dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
@@ -1451,22 +1545,26 @@ class MaternKernel(Kernel):
 <dt><strong><code>magnitude</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Magnitude <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> a scalar.</dd>
 <dt><strong><code>lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
-<dd>Lengthscale <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> of shape (input_dims,).</dd>
+<dd>Lengthscale <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> of shape (input_dims,) or scalar.</dd>
+<dt><strong><code>cross_lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Cross lengthscale <span><span class="MathJax_Preview">L</span><script type="math/tex">L</script></span> of shape (input_dims,order) if <code>0 &lt; order</code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L268-L306" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L277-L331" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class RationalQuadraticKernel(Kernel):
     &#34;&#34;&#34;
     A rational quadratic kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\left(1 + \\frac{\\tau^2}{2l^2}\\right)^{-\\alpha} $$
+    $$ K(x,x&#39;) = \\sigma^2 \\left(1 + \\frac{1}{2}\\tau^TM\\tau\\right)^{-\\alpha} $$
 
-    with \\(\\tau = |x-x&#39;|\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel.
+    with \\(\\tau = |x-x&#39;|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscale, \\(LL^T\\) the cross lengthscales, and \\(\\alpha\\) the relative weighting of small-scale and large-scale fluctuations. When \\(\\alpha \\to \\infty\\) this kernel becomes equivalent to the squared exponential kernel. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD with \\(M = \\mathrm{diag}(l)^{-2}\\)). When `order` equals `-1` we revert to a single lengthscale for all input dimensions (ie. \\(M = l^{-2}I\\)).
 
     Args:
+        alpha (float): Relative weighting of small-scale and large-scale fluctuations \\(\\alpha\\)
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
@@ -1474,23 +1572,37 @@ class MaternKernel(Kernel):
     Attributes:
         alpha (float): Relative weighting of small-scale and large-scale fluctuations \\(\\alpha\\).
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 &lt; order`.
     &#34;&#34;&#34;
-    def __init__(self, alpha=1.0, input_dims=1, active_dims=None, name=&#34;RQ&#34;):
+    def __init__(self, alpha=1.0, order=0, input_dims=1, active_dims=None, name=&#34;RQ&#34;):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
-        lengthscale = torch.ones(input_dims)
+        lengthscale = 1.0
+        if -1 &lt; order:
+            lengthscale = torch.ones(input_dims)
+        if 0 &lt; order:
+            cross_lengthscale = torch.ones(input_dims,order)
 
         self.alpha = alpha
+        self.order = order
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
         self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
+        if 0 &lt; order:
+            self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
-        sqdist = self.squared_distance(X1,X2)  # NxMxD
-        power = 1.0+0.5*torch.tensordot(sqdist, 1.0/self.lengthscale()**2, dims=1)/self.alpha  # NxM
+        tau = self.distance(X1,X2)  # NxMxD
+        if self.order == -1:
+            lengthscale = (1.0/self.lengthscale()**2).repeat(self.input_dims).diag()  # DxD
+        elif self.order == 0:
+            lengthscale = (1.0/self.lengthscale()**2).diag()  # DxD
+        else:
+            lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        power = 1.0 + 0.5*torch.einsum(&#34;nmi,ij,nmj-&gt;nm&#34;, tau, lengthscale, tau)/self.alpha  # NxM
         return self.magnitude() * torch.pow(power,-self.alpha)
 
     def K_diag(self, X1):
@@ -1543,7 +1655,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L432-L476" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L486-L530" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SincKernel(Kernel):
     &#34;&#34;&#34;
@@ -1636,7 +1748,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L478-L518" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L532-L572" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralKernel(Kernel):
     &#34;&#34;&#34;
@@ -1673,7 +1785,7 @@ class MaternKernel(Kernel):
         tau = self.distance(X1,X2)  # NxMxD
         exp = -2.0*np.pi**2 * tau**2 * self.variance().reshape(1,1,-1)  # NxMxD
         cos = 2.0*np.pi * tau * self.mean().reshape(1,1,-1)  # NxMxD
-        return self.magnitude() * torch.prod(torch.exp(exp) * torch.cos(cos), dim=2)
+        return self.magnitude() * torch.einsum(&#34;nmd,nmd-&gt;nm&#34;, torch.exp(exp), torch.cos(cos))
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
@@ -1727,7 +1839,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L520-L562" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L574-L615" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralMixtureKernel(Kernel):
     &#34;&#34;&#34;
@@ -1765,8 +1877,7 @@ class MaternKernel(Kernel):
         tau = self.distance(X1,X2)[None,:,:,:]  # 1xNxMxD
         exp = -2.0*np.pi**2 * tau**2 * self.variance()[:,None,None,:]  # QxNxMxD
         cos = 2.0*np.pi * tau * self.mean()[:,None,None,:]  # QxNxMxD
-        Kq = self.magnitude()[:,None,None] * torch.prod(torch.exp(exp) * torch.cos(cos), dim=3)
-        return torch.sum(Kq, dim=0)
+        return torch.einsum(&#34;q,qnmd,qnmd-&gt;nm&#34;, self.magnitude(), torch.exp(exp), torch.cos(cos))
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
@@ -1795,11 +1906,11 @@ class MaternKernel(Kernel):
 </code></dt>
 <dd>
 <div class="desc"><p>A squared exponential kernel given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{1}{2}\tau^T\Sigma\tau\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{1}{2}\tau^T\Sigma\tau\right) </script></span></p>
-<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\Sigma = LL^T + \mathrm{diag}(l)</span><script type="math/tex">\Sigma = LL^T + \mathrm{diag}(l)</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscales, and <span><span class="MathJax_Preview">LL^T</span><script type="math/tex">LL^T</script></span> the cross lengthscales.</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-\frac{1}{2}\tau^TM\tau\right) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-\frac{1}{2}\tau^TM\tau\right) </script></span></p>
+<p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">M = LL^T + \mathrm{diag}(l)^{-2}</span><script type="math/tex">M = LL^T + \mathrm{diag}(l)^{-2}</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> the lengthscales, and <span><span class="MathJax_Preview">LL^T</span><script type="math/tex">LL^T</script></span> the cross lengthscales. When <code>order</code> equals zero this reverts to one lengthscale per input dimension (ie. ARD with <span><span class="MathJax_Preview">M = \mathrm{diag}(l)^{-2}</span><script type="math/tex">M = \mathrm{diag}(l)^{-2}</script></span>). When <code>order</code> equals <code>-1</code> we revert to a single lengthscale for all input dimensions (ie. <span><span class="MathJax_Preview">M = l^{-2}I</span><script type="math/tex">M = l^{-2}I</script></span>).</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>order</code></strong> :&ensp;<code>float</code></dt>
+<dt><strong><code>order</code></strong> :&ensp;<code>int</code></dt>
 <dd>Order of cross lengthscales.</dd>
 <dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of input dimensions.</dd>
@@ -1813,53 +1924,62 @@ class MaternKernel(Kernel):
 <dt><strong><code>magnitude</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Magnitude <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> a scalar.</dd>
 <dt><strong><code>lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
-<dd>Lengthscale <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> of shape (input_dims,).</dd>
+<dd>Lengthscale <span><span class="MathJax_Preview">l</span><script type="math/tex">l</script></span> of shape (input_dims,) or scalar.</dd>
 <dt><strong><code>cross_lengthscale</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
-<dd>Lower triangular cholesky of the cross lengthscale <span><span class="MathJax_Preview">L</span><script type="math/tex">L</script></span> of shape (input_dims,order).</dd>
+<dd>Cross lengthscale <span><span class="MathJax_Preview">L</span><script type="math/tex">L</script></span> of shape (input_dims,order) if <code>0 &lt; order</code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L224-L266" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L224-L275" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SquaredExponentialKernel(Kernel):
     &#34;&#34;&#34;
     A squared exponential kernel given by
 
-    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{1}{2}\\tau^T\\Sigma\\tau\\right) $$
+    $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-\\frac{1}{2}\\tau^TM\\tau\\right) $$
 
-    with \\(\\tau = |x-x&#39;|\\), \\(\\Sigma = LL^T + \\mathrm{diag}(l)\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscales, and \\(LL^T\\) the cross lengthscales.
+    with \\(\\tau = |x-x&#39;|\\), \\(M = LL^T + \\mathrm{diag}(l)^{-2}\\), \\(\\sigma^2\\) the magnitude, \\(l\\) the lengthscales, and \\(LL^T\\) the cross lengthscales. When `order` equals zero this reverts to one lengthscale per input dimension (ie. ARD with \\(M = \\mathrm{diag}(l)^{-2}\\)). When `order` equals `-1` we revert to a single lengthscale for all input dimensions (ie. \\(M = l^{-2}I\\)).
 
     Args:
-        order (float): Order of cross lengthscales.
+        order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
         name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
-        cross_lengthscale (mogptk.gpr.parameter.Parameter): Lower triangular cholesky of the cross lengthscale \\(L\\) of shape (input_dims,order).
+        lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
+        cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 &lt; order`.
     &#34;&#34;&#34;
     def __init__(self, order=0, input_dims=1, active_dims=None, name=&#34;SE&#34;):
         super().__init__(input_dims, active_dims, name)
 
         magnitude = 1.0
-        lengthscale = torch.ones(input_dims)
-        cross_lengthscale = torch.ones(input_dims,order)
+        lengthscale = 1.0
+        if -1 &lt; order:
+            lengthscale = torch.ones(input_dims)
+        if 0 &lt; order:
+            cross_lengthscale = torch.ones(input_dims,order)
 
+        self.order = order
         self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
         self.lengthscale = Parameter(lengthscale, lower=config.positive_minimum)
-        self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
-        self.cross_lengthscale.num_parameters = int((input_dims*input_dims+input_dims)/2)
+        if 0 &lt; order:
+            self.cross_lengthscale = Parameter(cross_lengthscale, lower=config.positive_minimum)
 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)
-        dist = self.distance(X1,X2)  # NxMxD
-        lengthscale = self.cross_lengthscale().tril().mm(self.cross_lengthscale().tril().T) + torch.diag(self.lengthscale()**2)  # DxD
-        exp = -0.5*torch.einsum(&#34;ijk,kl,ijl-&gt;ij&#34;,dist,lengthscale,dist)  # NxM
-        return self.magnitude() * torch.exp(exp)
+        tau = self.distance(X1,X2)  # NxMxD
+        if self.order == -1:
+            lengthscale = (1.0/self.lengthscale()**2).repeat(self.input_dims).diag()  # DxD
+        elif self.order == 0:
+            lengthscale = (1.0/self.lengthscale()**2).diag()  # DxD
+        else:
+            lengthscale = self.cross_lengthscale().mm(self.cross_lengthscale().T) + (1.0/self.lengthscale()**2).diag()  # DxD
+        exp = -0.5 * torch.einsum(&#34;nmi,ij,nmj-&gt;nm&#34;, tau, lengthscale, tau)
+        return self.magnitude() * torch.exp(exp) # NxM
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
@@ -1907,7 +2027,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/singleoutput.py#L38-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/singleoutput.py#L38-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class WhiteKernel(Kernel):
     &#34;&#34;&#34;

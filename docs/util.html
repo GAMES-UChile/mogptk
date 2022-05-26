@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>mogptk.errors API documentation</title>
+<title>mogptk.util API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -21,16 +21,18 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>mogptk.errors</code></h1>
+<h1 class="title">Module <code>mogptk.util</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/errors.py#L1-L125" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/util.py#L1-L226" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.stats import norm
 
 def mean_absolute_error(y_true, y_pred):
     &#34;&#34;&#34;
@@ -99,20 +101,19 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
             X2, Y2 = model.dataset.get_test_data(transformed=transformed)
             if len(X) != len(X2) or not all(np.array_equal(X[j],X2[j]) for j in range(len(X))) or not all(np.array_equal(Y[j],Y2[j]) for j in range(len(X))):
                 raise ValueError(&#34;all models must have the same data set for testing, otherwise explicitly provide X and Y&#34;)
-        if sum(x.shape[0] for Xc in X for x in Xc) == 0:
+        if sum(x.size for x in X) == 0:
             raise ValueError(&#34;models have no test data&#34;)
-
     elif X is None and Y is not None or X is not None and Y is None:
         raise ValueError(&#34;X and Y must both be set or omitted&#34;)
 
     output_dims = models[0].dataset.get_output_dims()
+    for model in models[1:]:
+        if model.dataset.get_output_dims() != output_dims:
+            raise ValueError(&#34;all models must have the same number of channels&#34;)
     if not isinstance(X, list):
         X = [X] * output_dims
     if not isinstance(Y, list):
         Y = [Y] * output_dims
-    for model in models[1:]:
-        if model.dataset.get_output_dims() != output_dims:
-            raise ValueError(&#34;all models must have the same number of channels&#34;)
     if len(X) != output_dims or len(X) != len(Y):
         raise ValueError(&#34;X and Y must be lists with as many entries as channels&#34;)
 
@@ -123,20 +124,23 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
         if name is None:
             name = &#34;Model &#34; + str(k+1)
 
-        Y_pred, _, _ = model.predict(X, transformed=transformed)
+        X, Y_pred, _, _ = model.predict(X, transformed=transformed)
+        if len(model.dataset) == 1:
+            Y_pred = [Y_pred]
+
         if per_channel:
             model_errors = []
-            for i in range(model.dataset.get_output_dims()):
+            for j in range(model.dataset.get_output_dims()):
                 model_errors.append({
-                    &#34;Name&#34;: name + &#34; channel &#34; + str(i+1),
-                    &#34;MAE&#34;: mean_absolute_error(Y_true[i], Y_pred[i]),
-                    &#34;MAPE&#34;: mean_absolute_percentage_error(Y_true[i], Y_pred[i]),
-                    &#34;RMSE&#34;: root_mean_squared_error(Y_true[i], Y_pred[i]),
+                    &#34;Name&#34;: name + &#34; channel &#34; + str(j+1),
+                    &#34;MAE&#34;: mean_absolute_error(Y_true[j], Y_pred[j]),
+                    &#34;MAPE&#34;: mean_absolute_percentage_error(Y_true[j], Y_pred[j]),
+                    &#34;RMSE&#34;: root_mean_squared_error(Y_true[j], Y_pred[j]),
                 })
             errors.append(model_errors)
         else:
-            Ys_true = np.array([item for sublist in Y_true for item in sublist])
-            Ys_pred = np.array([item for sublist in Y_pred for item in sublist])
+            Ys_true = np.concatenate(Y_true, axis=0)
+            Ys_pred = np.concatenate(Y_pred, axis=0)
             errors.append({
                 &#34;Name&#34;: name,
                 &#34;MAE&#34;: mean_absolute_error(Ys_true, Ys_pred),
@@ -152,7 +156,105 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
         df.set_index(&#39;Name&#39;, inplace=True)
         display(df)
     else:
-        return errors</code></pre>
+        return errors
+
+def plot_spectrum(means, scales, dataset=None, weights=None, noises=None, method=&#39;LS&#39;, maxfreq=None, log=False, n=10000, titles=None, show=True, filename=None, title=None):
+    &#34;&#34;&#34;
+    Plot spectral Gaussians of given means, scales and weights.
+    &#34;&#34;&#34;
+    if means.ndim == 2:
+        means = np.expand_dims(means, axis=2)
+    if scales.ndim == 2:
+        scales = np.expand_dims(scales, axis=2)
+    if isinstance(weights, np.ndarray) and weights.ndim == 1:
+        weights = np.expand_dims(weights, axis=1)
+    if isinstance(maxfreq, np.ndarray) and maxfreq.ndim == 1:
+        maxfreq = np.expand_dims(maxfreq, axis=1)
+
+    if means.ndim != 3:
+        raise ValueError(&#39;means and scales must have shape (mixtures,output_dims,input_dims)&#39;)
+    if means.shape != scales.shape:
+        raise ValueError(&#39;means and scales must have the same shape (mixtures,output_dims,input_dims)&#39;)
+    if noises is not None and (noises.ndim != 1 or noises.shape[0] != means.shape[1]):
+        raise ValueError(&#39;noises must have shape (output_dims,)&#39;)
+    if dataset is not None and len(dataset) != means.shape[1]:
+        raise ValueError(&#39;means and scales must have %d output dimensions&#39; % len(dataset))
+
+    mixtures = means.shape[0]
+    output_dims = means.shape[1]
+    input_dims = means.shape[2]
+
+    if isinstance(weights, np.ndarray) and (weights.ndim != 2 or weights.shape[0] != mixtures or weights.shape[1] != output_dims):
+        raise ValueError(&#39;weights must have shape (mixtures,output_dims)&#39;)
+    elif not isinstance(weights, np.ndarray):
+        weights = np.ones((mixtures,output_dims))
+    if isinstance(maxfreq, np.ndarray) and (maxfreq.ndim != 2 or maxfreq.shape[0] != output_dims or maxfreq.shape[1] != input_dims):
+        raise ValueError(&#39;maxfreq must have shape (output_dims,input_dims)&#39;)
+
+
+    fig, axes = plt.subplots(output_dims, input_dims, figsize=(12,4.0*output_dims), squeeze=False, constrained_layout=True)
+    if title is not None:
+        fig.suptitle(title, y=(h+0.8)/h, fontsize=18)
+    
+    for j in range(output_dims):
+        for i in range(input_dims):
+            x_low = max(0.0, norm.ppf(0.01, loc=means[:,j,i], scale=scales[:,j,i]).min())
+            x_high = norm.ppf(0.99, loc=means[:,j,i], scale=scales[:,j,i]).max()
+
+            if dataset is not None:
+                dataset[j].plot_spectrum(ax=axes[j,i], method=method, transformed=True, n=n, log=False)
+                x_low = axes[j,i].get_xlim()[0]
+                x_high =  axes[j,i].get_xlim()[1]
+            if maxfreq is not None:
+                x_high = maxfreq[j,i]
+
+            psds = []
+            x = np.linspace(x_low, x_high, n)
+            psd_total = np.zeros(x.shape)
+            for q in range(mixtures):
+                psd = weights[q,j] * norm.pdf(x, loc=means[q,j,i], scale=scales[q,j,i])
+                axes[j,i].axvline(means[q,j,i], ymin=0.001, ymax=0.05, lw=3, color=&#39;r&#39;)
+                psd_total += psd
+                psds.append(psd)
+            if noises is not None:
+                psd_total += noises[j]**2
+
+            for psd in psds:
+                psd /= psd_total.sum()*(x[1]-x[0]) # normalize
+                axes[j,i].plot(x, psd, ls=&#39;--&#39;, c=&#39;b&#39;)
+            psd_total /= psd_total.sum()*(x[1]-x[0]) # normalize
+            axes[j,i].plot(x, psd_total, ls=&#39;-&#39;, c=&#39;b&#39;)
+
+            y_low = 0.0
+            if log:
+                x_low = max(x_low, 1e-8)
+                y_low = 1e-8
+            _, y_high = axes[j,i].get_ylim()
+            y_high = max(y_high, 1.05*psd_total.max())
+           
+            axes[j,i].set_xlim(x_low, x_high)
+            axes[j,i].set_ylim(y_low, y_high)
+            axes[j,i].set_yticks([])
+            if titles is not None:
+                axes[j,i].set_title(titles[j])
+            if log:
+                axes[j,i].set_xscale(&#39;log&#39;)
+                axes[j,i].set_yscale(&#39;log&#39;)
+
+    axes[output_dims-1,i].set_xlabel(&#39;Frequency&#39;)
+
+    legends = []
+    if dataset is not None:
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data (LombScargle)&#39;))
+    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;b&#39;, label=&#39;Model&#39;))
+    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;r&#39;, label=&#39;Peak location&#39;))
+    fig.legend(handles=legends)
+
+    if filename is not None:
+        plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+    if show:
+        plt.show()
+    return fig, axes</code></pre>
 </details>
 </section>
 <section>
@@ -162,7 +264,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="mogptk.errors.error"><code class="name flex">
+<dt id="mogptk.util.error"><code class="name flex">
 <span>def <span class="ident">error</span></span>(<span>*models, X=None, Y=None, per_channel=False, transformed=False, disp=False)</span>
 </code></dt>
 <dd>
@@ -191,7 +293,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/errors.py#L44-L124" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/util.py#L46-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=False):
     &#34;&#34;&#34;
@@ -220,20 +322,19 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
             X2, Y2 = model.dataset.get_test_data(transformed=transformed)
             if len(X) != len(X2) or not all(np.array_equal(X[j],X2[j]) for j in range(len(X))) or not all(np.array_equal(Y[j],Y2[j]) for j in range(len(X))):
                 raise ValueError(&#34;all models must have the same data set for testing, otherwise explicitly provide X and Y&#34;)
-        if sum(x.shape[0] for Xc in X for x in Xc) == 0:
+        if sum(x.size for x in X) == 0:
             raise ValueError(&#34;models have no test data&#34;)
-
     elif X is None and Y is not None or X is not None and Y is None:
         raise ValueError(&#34;X and Y must both be set or omitted&#34;)
 
     output_dims = models[0].dataset.get_output_dims()
+    for model in models[1:]:
+        if model.dataset.get_output_dims() != output_dims:
+            raise ValueError(&#34;all models must have the same number of channels&#34;)
     if not isinstance(X, list):
         X = [X] * output_dims
     if not isinstance(Y, list):
         Y = [Y] * output_dims
-    for model in models[1:]:
-        if model.dataset.get_output_dims() != output_dims:
-            raise ValueError(&#34;all models must have the same number of channels&#34;)
     if len(X) != output_dims or len(X) != len(Y):
         raise ValueError(&#34;X and Y must be lists with as many entries as channels&#34;)
 
@@ -244,20 +345,23 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
         if name is None:
             name = &#34;Model &#34; + str(k+1)
 
-        Y_pred, _, _ = model.predict(X, transformed=transformed)
+        X, Y_pred, _, _ = model.predict(X, transformed=transformed)
+        if len(model.dataset) == 1:
+            Y_pred = [Y_pred]
+
         if per_channel:
             model_errors = []
-            for i in range(model.dataset.get_output_dims()):
+            for j in range(model.dataset.get_output_dims()):
                 model_errors.append({
-                    &#34;Name&#34;: name + &#34; channel &#34; + str(i+1),
-                    &#34;MAE&#34;: mean_absolute_error(Y_true[i], Y_pred[i]),
-                    &#34;MAPE&#34;: mean_absolute_percentage_error(Y_true[i], Y_pred[i]),
-                    &#34;RMSE&#34;: root_mean_squared_error(Y_true[i], Y_pred[i]),
+                    &#34;Name&#34;: name + &#34; channel &#34; + str(j+1),
+                    &#34;MAE&#34;: mean_absolute_error(Y_true[j], Y_pred[j]),
+                    &#34;MAPE&#34;: mean_absolute_percentage_error(Y_true[j], Y_pred[j]),
+                    &#34;RMSE&#34;: root_mean_squared_error(Y_true[j], Y_pred[j]),
                 })
             errors.append(model_errors)
         else:
-            Ys_true = np.array([item for sublist in Y_true for item in sublist])
-            Ys_pred = np.array([item for sublist in Y_pred for item in sublist])
+            Ys_true = np.concatenate(Y_true, axis=0)
+            Ys_pred = np.concatenate(Y_pred, axis=0)
             errors.append({
                 &#34;Name&#34;: name,
                 &#34;MAE&#34;: mean_absolute_error(Ys_true, Ys_pred),
@@ -276,7 +380,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
         return errors</code></pre>
 </details>
 </dd>
-<dt id="mogptk.errors.mean_absolute_error"><code class="name flex">
+<dt id="mogptk.util.mean_absolute_error"><code class="name flex">
 <span>def <span class="ident">mean_absolute_error</span></span>(<span>y_true, y_pred)</span>
 </code></dt>
 <dd>
@@ -284,7 +388,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/errors.py#L4-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/util.py#L6-L11" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean_absolute_error(y_true, y_pred):
     &#34;&#34;&#34;
@@ -294,7 +398,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
     return np.mean(np.abs(y_true - y_pred))</code></pre>
 </details>
 </dd>
-<dt id="mogptk.errors.mean_absolute_percentage_error"><code class="name flex">
+<dt id="mogptk.util.mean_absolute_percentage_error"><code class="name flex">
 <span>def <span class="ident">mean_absolute_percentage_error</span></span>(<span>y_true, y_pred)</span>
 </code></dt>
 <dd>
@@ -302,7 +406,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/errors.py#L11-L18" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/util.py#L13-L20" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean_absolute_percentage_error(y_true, y_pred):
     &#34;&#34;&#34;
@@ -314,7 +418,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100.0</code></pre>
 </details>
 </dd>
-<dt id="mogptk.errors.mean_squared_error"><code class="name flex">
+<dt id="mogptk.util.mean_squared_error"><code class="name flex">
 <span>def <span class="ident">mean_squared_error</span></span>(<span>y_true, y_pred)</span>
 </code></dt>
 <dd>
@@ -322,7 +426,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/errors.py#L29-L34" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/util.py#L31-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean_squared_error(y_true, y_pred):
     &#34;&#34;&#34;
@@ -332,7 +436,116 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
     return np.mean((y_true - y_pred)**2)</code></pre>
 </details>
 </dd>
-<dt id="mogptk.errors.root_mean_squared_error"><code class="name flex">
+<dt id="mogptk.util.plot_spectrum"><code class="name flex">
+<span>def <span class="ident">plot_spectrum</span></span>(<span>means, scales, dataset=None, weights=None, noises=None, method='LS', maxfreq=None, log=False, n=10000, titles=None, show=True, filename=None, title=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Plot spectral Gaussians of given means, scales and weights.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/util.py#L130-L226" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def plot_spectrum(means, scales, dataset=None, weights=None, noises=None, method=&#39;LS&#39;, maxfreq=None, log=False, n=10000, titles=None, show=True, filename=None, title=None):
+    &#34;&#34;&#34;
+    Plot spectral Gaussians of given means, scales and weights.
+    &#34;&#34;&#34;
+    if means.ndim == 2:
+        means = np.expand_dims(means, axis=2)
+    if scales.ndim == 2:
+        scales = np.expand_dims(scales, axis=2)
+    if isinstance(weights, np.ndarray) and weights.ndim == 1:
+        weights = np.expand_dims(weights, axis=1)
+    if isinstance(maxfreq, np.ndarray) and maxfreq.ndim == 1:
+        maxfreq = np.expand_dims(maxfreq, axis=1)
+
+    if means.ndim != 3:
+        raise ValueError(&#39;means and scales must have shape (mixtures,output_dims,input_dims)&#39;)
+    if means.shape != scales.shape:
+        raise ValueError(&#39;means and scales must have the same shape (mixtures,output_dims,input_dims)&#39;)
+    if noises is not None and (noises.ndim != 1 or noises.shape[0] != means.shape[1]):
+        raise ValueError(&#39;noises must have shape (output_dims,)&#39;)
+    if dataset is not None and len(dataset) != means.shape[1]:
+        raise ValueError(&#39;means and scales must have %d output dimensions&#39; % len(dataset))
+
+    mixtures = means.shape[0]
+    output_dims = means.shape[1]
+    input_dims = means.shape[2]
+
+    if isinstance(weights, np.ndarray) and (weights.ndim != 2 or weights.shape[0] != mixtures or weights.shape[1] != output_dims):
+        raise ValueError(&#39;weights must have shape (mixtures,output_dims)&#39;)
+    elif not isinstance(weights, np.ndarray):
+        weights = np.ones((mixtures,output_dims))
+    if isinstance(maxfreq, np.ndarray) and (maxfreq.ndim != 2 or maxfreq.shape[0] != output_dims or maxfreq.shape[1] != input_dims):
+        raise ValueError(&#39;maxfreq must have shape (output_dims,input_dims)&#39;)
+
+
+    fig, axes = plt.subplots(output_dims, input_dims, figsize=(12,4.0*output_dims), squeeze=False, constrained_layout=True)
+    if title is not None:
+        fig.suptitle(title, y=(h+0.8)/h, fontsize=18)
+    
+    for j in range(output_dims):
+        for i in range(input_dims):
+            x_low = max(0.0, norm.ppf(0.01, loc=means[:,j,i], scale=scales[:,j,i]).min())
+            x_high = norm.ppf(0.99, loc=means[:,j,i], scale=scales[:,j,i]).max()
+
+            if dataset is not None:
+                dataset[j].plot_spectrum(ax=axes[j,i], method=method, transformed=True, n=n, log=False)
+                x_low = axes[j,i].get_xlim()[0]
+                x_high =  axes[j,i].get_xlim()[1]
+            if maxfreq is not None:
+                x_high = maxfreq[j,i]
+
+            psds = []
+            x = np.linspace(x_low, x_high, n)
+            psd_total = np.zeros(x.shape)
+            for q in range(mixtures):
+                psd = weights[q,j] * norm.pdf(x, loc=means[q,j,i], scale=scales[q,j,i])
+                axes[j,i].axvline(means[q,j,i], ymin=0.001, ymax=0.05, lw=3, color=&#39;r&#39;)
+                psd_total += psd
+                psds.append(psd)
+            if noises is not None:
+                psd_total += noises[j]**2
+
+            for psd in psds:
+                psd /= psd_total.sum()*(x[1]-x[0]) # normalize
+                axes[j,i].plot(x, psd, ls=&#39;--&#39;, c=&#39;b&#39;)
+            psd_total /= psd_total.sum()*(x[1]-x[0]) # normalize
+            axes[j,i].plot(x, psd_total, ls=&#39;-&#39;, c=&#39;b&#39;)
+
+            y_low = 0.0
+            if log:
+                x_low = max(x_low, 1e-8)
+                y_low = 1e-8
+            _, y_high = axes[j,i].get_ylim()
+            y_high = max(y_high, 1.05*psd_total.max())
+           
+            axes[j,i].set_xlim(x_low, x_high)
+            axes[j,i].set_ylim(y_low, y_high)
+            axes[j,i].set_yticks([])
+            if titles is not None:
+                axes[j,i].set_title(titles[j])
+            if log:
+                axes[j,i].set_xscale(&#39;log&#39;)
+                axes[j,i].set_yscale(&#39;log&#39;)
+
+    axes[output_dims-1,i].set_xlabel(&#39;Frequency&#39;)
+
+    legends = []
+    if dataset is not None:
+        legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Data (LombScargle)&#39;))
+    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;b&#39;, label=&#39;Model&#39;))
+    legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;r&#39;, label=&#39;Peak location&#39;))
+    fig.legend(handles=legends)
+
+    if filename is not None:
+        plt.savefig(filename+&#39;.pdf&#39;, dpi=300)
+    if show:
+        plt.show()
+    return fig, axes</code></pre>
+</details>
+</dd>
+<dt id="mogptk.util.root_mean_squared_error"><code class="name flex">
 <span>def <span class="ident">root_mean_squared_error</span></span>(<span>y_true, y_pred)</span>
 </code></dt>
 <dd>
@@ -340,7 +553,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/errors.py#L36-L41" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/util.py#L38-L43" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def root_mean_squared_error(y_true, y_pred):
     &#34;&#34;&#34;
@@ -350,7 +563,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
     return np.sqrt(np.mean((y_true - y_pred)**2))</code></pre>
 </details>
 </dd>
-<dt id="mogptk.errors.symmetric_mean_absolute_percentage_error"><code class="name flex">
+<dt id="mogptk.util.symmetric_mean_absolute_percentage_error"><code class="name flex">
 <span>def <span class="ident">symmetric_mean_absolute_percentage_error</span></span>(<span>y_true, y_pred)</span>
 </code></dt>
 <dd>
@@ -358,7 +571,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/errors.py#L20-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/util.py#L22-L29" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def symmetric_mean_absolute_percentage_error(y_true, y_pred):
     &#34;&#34;&#34;
@@ -388,12 +601,13 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="mogptk.errors.error" href="#mogptk.errors.error">error</a></code></li>
-<li><code><a title="mogptk.errors.mean_absolute_error" href="#mogptk.errors.mean_absolute_error">mean_absolute_error</a></code></li>
-<li><code><a title="mogptk.errors.mean_absolute_percentage_error" href="#mogptk.errors.mean_absolute_percentage_error">mean_absolute_percentage_error</a></code></li>
-<li><code><a title="mogptk.errors.mean_squared_error" href="#mogptk.errors.mean_squared_error">mean_squared_error</a></code></li>
-<li><code><a title="mogptk.errors.root_mean_squared_error" href="#mogptk.errors.root_mean_squared_error">root_mean_squared_error</a></code></li>
-<li><code><a title="mogptk.errors.symmetric_mean_absolute_percentage_error" href="#mogptk.errors.symmetric_mean_absolute_percentage_error">symmetric_mean_absolute_percentage_error</a></code></li>
+<li><code><a title="mogptk.util.error" href="#mogptk.util.error">error</a></code></li>
+<li><code><a title="mogptk.util.mean_absolute_error" href="#mogptk.util.mean_absolute_error">mean_absolute_error</a></code></li>
+<li><code><a title="mogptk.util.mean_absolute_percentage_error" href="#mogptk.util.mean_absolute_percentage_error">mean_absolute_percentage_error</a></code></li>
+<li><code><a title="mogptk.util.mean_squared_error" href="#mogptk.util.mean_squared_error">mean_squared_error</a></code></li>
+<li><code><a title="mogptk.util.plot_spectrum" href="#mogptk.util.plot_spectrum">plot_spectrum</a></code></li>
+<li><code><a title="mogptk.util.root_mean_squared_error" href="#mogptk.util.root_mean_squared_error">root_mean_squared_error</a></code></li>
+<li><code><a title="mogptk.util.symmetric_mean_absolute_percentage_error" href="#mogptk.util.symmetric_mean_absolute_percentage_error">symmetric_mean_absolute_percentage_error</a></code></li>
 </ul>
 </li>
 </ul>

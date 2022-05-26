@@ -27,15 +27,15 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/mosm.py#L1-L284" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/mosm.py#L1-L256" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import matplotlib.pyplot as plt
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import MultiOutputSpectralKernel, MixtureKernel, GaussianLikelihood
-from ..plot import plot_spectrum
+from ..gpr import MultiOutputSpectralMixtureKernel, GaussianLikelihood
+from ..util import plot_spectrum
 
 class MOSM(Model):
     &#34;&#34;&#34;
@@ -44,7 +44,7 @@ class MOSM(Model):
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -69,23 +69,27 @@ class MOSM(Model):
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name=&#34;MOSM&#34;):
+    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name=&#34;MOSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        spectral = MultiOutputSpectralKernel(
-            output_dims=dataset.get_output_dims(),
-            input_dims=dataset.get_input_dims()[0],
-        )
-        kernel = MixtureKernel(spectral, Q)
-        super().__init__(dataset, kernel, inference, mean, name)
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
+        for input_dim in dataset.get_input_dims()[1:]:
+            if input_dim != input_dims:
+                raise ValueError(&#34;input dimensions for all channels must match&#34;)
 
+        kernel = MultiOutputSpectralMixtureKernel(Q=Q, output_dims=output_dims, input_dims=input_dims)
+        kernel.weight.assign(np.random.rand(output_dims,Q))
+        kernel.mean.assign(np.random.rand(output_dims,Q,input_dims))
+        kernel.variance.assign(np.random.rand(output_dims,Q,input_dims))
+
+        super().__init__(dataset, kernel, model, mean, name)
         self.Q = Q
-        nyquist = np.array(self.dataset.get_nyquist_estimation())
-        for q in range(Q):
-            self.gpr.kernel[q].mean.assign(upper=nyquist)
+        nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
+        self.gpr.kernel.mean.assign(upper=nyquist)
 
-    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method=&#39;BNSE&#39;, iters=500):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -97,11 +101,7 @@ class MOSM(Model):
 
         Args:
             method (str): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str): Parameter initialization strategy for SM initialization.
-            sm_method (str): Optimization method for SM initialization.
-            sm_iters (str): Number of iterations for SM initialization.
-            sm_params (object): Additional parameters for PyTorch optimizer.
-            sm_plot (bool): Show the PSD of the kernel after fitting SM.
+            iters (str): Number of iterations for initialization.
         &#34;&#34;&#34;
 
         input_dims = self.dataset.get_input_dims()
@@ -111,44 +111,36 @@ class MOSM(Model):
             raise ValueError(&#34;valid methods of estimation are BNSE, LS, and SM&#34;)
 
         if method.lower() == &#39;bnse&#39;:
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
         elif method.lower() == &#39;ls&#39;:
-            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, iters=iters)
         if len(amplitudes) == 0:
             logger.warning(&#39;{} could not find peaks for MOSM&#39;.format(method))
             return
 
-        magnitude = np.zeros((output_dims, self.Q))
+        weight = np.zeros((output_dims,self.Q))
+        mean = np.zeros((output_dims,self.Q,input_dims[0]))
+        variance = np.zeros((output_dims,self.Q,input_dims[0]))
         for q in range(self.Q):
-            mean = np.zeros((output_dims,input_dims[0]))
-            variance = np.zeros((output_dims,input_dims[0]))
             for j in range(output_dims):
-                if q &lt; amplitudes[j].shape[0]:
-                    magnitude[j,q] = amplitudes[j][q,:].mean()
-                    mean[j,:] = means[j][q,:]
-                    # maybe will have problems with higher input dimensions
-                    variance[j,:] = variances[j][q,:] * (4 + 20 * (max(input_dims) - 1)) # 20
-            self.gpr.kernel[q].mean.assign(mean)
-            self.gpr.kernel[q].variance.assign(variance)
+                weight[j,q] = 10.0*amplitudes[j][q,:].mean()
+                mean[j,q,:] = means[j][q,:]
+                variance[j,q,:] = variances[j][q,:]
 
-        # normalize proportional to channels variances
-        for j, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            if 0.0 &lt; magnitude[j,:].sum():
-                magnitude[j,:] = np.sqrt(magnitude[j,:] / magnitude[j,:].sum() * y.var()) * 2
-        
-        for q in range(self.Q):
-            self.gpr.kernel[q].magnitude.assign(magnitude[:,q])
+        self.gpr.kernel.weight.assign(weight)
+        self.gpr.kernel.mean.assign(mean)
+        self.gpr.kernel.variance.assign(variance)
 
-        # TODO
-        #noise = np.empty((output_dims,))
-        #for j, channel in enumerate(self.dataset):
-        #    _, y = channel.get_train_data(transformed=True)
-        #    noise[j] = y.var() / 30.0
-        #for q in range(self.Q):
-        #    self.gpr.kernel[q].noise.assign(noise)
+        # noise
+        if isinstance(self.gpr.likelihood, GaussianLikelihood):
+            _, Y = self.dataset.get_train_data(transformed=True)
+            Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+            if self.gpr.likelihood.scale().ndim == 0:
+                self.gpr.likelihood.scale.assign(np.mean(Y_std))
+            else:
+                self.gpr.likelihood.scale.assign(Y_std)
 
     def check(self):
         &#34;&#34;&#34;
@@ -156,21 +148,33 @@ class MOSM(Model):
         &#34;&#34;&#34;
         for j in range(self.dataset.get_output_dims()):
             for q in range(self.Q):
-                mean = self.gpr.kernel[q].mean.numpy()[j,:]
-                var = self.gpr.kernel[q].variance.numpy()[j,:]
+                mean = self.gpr.kernel.mean.numpy()[j,q,:]
+                var = self.gpr.kernel.variance.numpy()[j,q,:]
                 if np.linalg.norm(mean) &lt; np.linalg.norm(var):
                     print(&#34;‣ MOSM approaches RBF kernel for q=%d in channel=&#39;%s&#39;&#34; % (q, self.dataset[j].name))
 
-    def plot_spectrum(self, log=False, noise=False, title=None):
+    def plot_spectrum(self, method=&#39;LS&#39;, maxfreq=None, log=False, noise=False, title=None):
         &#34;&#34;&#34;
         Plot spectrum of kernel.
-        &#34;&#34;&#34;
-        names = self.dataset.get_names()
-        nyquist = self.dataset.get_nyquist_estimation()
 
-        means = np.array([self.gpr.kernel[q].mean.numpy() for q in range(self.Q)])
-        scales = np.array([np.sqrt(self.gpr.kernel[q].variance.numpy()) for q in range(self.Q)])
-        weights = np.array([self.gpr.kernel[q].magnitude.numpy() for q in range(self.Q)])**2
+        Args:
+            method (str): Set the method to get the spectrum from the data such as LS or BNSE.
+            maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            log (boolean): Show X and Y axis in log-scale.
+            noise (boolean): Add noise to the PSD.
+            title (str): Set the title of the plot.
+
+        Returns:
+            matplotlib.figure.Figure: Figure.
+            matplotlib.axes.Axes: Axes.
+        &#34;&#34;&#34;
+        input_dims = self.dataset.get_input_dims()[0]
+        names = self.dataset.get_names()
+        if maxfreq is not None:
+            maxfreq = [maxfreq] * len(self.dataset)
+        means = self.gpr.kernel.mean.numpy().transpose([1,0,2])
+        scales = np.sqrt(self.gpr.kernel.variance.numpy().transpose([1,0,2]))
+        weights = self.gpr.kernel.weight.numpy().transpose([1,0])**2
 
         noises = None
         if noise:
@@ -180,18 +184,58 @@ class MOSM(Model):
                 raise ValueError(&#34;likelihood variance must not be per data point to enable spectral noise&#34;)
             noises = self.gpr.likelihood.scale.numpy()
 
-        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, log=log, titles=names, title=title)
+        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, noises=noises, method=method, maxfreq=maxfreq, log=log, titles=names, title=title)
 
     def plot_cross_spectrum(self, title=None, figsize=(12,12)):
         &#34;&#34;&#34;
         Plot power spectral density and power cross spectral density.
+
+        Args:
+            title (str): Set the title of the plot.
+
+        Returns:
+            matplotlib.figure.Figure: Figure.
+            matplotlib.axes.Axes: Axes.
         &#34;&#34;&#34;
 
         if not all(input_dims == 1 for input_dims in self.dataset.get_input_dims()):
             raise RuntimeError(&#34;not implemented for multiple input dimensions&#34;)
 
-        cross_params = self._get_cross_parameters()
+        input_dims = self.dataset.get_input_dims()[0]
         output_dims = self.dataset.get_output_dims()
+        Q = self.Q
+
+        cross_params = {}
+        cross_params[&#39;covariance&#39;] = np.zeros((output_dims, output_dims, input_dims, Q))
+        cross_params[&#39;mean&#39;] = np.zeros((output_dims, output_dims, input_dims, Q))
+        cross_params[&#39;magnitude&#39;] = np.zeros((output_dims, output_dims, Q))
+        cross_params[&#39;delay&#39;] = np.zeros((output_dims, output_dims, input_dims, Q))
+        cross_params[&#39;phase&#39;] = np.zeros((output_dims, output_dims, Q))
+
+        weight = self.gpr.kernel.weight.numpy()
+        mean = self.gpr.kernel.mean.numpy()
+        variance = self.gpr.kernel.variance.numpy()
+        phase = self.gpr.kernel.phase.numpy()
+        delay = self.gpr.kernel.delay.numpy()
+        for q in range(Q):
+            for i in range(output_dims):
+                for j in range(output_dims):
+                    w_i = weight[i,q]
+                    w_j = weight[j,q]
+                    mu_i = mean[i,q,:]
+                    mu_j = mean[j,q,:]
+                    var_i = variance[i,q,:]
+                    var_j = variance[j,q,:]
+                    sv = var_i + var_j
+
+                    cross_params[&#39;covariance&#39;][i, j, :, q] = 2 * (var_i * var_j) / sv
+                    cross_mean_num = var_i.dot(mu_j) + var_j.dot(mu_i)
+                    cross_params[&#39;mean&#39;][i, j, :, q] = cross_mean_num / sv
+                    exp_term = -1/4 * ((mu_i - mu_j)**2 / sv).sum()
+                    cross_params[&#39;magnitude&#39;][i, j, q] = w_i * w_j * np.exp(exp_term)
+                    for k in range(input_dims):
+                        cross_params[&#39;delay&#39;][i, j, k, q] = delay[i,q,k]-delay[j,q,k]
+                    cross_params[&#39;phase&#39;][i, j, q] = phase[i,q]-phase[j,q]
 
         h = figsize[1]
         fig, axes = plt.subplots(output_dims, output_dims, figsize=figsize, squeeze=False, constrained_layout=True)
@@ -200,7 +244,37 @@ class MOSM(Model):
 
         for j in range(output_dims):
             for i in range(j+1):
-                self._plot_power_cross_spectral_density(axes[j,i], cross_params, channels=(j,i))
+                magn = cross_params[&#39;magnitude&#39;][j, i, :]
+                mean = cross_params[&#39;mean&#39;][j, i, 0, :]
+                cov = cross_params[&#39;covariance&#39;][j, i, 0, :]
+                delay = cross_params[&#39;delay&#39;][j, i, 0, :]
+                phase = cross_params[&#39;phase&#39;][j, i, :]
+
+                w_high = (mean + 2* np.sqrt(cov)).max()
+                w = np.linspace(-w_high, w_high, 1000)
+                if i == j:
+                    # power spectral density
+                    psd_total = np.zeros(len(w))
+                    for q in range(self.Q):
+                        psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q])
+                        psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q])
+                        psd_q *= magn[q] * 0.5
+                        axes[j,i].plot(w, psd_q, ls=&#39;--&#39;, c=&#39;k&#39;)
+                        psd_total += psd_q
+                    axes[j,i].plot(w, psd_total, c=&#39;k&#39;)
+                else:
+                    # power cross spectral density
+                    psd_total = np.zeros(len(w)) + 0.j
+                    for q in range(self.Q):
+                        psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
+                        psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
+                        psd_q *= magn[q] * 0.5
+                        axes[j,i].plot(w, np.real(psd_q), ls=&#39;--&#39;, c=&#39;k&#39;)
+                        axes[j,i].plot(w, np.imag(psd_q), ls=&#39;--&#39;, c=&#39;silver&#39;)
+                        psd_total += psd_q
+                    axes[j,i].plot(w, np.real(psd_total), c=&#39;k&#39;)
+                    axes[j,i].plot(w, np.imag(psd_total), c=&#39;silver&#39;)
+                axes[j,i].set_yticks([])
             for i in range(j+1, output_dims):
                 axes[j,i].set_axis_off()
 
@@ -209,110 +283,8 @@ class MOSM(Model):
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;Mixture (real)&#39;))
         legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;silver&#39;, label=&#39;Total (imag)&#39;))
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;silver&#39;, label=&#39;Mixture (imag)&#39;))
-        fig.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
-
-        return fig, axes
-
-    def _plot_power_cross_spectral_density(self, ax, params, channels=(0, 0)):
-        &#34;&#34;&#34;
-        Plot power cross spectral density given axis.
-
-        Args:
-            ax (matplotlib.axis): Axis to plot to.
-            params(dict): Kernel parameters.
-            channels (tuple of ints): Channels to use.
-        &#34;&#34;&#34;
-        i = channels[0]
-        j = channels[1]
-
-        mean = params[&#39;mean&#39;][i, j, 0, :]
-        cov = params[&#39;covariance&#39;][i, j, 0, :]
-        delay = params[&#39;delay&#39;][i, j, 0, :]
-        magn = params[&#39;magnitude&#39;][i, j, :]
-        phase = params[&#39;phase&#39;][i, j, :]
-
-        w_high = (mean + 2* np.sqrt(cov)).max()
-        w = np.linspace(-w_high, w_high, 1000)
-
-        # power spectral density
-        if i == j:
-            psd_total = np.zeros(len(w))
-            for q in range(self.Q):
-                psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q])
-                psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q])
-                psd_q *= magn[q] * 0.5
-                ax.plot(w, psd_q, ls=&#39;--&#39;, c=&#39;k&#39;)
-                psd_total += psd_q
-            ax.plot(w, psd_total, c=&#39;k&#39;)
-        # power cross spectral density
-        else:
-            psd_total = np.zeros(len(w)) + 0.j
-            for q in range(self.Q):
-                psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
-                psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
-                psd_q *= magn[q] * 0.5
-                ax.plot(w, np.real(psd_q), ls=&#39;--&#39;, c=&#39;k&#39;)
-                ax.plot(w, np.imag(psd_q), ls=&#39;--&#39;, c=&#39;silver&#39;)
-                psd_total += psd_q
-            ax.plot(w, np.real(psd_total), c=&#39;k&#39;)
-            ax.plot(w, np.imag(psd_total), c=&#39;silver&#39;)
-        ax.set_yticks([])
-        return
-
-    def _get_cross_parameters(self):
-        &#34;&#34;&#34;
-        Obtain cross parameters from MOSM.
-
-        Returns:
-            cross_params(dict): Dictionary with the cross parameters: covariance, mean, magnitude, delay and phase. Each one an array of shape (output_dim,output_dim,input_dim,Q) with the cross parameters, with the exception of magnitude and phase where the cross parameters are of shape (output_dim,output_dim,Q).
-
-        This assumes the same input dimension for all channels.
-        &#34;&#34;&#34;
-        m = self.dataset.get_output_dims()
-        d = self.dataset.get_input_dims()[0]
-        Q = self.Q
-
-        cross_params = {}
-
-        cross_params[&#39;covariance&#39;] = np.zeros((m, m, d, Q))
-        cross_params[&#39;mean&#39;] = np.zeros((m, m, d, Q))
-        cross_params[&#39;magnitude&#39;] = np.zeros((m, m, Q))
-        cross_params[&#39;delay&#39;] = np.zeros((m, m, d, Q))
-        cross_params[&#39;phase&#39;] = np.zeros((m, m, Q))
-
-        for q in range(Q):
-            for i in range(m):
-                for j in range(m):
-                    magnitude = self.gpr.kernel[q].magnitude.numpy()
-                    mean = self.gpr.kernel[q].mean.numpy()
-                    variance = self.gpr.kernel[q].variance.numpy()
-
-                    w_i = magnitude[i]
-                    w_j = magnitude[j]
-                    mu_i = mean[i,:]
-                    mu_j = mean[j,:]
-                    var_i = variance[i,:]
-                    var_j = variance[j,:]
-                    sv = var_i + var_j
-
-                    # cross covariance
-                    cross_params[&#39;covariance&#39;][i, j, :, q] = 2 * (var_i * var_j) / sv
-                    # cross mean
-                    cross_mean_num = var_i.dot(mu_j) + var_j.dot(mu_i)
-                    cross_params[&#39;mean&#39;][i, j, :, q] = cross_mean_num / sv
-                    # cross magnitude
-                    exp_term = -1/4 * ((mu_i - mu_j)**2 / sv).sum()
-                    cross_params[&#39;magnitude&#39;][i, j, q] = w_i * w_j * np.exp(exp_term)
-            if m&gt;1:
-                # cross phase
-                phase_q = self.gpr.kernel[q].phase.numpy()
-                cross_params[&#39;phase&#39;][:, :, q] = np.subtract.outer(phase_q, phase_q)
-                for n in range(d):
-                    # cross delay        
-                    delay_n_q = self.gpr.kernel[q].delay.numpy()[:,n]
-                    cross_params[&#39;delay&#39;][:, :, n, q] = np.subtract.outer(delay_n_q, delay_n_q)
-
-        return cross_params</code></pre>
+        fig.legend(handles=legends)
+        return fig, axes</code></pre>
 </details>
 </section>
 <section>
@@ -326,7 +298,7 @@ class MOSM(Model):
 <dl>
 <dt id="mogptk.models.mosm.MOSM"><code class="flex name class">
 <span>class <span class="ident">MOSM</span></span>
-<span>(</span><span>dataset, Q=1, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name='MOSM')</span>
+<span>(</span><span>dataset, Q=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='MOSM')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Multi-Output Spectral Mixture kernel with <code>Q</code> components as proposed by [1]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
@@ -337,7 +309,7 @@ class MOSM(Model):
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of components.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code><a title="mogptk.model.Exact" href="../model.html#mogptk.model.Exact">Exact</a></code>.</dd>
+<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -370,7 +342,7 @@ gpr: The mogptk.gpr.model.Model.</p>
 <dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="../gpr/kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
 <dd>The kernel class.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code><a title="mogptk.model.Exact" href="../model.html#mogptk.model.Exact">Exact</a></code>.</dd>
+<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -378,14 +350,14 @@ gpr: The mogptk.gpr.model.Model.</p>
 </dl>
 <h2 id="atributes_1">Atributes</h2>
 <p>dataset (mogptk.dataset.DataSet): Dataset.
-gpr (The mogptk.gpr.model.Model): GPR model.
+gpr (mogptk.gpr.model.Model): GPR model.
 times (numpy.ndarray): Training times of shape (iters,).
 losses (numpy.ndarray): Losses of shape (iters,).
 errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/mosm.py#L9-L284" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/mosm.py#L9-L256" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MOSM(Model):
     &#34;&#34;&#34;
@@ -394,7 +366,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -419,23 +391,27 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name=&#34;MOSM&#34;):
+    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name=&#34;MOSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
-        spectral = MultiOutputSpectralKernel(
-            output_dims=dataset.get_output_dims(),
-            input_dims=dataset.get_input_dims()[0],
-        )
-        kernel = MixtureKernel(spectral, Q)
-        super().__init__(dataset, kernel, inference, mean, name)
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
+        for input_dim in dataset.get_input_dims()[1:]:
+            if input_dim != input_dims:
+                raise ValueError(&#34;input dimensions for all channels must match&#34;)
 
+        kernel = MultiOutputSpectralMixtureKernel(Q=Q, output_dims=output_dims, input_dims=input_dims)
+        kernel.weight.assign(np.random.rand(output_dims,Q))
+        kernel.mean.assign(np.random.rand(output_dims,Q,input_dims))
+        kernel.variance.assign(np.random.rand(output_dims,Q,input_dims))
+
+        super().__init__(dataset, kernel, model, mean, name)
         self.Q = Q
-        nyquist = np.array(self.dataset.get_nyquist_estimation())
-        for q in range(Q):
-            self.gpr.kernel[q].mean.assign(upper=nyquist)
+        nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
+        self.gpr.kernel.mean.assign(upper=nyquist)
 
-    def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
+    def init_parameters(self, method=&#39;BNSE&#39;, iters=500):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -447,11 +423,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
         Args:
             method (str): Method of estimation, such as BNSE, LS, or SM.
-            sm_init (str): Parameter initialization strategy for SM initialization.
-            sm_method (str): Optimization method for SM initialization.
-            sm_iters (str): Number of iterations for SM initialization.
-            sm_params (object): Additional parameters for PyTorch optimizer.
-            sm_plot (bool): Show the PSD of the kernel after fitting SM.
+            iters (str): Number of iterations for initialization.
         &#34;&#34;&#34;
 
         input_dims = self.dataset.get_input_dims()
@@ -461,44 +433,36 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             raise ValueError(&#34;valid methods of estimation are BNSE, LS, and SM&#34;)
 
         if method.lower() == &#39;bnse&#39;:
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
         elif method.lower() == &#39;ls&#39;:
-            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
         else:
-            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
+            amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, iters=iters)
         if len(amplitudes) == 0:
             logger.warning(&#39;{} could not find peaks for MOSM&#39;.format(method))
             return
 
-        magnitude = np.zeros((output_dims, self.Q))
+        weight = np.zeros((output_dims,self.Q))
+        mean = np.zeros((output_dims,self.Q,input_dims[0]))
+        variance = np.zeros((output_dims,self.Q,input_dims[0]))
         for q in range(self.Q):
-            mean = np.zeros((output_dims,input_dims[0]))
-            variance = np.zeros((output_dims,input_dims[0]))
             for j in range(output_dims):
-                if q &lt; amplitudes[j].shape[0]:
-                    magnitude[j,q] = amplitudes[j][q,:].mean()
-                    mean[j,:] = means[j][q,:]
-                    # maybe will have problems with higher input dimensions
-                    variance[j,:] = variances[j][q,:] * (4 + 20 * (max(input_dims) - 1)) # 20
-            self.gpr.kernel[q].mean.assign(mean)
-            self.gpr.kernel[q].variance.assign(variance)
+                weight[j,q] = 10.0*amplitudes[j][q,:].mean()
+                mean[j,q,:] = means[j][q,:]
+                variance[j,q,:] = variances[j][q,:]
 
-        # normalize proportional to channels variances
-        for j, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            if 0.0 &lt; magnitude[j,:].sum():
-                magnitude[j,:] = np.sqrt(magnitude[j,:] / magnitude[j,:].sum() * y.var()) * 2
-        
-        for q in range(self.Q):
-            self.gpr.kernel[q].magnitude.assign(magnitude[:,q])
+        self.gpr.kernel.weight.assign(weight)
+        self.gpr.kernel.mean.assign(mean)
+        self.gpr.kernel.variance.assign(variance)
 
-        # TODO
-        #noise = np.empty((output_dims,))
-        #for j, channel in enumerate(self.dataset):
-        #    _, y = channel.get_train_data(transformed=True)
-        #    noise[j] = y.var() / 30.0
-        #for q in range(self.Q):
-        #    self.gpr.kernel[q].noise.assign(noise)
+        # noise
+        if isinstance(self.gpr.likelihood, GaussianLikelihood):
+            _, Y = self.dataset.get_train_data(transformed=True)
+            Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+            if self.gpr.likelihood.scale().ndim == 0:
+                self.gpr.likelihood.scale.assign(np.mean(Y_std))
+            else:
+                self.gpr.likelihood.scale.assign(Y_std)
 
     def check(self):
         &#34;&#34;&#34;
@@ -506,21 +470,33 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         &#34;&#34;&#34;
         for j in range(self.dataset.get_output_dims()):
             for q in range(self.Q):
-                mean = self.gpr.kernel[q].mean.numpy()[j,:]
-                var = self.gpr.kernel[q].variance.numpy()[j,:]
+                mean = self.gpr.kernel.mean.numpy()[j,q,:]
+                var = self.gpr.kernel.variance.numpy()[j,q,:]
                 if np.linalg.norm(mean) &lt; np.linalg.norm(var):
                     print(&#34;‣ MOSM approaches RBF kernel for q=%d in channel=&#39;%s&#39;&#34; % (q, self.dataset[j].name))
 
-    def plot_spectrum(self, log=False, noise=False, title=None):
+    def plot_spectrum(self, method=&#39;LS&#39;, maxfreq=None, log=False, noise=False, title=None):
         &#34;&#34;&#34;
         Plot spectrum of kernel.
-        &#34;&#34;&#34;
-        names = self.dataset.get_names()
-        nyquist = self.dataset.get_nyquist_estimation()
 
-        means = np.array([self.gpr.kernel[q].mean.numpy() for q in range(self.Q)])
-        scales = np.array([np.sqrt(self.gpr.kernel[q].variance.numpy()) for q in range(self.Q)])
-        weights = np.array([self.gpr.kernel[q].magnitude.numpy() for q in range(self.Q)])**2
+        Args:
+            method (str): Set the method to get the spectrum from the data such as LS or BNSE.
+            maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            log (boolean): Show X and Y axis in log-scale.
+            noise (boolean): Add noise to the PSD.
+            title (str): Set the title of the plot.
+
+        Returns:
+            matplotlib.figure.Figure: Figure.
+            matplotlib.axes.Axes: Axes.
+        &#34;&#34;&#34;
+        input_dims = self.dataset.get_input_dims()[0]
+        names = self.dataset.get_names()
+        if maxfreq is not None:
+            maxfreq = [maxfreq] * len(self.dataset)
+        means = self.gpr.kernel.mean.numpy().transpose([1,0,2])
+        scales = np.sqrt(self.gpr.kernel.variance.numpy().transpose([1,0,2]))
+        weights = self.gpr.kernel.weight.numpy().transpose([1,0])**2
 
         noises = None
         if noise:
@@ -530,18 +506,58 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
                 raise ValueError(&#34;likelihood variance must not be per data point to enable spectral noise&#34;)
             noises = self.gpr.likelihood.scale.numpy()
 
-        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, log=log, titles=names, title=title)
+        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, noises=noises, method=method, maxfreq=maxfreq, log=log, titles=names, title=title)
 
     def plot_cross_spectrum(self, title=None, figsize=(12,12)):
         &#34;&#34;&#34;
         Plot power spectral density and power cross spectral density.
+
+        Args:
+            title (str): Set the title of the plot.
+
+        Returns:
+            matplotlib.figure.Figure: Figure.
+            matplotlib.axes.Axes: Axes.
         &#34;&#34;&#34;
 
         if not all(input_dims == 1 for input_dims in self.dataset.get_input_dims()):
             raise RuntimeError(&#34;not implemented for multiple input dimensions&#34;)
 
-        cross_params = self._get_cross_parameters()
+        input_dims = self.dataset.get_input_dims()[0]
         output_dims = self.dataset.get_output_dims()
+        Q = self.Q
+
+        cross_params = {}
+        cross_params[&#39;covariance&#39;] = np.zeros((output_dims, output_dims, input_dims, Q))
+        cross_params[&#39;mean&#39;] = np.zeros((output_dims, output_dims, input_dims, Q))
+        cross_params[&#39;magnitude&#39;] = np.zeros((output_dims, output_dims, Q))
+        cross_params[&#39;delay&#39;] = np.zeros((output_dims, output_dims, input_dims, Q))
+        cross_params[&#39;phase&#39;] = np.zeros((output_dims, output_dims, Q))
+
+        weight = self.gpr.kernel.weight.numpy()
+        mean = self.gpr.kernel.mean.numpy()
+        variance = self.gpr.kernel.variance.numpy()
+        phase = self.gpr.kernel.phase.numpy()
+        delay = self.gpr.kernel.delay.numpy()
+        for q in range(Q):
+            for i in range(output_dims):
+                for j in range(output_dims):
+                    w_i = weight[i,q]
+                    w_j = weight[j,q]
+                    mu_i = mean[i,q,:]
+                    mu_j = mean[j,q,:]
+                    var_i = variance[i,q,:]
+                    var_j = variance[j,q,:]
+                    sv = var_i + var_j
+
+                    cross_params[&#39;covariance&#39;][i, j, :, q] = 2 * (var_i * var_j) / sv
+                    cross_mean_num = var_i.dot(mu_j) + var_j.dot(mu_i)
+                    cross_params[&#39;mean&#39;][i, j, :, q] = cross_mean_num / sv
+                    exp_term = -1/4 * ((mu_i - mu_j)**2 / sv).sum()
+                    cross_params[&#39;magnitude&#39;][i, j, q] = w_i * w_j * np.exp(exp_term)
+                    for k in range(input_dims):
+                        cross_params[&#39;delay&#39;][i, j, k, q] = delay[i,q,k]-delay[j,q,k]
+                    cross_params[&#39;phase&#39;][i, j, q] = phase[i,q]-phase[j,q]
 
         h = figsize[1]
         fig, axes = plt.subplots(output_dims, output_dims, figsize=figsize, squeeze=False, constrained_layout=True)
@@ -550,7 +566,37 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
         for j in range(output_dims):
             for i in range(j+1):
-                self._plot_power_cross_spectral_density(axes[j,i], cross_params, channels=(j,i))
+                magn = cross_params[&#39;magnitude&#39;][j, i, :]
+                mean = cross_params[&#39;mean&#39;][j, i, 0, :]
+                cov = cross_params[&#39;covariance&#39;][j, i, 0, :]
+                delay = cross_params[&#39;delay&#39;][j, i, 0, :]
+                phase = cross_params[&#39;phase&#39;][j, i, :]
+
+                w_high = (mean + 2* np.sqrt(cov)).max()
+                w = np.linspace(-w_high, w_high, 1000)
+                if i == j:
+                    # power spectral density
+                    psd_total = np.zeros(len(w))
+                    for q in range(self.Q):
+                        psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q])
+                        psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q])
+                        psd_q *= magn[q] * 0.5
+                        axes[j,i].plot(w, psd_q, ls=&#39;--&#39;, c=&#39;k&#39;)
+                        psd_total += psd_q
+                    axes[j,i].plot(w, psd_total, c=&#39;k&#39;)
+                else:
+                    # power cross spectral density
+                    psd_total = np.zeros(len(w)) + 0.j
+                    for q in range(self.Q):
+                        psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
+                        psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
+                        psd_q *= magn[q] * 0.5
+                        axes[j,i].plot(w, np.real(psd_q), ls=&#39;--&#39;, c=&#39;k&#39;)
+                        axes[j,i].plot(w, np.imag(psd_q), ls=&#39;--&#39;, c=&#39;silver&#39;)
+                        psd_total += psd_q
+                    axes[j,i].plot(w, np.real(psd_total), c=&#39;k&#39;)
+                    axes[j,i].plot(w, np.imag(psd_total), c=&#39;silver&#39;)
+                axes[j,i].set_yticks([])
             for i in range(j+1, output_dims):
                 axes[j,i].set_axis_off()
 
@@ -559,110 +605,8 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;Mixture (real)&#39;))
         legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;silver&#39;, label=&#39;Total (imag)&#39;))
         legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;silver&#39;, label=&#39;Mixture (imag)&#39;))
-        fig.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
-
-        return fig, axes
-
-    def _plot_power_cross_spectral_density(self, ax, params, channels=(0, 0)):
-        &#34;&#34;&#34;
-        Plot power cross spectral density given axis.
-
-        Args:
-            ax (matplotlib.axis): Axis to plot to.
-            params(dict): Kernel parameters.
-            channels (tuple of ints): Channels to use.
-        &#34;&#34;&#34;
-        i = channels[0]
-        j = channels[1]
-
-        mean = params[&#39;mean&#39;][i, j, 0, :]
-        cov = params[&#39;covariance&#39;][i, j, 0, :]
-        delay = params[&#39;delay&#39;][i, j, 0, :]
-        magn = params[&#39;magnitude&#39;][i, j, :]
-        phase = params[&#39;phase&#39;][i, j, :]
-
-        w_high = (mean + 2* np.sqrt(cov)).max()
-        w = np.linspace(-w_high, w_high, 1000)
-
-        # power spectral density
-        if i == j:
-            psd_total = np.zeros(len(w))
-            for q in range(self.Q):
-                psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q])
-                psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q])
-                psd_q *= magn[q] * 0.5
-                ax.plot(w, psd_q, ls=&#39;--&#39;, c=&#39;k&#39;)
-                psd_total += psd_q
-            ax.plot(w, psd_total, c=&#39;k&#39;)
-        # power cross spectral density
-        else:
-            psd_total = np.zeros(len(w)) + 0.j
-            for q in range(self.Q):
-                psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
-                psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
-                psd_q *= magn[q] * 0.5
-                ax.plot(w, np.real(psd_q), ls=&#39;--&#39;, c=&#39;k&#39;)
-                ax.plot(w, np.imag(psd_q), ls=&#39;--&#39;, c=&#39;silver&#39;)
-                psd_total += psd_q
-            ax.plot(w, np.real(psd_total), c=&#39;k&#39;)
-            ax.plot(w, np.imag(psd_total), c=&#39;silver&#39;)
-        ax.set_yticks([])
-        return
-
-    def _get_cross_parameters(self):
-        &#34;&#34;&#34;
-        Obtain cross parameters from MOSM.
-
-        Returns:
-            cross_params(dict): Dictionary with the cross parameters: covariance, mean, magnitude, delay and phase. Each one an array of shape (output_dim,output_dim,input_dim,Q) with the cross parameters, with the exception of magnitude and phase where the cross parameters are of shape (output_dim,output_dim,Q).
-
-        This assumes the same input dimension for all channels.
-        &#34;&#34;&#34;
-        m = self.dataset.get_output_dims()
-        d = self.dataset.get_input_dims()[0]
-        Q = self.Q
-
-        cross_params = {}
-
-        cross_params[&#39;covariance&#39;] = np.zeros((m, m, d, Q))
-        cross_params[&#39;mean&#39;] = np.zeros((m, m, d, Q))
-        cross_params[&#39;magnitude&#39;] = np.zeros((m, m, Q))
-        cross_params[&#39;delay&#39;] = np.zeros((m, m, d, Q))
-        cross_params[&#39;phase&#39;] = np.zeros((m, m, Q))
-
-        for q in range(Q):
-            for i in range(m):
-                for j in range(m):
-                    magnitude = self.gpr.kernel[q].magnitude.numpy()
-                    mean = self.gpr.kernel[q].mean.numpy()
-                    variance = self.gpr.kernel[q].variance.numpy()
-
-                    w_i = magnitude[i]
-                    w_j = magnitude[j]
-                    mu_i = mean[i,:]
-                    mu_j = mean[j,:]
-                    var_i = variance[i,:]
-                    var_j = variance[j,:]
-                    sv = var_i + var_j
-
-                    # cross covariance
-                    cross_params[&#39;covariance&#39;][i, j, :, q] = 2 * (var_i * var_j) / sv
-                    # cross mean
-                    cross_mean_num = var_i.dot(mu_j) + var_j.dot(mu_i)
-                    cross_params[&#39;mean&#39;][i, j, :, q] = cross_mean_num / sv
-                    # cross magnitude
-                    exp_term = -1/4 * ((mu_i - mu_j)**2 / sv).sum()
-                    cross_params[&#39;magnitude&#39;][i, j, q] = w_i * w_j * np.exp(exp_term)
-            if m&gt;1:
-                # cross phase
-                phase_q = self.gpr.kernel[q].phase.numpy()
-                cross_params[&#39;phase&#39;][:, :, q] = np.subtract.outer(phase_q, phase_q)
-                for n in range(d):
-                    # cross delay        
-                    delay_n_q = self.gpr.kernel[q].delay.numpy()[:,n]
-                    cross_params[&#39;delay&#39;][:, :, n, q] = np.subtract.outer(delay_n_q, delay_n_q)
-
-        return cross_params</code></pre>
+        fig.legend(handles=legends)
+        return fig, axes</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -678,7 +622,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/mosm.py#L122-L131" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/mosm.py#L114-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def check(self):
     &#34;&#34;&#34;
@@ -686,14 +630,14 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     &#34;&#34;&#34;
     for j in range(self.dataset.get_output_dims()):
         for q in range(self.Q):
-            mean = self.gpr.kernel[q].mean.numpy()[j,:]
-            var = self.gpr.kernel[q].variance.numpy()[j,:]
+            mean = self.gpr.kernel.mean.numpy()[j,q,:]
+            var = self.gpr.kernel.variance.numpy()[j,q,:]
             if np.linalg.norm(mean) &lt; np.linalg.norm(var):
                 print(&#34;‣ MOSM approaches RBF kernel for q=%d in channel=&#39;%s&#39;&#34; % (q, self.dataset[j].name))</code></pre>
 </details>
 </dd>
 <dt id="mogptk.models.mosm.MOSM.init_parameters"><code class="name flex">
-<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', sm_init='LS', sm_method='Adam', sm_iters=100, sm_params={}, sm_plot=False)</span>
+<span>def <span class="ident">init_parameters</span></span>(<span>self, method='BNSE', iters=500)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Estimate kernel parameters from the data set. The initialization can be done using three methods:</p>
@@ -707,23 +651,15 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <dl>
 <dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
 <dd>Method of estimation, such as BNSE, LS, or SM.</dd>
-<dt><strong><code>sm_init</code></strong> :&ensp;<code>str</code></dt>
-<dd>Parameter initialization strategy for SM initialization.</dd>
-<dt><strong><code>sm_method</code></strong> :&ensp;<code>str</code></dt>
-<dd>Optimization method for SM initialization.</dd>
-<dt><strong><code>sm_iters</code></strong> :&ensp;<code>str</code></dt>
-<dd>Number of iterations for SM initialization.</dd>
-<dt><strong><code>sm_params</code></strong> :&ensp;<code>object</code></dt>
-<dd>Additional parameters for PyTorch optimizer.</dd>
-<dt><strong><code>sm_plot</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Show the PSD of the kernel after fitting SM.</dd>
+<dt><strong><code>iters</code></strong> :&ensp;<code>str</code></dt>
+<dd>Number of iterations for initialization.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/mosm.py#L57-L120" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/mosm.py#L61-L112" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, sm_init=&#39;LS&#39;, sm_method=&#39;Adam&#39;, sm_iters=100, sm_params={}, sm_plot=False):
+<pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, iters=500):
     &#34;&#34;&#34;
     Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -735,11 +671,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
     Args:
         method (str): Method of estimation, such as BNSE, LS, or SM.
-        sm_init (str): Parameter initialization strategy for SM initialization.
-        sm_method (str): Optimization method for SM initialization.
-        sm_iters (str): Number of iterations for SM initialization.
-        sm_params (object): Additional parameters for PyTorch optimizer.
-        sm_plot (bool): Show the PSD of the kernel after fitting SM.
+        iters (str): Number of iterations for initialization.
     &#34;&#34;&#34;
 
     input_dims = self.dataset.get_input_dims()
@@ -749,66 +681,110 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         raise ValueError(&#34;valid methods of estimation are BNSE, LS, and SM&#34;)
 
     if method.lower() == &#39;bnse&#39;:
-        amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
     elif method.lower() == &#39;ls&#39;:
-        amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+        amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
     else:
-        amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, method=sm_init, optimizer=sm_method, iters=sm_iters, params=sm_params, plot=sm_plot)
+        amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, iters=iters)
     if len(amplitudes) == 0:
         logger.warning(&#39;{} could not find peaks for MOSM&#39;.format(method))
         return
 
-    magnitude = np.zeros((output_dims, self.Q))
+    weight = np.zeros((output_dims,self.Q))
+    mean = np.zeros((output_dims,self.Q,input_dims[0]))
+    variance = np.zeros((output_dims,self.Q,input_dims[0]))
     for q in range(self.Q):
-        mean = np.zeros((output_dims,input_dims[0]))
-        variance = np.zeros((output_dims,input_dims[0]))
         for j in range(output_dims):
-            if q &lt; amplitudes[j].shape[0]:
-                magnitude[j,q] = amplitudes[j][q,:].mean()
-                mean[j,:] = means[j][q,:]
-                # maybe will have problems with higher input dimensions
-                variance[j,:] = variances[j][q,:] * (4 + 20 * (max(input_dims) - 1)) # 20
-        self.gpr.kernel[q].mean.assign(mean)
-        self.gpr.kernel[q].variance.assign(variance)
+            weight[j,q] = 10.0*amplitudes[j][q,:].mean()
+            mean[j,q,:] = means[j][q,:]
+            variance[j,q,:] = variances[j][q,:]
 
-    # normalize proportional to channels variances
-    for j, channel in enumerate(self.dataset):
-        _, y = channel.get_train_data(transformed=True)
-        if 0.0 &lt; magnitude[j,:].sum():
-            magnitude[j,:] = np.sqrt(magnitude[j,:] / magnitude[j,:].sum() * y.var()) * 2
-    
-    for q in range(self.Q):
-        self.gpr.kernel[q].magnitude.assign(magnitude[:,q])
+    self.gpr.kernel.weight.assign(weight)
+    self.gpr.kernel.mean.assign(mean)
+    self.gpr.kernel.variance.assign(variance)
 
-    # TODO
-    #noise = np.empty((output_dims,))
-    #for j, channel in enumerate(self.dataset):
-    #    _, y = channel.get_train_data(transformed=True)
-    #    noise[j] = y.var() / 30.0
-    #for q in range(self.Q):
-    #    self.gpr.kernel[q].noise.assign(noise)</code></pre>
+    # noise
+    if isinstance(self.gpr.likelihood, GaussianLikelihood):
+        _, Y = self.dataset.get_train_data(transformed=True)
+        Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+        if self.gpr.likelihood.scale().ndim == 0:
+            self.gpr.likelihood.scale.assign(np.mean(Y_std))
+        else:
+            self.gpr.likelihood.scale.assign(Y_std)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.models.mosm.MOSM.plot_cross_spectrum"><code class="name flex">
 <span>def <span class="ident">plot_cross_spectrum</span></span>(<span>self, title=None, figsize=(12, 12))</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Plot power spectral density and power cross spectral density.</p></div>
+<div class="desc"><p>Plot power spectral density and power cross spectral density.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
+<dd>Set the title of the plot.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>matplotlib.figure.Figure</code></dt>
+<dd>Figure.</dd>
+<dt><code>matplotlib.axes.Axes</code></dt>
+<dd>Axes.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/mosm.py#L154-L183" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/mosm.py#L158-L256" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_cross_spectrum(self, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
     Plot power spectral density and power cross spectral density.
+
+    Args:
+        title (str): Set the title of the plot.
+
+    Returns:
+        matplotlib.figure.Figure: Figure.
+        matplotlib.axes.Axes: Axes.
     &#34;&#34;&#34;
 
     if not all(input_dims == 1 for input_dims in self.dataset.get_input_dims()):
         raise RuntimeError(&#34;not implemented for multiple input dimensions&#34;)
 
-    cross_params = self._get_cross_parameters()
+    input_dims = self.dataset.get_input_dims()[0]
     output_dims = self.dataset.get_output_dims()
+    Q = self.Q
+
+    cross_params = {}
+    cross_params[&#39;covariance&#39;] = np.zeros((output_dims, output_dims, input_dims, Q))
+    cross_params[&#39;mean&#39;] = np.zeros((output_dims, output_dims, input_dims, Q))
+    cross_params[&#39;magnitude&#39;] = np.zeros((output_dims, output_dims, Q))
+    cross_params[&#39;delay&#39;] = np.zeros((output_dims, output_dims, input_dims, Q))
+    cross_params[&#39;phase&#39;] = np.zeros((output_dims, output_dims, Q))
+
+    weight = self.gpr.kernel.weight.numpy()
+    mean = self.gpr.kernel.mean.numpy()
+    variance = self.gpr.kernel.variance.numpy()
+    phase = self.gpr.kernel.phase.numpy()
+    delay = self.gpr.kernel.delay.numpy()
+    for q in range(Q):
+        for i in range(output_dims):
+            for j in range(output_dims):
+                w_i = weight[i,q]
+                w_j = weight[j,q]
+                mu_i = mean[i,q,:]
+                mu_j = mean[j,q,:]
+                var_i = variance[i,q,:]
+                var_j = variance[j,q,:]
+                sv = var_i + var_j
+
+                cross_params[&#39;covariance&#39;][i, j, :, q] = 2 * (var_i * var_j) / sv
+                cross_mean_num = var_i.dot(mu_j) + var_j.dot(mu_i)
+                cross_params[&#39;mean&#39;][i, j, :, q] = cross_mean_num / sv
+                exp_term = -1/4 * ((mu_i - mu_j)**2 / sv).sum()
+                cross_params[&#39;magnitude&#39;][i, j, q] = w_i * w_j * np.exp(exp_term)
+                for k in range(input_dims):
+                    cross_params[&#39;delay&#39;][i, j, k, q] = delay[i,q,k]-delay[j,q,k]
+                cross_params[&#39;phase&#39;][i, j, q] = phase[i,q]-phase[j,q]
 
     h = figsize[1]
     fig, axes = plt.subplots(output_dims, output_dims, figsize=figsize, squeeze=False, constrained_layout=True)
@@ -817,7 +793,37 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
     for j in range(output_dims):
         for i in range(j+1):
-            self._plot_power_cross_spectral_density(axes[j,i], cross_params, channels=(j,i))
+            magn = cross_params[&#39;magnitude&#39;][j, i, :]
+            mean = cross_params[&#39;mean&#39;][j, i, 0, :]
+            cov = cross_params[&#39;covariance&#39;][j, i, 0, :]
+            delay = cross_params[&#39;delay&#39;][j, i, 0, :]
+            phase = cross_params[&#39;phase&#39;][j, i, :]
+
+            w_high = (mean + 2* np.sqrt(cov)).max()
+            w = np.linspace(-w_high, w_high, 1000)
+            if i == j:
+                # power spectral density
+                psd_total = np.zeros(len(w))
+                for q in range(self.Q):
+                    psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q])
+                    psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q])
+                    psd_q *= magn[q] * 0.5
+                    axes[j,i].plot(w, psd_q, ls=&#39;--&#39;, c=&#39;k&#39;)
+                    psd_total += psd_q
+                axes[j,i].plot(w, psd_total, c=&#39;k&#39;)
+            else:
+                # power cross spectral density
+                psd_total = np.zeros(len(w)) + 0.j
+                for q in range(self.Q):
+                    psd_q = np.exp(-0.5 * (w - mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
+                    psd_q += np.exp(-0.5 * (w + mean[q])**2 / cov[q] + 1.j * (w * delay[q] + phase[q]))
+                    psd_q *= magn[q] * 0.5
+                    axes[j,i].plot(w, np.real(psd_q), ls=&#39;--&#39;, c=&#39;k&#39;)
+                    axes[j,i].plot(w, np.imag(psd_q), ls=&#39;--&#39;, c=&#39;silver&#39;)
+                    psd_total += psd_q
+                axes[j,i].plot(w, np.real(psd_total), c=&#39;k&#39;)
+                axes[j,i].plot(w, np.imag(psd_total), c=&#39;silver&#39;)
+            axes[j,i].set_yticks([])
         for i in range(j+1, output_dims):
             axes[j,i].set_axis_off()
 
@@ -826,31 +832,62 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;k&#39;, label=&#39;Mixture (real)&#39;))
     legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;silver&#39;, label=&#39;Total (imag)&#39;))
     legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;silver&#39;, label=&#39;Mixture (imag)&#39;))
-    fig.legend(handles=legends, loc=&#34;upper center&#34;, bbox_to_anchor=(0.5,(h+0.4)/h), ncol=5)
-
+    fig.legend(handles=legends)
     return fig, axes</code></pre>
 </details>
 </dd>
 <dt id="mogptk.models.mosm.MOSM.plot_spectrum"><code class="name flex">
-<span>def <span class="ident">plot_spectrum</span></span>(<span>self, log=False, noise=False, title=None)</span>
+<span>def <span class="ident">plot_spectrum</span></span>(<span>self, method='LS', maxfreq=None, log=False, noise=False, title=None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Plot spectrum of kernel.</p></div>
+<div class="desc"><p>Plot spectrum of kernel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
+<dd>Set the method to get the spectrum from the data such as LS or BNSE.</dd>
+<dt><strong><code>maxfreq</code></strong> :&ensp;<code>float</code></dt>
+<dd>Maximum frequency to plot, otherwise the Nyquist frequency is used.</dd>
+<dt><strong><code>log</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Show X and Y axis in log-scale.</dd>
+<dt><strong><code>noise</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Add noise to the PSD.</dd>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
+<dd>Set the title of the plot.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>matplotlib.figure.Figure</code></dt>
+<dd>Figure.</dd>
+<dt><code>matplotlib.axes.Axes</code></dt>
+<dd>Axes.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/mosm.py#L133-L152" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/mosm.py#L125-L156" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_spectrum(self, log=False, noise=False, title=None):
+<pre><code class="python">def plot_spectrum(self, method=&#39;LS&#39;, maxfreq=None, log=False, noise=False, title=None):
     &#34;&#34;&#34;
     Plot spectrum of kernel.
-    &#34;&#34;&#34;
-    names = self.dataset.get_names()
-    nyquist = self.dataset.get_nyquist_estimation()
 
-    means = np.array([self.gpr.kernel[q].mean.numpy() for q in range(self.Q)])
-    scales = np.array([np.sqrt(self.gpr.kernel[q].variance.numpy()) for q in range(self.Q)])
-    weights = np.array([self.gpr.kernel[q].magnitude.numpy() for q in range(self.Q)])**2
+    Args:
+        method (str): Set the method to get the spectrum from the data such as LS or BNSE.
+        maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+        log (boolean): Show X and Y axis in log-scale.
+        noise (boolean): Add noise to the PSD.
+        title (str): Set the title of the plot.
+
+    Returns:
+        matplotlib.figure.Figure: Figure.
+        matplotlib.axes.Axes: Axes.
+    &#34;&#34;&#34;
+    input_dims = self.dataset.get_input_dims()[0]
+    names = self.dataset.get_names()
+    if maxfreq is not None:
+        maxfreq = [maxfreq] * len(self.dataset)
+    means = self.gpr.kernel.mean.numpy().transpose([1,0,2])
+    scales = np.sqrt(self.gpr.kernel.variance.numpy().transpose([1,0,2]))
+    weights = self.gpr.kernel.weight.numpy().transpose([1,0])**2
 
     noises = None
     if noise:
@@ -860,7 +897,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             raise ValueError(&#34;likelihood variance must not be per data point to enable spectral noise&#34;)
         noises = self.gpr.likelihood.scale.numpy()
 
-    return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, log=log, titles=names, title=title)</code></pre>
+    return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, noises=noises, method=method, maxfreq=maxfreq, log=log, titles=names, title=title)</code></pre>
 </details>
 </dd>
 </dl>
@@ -868,12 +905,17 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <ul class="hlist">
 <li><code><b><a title="mogptk.model.Model" href="../model.html#mogptk.model.Model">Model</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.model.Model.AIC" href="../model.html#mogptk.model.Model.AIC">AIC</a></code></li>
+<li><code><a title="mogptk.model.Model.BIC" href="../model.html#mogptk.model.Model.BIC">BIC</a></code></li>
 <li><code><a title="mogptk.model.Model.K" href="../model.html#mogptk.model.Model.K">K</a></code></li>
 <li><code><a title="mogptk.model.Model.copy_parameters" href="../model.html#mogptk.model.Model.copy_parameters">copy_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.error" href="../model.html#mogptk.model.Model.error">error</a></code></li>
 <li><code><a title="mogptk.model.Model.get_parameters" href="../model.html#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="../model.html#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.model.Model.loss" href="../model.html#mogptk.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.model.Model.num_parameters" href="../model.html#mogptk.model.Model.num_parameters">num_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.num_training_points" href="../model.html#mogptk.model.Model.num_training_points">num_training_points</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_correlation" href="../model.html#mogptk.model.Model.plot_correlation">plot_correlation</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_gram" href="../model.html#mogptk.model.Model.plot_gram">plot_gram</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_kernel" href="../model.html#mogptk.model.Model.plot_kernel">plot_kernel</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_losses" href="../model.html#mogptk.model.Model.plot_losses">plot_losses</a></code></li>

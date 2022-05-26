@@ -27,14 +27,14 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/sm.py#L1-L155" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/sm.py#L1-L153" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import SpectralKernel, IndependentMultiOutputKernel, MixtureKernel, GaussianLikelihood
-from ..plot import plot_spectrum
+from ..gpr import SpectralMixtureKernel, IndependentMultiOutputKernel, GaussianLikelihood
+from ..util import plot_spectrum
 
 class SM(Model):
     &#34;&#34;&#34;
@@ -43,7 +43,7 @@ class SM(Model):
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -68,24 +68,28 @@ class SM(Model):
 
     [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name=&#34;SM&#34;):
+    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name=&#34;SM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
         kernel = IndependentMultiOutputKernel(
-            [MixtureKernel(SpectralKernel(dataset[j].get_input_dims()), Q)
-                for j in range(dataset.get_output_dims())],
-            output_dims=dataset.get_output_dims(),
-        )
-        super().__init__(dataset, kernel, inference, mean, name)
+            [SpectralMixtureKernel(Q=Q, input_dims=input_dims)
+                for j in range(output_dims)],
+            output_dims=output_dims)
+        for j in range(output_dims):
+            kernel[j].magnitude.assign(np.random.rand(Q))
+            kernel[j].mean.assign(np.random.rand(Q,input_dims))
+            kernel[j].variance.assign(np.random.rand(Q,input_dims))
 
+        super().__init__(dataset, kernel, model, mean, name)
         self.Q = Q
-        nyquist = np.array(self.dataset.get_nyquist_estimation())
-        for j in range(self.dataset.get_output_dims()):
-            for q in range(Q):
-                self.gpr.kernel[j][q].mean.assign(upper=nyquist[j])
+        nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
+        for j in range(output_dims):
+            self.gpr.kernel[j].mean.assign(upper=nyquist[j,:,:])
 
-    def init_parameters(self, method=&#39;LS&#39;):
+    def init_parameters(self, method=&#39;LS&#39;, iters=500):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -97,6 +101,7 @@ class SM(Model):
 
         Args:
             method (str): Method of estimation, such as IPS, LS, or BNSE.
+            iters (str): Number of iterations for initialization.
         &#34;&#34;&#34;
 
         input_dims = self.dataset.get_input_dims()
@@ -108,72 +113,65 @@ class SM(Model):
         if method.lower() == &#39;ips&#39;:
             for j in range(output_dims):
                 nyquist = self.dataset[j].get_nyquist_estimation()
-                x, y = np.array([x.transformed[self.dataset[j].mask] for x in self.dataset[j].X]).T, self.dataset[j].Y.transformed[self.dataset[j].mask]
+                x = self.dataset[j].X[self.dataset[j].mask,:]
+                y = self.dataset[j].Y_transformer.forward(self.dataset[j].Y[self.dataset[j].mask], x)
                 x_range = np.max(x, axis=0) - np.min(x, axis=0)
 
                 weights = [2.0*y.std()/self.Q] * self.Q
                 means = nyquist * np.random.rand(self.Q, input_dims[j])
                 variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
 
-                for q in range(self.Q):
-                    self.gpr.kernel[j][q].sigma.assign(np.sqrt(weights[q]))
-                    self.gpr.kernel[j][q].mean.assign(means[q,:])
-                    self.gpr.kernel[j][q].variance.assign(variances[q,:])
+                self.gpr.kernel[j].magnitude.assign(weights)
+                self.gpr.kernel[j].mean.assign(means)
+                self.gpr.kernel[j].variance.assign(variances)
             return
         elif method.lower() == &#39;ls&#39;:
-            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning(&#39;LS could not find peaks for SM&#39;)
                 return
         elif method.lower() == &#39;bnse&#39;:
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
             if np.sum(amplitudes) == 0.0:
                 logger.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-        #if noise:
-        #    # TODO: remove this and set noise parameter to 1/30
-        #    pct = 1/30.0
-        #    # noise proportional to the values
-        #    noise_amp = np.random.multivariate_normal(
-        #        mean=np.zeros(self.Q),
-        #        cov=np.diag(amplitudes.mean(axis=1) * pct))
-        #    # set value to a minimun value
-        #    amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
-
-        #    noise_mean = np.random.multivariate_normal(
-        #        mean=np.zeros(self.Q),
-        #        cov=np.diag(means.mean(axis=1) * pct))
-        #    means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
-
-        #    noise_var = np.random.multivariate_normal(
-        #        mean=np.zeros(self.Q),
-        #        cov=np.diag(variances.mean(axis=1) * pct))
-        #    variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
-
         for j in range(output_dims):
-            # TODO: check weights for all kernels
-            _, y = self.dataset[j].get_train_data(transformed=True)
-            mixture_weights = amplitudes[j].mean(axis=1)
-            if 0.0 &lt; amplitudes[j].sum():
-                mixture_weights /= amplitudes[j].sum()
-            mixture_weights *= 2.0 * y.std()
-            for q in range(self.Q):
-                self.gpr.kernel[j][q].sigma.assign(np.sqrt(mixture_weights[q]))
-                self.gpr.kernel[j][q].mean.assign(means[j][q,:])
-                self.gpr.kernel[j][q].variance.assign(variances[j][q,:])
+            self.gpr.kernel[j].magnitude.assign(amplitudes[j].mean(axis=1)**2)
+            self.gpr.kernel[j].mean.assign(means[j])
+            self.gpr.kernel[j].variance.assign(variances[j])
 
-    def plot_spectrum(self, log=False, noise=False, title=None):
+        # noise
+        if isinstance(self.gpr.likelihood, GaussianLikelihood):
+            _, Y = self.dataset.get_train_data(transformed=True)
+            Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+            if self.gpr.likelihood.scale().ndim == 0:
+                self.gpr.likelihood.scale.assign(np.mean(Y_std))
+            else:
+                self.gpr.likelihood.scale.assign(Y_std)
+
+    def plot_spectrum(self, method=&#39;LS&#39;, maxfreq=None, log=False, noise=False, title=None):
         &#34;&#34;&#34;
         Plot spectrum of kernel.
-        &#34;&#34;&#34;
-        names = self.dataset.get_names()
-        nyquist = self.dataset.get_nyquist_estimation()
-        output_dims = self.dataset.get_output_dims()
 
-        means = np.array([[self.gpr.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
-        scales = np.array([[np.sqrt(self.gpr.kernel[j][q].variance.numpy()) for j in range(output_dims)] for q in range(self.Q)])
-        weights = np.array([[self.gpr.kernel[j][q].sigma.numpy()[0]**2 for j in range(output_dims)] for q in range(self.Q)])
+        Args:
+            method (str): Set the method to get the spectrum from the data such as LS or BNSE.
+            maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            log (boolean): Show X and Y axis in log-scale.
+            noise (boolean): Add noise to the PSD.
+            title (str): Set the title of the plot.
+
+        Returns:
+            matplotlib.figure.Figure: Figure.
+            matplotlib.axes.Axes: Axes.
+        &#34;&#34;&#34;
+        output_dims = self.dataset.get_output_dims()
+        names = self.dataset.get_names()
+        if maxfreq is not None:
+            maxfreq = [maxfreq] * len(self.dataset)
+        means = np.array([self.gpr.kernel[j].mean.numpy() for j in range(output_dims)]).transpose([1,0,2])
+        scales = np.array([np.sqrt(self.gpr.kernel[j].variance.numpy()) for j in range(output_dims)]).transpose([1,0,2])
+        weights = np.array([self.gpr.kernel[j].magnitude.numpy() for j in range(output_dims)]).transpose([1,0])
 
         noises = None
         if noise:
@@ -183,7 +181,7 @@ class SM(Model):
                 raise ValueError(&#34;likelihood variance must not be per data point to enable spectral noise&#34;)
             noises = self.gpr.likelihood.scale.numpy()
 
-        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, log=log, titles=names, title=title)</code></pre>
+        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, noises=noises, method=method, maxfreq=maxfreq, log=log, titles=names, title=title)</code></pre>
 </details>
 </section>
 <section>
@@ -197,7 +195,7 @@ class SM(Model):
 <dl>
 <dt id="mogptk.models.sm.SM"><code class="flex name class">
 <span>class <span class="ident">SM</span></span>
-<span>(</span><span>dataset, Q=1, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name='SM')</span>
+<span>(</span><span>dataset, Q=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='SM')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Independent Spectral Mixture kernels per channel. The spectral mixture kernel is proposed by [1]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
@@ -208,7 +206,7 @@ class SM(Model):
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of components.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code><a title="mogptk.model.Exact" href="../model.html#mogptk.model.Exact">Exact</a></code>.</dd>
+<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -244,7 +242,7 @@ class SM(Model):
 <dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="../gpr/kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
 <dd>The kernel class.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code><a title="mogptk.model.Exact" href="../model.html#mogptk.model.Exact">Exact</a></code>.</dd>
+<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -252,14 +250,14 @@ class SM(Model):
 </dl>
 <h2 id="atributes">Atributes</h2>
 <p>dataset (mogptk.dataset.DataSet): Dataset.
-gpr (The mogptk.gpr.model.Model): GPR model.
+gpr (mogptk.gpr.model.Model): GPR model.
 times (numpy.ndarray): Training times of shape (iters,).
 losses (numpy.ndarray): Losses of shape (iters,).
 errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/sm.py#L8-L155" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/sm.py#L8-L153" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SM(Model):
     &#34;&#34;&#34;
@@ -268,7 +266,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -293,24 +291,28 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
     [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name=&#34;SM&#34;):
+    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name=&#34;SM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
+        output_dims = dataset.get_output_dims()
+        input_dims = dataset.get_input_dims()[0]
         kernel = IndependentMultiOutputKernel(
-            [MixtureKernel(SpectralKernel(dataset[j].get_input_dims()), Q)
-                for j in range(dataset.get_output_dims())],
-            output_dims=dataset.get_output_dims(),
-        )
-        super().__init__(dataset, kernel, inference, mean, name)
+            [SpectralMixtureKernel(Q=Q, input_dims=input_dims)
+                for j in range(output_dims)],
+            output_dims=output_dims)
+        for j in range(output_dims):
+            kernel[j].magnitude.assign(np.random.rand(Q))
+            kernel[j].mean.assign(np.random.rand(Q,input_dims))
+            kernel[j].variance.assign(np.random.rand(Q,input_dims))
 
+        super().__init__(dataset, kernel, model, mean, name)
         self.Q = Q
-        nyquist = np.array(self.dataset.get_nyquist_estimation())
-        for j in range(self.dataset.get_output_dims()):
-            for q in range(Q):
-                self.gpr.kernel[j][q].mean.assign(upper=nyquist[j])
+        nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
+        for j in range(output_dims):
+            self.gpr.kernel[j].mean.assign(upper=nyquist[j,:,:])
 
-    def init_parameters(self, method=&#39;LS&#39;):
+    def init_parameters(self, method=&#39;LS&#39;, iters=500):
         &#34;&#34;&#34;
         Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -322,6 +324,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
         Args:
             method (str): Method of estimation, such as IPS, LS, or BNSE.
+            iters (str): Number of iterations for initialization.
         &#34;&#34;&#34;
 
         input_dims = self.dataset.get_input_dims()
@@ -333,72 +336,65 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         if method.lower() == &#39;ips&#39;:
             for j in range(output_dims):
                 nyquist = self.dataset[j].get_nyquist_estimation()
-                x, y = np.array([x.transformed[self.dataset[j].mask] for x in self.dataset[j].X]).T, self.dataset[j].Y.transformed[self.dataset[j].mask]
+                x = self.dataset[j].X[self.dataset[j].mask,:]
+                y = self.dataset[j].Y_transformer.forward(self.dataset[j].Y[self.dataset[j].mask], x)
                 x_range = np.max(x, axis=0) - np.min(x, axis=0)
 
                 weights = [2.0*y.std()/self.Q] * self.Q
                 means = nyquist * np.random.rand(self.Q, input_dims[j])
                 variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
 
-                for q in range(self.Q):
-                    self.gpr.kernel[j][q].sigma.assign(np.sqrt(weights[q]))
-                    self.gpr.kernel[j][q].mean.assign(means[q,:])
-                    self.gpr.kernel[j][q].variance.assign(variances[q,:])
+                self.gpr.kernel[j].magnitude.assign(weights)
+                self.gpr.kernel[j].mean.assign(means)
+                self.gpr.kernel[j].variance.assign(variances)
             return
         elif method.lower() == &#39;ls&#39;:
-            amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
             if len(amplitudes) == 0:
                 logger.warning(&#39;LS could not find peaks for SM&#39;)
                 return
         elif method.lower() == &#39;bnse&#39;:
-            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+            amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
             if np.sum(amplitudes) == 0.0:
                 logger.warning(&#39;BNSE could not find peaks for SM&#39;)
                 return
 
-        #if noise:
-        #    # TODO: remove this and set noise parameter to 1/30
-        #    pct = 1/30.0
-        #    # noise proportional to the values
-        #    noise_amp = np.random.multivariate_normal(
-        #        mean=np.zeros(self.Q),
-        #        cov=np.diag(amplitudes.mean(axis=1) * pct))
-        #    # set value to a minimun value
-        #    amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
-
-        #    noise_mean = np.random.multivariate_normal(
-        #        mean=np.zeros(self.Q),
-        #        cov=np.diag(means.mean(axis=1) * pct))
-        #    means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
-
-        #    noise_var = np.random.multivariate_normal(
-        #        mean=np.zeros(self.Q),
-        #        cov=np.diag(variances.mean(axis=1) * pct))
-        #    variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
-
         for j in range(output_dims):
-            # TODO: check weights for all kernels
-            _, y = self.dataset[j].get_train_data(transformed=True)
-            mixture_weights = amplitudes[j].mean(axis=1)
-            if 0.0 &lt; amplitudes[j].sum():
-                mixture_weights /= amplitudes[j].sum()
-            mixture_weights *= 2.0 * y.std()
-            for q in range(self.Q):
-                self.gpr.kernel[j][q].sigma.assign(np.sqrt(mixture_weights[q]))
-                self.gpr.kernel[j][q].mean.assign(means[j][q,:])
-                self.gpr.kernel[j][q].variance.assign(variances[j][q,:])
+            self.gpr.kernel[j].magnitude.assign(amplitudes[j].mean(axis=1)**2)
+            self.gpr.kernel[j].mean.assign(means[j])
+            self.gpr.kernel[j].variance.assign(variances[j])
 
-    def plot_spectrum(self, log=False, noise=False, title=None):
+        # noise
+        if isinstance(self.gpr.likelihood, GaussianLikelihood):
+            _, Y = self.dataset.get_train_data(transformed=True)
+            Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+            if self.gpr.likelihood.scale().ndim == 0:
+                self.gpr.likelihood.scale.assign(np.mean(Y_std))
+            else:
+                self.gpr.likelihood.scale.assign(Y_std)
+
+    def plot_spectrum(self, method=&#39;LS&#39;, maxfreq=None, log=False, noise=False, title=None):
         &#34;&#34;&#34;
         Plot spectrum of kernel.
-        &#34;&#34;&#34;
-        names = self.dataset.get_names()
-        nyquist = self.dataset.get_nyquist_estimation()
-        output_dims = self.dataset.get_output_dims()
 
-        means = np.array([[self.gpr.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
-        scales = np.array([[np.sqrt(self.gpr.kernel[j][q].variance.numpy()) for j in range(output_dims)] for q in range(self.Q)])
-        weights = np.array([[self.gpr.kernel[j][q].sigma.numpy()[0]**2 for j in range(output_dims)] for q in range(self.Q)])
+        Args:
+            method (str): Set the method to get the spectrum from the data such as LS or BNSE.
+            maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+            log (boolean): Show X and Y axis in log-scale.
+            noise (boolean): Add noise to the PSD.
+            title (str): Set the title of the plot.
+
+        Returns:
+            matplotlib.figure.Figure: Figure.
+            matplotlib.axes.Axes: Axes.
+        &#34;&#34;&#34;
+        output_dims = self.dataset.get_output_dims()
+        names = self.dataset.get_names()
+        if maxfreq is not None:
+            maxfreq = [maxfreq] * len(self.dataset)
+        means = np.array([self.gpr.kernel[j].mean.numpy() for j in range(output_dims)]).transpose([1,0,2])
+        scales = np.array([np.sqrt(self.gpr.kernel[j].variance.numpy()) for j in range(output_dims)]).transpose([1,0,2])
+        weights = np.array([self.gpr.kernel[j].magnitude.numpy() for j in range(output_dims)]).transpose([1,0])
 
         noises = None
         if noise:
@@ -408,7 +404,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
                 raise ValueError(&#34;likelihood variance must not be per data point to enable spectral noise&#34;)
             noises = self.gpr.likelihood.scale.numpy()
 
-        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, log=log, titles=names, title=title)</code></pre>
+        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, noises=noises, method=method, maxfreq=maxfreq, log=log, titles=names, title=title)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -417,7 +413,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.models.sm.SM.init_parameters"><code class="name flex">
-<span>def <span class="ident">init_parameters</span></span>(<span>self, method='LS')</span>
+<span>def <span class="ident">init_parameters</span></span>(<span>self, method='LS', iters=500)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Estimate kernel parameters from the data set. The initialization can be done using three methods:</p>
@@ -431,13 +427,15 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <dl>
 <dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
 <dd>Method of estimation, such as IPS, LS, or BNSE.</dd>
+<dt><strong><code>iters</code></strong> :&ensp;<code>str</code></dt>
+<dd>Number of iterations for initialization.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/sm.py#L57-L133" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/sm.py#L61-L120" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def init_parameters(self, method=&#39;LS&#39;):
+<pre><code class="python">def init_parameters(self, method=&#39;LS&#39;, iters=500):
     &#34;&#34;&#34;
     Estimate kernel parameters from the data set. The initialization can be done using three methods:
 
@@ -449,6 +447,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
     Args:
         method (str): Method of estimation, such as IPS, LS, or BNSE.
+        iters (str): Number of iterations for initialization.
     &#34;&#34;&#34;
 
     input_dims = self.dataset.get_input_dims()
@@ -460,83 +459,96 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     if method.lower() == &#39;ips&#39;:
         for j in range(output_dims):
             nyquist = self.dataset[j].get_nyquist_estimation()
-            x, y = np.array([x.transformed[self.dataset[j].mask] for x in self.dataset[j].X]).T, self.dataset[j].Y.transformed[self.dataset[j].mask]
+            x = self.dataset[j].X[self.dataset[j].mask,:]
+            y = self.dataset[j].Y_transformer.forward(self.dataset[j].Y[self.dataset[j].mask], x)
             x_range = np.max(x, axis=0) - np.min(x, axis=0)
 
             weights = [2.0*y.std()/self.Q] * self.Q
             means = nyquist * np.random.rand(self.Q, input_dims[j])
             variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
 
-            for q in range(self.Q):
-                self.gpr.kernel[j][q].sigma.assign(np.sqrt(weights[q]))
-                self.gpr.kernel[j][q].mean.assign(means[q,:])
-                self.gpr.kernel[j][q].variance.assign(variances[q,:])
+            self.gpr.kernel[j].magnitude.assign(weights)
+            self.gpr.kernel[j].mean.assign(means)
+            self.gpr.kernel[j].variance.assign(variances)
         return
     elif method.lower() == &#39;ls&#39;:
-        amplitudes, means, variances = self.dataset.get_lombscargle_estimation(self.Q)
+        amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
         if len(amplitudes) == 0:
             logger.warning(&#39;LS could not find peaks for SM&#39;)
             return
     elif method.lower() == &#39;bnse&#39;:
-        amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q)
+        amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
         if np.sum(amplitudes) == 0.0:
             logger.warning(&#39;BNSE could not find peaks for SM&#39;)
             return
 
-    #if noise:
-    #    # TODO: remove this and set noise parameter to 1/30
-    #    pct = 1/30.0
-    #    # noise proportional to the values
-    #    noise_amp = np.random.multivariate_normal(
-    #        mean=np.zeros(self.Q),
-    #        cov=np.diag(amplitudes.mean(axis=1) * pct))
-    #    # set value to a minimun value
-    #    amplitudes = np.maximum(np.zeros_like(amplitudes) + 1e-6, amplitudes + noise_amp)
-
-    #    noise_mean = np.random.multivariate_normal(
-    #        mean=np.zeros(self.Q),
-    #        cov=np.diag(means.mean(axis=1) * pct))
-    #    means = np.maximum(np.zeros_like(means) + 1e-6, means + noise_mean)
-
-    #    noise_var = np.random.multivariate_normal(
-    #        mean=np.zeros(self.Q),
-    #        cov=np.diag(variances.mean(axis=1) * pct))
-    #    variances = np.maximum(np.zeros_like(variances) + 1e-6, variances + noise_var)
-
     for j in range(output_dims):
-        # TODO: check weights for all kernels
-        _, y = self.dataset[j].get_train_data(transformed=True)
-        mixture_weights = amplitudes[j].mean(axis=1)
-        if 0.0 &lt; amplitudes[j].sum():
-            mixture_weights /= amplitudes[j].sum()
-        mixture_weights *= 2.0 * y.std()
-        for q in range(self.Q):
-            self.gpr.kernel[j][q].sigma.assign(np.sqrt(mixture_weights[q]))
-            self.gpr.kernel[j][q].mean.assign(means[j][q,:])
-            self.gpr.kernel[j][q].variance.assign(variances[j][q,:])</code></pre>
+        self.gpr.kernel[j].magnitude.assign(amplitudes[j].mean(axis=1)**2)
+        self.gpr.kernel[j].mean.assign(means[j])
+        self.gpr.kernel[j].variance.assign(variances[j])
+
+    # noise
+    if isinstance(self.gpr.likelihood, GaussianLikelihood):
+        _, Y = self.dataset.get_train_data(transformed=True)
+        Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+        if self.gpr.likelihood.scale().ndim == 0:
+            self.gpr.likelihood.scale.assign(np.mean(Y_std))
+        else:
+            self.gpr.likelihood.scale.assign(Y_std)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.models.sm.SM.plot_spectrum"><code class="name flex">
-<span>def <span class="ident">plot_spectrum</span></span>(<span>self, log=False, noise=False, title=None)</span>
+<span>def <span class="ident">plot_spectrum</span></span>(<span>self, method='LS', maxfreq=None, log=False, noise=False, title=None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Plot spectrum of kernel.</p></div>
+<div class="desc"><p>Plot spectrum of kernel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code></dt>
+<dd>Set the method to get the spectrum from the data such as LS or BNSE.</dd>
+<dt><strong><code>maxfreq</code></strong> :&ensp;<code>float</code></dt>
+<dd>Maximum frequency to plot, otherwise the Nyquist frequency is used.</dd>
+<dt><strong><code>log</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Show X and Y axis in log-scale.</dd>
+<dt><strong><code>noise</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Add noise to the PSD.</dd>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
+<dd>Set the title of the plot.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>matplotlib.figure.Figure</code></dt>
+<dd>Figure.</dd>
+<dt><code>matplotlib.axes.Axes</code></dt>
+<dd>Axes.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/models/sm.py#L135-L155" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/models/sm.py#L122-L153" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_spectrum(self, log=False, noise=False, title=None):
+<pre><code class="python">def plot_spectrum(self, method=&#39;LS&#39;, maxfreq=None, log=False, noise=False, title=None):
     &#34;&#34;&#34;
     Plot spectrum of kernel.
-    &#34;&#34;&#34;
-    names = self.dataset.get_names()
-    nyquist = self.dataset.get_nyquist_estimation()
-    output_dims = self.dataset.get_output_dims()
 
-    means = np.array([[self.gpr.kernel[j][q].mean.numpy() for j in range(output_dims)] for q in range(self.Q)])
-    scales = np.array([[np.sqrt(self.gpr.kernel[j][q].variance.numpy()) for j in range(output_dims)] for q in range(self.Q)])
-    weights = np.array([[self.gpr.kernel[j][q].sigma.numpy()[0]**2 for j in range(output_dims)] for q in range(self.Q)])
+    Args:
+        method (str): Set the method to get the spectrum from the data such as LS or BNSE.
+        maxfreq (float): Maximum frequency to plot, otherwise the Nyquist frequency is used.
+        log (boolean): Show X and Y axis in log-scale.
+        noise (boolean): Add noise to the PSD.
+        title (str): Set the title of the plot.
+
+    Returns:
+        matplotlib.figure.Figure: Figure.
+        matplotlib.axes.Axes: Axes.
+    &#34;&#34;&#34;
+    output_dims = self.dataset.get_output_dims()
+    names = self.dataset.get_names()
+    if maxfreq is not None:
+        maxfreq = [maxfreq] * len(self.dataset)
+    means = np.array([self.gpr.kernel[j].mean.numpy() for j in range(output_dims)]).transpose([1,0,2])
+    scales = np.array([np.sqrt(self.gpr.kernel[j].variance.numpy()) for j in range(output_dims)]).transpose([1,0,2])
+    weights = np.array([self.gpr.kernel[j].magnitude.numpy() for j in range(output_dims)]).transpose([1,0])
 
     noises = None
     if noise:
@@ -546,7 +558,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             raise ValueError(&#34;likelihood variance must not be per data point to enable spectral noise&#34;)
         noises = self.gpr.likelihood.scale.numpy()
 
-    return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, log=log, titles=names, title=title)</code></pre>
+    return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, noises=noises, method=method, maxfreq=maxfreq, log=log, titles=names, title=title)</code></pre>
 </details>
 </dd>
 </dl>
@@ -554,12 +566,17 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <ul class="hlist">
 <li><code><b><a title="mogptk.model.Model" href="../model.html#mogptk.model.Model">Model</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.model.Model.AIC" href="../model.html#mogptk.model.Model.AIC">AIC</a></code></li>
+<li><code><a title="mogptk.model.Model.BIC" href="../model.html#mogptk.model.Model.BIC">BIC</a></code></li>
 <li><code><a title="mogptk.model.Model.K" href="../model.html#mogptk.model.Model.K">K</a></code></li>
 <li><code><a title="mogptk.model.Model.copy_parameters" href="../model.html#mogptk.model.Model.copy_parameters">copy_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.error" href="../model.html#mogptk.model.Model.error">error</a></code></li>
 <li><code><a title="mogptk.model.Model.get_parameters" href="../model.html#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="../model.html#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.model.Model.loss" href="../model.html#mogptk.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.model.Model.num_parameters" href="../model.html#mogptk.model.Model.num_parameters">num_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.num_training_points" href="../model.html#mogptk.model.Model.num_training_points">num_training_points</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_correlation" href="../model.html#mogptk.model.Model.plot_correlation">plot_correlation</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_gram" href="../model.html#mogptk.model.Model.plot_gram">plot_gram</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_kernel" href="../model.html#mogptk.model.Model.plot_kernel">plot_kernel</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_losses" href="../model.html#mogptk.model.Model.plot_losses">plot_losses</a></code></li>

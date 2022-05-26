@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L1-L904" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L1-L984" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import time
@@ -44,7 +44,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from . import gpr
 from .dataset import DataSet
-from .errors import *
+from .util import *
 
 logger = logging.getLogger(&#39;mogptk&#39;)
 
@@ -86,8 +86,6 @@ class Exact:
         if data_variance is None and y_err is not None:
             data_variance = y_err**2
         model = gpr.Exact(kernel, x, y, variance=variance, data_variance=data_variance, jitter=self.jitter, mean=mean, name=name)
-        if data_variance is not None:
-            model.likelihood.scale.assign(0.0, trainable=False)
         return model
 
 class Snelson:
@@ -167,20 +165,20 @@ class Hensman:
         return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Model:
-    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
+    def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
         &#34;&#34;&#34;
         Model is the base class for multi-output Gaussian process models.
 
         Args:
             dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
             kernel (mogptk.gpr.kernel.Kernel): The kernel class.
-            model: Gaussian process model to use, such as `mogptk.model.Exact`.
+            model: Gaussian process model to use, such as `mogptk.Exact`.
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
 
         Atributes:
             dataset (mogptk.dataset.DataSet): Dataset.
-            gpr (The mogptk.gpr.model.Model): GPR model.
+            gpr (mogptk.gpr.model.Model): GPR model.
             times (numpy.ndarray): Training times of shape (iters,).
             losses (numpy.ndarray): Losses of shape (iters,).
             errors (numpy.ndarray): Errors of shape (iters,).
@@ -194,13 +192,13 @@ class Model:
         if len(set(names)) != len(names):
             raise ValueError(&#34;all data channels must have unique names&#34;)
 
-        for channel in dataset:
-            for dim in range(channel.get_input_dims()):
-                xran = np.max(channel.X.transformed[:,dim]) - np.min(channel.X.transformed[:,dim])
-                if xran &lt; 1e-3:
-                    logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X axis&#34;)
-                elif 1e4 &lt; xran:
-                    logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X axis&#34;)
+        #for j, channel in enumerate(dataset):
+        #    for dim in range(channel.get_input_dims()):
+        #        xran = np.max(channel.X[:,dim]) - np.min(channel.X[:,dim])
+        #        if xran &lt; 1e-3:
+        #            logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X axis for channel %d&#34; % j)
+        #        elif 1e4 &lt; xran:
+        #            logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X axis for channel %d&#34; % j)
 
         self.name = name
         self.dataset = dataset
@@ -211,14 +209,13 @@ class Model:
 
         y_err = None
         if all(channel.Y_err is not None for channel in self.dataset):
-            # TODO: doesn&#39;t transform...
-            Y_err = [np.array(channel.Y_err[channel.mask]) for channel in self.dataset]
-            Y_err_lower = [self.dataset[j].Y.transform(Y[j] - Y_err[j], X[j]) for j in range(len(self.dataset))]
-            Y_err_upper = [self.dataset[j].Y.transform(Y[j] + Y_err[j], X[j]) for j in range(len(self.dataset))]
+            Y_err = [channel.Y_err[channel.mask] for channel in self.dataset]
+            Y_err_lower = [self.dataset[j].Y_transformer.forward(Y[j] - Y_err[j], X[j]) for j in range(len(self.dataset))]
+            Y_err_upper = [self.dataset[j].Y_transformer.forward(Y[j] + Y_err[j], X[j]) for j in range(len(self.dataset))]
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
-        self.gpr = inference._build(kernel, x, y, y_err, mean, name)
+        self.gpr = model._build(kernel, x, y, y_err, mean, name)
 
         self.times = np.zeros(0)
         self.losses = np.zeros(0)
@@ -256,6 +253,30 @@ class Model:
 
         self.gpr.kernel.copy_parameters(other.kernel)
 
+    def num_parameters(self):
+        &#34;&#34;&#34;
+        Returns the number of trainable parameters.
+
+        Returns:
+            int: Number of parameters.
+
+        Examples:
+            &gt;&gt;&gt; n = model.num_parameters()
+        &#34;&#34;&#34;
+        return sum([p.num_parameters if p.train else 0 for p in self.gpr.get_parameters()])
+
+    def num_training_points(self):
+        &#34;&#34;&#34;
+        Returns the number of training data points.
+
+        Returns:
+            int: Number of data points.
+
+        Examples:
+            &gt;&gt;&gt; n = model.num_training_points()
+        &#34;&#34;&#34;
+        return sum([len(channel.get_train_data()[1]) for channel in self.dataset])
+
     def save(self, filename):
         &#34;&#34;&#34;
         Save the model to a given file that can then be loaded using `LoadModel()`.
@@ -276,7 +297,7 @@ class Model:
 
     def log_marginal_likelihood(self):
         &#34;&#34;&#34;
-        Returns the log marginal likelihood of the kernel and its data and parameters.
+        Returns the log marginal likelihood of the kernel and its data and parameters. When using the exact model the calculation of the log marginal likelihood is tractable and thus exact. For other models this is an approximation of the real log marginal likelihood.
 
         Returns:
             float: The current log marginal likelihood.
@@ -285,6 +306,30 @@ class Model:
             &gt;&gt;&gt; model.log_marginal_likelihood()
         &#34;&#34;&#34;
         return self.gpr.log_marginal_likelihood().detach().cpu().item()
+
+    def BIC(self):
+        &#34;&#34;&#34;
+        Returns the Bayesian information criterion.
+
+        Returns:
+            float: BIC.
+
+        Examples:
+            &gt;&gt;&gt; model.BIC()
+        &#34;&#34;&#34;
+        return self.num_parameters()*np.log(self.num_training_points()) - 2.0*self.log_marginal_likelihood()
+
+    def AIC(self):
+        &#34;&#34;&#34;
+        Returns the Akaike information criterion.
+
+        Returns:
+            float: AIC.
+
+        Examples:
+            &gt;&gt;&gt; model.AIC()
+        &#34;&#34;&#34;
+        return 2.0*self.num_parameters() - 2.0*self.log_marginal_likelihood()
 
     def loss(self):
         &#34;&#34;&#34;
@@ -316,7 +361,7 @@ class Model:
             return method(self)
 
         # get data
-        if use_all_data:
+        if use_all_data or not any(self.dataset.has_test_data()):
             X, Y_true = self.dataset.get_data()
         else:
             X, Y_true = self.dataset.get_test_data()
@@ -330,7 +375,7 @@ class Model:
         Y_pred = []
         for j in range(self.dataset.get_output_dims()):
             N = X[j].shape[0]
-            Y_pred.append(self.dataset[j].Y.detransform(np.squeeze(y_pred[i:i+N]), X[j]))
+            Y_pred.append(self.dataset[j].Y_transformer.backward(np.squeeze(y_pred[i:i+N]), X[j]))
             i += N
 
         # flatten
@@ -406,14 +451,12 @@ class Model:
             raise ValueError(&#39;optimizer must be LBFGS, Adam, SGD, or AdaGrad&#39;)
 
         if verbose:
-            training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
-            parameters = sum([p.num_parameters if p.trainable else 0 for p in self.gpr.get_parameters()])
             print(&#39;\nStarting optimization using&#39;, method)
             if self.name is not None:
                 print(&#39;‣ Model: %s&#39; % self.name)
             print(&#39;‣ Channels: %d&#39; % len(self.dataset))
-            print(&#39;‣ Parameters: %d&#39; % parameters)
-            print(&#39;‣ Training points: %d&#39; % training_points)
+            print(&#39;‣ Parameters: %d&#39; % self.num_parameters())
+            print(&#39;‣ Training points: %d&#39; % self.num_training_points())
             print(&#39;‣ Initial loss: %6g&#39; % self.loss())
             if error is not None:
                 print(&#39;‣ Initial error: %6g&#39; % self.error(error, error_use_all_data))
@@ -503,10 +546,6 @@ class Model:
             numpy.ndarray: Y data of shape (data_points,1).
             numpy.ndarray: Original but normalized X data. Only if no Y is passed.
         &#34;&#34;&#34;
-        X = X.copy()
-        for j, channel_x in enumerate(X):
-            X[j] = X[j].transformed
-
         x = np.concatenate(X, axis=0)
         if self.is_multioutput:
             chan = [j * np.ones(len(X[j])) for j in range(len(X))]
@@ -515,9 +554,9 @@ class Model:
         if Y is None:
             return x
 
-        Y = Y.copy()
+        Y = list(Y) # shallow copy
         for j, channel_y in enumerate(Y):
-            Y[j] = Y[j].transformed
+            Y[j] = self.dataset[j].Y_transformer.forward(Y[j], X[j])
         y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
@@ -526,7 +565,7 @@ class Model:
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
-            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+            X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             sigma (float): Number of standard deviations to display upwards and downwards.
             transformed (boolean): Return transformed data as used for training.
 
@@ -569,9 +608,9 @@ class Model:
 
         if not transformed:
             for j in range(self.dataset.get_output_dims()):
-                Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
-                Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
-                Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+                Mu[j] = self.dataset[j].Y_transformer.backward(Mu[j], X[j])
+                Lower[j] = self.dataset[j].Y_transformer.backward(Lower[j], X[j])
+                Upper[j] = self.dataset[j].Y_transformer.backward(Upper[j], X[j])
 
         if len(self.dataset) == 1:
             return X[0], Mu[0], Lower[0], Upper[0]
@@ -582,7 +621,7 @@ class Model:
         Evaluate the kernel at K(X1,X2).
 
         Args:
-            X1 (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            X1 (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             X2 (list, dict): Same as X1 if None.
 
         Returns:
@@ -602,14 +641,15 @@ class Model:
             x2 = self._to_kernel_format(X2)
             return self.gpr.K(x1, x2)
 
-    def sample(self, X=None, n=None, predict_y=True, transformed=False):
+    def sample(self, X=None, n=None, predict_y=True, prior=False, transformed=False):
         &#34;&#34;&#34;
         Sample n times from the kernel at input X .
 
         Args:
-            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             n (int): Number of samples.
             predict_y (boolean): Predict data values instead of function values.
+            prior (boolean): Sample from prior instead of posterior.
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
@@ -624,32 +664,29 @@ class Model:
         else:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
-
         samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
 
         i = 0
         Samples = []
         for j in range(self.dataset.get_output_dims()):
-            N = X[j][0].shape[0]
+            N = X[j].shape[0]
             if n is None:
                 sample = np.squeeze(samples[i:i+N])
                 if not transformed:
-                    sample = self.dataset[j].Y.detransform(sample, X[j])
+                    sample = self.dataset[j].Y_transformer.backward(sample, X[j])
                 Samples.append(sample)
             else:
-                ss = []
+                sample = samples[i:i+N,:]
                 for k in range(n):
-                    sample = np.squeeze(samples[i:i+N,k])
                     if not transformed:
-                        sample = self.dataset[j].Y.detransform(sample, X[j])
-                    ss.append(sample)
-                Samples.append(ss)
+                        sample[:,k] = self.dataset[j].Y_transformer.backward(sample[:,k], X[j])
+                Samples.append(sample)
             i += N
         if self.dataset.get_output_dims() == 1:
             return Samples[0]
         return Samples
 
-    def plot_losses(self, title=None, figsize=(18,6), legend=True, errors=True, log=False):
+    def plot_losses(self, title=None, figsize=(12,4), legend=True, errors=True, log=False):
         &#34;&#34;&#34;
         Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.
 
@@ -679,7 +716,7 @@ class Model:
 
         legends = []
         legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
-        if errors and hasattr(self, &#39;errors&#39;):
+        if errors and x.shape[0] == self.errors.shape[0]:
             ax2 = ax.twinx()
             ax2.plot(x, self.errors, c=&#39;k&#39;, ls=&#39;-.&#39;)
             ax2.set_ylabel(&#39;Error&#39;)
@@ -713,14 +750,14 @@ class Model:
         Examples:
             &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
         &#34;&#34;&#34;
-        X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y)
+        X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y, transformed=transformed)
         if len(self.dataset) == 1:
             X = [X]
             Mu = [Mu]
             Lower = [Lower]
             Upper = [Upper]
 
-        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(18,6*len(self.dataset)), squeeze=True, constrained_layout=True)
+        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(12,4*len(self.dataset)), squeeze=False, constrained_layout=True)
         for j, data in enumerate(self.dataset):
             # TODO: ability to plot conditional or marginal distribution to reduce input dims
             if data.get_input_dims() &gt; 2:
@@ -734,14 +771,16 @@ class Model:
                 yl = data.Y[data.mask] - data.Y_err[data.mask]
                 yu = data.Y[data.mask] + data.Y_err[data.mask]
                 if transformed:
-                    yl = data.Y.transform(yl, x)
-                    yu = data.Y.transform(yu, x)
-                ax[j].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor=&#39;lightgray&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
+                    yl = data.Y_transformer.forward(yl, x)
+                    yu = data.Y_transformer.forward(yu, x)
+                x = x.astype(data.X_dtypes[0])
+                ax[j,0].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor=&#39;lightgray&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
 
             # prediction
             idx = np.argsort(X[j][:,0])
-            ax.plot(X[j][idx,0], Mu[j][idx], ls=&#39;:&#39;, color=&#39;blue&#39;, lw=2)
-            ax.fill_between(X[j][idx,0], Lower[j][idx], Upper[j][idx], color=&#39;blue&#39;, alpha=0.3)
+            x = X[j][idx,0].astype(data.X_dtypes[0])
+            ax[j,0].plot(x, Mu[j][idx], ls=&#39;:&#39;, color=&#39;blue&#39;, lw=2)
+            ax[j,0].fill_between(x, Lower[j][idx], Upper[j][idx], color=&#39;blue&#39;, alpha=0.3)
             label = &#39;Posterior Mean&#39;
             legends.append(patches.Rectangle(
                 (1, 1), 1, 1, fill=True, color=&#39;blue&#39;, alpha=0.3, lw=0, label=&#39;95% Error Bars&#39;
@@ -761,43 +800,47 @@ class Model:
 
                 y = data.F(x)
                 if transformed:
-                    y = data.Y.transform(y, x)
+                    y = data.Y_transformer.forward(y, x)
 
-                ax.plot(x, y, &#39;r--&#39;, lw=1)
+                ax[j,0].plot(x, y, &#39;r--&#39;, lw=1)
                 legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
 
             if data.has_test_data():
                 x, y = data.get_test_data(transformed=transformed)
-                ax.plot(x, y, &#39;g.&#39;, ms=10)
+                x = x.astype(data.X_dtypes[0])
+                ax[j,0].plot(x, y, &#39;g.&#39;, ms=10)
                 legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;g&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Latent&#39;))
 
             x, y = data.get_train_data(transformed=transformed)
-            ax.plot(x, y, &#39;r.&#39;, ms=10)
+            x = x.astype(data.X_dtypes[0])
+            ax[j,0].plot(x, y, &#39;r.&#39;, ms=10)
             legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;r&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Observations&#39;))
 
             if 0 &lt; len(data.removed_ranges[0]):
                 for removed_range in data.removed_ranges[0]:
-                    x0 = removed_range[0]
-                    x1 = removed_range[1]
-                    y0 = ax.get_ylim()[0]
-                    y1 = ax.get_ylim()[1]
-                    ax.add_patch(patches.Rectangle(
-                        (x0, y0), x1-x0, y1-y0, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.2, lw=0,
+                    x0 = removed_range[0].astype(data.X_dtypes[0])
+                    x1 = removed_range[1].astype(data.X_dtypes[0])
+                    y0 = ax[j,0].get_ylim()[0]
+                    y1 = ax[j,0].get_ylim()[1]
+                    ax[j,0].add_patch(patches.Rectangle(
+                        (x0, y0), x1-x0, y1-y0, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.4, lw=0,
                     ))
-                legends.append(patches.Rectangle(
-                    (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.5, lw=0, label=&#39;Removed Ranges&#39;
+                legends.insert(0, patches.Rectangle(
+                    (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.4, lw=0, label=&#39;Removed Ranges&#39;
                 ))
 
-            ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
-            ax.set_xlabel(data.X_labels[0])
-            ax.set_ylabel(data.Y_label)
-            ax.set_title(data.name if title is None else title, fontsize=14)
+            xmin = xmin.astype(data.X_dtypes[0])
+            xmax = xmax.astype(data.X_dtypes[0])
+            ax[j,0].set_xlim(xmin-(xmax-xmin)*0.001, xmax+(xmax-xmin)*0.001)
+            ax[j,0].set_xlabel(data.X_labels[0])
+            ax[j,0].set_ylabel(data.Y_label)
+            ax[j,0].set_title(data.name if title is None else title, fontsize=14)
 
-        if legend:
-            ax.legend(handles=legends[::-1])
+            if legend:
+                ax[j,0].legend(handles=legends[::-1])
         return fig, ax
 
-    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(18,18)):
+    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         &#34;&#34;&#34;
         Plot the gram matrix of associated kernel.
 
@@ -816,9 +859,9 @@ class Model:
             raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
 
         if start is None:
-            start = [channel.X.transformed.min() for channel in self.dataset]
+            start = [channel.X.min() for channel in self.dataset]
         if end is None:
-            end = [channel.X.transformed.max() for channel in self.dataset]
+            end = [channel.X.max() for channel in self.dataset]
 
         output_dims = len(self.dataset)
         if not isinstance(start, (list, np.ndarray)):
@@ -859,7 +902,7 @@ class Model:
         ax.tick_params(axis=&#39;both&#39;, which=&#39;both&#39;, length=0)
         return fig, ax
 
-    def plot_kernel(self, dist=None, n=101, title=None, figsize=(18,18)):
+    def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
         &#34;&#34;&#34;
         Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.
 
@@ -877,7 +920,7 @@ class Model:
             raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
 
         if dist is None:
-            dist = [(channel.X.transformed.max()-channel.X.transformed.min())/4.0 for channel in self.dataset]
+            dist = [(channel.X.max()-channel.X.min())/4.0 for channel in self.dataset]
 
         output_dims = len(self.dataset)
         if not isinstance(dist, (list, np.ndarray)):
@@ -900,6 +943,43 @@ class Model:
                 k = self.gpr.K(X0,X1)
                 ax[j,i].plot(tau, k, color=&#39;k&#39;)
                 ax[j,i].set_yticks([])
+        return fig, ax
+
+    def plot_correlation(self, title=None, figsize=(12,12)):
+        &#34;&#34;&#34;
+        Plot the correlation matrix between each channel.
+
+        Args:
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        &#34;&#34;&#34;
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        output_dims = len(self.dataset)
+        X = np.zeros((output_dims, 2))
+        X[:,0] = np.arange(output_dims)
+        K = self.gpr.K(X)
+
+        # normalise
+        diag_sqrt = np.sqrt(np.diag(K))
+        K /= np.outer(diag_sqrt, diag_sqrt)
+
+        im = ax.matshow(K, cmap=&#39;coolwarm&#39;, vmin=-1.0, vmax=1.0)
+        for (i, j), z in np.ndenumerate(K):
+            ax.text(j, i, &#39;{:0.3f}&#39;.format(z), ha=&#39;center&#39;, va=&#39;center&#39;, fontsize=14,
+                    bbox=dict(boxstyle=&#39;round&#39;, facecolor=&#39;white&#39;, alpha=0.5, edgecolor=&#39;0.9&#39;))
+
+        ax.set_xticks(range(output_dims))
+        ax.set_xticklabels(self.dataset.get_names(), fontsize=14)
+        ax.set_yticks(range(output_dims))
+        ax.set_yticklabels(self.dataset.get_names(), fontsize=14)
+        ax.xaxis.set_ticks_position(&#39;top&#39;)
         return fig, ax
 
 def _format_duration(s):
@@ -958,7 +1038,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L20-L32" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L20-L32" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -996,7 +1076,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L34-L60" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L34-L58" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
@@ -1022,8 +1102,6 @@ def _format_time(s):
         if data_variance is None and y_err is not None:
             data_variance = y_err**2
         model = gpr.Exact(kernel, x, y, variance=variance, data_variance=data_variance, jitter=self.jitter, mean=mean, name=name)
-        if data_variance is not None:
-            model.likelihood.scale.assign(0.0, trainable=False)
         return model</code></pre>
 </details>
 </dd>
@@ -1047,7 +1125,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L117-L136" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L115-L134" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman:
     &#34;&#34;&#34;
@@ -1073,7 +1151,7 @@ def _format_time(s):
 </dd>
 <dt id="mogptk.model.Model"><code class="flex name class">
 <span>class <span class="ident">Model</span></span>
-<span>(</span><span>dataset, kernel, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name=None)</span>
+<span>(</span><span>dataset, kernel, model=&lt;mogptk.model.Exact object&gt;, mean=None, name=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Model is the base class for multi-output Gaussian process models.</p>
@@ -1084,7 +1162,7 @@ def _format_time(s):
 <dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="gpr/kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
 <dd>The kernel class.</dd>
 <dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code><a title="mogptk.model.Exact" href="#mogptk.model.Exact">Exact</a></code>.</dd>
+<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -1092,30 +1170,30 @@ def _format_time(s):
 </dl>
 <h2 id="atributes">Atributes</h2>
 <p>dataset (mogptk.dataset.DataSet): Dataset.
-gpr (The mogptk.gpr.model.Model): GPR model.
+gpr (mogptk.gpr.model.Model): GPR model.
 times (numpy.ndarray): Training times of shape (iters,).
 losses (numpy.ndarray): Losses of shape (iters,).
 errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L138-L872" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L136-L952" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
-    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
+    def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
         &#34;&#34;&#34;
         Model is the base class for multi-output Gaussian process models.
 
         Args:
             dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
             kernel (mogptk.gpr.kernel.Kernel): The kernel class.
-            model: Gaussian process model to use, such as `mogptk.model.Exact`.
+            model: Gaussian process model to use, such as `mogptk.Exact`.
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
 
         Atributes:
             dataset (mogptk.dataset.DataSet): Dataset.
-            gpr (The mogptk.gpr.model.Model): GPR model.
+            gpr (mogptk.gpr.model.Model): GPR model.
             times (numpy.ndarray): Training times of shape (iters,).
             losses (numpy.ndarray): Losses of shape (iters,).
             errors (numpy.ndarray): Errors of shape (iters,).
@@ -1129,13 +1207,13 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         if len(set(names)) != len(names):
             raise ValueError(&#34;all data channels must have unique names&#34;)
 
-        for channel in dataset:
-            for dim in range(channel.get_input_dims()):
-                xran = np.max(channel.X.transformed[:,dim]) - np.min(channel.X.transformed[:,dim])
-                if xran &lt; 1e-3:
-                    logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X axis&#34;)
-                elif 1e4 &lt; xran:
-                    logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X axis&#34;)
+        #for j, channel in enumerate(dataset):
+        #    for dim in range(channel.get_input_dims()):
+        #        xran = np.max(channel.X[:,dim]) - np.min(channel.X[:,dim])
+        #        if xran &lt; 1e-3:
+        #            logger.warning(&#34;Very small X range may give problems, it is suggested to scale up your X axis for channel %d&#34; % j)
+        #        elif 1e4 &lt; xran:
+        #            logger.warning(&#34;Very large X range may give problems, it is suggested to scale down your X axis for channel %d&#34; % j)
 
         self.name = name
         self.dataset = dataset
@@ -1146,14 +1224,13 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
         y_err = None
         if all(channel.Y_err is not None for channel in self.dataset):
-            # TODO: doesn&#39;t transform...
-            Y_err = [np.array(channel.Y_err[channel.mask]) for channel in self.dataset]
-            Y_err_lower = [self.dataset[j].Y.transform(Y[j] - Y_err[j], X[j]) for j in range(len(self.dataset))]
-            Y_err_upper = [self.dataset[j].Y.transform(Y[j] + Y_err[j], X[j]) for j in range(len(self.dataset))]
+            Y_err = [channel.Y_err[channel.mask] for channel in self.dataset]
+            Y_err_lower = [self.dataset[j].Y_transformer.forward(Y[j] - Y_err[j], X[j]) for j in range(len(self.dataset))]
+            Y_err_upper = [self.dataset[j].Y_transformer.forward(Y[j] + Y_err[j], X[j]) for j in range(len(self.dataset))]
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
-        self.gpr = inference._build(kernel, x, y, y_err, mean, name)
+        self.gpr = model._build(kernel, x, y, y_err, mean, name)
 
         self.times = np.zeros(0)
         self.losses = np.zeros(0)
@@ -1191,6 +1268,30 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
         self.gpr.kernel.copy_parameters(other.kernel)
 
+    def num_parameters(self):
+        &#34;&#34;&#34;
+        Returns the number of trainable parameters.
+
+        Returns:
+            int: Number of parameters.
+
+        Examples:
+            &gt;&gt;&gt; n = model.num_parameters()
+        &#34;&#34;&#34;
+        return sum([p.num_parameters if p.train else 0 for p in self.gpr.get_parameters()])
+
+    def num_training_points(self):
+        &#34;&#34;&#34;
+        Returns the number of training data points.
+
+        Returns:
+            int: Number of data points.
+
+        Examples:
+            &gt;&gt;&gt; n = model.num_training_points()
+        &#34;&#34;&#34;
+        return sum([len(channel.get_train_data()[1]) for channel in self.dataset])
+
     def save(self, filename):
         &#34;&#34;&#34;
         Save the model to a given file that can then be loaded using `LoadModel()`.
@@ -1211,7 +1312,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
     def log_marginal_likelihood(self):
         &#34;&#34;&#34;
-        Returns the log marginal likelihood of the kernel and its data and parameters.
+        Returns the log marginal likelihood of the kernel and its data and parameters. When using the exact model the calculation of the log marginal likelihood is tractable and thus exact. For other models this is an approximation of the real log marginal likelihood.
 
         Returns:
             float: The current log marginal likelihood.
@@ -1220,6 +1321,30 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             &gt;&gt;&gt; model.log_marginal_likelihood()
         &#34;&#34;&#34;
         return self.gpr.log_marginal_likelihood().detach().cpu().item()
+
+    def BIC(self):
+        &#34;&#34;&#34;
+        Returns the Bayesian information criterion.
+
+        Returns:
+            float: BIC.
+
+        Examples:
+            &gt;&gt;&gt; model.BIC()
+        &#34;&#34;&#34;
+        return self.num_parameters()*np.log(self.num_training_points()) - 2.0*self.log_marginal_likelihood()
+
+    def AIC(self):
+        &#34;&#34;&#34;
+        Returns the Akaike information criterion.
+
+        Returns:
+            float: AIC.
+
+        Examples:
+            &gt;&gt;&gt; model.AIC()
+        &#34;&#34;&#34;
+        return 2.0*self.num_parameters() - 2.0*self.log_marginal_likelihood()
 
     def loss(self):
         &#34;&#34;&#34;
@@ -1251,7 +1376,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             return method(self)
 
         # get data
-        if use_all_data:
+        if use_all_data or not any(self.dataset.has_test_data()):
             X, Y_true = self.dataset.get_data()
         else:
             X, Y_true = self.dataset.get_test_data()
@@ -1265,7 +1390,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         Y_pred = []
         for j in range(self.dataset.get_output_dims()):
             N = X[j].shape[0]
-            Y_pred.append(self.dataset[j].Y.detransform(np.squeeze(y_pred[i:i+N]), X[j]))
+            Y_pred.append(self.dataset[j].Y_transformer.backward(np.squeeze(y_pred[i:i+N]), X[j]))
             i += N
 
         # flatten
@@ -1341,14 +1466,12 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             raise ValueError(&#39;optimizer must be LBFGS, Adam, SGD, or AdaGrad&#39;)
 
         if verbose:
-            training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
-            parameters = sum([p.num_parameters if p.trainable else 0 for p in self.gpr.get_parameters()])
             print(&#39;\nStarting optimization using&#39;, method)
             if self.name is not None:
                 print(&#39;‣ Model: %s&#39; % self.name)
             print(&#39;‣ Channels: %d&#39; % len(self.dataset))
-            print(&#39;‣ Parameters: %d&#39; % parameters)
-            print(&#39;‣ Training points: %d&#39; % training_points)
+            print(&#39;‣ Parameters: %d&#39; % self.num_parameters())
+            print(&#39;‣ Training points: %d&#39; % self.num_training_points())
             print(&#39;‣ Initial loss: %6g&#39; % self.loss())
             if error is not None:
                 print(&#39;‣ Initial error: %6g&#39; % self.error(error, error_use_all_data))
@@ -1438,10 +1561,6 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             numpy.ndarray: Y data of shape (data_points,1).
             numpy.ndarray: Original but normalized X data. Only if no Y is passed.
         &#34;&#34;&#34;
-        X = X.copy()
-        for j, channel_x in enumerate(X):
-            X[j] = X[j].transformed
-
         x = np.concatenate(X, axis=0)
         if self.is_multioutput:
             chan = [j * np.ones(len(X[j])) for j in range(len(X))]
@@ -1450,9 +1569,9 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         if Y is None:
             return x
 
-        Y = Y.copy()
+        Y = list(Y) # shallow copy
         for j, channel_y in enumerate(Y):
-            Y[j] = Y[j].transformed
+            Y[j] = self.dataset[j].Y_transformer.forward(Y[j], X[j])
         y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
@@ -1461,7 +1580,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
-            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+            X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             sigma (float): Number of standard deviations to display upwards and downwards.
             transformed (boolean): Return transformed data as used for training.
 
@@ -1504,9 +1623,9 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
         if not transformed:
             for j in range(self.dataset.get_output_dims()):
-                Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
-                Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
-                Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+                Mu[j] = self.dataset[j].Y_transformer.backward(Mu[j], X[j])
+                Lower[j] = self.dataset[j].Y_transformer.backward(Lower[j], X[j])
+                Upper[j] = self.dataset[j].Y_transformer.backward(Upper[j], X[j])
 
         if len(self.dataset) == 1:
             return X[0], Mu[0], Lower[0], Upper[0]
@@ -1517,7 +1636,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         Evaluate the kernel at K(X1,X2).
 
         Args:
-            X1 (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            X1 (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             X2 (list, dict): Same as X1 if None.
 
         Returns:
@@ -1537,14 +1656,15 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             x2 = self._to_kernel_format(X2)
             return self.gpr.K(x1, x2)
 
-    def sample(self, X=None, n=None, predict_y=True, transformed=False):
+    def sample(self, X=None, n=None, predict_y=True, prior=False, transformed=False):
         &#34;&#34;&#34;
         Sample n times from the kernel at input X .
 
         Args:
-            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             n (int): Number of samples.
             predict_y (boolean): Predict data values instead of function values.
+            prior (boolean): Sample from prior instead of posterior.
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
@@ -1559,32 +1679,29 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         else:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
-
         samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
 
         i = 0
         Samples = []
         for j in range(self.dataset.get_output_dims()):
-            N = X[j][0].shape[0]
+            N = X[j].shape[0]
             if n is None:
                 sample = np.squeeze(samples[i:i+N])
                 if not transformed:
-                    sample = self.dataset[j].Y.detransform(sample, X[j])
+                    sample = self.dataset[j].Y_transformer.backward(sample, X[j])
                 Samples.append(sample)
             else:
-                ss = []
+                sample = samples[i:i+N,:]
                 for k in range(n):
-                    sample = np.squeeze(samples[i:i+N,k])
                     if not transformed:
-                        sample = self.dataset[j].Y.detransform(sample, X[j])
-                    ss.append(sample)
-                Samples.append(ss)
+                        sample[:,k] = self.dataset[j].Y_transformer.backward(sample[:,k], X[j])
+                Samples.append(sample)
             i += N
         if self.dataset.get_output_dims() == 1:
             return Samples[0]
         return Samples
 
-    def plot_losses(self, title=None, figsize=(18,6), legend=True, errors=True, log=False):
+    def plot_losses(self, title=None, figsize=(12,4), legend=True, errors=True, log=False):
         &#34;&#34;&#34;
         Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.
 
@@ -1614,7 +1731,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
         legends = []
         legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
-        if errors and hasattr(self, &#39;errors&#39;):
+        if errors and x.shape[0] == self.errors.shape[0]:
             ax2 = ax.twinx()
             ax2.plot(x, self.errors, c=&#39;k&#39;, ls=&#39;-.&#39;)
             ax2.set_ylabel(&#39;Error&#39;)
@@ -1648,14 +1765,14 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         Examples:
             &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
         &#34;&#34;&#34;
-        X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y)
+        X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y, transformed=transformed)
         if len(self.dataset) == 1:
             X = [X]
             Mu = [Mu]
             Lower = [Lower]
             Upper = [Upper]
 
-        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(18,6*len(self.dataset)), squeeze=True, constrained_layout=True)
+        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(12,4*len(self.dataset)), squeeze=False, constrained_layout=True)
         for j, data in enumerate(self.dataset):
             # TODO: ability to plot conditional or marginal distribution to reduce input dims
             if data.get_input_dims() &gt; 2:
@@ -1669,14 +1786,16 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
                 yl = data.Y[data.mask] - data.Y_err[data.mask]
                 yu = data.Y[data.mask] + data.Y_err[data.mask]
                 if transformed:
-                    yl = data.Y.transform(yl, x)
-                    yu = data.Y.transform(yu, x)
-                ax[j].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor=&#39;lightgray&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
+                    yl = data.Y_transformer.forward(yl, x)
+                    yu = data.Y_transformer.forward(yu, x)
+                x = x.astype(data.X_dtypes[0])
+                ax[j,0].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor=&#39;lightgray&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
 
             # prediction
             idx = np.argsort(X[j][:,0])
-            ax.plot(X[j][idx,0], Mu[j][idx], ls=&#39;:&#39;, color=&#39;blue&#39;, lw=2)
-            ax.fill_between(X[j][idx,0], Lower[j][idx], Upper[j][idx], color=&#39;blue&#39;, alpha=0.3)
+            x = X[j][idx,0].astype(data.X_dtypes[0])
+            ax[j,0].plot(x, Mu[j][idx], ls=&#39;:&#39;, color=&#39;blue&#39;, lw=2)
+            ax[j,0].fill_between(x, Lower[j][idx], Upper[j][idx], color=&#39;blue&#39;, alpha=0.3)
             label = &#39;Posterior Mean&#39;
             legends.append(patches.Rectangle(
                 (1, 1), 1, 1, fill=True, color=&#39;blue&#39;, alpha=0.3, lw=0, label=&#39;95% Error Bars&#39;
@@ -1696,43 +1815,47 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
                 y = data.F(x)
                 if transformed:
-                    y = data.Y.transform(y, x)
+                    y = data.Y_transformer.forward(y, x)
 
-                ax.plot(x, y, &#39;r--&#39;, lw=1)
+                ax[j,0].plot(x, y, &#39;r--&#39;, lw=1)
                 legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
 
             if data.has_test_data():
                 x, y = data.get_test_data(transformed=transformed)
-                ax.plot(x, y, &#39;g.&#39;, ms=10)
+                x = x.astype(data.X_dtypes[0])
+                ax[j,0].plot(x, y, &#39;g.&#39;, ms=10)
                 legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;g&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Latent&#39;))
 
             x, y = data.get_train_data(transformed=transformed)
-            ax.plot(x, y, &#39;r.&#39;, ms=10)
+            x = x.astype(data.X_dtypes[0])
+            ax[j,0].plot(x, y, &#39;r.&#39;, ms=10)
             legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;r&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Observations&#39;))
 
             if 0 &lt; len(data.removed_ranges[0]):
                 for removed_range in data.removed_ranges[0]:
-                    x0 = removed_range[0]
-                    x1 = removed_range[1]
-                    y0 = ax.get_ylim()[0]
-                    y1 = ax.get_ylim()[1]
-                    ax.add_patch(patches.Rectangle(
-                        (x0, y0), x1-x0, y1-y0, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.2, lw=0,
+                    x0 = removed_range[0].astype(data.X_dtypes[0])
+                    x1 = removed_range[1].astype(data.X_dtypes[0])
+                    y0 = ax[j,0].get_ylim()[0]
+                    y1 = ax[j,0].get_ylim()[1]
+                    ax[j,0].add_patch(patches.Rectangle(
+                        (x0, y0), x1-x0, y1-y0, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.4, lw=0,
                     ))
-                legends.append(patches.Rectangle(
-                    (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.5, lw=0, label=&#39;Removed Ranges&#39;
+                legends.insert(0, patches.Rectangle(
+                    (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.4, lw=0, label=&#39;Removed Ranges&#39;
                 ))
 
-            ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
-            ax.set_xlabel(data.X_labels[0])
-            ax.set_ylabel(data.Y_label)
-            ax.set_title(data.name if title is None else title, fontsize=14)
+            xmin = xmin.astype(data.X_dtypes[0])
+            xmax = xmax.astype(data.X_dtypes[0])
+            ax[j,0].set_xlim(xmin-(xmax-xmin)*0.001, xmax+(xmax-xmin)*0.001)
+            ax[j,0].set_xlabel(data.X_labels[0])
+            ax[j,0].set_ylabel(data.Y_label)
+            ax[j,0].set_title(data.name if title is None else title, fontsize=14)
 
-        if legend:
-            ax.legend(handles=legends[::-1])
+            if legend:
+                ax[j,0].legend(handles=legends[::-1])
         return fig, ax
 
-    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(18,18)):
+    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         &#34;&#34;&#34;
         Plot the gram matrix of associated kernel.
 
@@ -1751,9 +1874,9 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
 
         if start is None:
-            start = [channel.X.transformed.min() for channel in self.dataset]
+            start = [channel.X.min() for channel in self.dataset]
         if end is None:
-            end = [channel.X.transformed.max() for channel in self.dataset]
+            end = [channel.X.max() for channel in self.dataset]
 
         output_dims = len(self.dataset)
         if not isinstance(start, (list, np.ndarray)):
@@ -1794,7 +1917,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         ax.tick_params(axis=&#39;both&#39;, which=&#39;both&#39;, length=0)
         return fig, ax
 
-    def plot_kernel(self, dist=None, n=101, title=None, figsize=(18,18)):
+    def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
         &#34;&#34;&#34;
         Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.
 
@@ -1812,7 +1935,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
 
         if dist is None:
-            dist = [(channel.X.transformed.max()-channel.X.transformed.min())/4.0 for channel in self.dataset]
+            dist = [(channel.X.max()-channel.X.min())/4.0 for channel in self.dataset]
 
         output_dims = len(self.dataset)
         if not isinstance(dist, (list, np.ndarray)):
@@ -1835,6 +1958,43 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
                 k = self.gpr.K(X0,X1)
                 ax[j,i].plot(tau, k, color=&#39;k&#39;)
                 ax[j,i].set_yticks([])
+        return fig, ax
+
+    def plot_correlation(self, title=None, figsize=(12,12)):
+        &#34;&#34;&#34;
+        Plot the correlation matrix between each channel.
+
+        Args:
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        &#34;&#34;&#34;
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        output_dims = len(self.dataset)
+        X = np.zeros((output_dims, 2))
+        X[:,0] = np.arange(output_dims)
+        K = self.gpr.K(X)
+
+        # normalise
+        diag_sqrt = np.sqrt(np.diag(K))
+        K /= np.outer(diag_sqrt, diag_sqrt)
+
+        im = ax.matshow(K, cmap=&#39;coolwarm&#39;, vmin=-1.0, vmax=1.0)
+        for (i, j), z in np.ndenumerate(K):
+            ax.text(j, i, &#39;{:0.3f}&#39;.format(z), ha=&#39;center&#39;, va=&#39;center&#39;, fontsize=14,
+                    bbox=dict(boxstyle=&#39;round&#39;, facecolor=&#39;white&#39;, alpha=0.5, edgecolor=&#39;0.9&#39;))
+
+        ax.set_xticks(range(output_dims))
+        ax.set_xticklabels(self.dataset.get_names(), fontsize=14)
+        ax.set_yticks(range(output_dims))
+        ax.set_yticklabels(self.dataset.get_names(), fontsize=14)
+        ax.xaxis.set_ticks_position(&#39;top&#39;)
         return fig, ax</code></pre>
 </details>
 <h3>Subclasses</h3>
@@ -1848,6 +2008,68 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 </ul>
 <h3>Methods</h3>
 <dl>
+<dt id="mogptk.model.Model.AIC"><code class="name flex">
+<span>def <span class="ident">AIC</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the Akaike information criterion.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>float</code></dt>
+<dd>AIC.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.AIC()
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L291-L301" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def AIC(self):
+    &#34;&#34;&#34;
+    Returns the Akaike information criterion.
+
+    Returns:
+        float: AIC.
+
+    Examples:
+        &gt;&gt;&gt; model.AIC()
+    &#34;&#34;&#34;
+    return 2.0*self.num_parameters() - 2.0*self.log_marginal_likelihood()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.BIC"><code class="name flex">
+<span>def <span class="ident">BIC</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the Bayesian information criterion.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>float</code></dt>
+<dd>BIC.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; model.BIC()
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L279-L289" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def BIC(self):
+    &#34;&#34;&#34;
+    Returns the Bayesian information criterion.
+
+    Returns:
+        float: BIC.
+
+    Examples:
+        &gt;&gt;&gt; model.BIC()
+    &#34;&#34;&#34;
+    return self.num_parameters()*np.log(self.num_training_points()) - 2.0*self.log_marginal_likelihood()</code></pre>
+</details>
+</dd>
 <dt id="mogptk.model.Model.K"><code class="name flex">
 <span>def <span class="ident">K</span></span>(<span>self, X1, X2=None)</span>
 </code></dt>
@@ -1856,7 +2078,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>X1</code></strong> :&ensp;<code>list, dict</code></dt>
-<dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs.</dd>
+<dd>Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
 <dt><strong><code>X2</code></strong> :&ensp;<code>list, dict</code></dt>
 <dd>Same as X1 if None.</dd>
 </dl>
@@ -1873,14 +2095,14 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L549-L572" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L588-L611" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
     Evaluate the kernel at K(X1,X2).
 
     Args:
-        X1 (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+        X1 (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
         X2 (list, dict): Same as X1 if None.
 
     Returns:
@@ -1909,7 +2131,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L219-L226" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L216-L223" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy_parameters(self, other):
     &#34;&#34;&#34;
@@ -1942,7 +2164,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L270-L322" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L315-L367" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;, use_all_data=False):
     &#34;&#34;&#34;
@@ -1962,7 +2184,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         return method(self)
 
     # get data
-    if use_all_data:
+    if use_all_data or not any(self.dataset.has_test_data()):
         X, Y_true = self.dataset.get_data()
     else:
         X, Y_true = self.dataset.get_test_data()
@@ -1976,7 +2198,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     Y_pred = []
     for j in range(self.dataset.get_output_dims()):
         N = X[j].shape[0]
-        Y_pred.append(self.dataset[j].Y.detransform(np.squeeze(y_pred[i:i+N]), X[j]))
+        Y_pred.append(self.dataset[j].Y_transformer.backward(np.squeeze(y_pred[i:i+N]), X[j]))
         i += N
 
     # flatten
@@ -2015,7 +2237,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L207-L217" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L204-L214" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -2034,7 +2256,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <span>def <span class="ident">log_marginal_likelihood</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns the log marginal likelihood of the kernel and its data and parameters.</p>
+<div class="desc"><p>Returns the log marginal likelihood of the kernel and its data and parameters. When using the exact model the calculation of the log marginal likelihood is tractable and thus exact. For other models this is an approximation of the real log marginal likelihood.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>float</code></dt>
@@ -2046,11 +2268,11 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L246-L256" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L267-L277" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
-    Returns the log marginal likelihood of the kernel and its data and parameters.
+    Returns the log marginal likelihood of the kernel and its data and parameters. When using the exact model the calculation of the log marginal likelihood is tractable and thus exact. For other models this is an approximation of the real log marginal likelihood.
 
     Returns:
         float: The current log marginal likelihood.
@@ -2077,7 +2299,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L258-L268" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L303-L313" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -2092,8 +2314,132 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     return self.gpr.loss().detach().cpu().item()</code></pre>
 </details>
 </dd>
+<dt id="mogptk.model.Model.num_parameters"><code class="name flex">
+<span>def <span class="ident">num_parameters</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the number of trainable parameters.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>int</code></dt>
+<dd>Number of parameters.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; n = model.num_parameters()
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L225-L235" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def num_parameters(self):
+    &#34;&#34;&#34;
+    Returns the number of trainable parameters.
+
+    Returns:
+        int: Number of parameters.
+
+    Examples:
+        &gt;&gt;&gt; n = model.num_parameters()
+    &#34;&#34;&#34;
+    return sum([p.num_parameters if p.train else 0 for p in self.gpr.get_parameters()])</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.num_training_points"><code class="name flex">
+<span>def <span class="ident">num_training_points</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the number of training data points.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>int</code></dt>
+<dd>Number of data points.</dd>
+</dl>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; n = model.num_training_points()
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L237-L247" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def num_training_points(self):
+    &#34;&#34;&#34;
+    Returns the number of training data points.
+
+    Returns:
+        int: Number of data points.
+
+    Examples:
+        &gt;&gt;&gt; n = model.num_training_points()
+    &#34;&#34;&#34;
+    return sum([len(channel.get_train_data()[1]) for channel in self.dataset])</code></pre>
+</details>
+</dd>
+<dt id="mogptk.model.Model.plot_correlation"><code class="name flex">
+<span>def <span class="ident">plot_correlation</span></span>(<span>self, title=None, figsize=(12, 12))</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Plot the correlation matrix between each channel.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
+<dd>Figure title.</dd>
+<dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code></dt>
+<dd>Figure size.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>figure</code></dt>
+<dd>Matplotlib figure.</dd>
+<dt><code>axis</code></dt>
+<dd>Matplotlib axis.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L917-L952" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def plot_correlation(self, title=None, figsize=(12,12)):
+    &#34;&#34;&#34;
+    Plot the correlation matrix between each channel.
+
+    Args:
+        title (str): Figure title.
+        figsize (tuple): Figure size.
+
+    Returns:
+        figure: Matplotlib figure.
+        axis: Matplotlib axis.
+    &#34;&#34;&#34;
+    fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+    if title is not None:
+        fig.suptitle(title, fontsize=18)
+
+    output_dims = len(self.dataset)
+    X = np.zeros((output_dims, 2))
+    X[:,0] = np.arange(output_dims)
+    K = self.gpr.K(X)
+
+    # normalise
+    diag_sqrt = np.sqrt(np.diag(K))
+    K /= np.outer(diag_sqrt, diag_sqrt)
+
+    im = ax.matshow(K, cmap=&#39;coolwarm&#39;, vmin=-1.0, vmax=1.0)
+    for (i, j), z in np.ndenumerate(K):
+        ax.text(j, i, &#39;{:0.3f}&#39;.format(z), ha=&#39;center&#39;, va=&#39;center&#39;, fontsize=14,
+                bbox=dict(boxstyle=&#39;round&#39;, facecolor=&#39;white&#39;, alpha=0.5, edgecolor=&#39;0.9&#39;))
+
+    ax.set_xticks(range(output_dims))
+    ax.set_xticklabels(self.dataset.get_names(), fontsize=14)
+    ax.set_yticks(range(output_dims))
+    ax.set_yticklabels(self.dataset.get_names(), fontsize=14)
+    ax.xaxis.set_ticks_position(&#39;top&#39;)
+    return fig, ax</code></pre>
+</details>
+</dd>
 <dt id="mogptk.model.Model.plot_gram"><code class="name flex">
-<span>def <span class="ident">plot_gram</span></span>(<span>self, start=None, end=None, n=31, title=None, figsize=(18, 18))</span>
+<span>def <span class="ident">plot_gram</span></span>(<span>self, start=None, end=None, n=31, title=None, figsize=(12, 12))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot the gram matrix of associated kernel.</p>
@@ -2120,9 +2466,9 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L769-L829" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L812-L872" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(18,18)):
+<pre><code class="python">def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
     Plot the gram matrix of associated kernel.
 
@@ -2141,9 +2487,9 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
 
     if start is None:
-        start = [channel.X.transformed.min() for channel in self.dataset]
+        start = [channel.X.min() for channel in self.dataset]
     if end is None:
-        end = [channel.X.transformed.max() for channel in self.dataset]
+        end = [channel.X.max() for channel in self.dataset]
 
     output_dims = len(self.dataset)
     if not isinstance(start, (list, np.ndarray)):
@@ -2186,7 +2532,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 </details>
 </dd>
 <dt id="mogptk.model.Model.plot_kernel"><code class="name flex">
-<span>def <span class="ident">plot_kernel</span></span>(<span>self, dist=None, n=101, title=None, figsize=(18, 18))</span>
+<span>def <span class="ident">plot_kernel</span></span>(<span>self, dist=None, n=101, title=None, figsize=(12, 12))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.</p>
@@ -2211,9 +2557,9 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L831-L872" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L874-L915" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_kernel(self, dist=None, n=101, title=None, figsize=(18,18)):
+<pre><code class="python">def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
     Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.
 
@@ -2231,7 +2577,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         raise ValueError(&#34;cannot plot for more than one input dimension&#34;)
 
     if dist is None:
-        dist = [(channel.X.transformed.max()-channel.X.transformed.min())/4.0 for channel in self.dataset]
+        dist = [(channel.X.max()-channel.X.min())/4.0 for channel in self.dataset]
 
     output_dims = len(self.dataset)
     if not isinstance(dist, (list, np.ndarray)):
@@ -2258,7 +2604,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 </details>
 </dd>
 <dt id="mogptk.model.Model.plot_losses"><code class="name flex">
-<span>def <span class="ident">plot_losses</span></span>(<span>self, title=None, figsize=(18, 6), legend=True, errors=True, log=False)</span>
+<span>def <span class="ident">plot_losses</span></span>(<span>self, title=None, figsize=(12, 4), legend=True, errors=True, log=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.</p>
@@ -2285,9 +2631,9 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L621-L664" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L658-L701" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_losses(self, title=None, figsize=(18,6), legend=True, errors=True, log=False):
+<pre><code class="python">def plot_losses(self, title=None, figsize=(12,4), legend=True, errors=True, log=False):
     &#34;&#34;&#34;
     Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.
 
@@ -2317,7 +2663,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
     legends = []
     legends.append(plt.Line2D([0], [0], ls=&#39;-&#39;, color=&#39;k&#39;, label=&#39;Loss&#39;))
-    if errors and hasattr(self, &#39;errors&#39;):
+    if errors and x.shape[0] == self.errors.shape[0]:
         ax2 = ax.twinx()
         ax2.plot(x, self.errors, c=&#39;k&#39;, ls=&#39;-.&#39;)
         ax2.set_ylabel(&#39;Error&#39;)
@@ -2366,7 +2712,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L666-L767" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L703-L810" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, predict_y=True, transformed=False):
     &#34;&#34;&#34;
@@ -2387,14 +2733,14 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     Examples:
         &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
     &#34;&#34;&#34;
-    X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y)
+    X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y, transformed=transformed)
     if len(self.dataset) == 1:
         X = [X]
         Mu = [Mu]
         Lower = [Lower]
         Upper = [Upper]
 
-    fig, ax = plt.subplots(len(self.dataset), 1, figsize=(18,6*len(self.dataset)), squeeze=True, constrained_layout=True)
+    fig, ax = plt.subplots(len(self.dataset), 1, figsize=(12,4*len(self.dataset)), squeeze=False, constrained_layout=True)
     for j, data in enumerate(self.dataset):
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if data.get_input_dims() &gt; 2:
@@ -2408,14 +2754,16 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             yl = data.Y[data.mask] - data.Y_err[data.mask]
             yu = data.Y[data.mask] + data.Y_err[data.mask]
             if transformed:
-                yl = data.Y.transform(yl, x)
-                yu = data.Y.transform(yu, x)
-            ax[j].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor=&#39;lightgray&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
+                yl = data.Y_transformer.forward(yl, x)
+                yu = data.Y_transformer.forward(yu, x)
+            x = x.astype(data.X_dtypes[0])
+            ax[j,0].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor=&#39;lightgray&#39;, capsize=0, ls=&#39;&#39;, marker=&#39;&#39;)
 
         # prediction
         idx = np.argsort(X[j][:,0])
-        ax.plot(X[j][idx,0], Mu[j][idx], ls=&#39;:&#39;, color=&#39;blue&#39;, lw=2)
-        ax.fill_between(X[j][idx,0], Lower[j][idx], Upper[j][idx], color=&#39;blue&#39;, alpha=0.3)
+        x = X[j][idx,0].astype(data.X_dtypes[0])
+        ax[j,0].plot(x, Mu[j][idx], ls=&#39;:&#39;, color=&#39;blue&#39;, lw=2)
+        ax[j,0].fill_between(x, Lower[j][idx], Upper[j][idx], color=&#39;blue&#39;, alpha=0.3)
         label = &#39;Posterior Mean&#39;
         legends.append(patches.Rectangle(
             (1, 1), 1, 1, fill=True, color=&#39;blue&#39;, alpha=0.3, lw=0, label=&#39;95% Error Bars&#39;
@@ -2435,40 +2783,44 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
             y = data.F(x)
             if transformed:
-                y = data.Y.transform(y, x)
+                y = data.Y_transformer.forward(y, x)
 
-            ax.plot(x, y, &#39;r--&#39;, lw=1)
+            ax[j,0].plot(x, y, &#39;r--&#39;, lw=1)
             legends.append(plt.Line2D([0], [0], ls=&#39;--&#39;, color=&#39;r&#39;, label=&#39;True&#39;))
 
         if data.has_test_data():
             x, y = data.get_test_data(transformed=transformed)
-            ax.plot(x, y, &#39;g.&#39;, ms=10)
+            x = x.astype(data.X_dtypes[0])
+            ax[j,0].plot(x, y, &#39;g.&#39;, ms=10)
             legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;g&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Latent&#39;))
 
         x, y = data.get_train_data(transformed=transformed)
-        ax.plot(x, y, &#39;r.&#39;, ms=10)
+        x = x.astype(data.X_dtypes[0])
+        ax[j,0].plot(x, y, &#39;r.&#39;, ms=10)
         legends.append(plt.Line2D([0], [0], ls=&#39;&#39;, color=&#39;r&#39;, marker=&#39;.&#39;, ms=10, label=&#39;Observations&#39;))
 
         if 0 &lt; len(data.removed_ranges[0]):
             for removed_range in data.removed_ranges[0]:
-                x0 = removed_range[0]
-                x1 = removed_range[1]
-                y0 = ax.get_ylim()[0]
-                y1 = ax.get_ylim()[1]
-                ax.add_patch(patches.Rectangle(
-                    (x0, y0), x1-x0, y1-y0, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.2, lw=0,
+                x0 = removed_range[0].astype(data.X_dtypes[0])
+                x1 = removed_range[1].astype(data.X_dtypes[0])
+                y0 = ax[j,0].get_ylim()[0]
+                y1 = ax[j,0].get_ylim()[1]
+                ax[j,0].add_patch(patches.Rectangle(
+                    (x0, y0), x1-x0, y1-y0, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.4, lw=0,
                 ))
-            legends.append(patches.Rectangle(
-                (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.5, lw=0, label=&#39;Removed Ranges&#39;
+            legends.insert(0, patches.Rectangle(
+                (1, 1), 1, 1, fill=True, color=&#39;xkcd:strawberry&#39;, alpha=0.4, lw=0, label=&#39;Removed Ranges&#39;
             ))
 
-        ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
-        ax.set_xlabel(data.X_labels[0])
-        ax.set_ylabel(data.Y_label)
-        ax.set_title(data.name if title is None else title, fontsize=14)
+        xmin = xmin.astype(data.X_dtypes[0])
+        xmax = xmax.astype(data.X_dtypes[0])
+        ax[j,0].set_xlim(xmin-(xmax-xmin)*0.001, xmax+(xmax-xmin)*0.001)
+        ax[j,0].set_xlabel(data.X_labels[0])
+        ax[j,0].set_ylabel(data.Y_label)
+        ax[j,0].set_title(data.name if title is None else title, fontsize=14)
 
-    if legend:
-        ax.legend(handles=legends[::-1])
+        if legend:
+            ax[j,0].legend(handles=legends[::-1])
     return fig, ax</code></pre>
 </details>
 </dd>
@@ -2480,7 +2832,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>X</code></strong> :&ensp;<code>list, dict</code></dt>
-<dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.</dd>
+<dd>Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
 <dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
 <dd>Number of standard deviations to display upwards and downwards.</dd>
 <dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
@@ -2503,14 +2855,14 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L493-L547" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L532-L586" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=2, transformed=False, predict_y=True):
     &#34;&#34;&#34;
     Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
     Args:
-        X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+        X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
         sigma (float): Number of standard deviations to display upwards and downwards.
         transformed (boolean): Return transformed data as used for training.
 
@@ -2553,9 +2905,9 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 
     if not transformed:
         for j in range(self.dataset.get_output_dims()):
-            Mu[j] = self.dataset[j].Y.detransform(Mu[j], X[j])
-            Lower[j] = self.dataset[j].Y.detransform(Lower[j], X[j])
-            Upper[j] = self.dataset[j].Y.detransform(Upper[j], X[j])
+            Mu[j] = self.dataset[j].Y_transformer.backward(Mu[j], X[j])
+            Lower[j] = self.dataset[j].Y_transformer.backward(Lower[j], X[j])
+            Upper[j] = self.dataset[j].Y_transformer.backward(Upper[j], X[j])
 
     if len(self.dataset) == 1:
         return X[0], Mu[0], Lower[0], Upper[0]
@@ -2573,7 +2925,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L198-L205" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L195-L202" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -2586,18 +2938,20 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 </details>
 </dd>
 <dt id="mogptk.model.Model.sample"><code class="name flex">
-<span>def <span class="ident">sample</span></span>(<span>self, X=None, n=None, predict_y=True, transformed=False)</span>
+<span>def <span class="ident">sample</span></span>(<span>self, X=None, n=None, predict_y=True, prior=False, transformed=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sample n times from the kernel at input X .</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>X</code></strong> :&ensp;<code>list, dict</code></dt>
-<dd>Dictionary where keys are channel index and elements numpy arrays with channel inputs.</dd>
+<dd>Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of samples.</dd>
 <dt><strong><code>predict_y</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Predict data values instead of function values.</dd>
+<dt><strong><code>prior</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Sample from prior instead of posterior.</dd>
 <dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data as used for training.</dd>
 </dl>
@@ -2614,16 +2968,17 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L574-L619" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L613-L656" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def sample(self, X=None, n=None, predict_y=True, transformed=False):
+<pre><code class="python">def sample(self, X=None, n=None, predict_y=True, prior=False, transformed=False):
     &#34;&#34;&#34;
     Sample n times from the kernel at input X .
 
     Args:
-        X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+        X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
         n (int): Number of samples.
         predict_y (boolean): Predict data values instead of function values.
+        prior (boolean): Sample from prior instead of posterior.
         transformed (boolean): Return transformed data as used for training.
 
     Returns:
@@ -2638,26 +2993,23 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     else:
         X = self.dataset._format_X(X)
     x = self._to_kernel_format(X)
-
     samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
 
     i = 0
     Samples = []
     for j in range(self.dataset.get_output_dims()):
-        N = X[j][0].shape[0]
+        N = X[j].shape[0]
         if n is None:
             sample = np.squeeze(samples[i:i+N])
             if not transformed:
-                sample = self.dataset[j].Y.detransform(sample, X[j])
+                sample = self.dataset[j].Y_transformer.backward(sample, X[j])
             Samples.append(sample)
         else:
-            ss = []
+            sample = samples[i:i+N,:]
             for k in range(n):
-                sample = np.squeeze(samples[i:i+N,k])
                 if not transformed:
-                    sample = self.dataset[j].Y.detransform(sample, X[j])
-                ss.append(sample)
-            Samples.append(ss)
+                    sample[:,k] = self.dataset[j].Y_transformer.backward(sample[:,k], X[j])
+            Samples.append(sample)
         i += N
     if self.dataset.get_output_dims() == 1:
         return Samples[0]
@@ -2680,7 +3032,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L228-L244" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L249-L265" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -2738,7 +3090,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L324-L460" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L369-L503" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -2794,14 +3146,12 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         raise ValueError(&#39;optimizer must be LBFGS, Adam, SGD, or AdaGrad&#39;)
 
     if verbose:
-        training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
-        parameters = sum([p.num_parameters if p.trainable else 0 for p in self.gpr.get_parameters()])
         print(&#39;\nStarting optimization using&#39;, method)
         if self.name is not None:
             print(&#39;‣ Model: %s&#39; % self.name)
         print(&#39;‣ Channels: %d&#39; % len(self.dataset))
-        print(&#39;‣ Parameters: %d&#39; % parameters)
-        print(&#39;‣ Training points: %d&#39; % training_points)
+        print(&#39;‣ Parameters: %d&#39; % self.num_parameters())
+        print(&#39;‣ Training points: %d&#39; % self.num_training_points())
         print(&#39;‣ Initial loss: %6g&#39; % self.loss())
         if error is not None:
             print(&#39;‣ Initial error: %6g&#39; % self.error(error, error_use_all_data))
@@ -2897,7 +3247,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L83-L96" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L81-L94" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau:
     &#34;&#34;&#34;
@@ -2935,7 +3285,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L62-L81" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L60-L79" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson:
     &#34;&#34;&#34;
@@ -2979,7 +3329,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/model.py#L98-L115" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/model.py#L96-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias:
     &#34;&#34;&#34;
@@ -3031,12 +3381,17 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <li>
 <h4><code><a title="mogptk.model.Model" href="#mogptk.model.Model">Model</a></code></h4>
 <ul class="">
+<li><code><a title="mogptk.model.Model.AIC" href="#mogptk.model.Model.AIC">AIC</a></code></li>
+<li><code><a title="mogptk.model.Model.BIC" href="#mogptk.model.Model.BIC">BIC</a></code></li>
 <li><code><a title="mogptk.model.Model.K" href="#mogptk.model.Model.K">K</a></code></li>
 <li><code><a title="mogptk.model.Model.copy_parameters" href="#mogptk.model.Model.copy_parameters">copy_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.error" href="#mogptk.model.Model.error">error</a></code></li>
 <li><code><a title="mogptk.model.Model.get_parameters" href="#mogptk.model.Model.get_parameters">get_parameters</a></code></li>
 <li><code><a title="mogptk.model.Model.log_marginal_likelihood" href="#mogptk.model.Model.log_marginal_likelihood">log_marginal_likelihood</a></code></li>
 <li><code><a title="mogptk.model.Model.loss" href="#mogptk.model.Model.loss">loss</a></code></li>
+<li><code><a title="mogptk.model.Model.num_parameters" href="#mogptk.model.Model.num_parameters">num_parameters</a></code></li>
+<li><code><a title="mogptk.model.Model.num_training_points" href="#mogptk.model.Model.num_training_points">num_training_points</a></code></li>
+<li><code><a title="mogptk.model.Model.plot_correlation" href="#mogptk.model.Model.plot_correlation">plot_correlation</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_gram" href="#mogptk.model.Model.plot_gram">plot_gram</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_kernel" href="#mogptk.model.Model.plot_kernel">plot_kernel</a></code></li>
 <li><code><a title="mogptk.model.Model.plot_losses" href="#mogptk.model.Model.plot_losses">plot_losses</a></code></li>

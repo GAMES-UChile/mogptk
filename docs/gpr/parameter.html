@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L1-L284" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L1-L284" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import torch
@@ -114,14 +114,14 @@ class Parameter:
         lower (float,torch.tensor): Lower limit.
         upper (float,torch.tensor): Upper limit.
         prior (Likelihood,torch.distribution): Prior distribution.
-        trainable (boolean): Train parameter, otherwise keep its value fixed.
+        train (boolean): Train parameter, otherwise keep its value fixed.
     &#34;&#34;&#34;
-    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True):
+    def __init__(self, value, name=None, lower=None, upper=None, prior=None, train=True):
         self.name = name
         self.lower = None
         self.upper = None
         self.prior = prior
-        self.trainable = trainable
+        self.train = train
         self.transform = None
         self.unconstrained = None
         self.pegged_parameter = None
@@ -188,7 +188,7 @@ class Parameter:
             value = value.detach().to(config.device, config.dtype)
         return value
 
-    def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+    def assign(self, value=None, name=None, lower=None, upper=None, prior=None, train=None):
         &#34;&#34;&#34;
         Assign a new value to the parameter. If any of the arguments is not passed, the current value will be kept.
 
@@ -198,7 +198,7 @@ class Parameter:
             lower (float,torch.tensor): Lower limit.
             upper (float,torch.tensor): Upper limit.
             prior (Likelihood,torch.distribution): Prior distribution.
-            trainable (boolean): Train parameter, otherwise keep its value fixed.
+            train (boolean): Train parameter, otherwise keep its value fixed.
         &#34;&#34;&#34;
         if value is not None:
             value = Parameter.to_tensor(value)
@@ -253,11 +253,11 @@ class Parameter:
                 name = self.name[:idx+1] + name
         if prior is None:
             prior = self.prior
-        if trainable is None:
+        if train is None:
             if self.pegged:
-                trainable = True
+                train = True
             else:
-                trainable = self.trainable
+                train = self.train
 
         transform = None
         if lower is not None and upper is not None:
@@ -281,7 +281,7 @@ class Parameter:
         self.prior = prior
         self.lower = lower
         self.upper = upper
-        self.trainable = trainable
+        self.train = train
         self.transform = transform
         self.unconstrained = value
         self.pegged_parameter = None
@@ -301,7 +301,7 @@ class Parameter:
             raise ValueError(&#34;cannot peg parameter to another pegged parameter&#34;)
         self.pegged_parameter = other
         self.pegged_transform = transform
-        self.trainable = False
+        self.train = False
 
     def log_prior(self):
         &#34;&#34;&#34;
@@ -326,7 +326,7 @@ class Parameter:
 <dl>
 <dt id="mogptk.gpr.parameter.Parameter"><code class="flex name class">
 <span>class <span class="ident">Parameter</span></span>
-<span>(</span><span>value, name=None, lower=None, upper=None, prior=None, trainable=True)</span>
+<span>(</span><span>value, name=None, lower=None, upper=None, prior=None, train=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Parameter class that allows for parameter training in a constraint space.</p>
@@ -342,13 +342,13 @@ class Parameter:
 <dd>Upper limit.</dd>
 <dt><strong><code>prior</code></strong> :&ensp;<code>Likelihood,torch.distribution</code></dt>
 <dd>Prior distribution.</dd>
-<dt><strong><code>trainable</code></strong> :&ensp;<code>boolean</code></dt>
+<dt><strong><code>train</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Train parameter, otherwise keep its value fixed.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L76-L284" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L76-L284" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Parameter:
     &#34;&#34;&#34;
@@ -360,14 +360,14 @@ class Parameter:
         lower (float,torch.tensor): Lower limit.
         upper (float,torch.tensor): Upper limit.
         prior (Likelihood,torch.distribution): Prior distribution.
-        trainable (boolean): Train parameter, otherwise keep its value fixed.
+        train (boolean): Train parameter, otherwise keep its value fixed.
     &#34;&#34;&#34;
-    def __init__(self, value, name=None, lower=None, upper=None, prior=None, trainable=True):
+    def __init__(self, value, name=None, lower=None, upper=None, prior=None, train=True):
         self.name = name
         self.lower = None
         self.upper = None
         self.prior = prior
-        self.trainable = trainable
+        self.train = train
         self.transform = None
         self.unconstrained = None
         self.pegged_parameter = None
@@ -434,7 +434,7 @@ class Parameter:
             value = value.detach().to(config.device, config.dtype)
         return value
 
-    def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+    def assign(self, value=None, name=None, lower=None, upper=None, prior=None, train=None):
         &#34;&#34;&#34;
         Assign a new value to the parameter. If any of the arguments is not passed, the current value will be kept.
 
@@ -444,7 +444,7 @@ class Parameter:
             lower (float,torch.tensor): Lower limit.
             upper (float,torch.tensor): Upper limit.
             prior (Likelihood,torch.distribution): Prior distribution.
-            trainable (boolean): Train parameter, otherwise keep its value fixed.
+            train (boolean): Train parameter, otherwise keep its value fixed.
         &#34;&#34;&#34;
         if value is not None:
             value = Parameter.to_tensor(value)
@@ -499,11 +499,11 @@ class Parameter:
                 name = self.name[:idx+1] + name
         if prior is None:
             prior = self.prior
-        if trainable is None:
+        if train is None:
             if self.pegged:
-                trainable = True
+                train = True
             else:
-                trainable = self.trainable
+                train = self.train
 
         transform = None
         if lower is not None and upper is not None:
@@ -527,7 +527,7 @@ class Parameter:
         self.prior = prior
         self.lower = lower
         self.upper = upper
-        self.trainable = trainable
+        self.train = train
         self.transform = transform
         self.unconstrained = value
         self.pegged_parameter = None
@@ -547,7 +547,7 @@ class Parameter:
             raise ValueError(&#34;cannot peg parameter to another pegged parameter&#34;)
         self.pegged_parameter = other
         self.pegged_transform = transform
-        self.trainable = False
+        self.train = False
 
     def log_prior(self):
         &#34;&#34;&#34;
@@ -570,7 +570,7 @@ class Parameter:
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L150-L158" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L150-L158" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def to_tensor(value):
@@ -594,7 +594,7 @@ def to_tensor(value):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L124-L139" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L124-L139" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def constrained(self):
@@ -620,7 +620,7 @@ def constrained(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L120-L122" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L120-L122" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def pegged(self):
@@ -631,7 +631,7 @@ def pegged(self):
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.gpr.parameter.Parameter.assign"><code class="name flex">
-<span>def <span class="ident">assign</span></span>(<span>self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None)</span>
+<span>def <span class="ident">assign</span></span>(<span>self, value=None, name=None, lower=None, upper=None, prior=None, train=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Assign a new value to the parameter. If any of the arguments is not passed, the current value will be kept.</p>
@@ -647,15 +647,15 @@ def pegged(self):
 <dd>Upper limit.</dd>
 <dt><strong><code>prior</code></strong> :&ensp;<code>Likelihood,torch.distribution</code></dt>
 <dd>Prior distribution.</dd>
-<dt><strong><code>trainable</code></strong> :&ensp;<code>boolean</code></dt>
+<dt><strong><code>train</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Train parameter, otherwise keep its value fixed.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L160-L257" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L160-L257" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def assign(self, value=None, name=None, lower=None, upper=None, prior=None, trainable=None):
+<pre><code class="python">def assign(self, value=None, name=None, lower=None, upper=None, prior=None, train=None):
     &#34;&#34;&#34;
     Assign a new value to the parameter. If any of the arguments is not passed, the current value will be kept.
 
@@ -665,7 +665,7 @@ def pegged(self):
         lower (float,torch.tensor): Lower limit.
         upper (float,torch.tensor): Upper limit.
         prior (Likelihood,torch.distribution): Prior distribution.
-        trainable (boolean): Train parameter, otherwise keep its value fixed.
+        train (boolean): Train parameter, otherwise keep its value fixed.
     &#34;&#34;&#34;
     if value is not None:
         value = Parameter.to_tensor(value)
@@ -720,11 +720,11 @@ def pegged(self):
             name = self.name[:idx+1] + name
     if prior is None:
         prior = self.prior
-    if trainable is None:
+    if train is None:
         if self.pegged:
-            trainable = True
+            train = True
         else:
-            trainable = self.trainable
+            train = self.train
 
     transform = None
     if lower is not None and upper is not None:
@@ -748,7 +748,7 @@ def pegged(self):
     self.prior = prior
     self.lower = lower
     self.upper = upper
-    self.trainable = trainable
+    self.train = train
     self.transform = transform
     self.unconstrained = value
     self.pegged_parameter = None
@@ -768,7 +768,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L275-L284" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L275-L284" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     &#34;&#34;&#34;
@@ -795,7 +795,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L141-L148" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L141-L148" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def numpy(self):
     &#34;&#34;&#34;
@@ -822,7 +822,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L259-L273" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L259-L273" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def peg(self, other, transform=None):
     &#34;&#34;&#34;
@@ -838,7 +838,7 @@ def pegged(self):
         raise ValueError(&#34;cannot peg parameter to another pegged parameter&#34;)
     self.pegged_parameter = other
     self.pegged_transform = transform
-    self.trainable = False</code></pre>
+    self.train = False</code></pre>
 </details>
 </dd>
 </dl>
@@ -861,7 +861,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L51-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L51-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Sigmoid(Transform):
     &#34;&#34;&#34;
@@ -922,7 +922,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L25-L49" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L25-L49" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Softplus(Transform):
     &#34;&#34;&#34;
@@ -972,7 +972,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L7-L23" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L7-L23" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Transform:
     &#34;&#34;&#34;
@@ -1007,7 +1007,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L11-L16" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L11-L16" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x):
     &#34;&#34;&#34;
@@ -1025,7 +1025,7 @@ def pegged(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c255e1cef91fc5da5e0f93cc49820862c9bfaeeb/mogptk/gpr/parameter.py#L18-L23" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/parameter.py#L18-L23" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inverse(self, y):
     &#34;&#34;&#34;
