@@ -161,7 +161,8 @@ def plot_spectrum(means, scales, dataset=None, weights=None, noises=None, method
         raise ValueError('maxfreq must have shape (output_dims,input_dims)')
 
 
-    fig, axes = plt.subplots(output_dims, input_dims, figsize=(12,4.0*output_dims), squeeze=False, constrained_layout=True)
+    h = 4.0*output_dims
+    fig, axes = plt.subplots(output_dims, input_dims, figsize=(12,h), squeeze=False, constrained_layout=True)
     if title is not None:
         fig.suptitle(title, y=(h+0.8)/h, fontsize=18)
     
