@@ -981,8 +981,13 @@ class Data:
 
         nyquist = self.get_nyquist_estimation()
         x, y = self.get_train_data(transformed=True)
+        y_err = None
+        if self.Y_err is not None:
+            y_err_lower = self.Y_transformer.forward(y - self.Y_err[self.mask], x)
+            y_err_upper = self.Y_transformer.forward(y + self.Y_err[self.mask], x)
+            y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
         for i in range(input_dims):
-            w, psd, _ = BNSE(x[:,i], y, max_freq=nyquist[i], n=n, iters=iters)
+            w, psd, _ = BNSE(x[:,i], y, y_err=y_err, max_freq=nyquist[i], n=n, iters=iters)
             # TODO: why? emperically found
             psd /= (np.max(x[:,i])-np.min(x[:,i]))**2
             psd *= np.pi
