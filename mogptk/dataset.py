@@ -188,8 +188,10 @@ class DataSet:
                 X[self.get_index(name)] = channel_x
         elif isinstance(X, np.ndarray):
             X = [X] * self.get_output_dims()
+        elif isinstance(X, pd.Series):
+            X = [X.to_numpy()] * self.get_output_dims()
         elif not isinstance(X, list):
-            raise ValueError("X must be a list, dict or numpy.ndarray")
+            raise ValueError("X must be a list, dict, numpy.ndarray, or pandas.Series")
         elif not any(isinstance(x, (list,np.ndarray)) for x in X):
             X = [X] * self.get_output_dims()
         if len(X) != self.get_output_dims():

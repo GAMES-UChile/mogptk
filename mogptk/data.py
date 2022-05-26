@@ -318,7 +318,7 @@ class Data:
                 raise ValueError("X must be either a one or two dimensional array of data")
             X = [X[:,i] for i in range(X.shape[1])]
         else:
-            raise ValueError("X must be list, numpy array, or pandas series")
+            raise ValueError("X must be list, numpy.ndarray, or pandas.Series")
 
         # try to cast unknown data types, X becomes np.float64 or np.datetime64
         input_dims = len(X)
@@ -364,7 +364,7 @@ class Data:
         elif isinstance(Y, pd.Series):
             Y = Y.to_numpy()
         elif not isinstance(Y, np.ndarray):
-            raise ValueError("Y must be list, numpy array, or pandas series")
+            raise ValueError("Y must be list, numpy.ndarray, or pandas.Series")
 
         # try to cast unknown data types, Y becomes np.float64
         try:

@@ -234,6 +234,18 @@ class Model:
         """
         return sum([p.num_parameters if p.train else 0 for p in self.gpr.get_parameters()])
 
+    def num_training_points(self):
+        """
+        Returns the number of training data points.
+
+        Returns:
+            int: Number of data points.
+
+        Examples:
+            >>> n = model.num_training_points()
+        """
+        return sum([len(channel.get_train_data()[1]) for channel in self.dataset])
+
     def save(self, filename):
         """
         Save the model to a given file that can then be loaded using `LoadModel()`.
@@ -263,6 +275,30 @@ class Model:
             >>> model.log_marginal_likelihood()
         """
         return self.gpr.log_marginal_likelihood().detach().cpu().item()
+
+    def BIC(self):
+        """
+        Returns the Bayesian information criterion.
+
+        Returns:
+            float: BIC.
+
+        Examples:
+            >>> model.BIC()
+        """
+        return self.num_parameters()*np.log(self.num_training_points()) - 2.0*self.log_marginal_likelihood()
+
+    def AIC(self):
+        """
+        Returns the Akaike information criterion.
+
+        Returns:
+            float: AIC.
+
+        Examples:
+            >>> model.AIC()
+        """
+        return 2.0*self.num_parameters() - 2.0*self.log_marginal_likelihood()
 
     def loss(self):
         """
@@ -384,13 +420,12 @@ class Model:
             raise ValueError('optimizer must be LBFGS, Adam, SGD, or AdaGrad')
 
         if verbose:
-            training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
             print('\nStarting optimization using', method)
             if self.name is not None:
                 print('‣ Model: %s' % self.name)
             print('‣ Channels: %d' % len(self.dataset))
             print('‣ Parameters: %d' % self.num_parameters())
-            print('‣ Training points: %d' % training_points)
+            print('‣ Training points: %d' % self.num_training_points())
             print('‣ Initial loss: %6g' % self.loss())
             if error is not None:
                 print('‣ Initial error: %6g' % self.error(error, error_use_all_data))
@@ -499,7 +534,7 @@ class Model:
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
-            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs. If passed, results will be returned and not saved in the data set for later retrieval.
+            X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             sigma (float): Number of standard deviations to display upwards and downwards.
             transformed (boolean): Return transformed data as used for training.
 
@@ -555,7 +590,7 @@ class Model:
         Evaluate the kernel at K(X1,X2).
 
         Args:
-            X1 (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            X1 (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             X2 (list, dict): Same as X1 if None.
 
         Returns:
@@ -575,14 +610,15 @@ class Model:
             x2 = self._to_kernel_format(X2)
             return self.gpr.K(x1, x2)
 
-    def sample(self, X=None, n=None, predict_y=True, transformed=False):
+    def sample(self, X=None, n=None, predict_y=True, prior=False, transformed=False):
         """
         Sample n times from the kernel at input X .
 
         Args:
-            X (list, dict): Dictionary where keys are channel index and elements numpy arrays with channel inputs.
+            X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             n (int): Number of samples.
             predict_y (boolean): Predict data values instead of function values.
+            prior (boolean): Sample from prior instead of posterior.
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
@@ -597,26 +633,23 @@ class Model:
         else:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
-
         samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
 
         i = 0
         Samples = []
         for j in range(self.dataset.get_output_dims()):
-            N = X[j][0].shape[0]
+            N = X[j].shape[0]
             if n is None:
                 sample = np.squeeze(samples[i:i+N])
                 if not transformed:
                     sample = self.dataset[j].Y_transformer.backward(sample, X[j])
                 Samples.append(sample)
             else:
-                ss = []
+                sample = samples[i:i+N,:]
                 for k in range(n):
-                    sample = np.squeeze(samples[i:i+N,k])
                     if not transformed:
-                        sample = self.dataset[j].Y_transformer.backward(sample, X[j])
-                    ss.append(sample)
-                Samples.append(ss)
+                        sample[:,k] = self.dataset[j].Y_transformer.backward(sample[:,k], X[j])
+                Samples.append(sample)
             i += N
         if self.dataset.get_output_dims() == 1:
             return Samples[0]
@@ -879,6 +912,43 @@ class Model:
                 k = self.gpr.K(X0,X1)
                 ax[j,i].plot(tau, k, color='k')
                 ax[j,i].set_yticks([])
+        return fig, ax
+
+    def plot_correlation(self, title=None, figsize=(12,12)):
+        """
+        Plot the correlation matrix between each channel.
+
+        Args:
+            title (str): Figure title.
+            figsize (tuple): Figure size.
+
+        Returns:
+            figure: Matplotlib figure.
+            axis: Matplotlib axis.
+        """
+        fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
+        if title is not None:
+            fig.suptitle(title, fontsize=18)
+
+        output_dims = len(self.dataset)
+        X = np.zeros((output_dims, 2))
+        X[:,0] = np.arange(output_dims)
+        K = self.gpr.K(X)
+
+        # normalise
+        diag_sqrt = np.sqrt(np.diag(K))
+        K /= np.outer(diag_sqrt, diag_sqrt)
+
+        im = ax.matshow(K, cmap='coolwarm', vmin=-1.0, vmax=1.0)
+        for (i, j), z in np.ndenumerate(K):
+            ax.text(j, i, '{:0.3f}'.format(z), ha='center', va='center', fontsize=14,
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.5, edgecolor='0.9'))
+
+        ax.set_xticks(range(output_dims))
+        ax.set_xticklabels(self.dataset.get_names(), fontsize=14)
+        ax.set_yticks(range(output_dims))
+        ax.set_yticklabels(self.dataset.get_names(), fontsize=14)
+        ax.xaxis.set_ticks_position('top')
         return fig, ax
 
 def _format_duration(s):

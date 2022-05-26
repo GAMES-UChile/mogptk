@@ -328,7 +328,7 @@ class Model:
         with torch.no_grad():
             return self.kernel(X1, X2).cpu().numpy()
 
-    def sample(self, Z, n=None, predict_y=True):
+    def sample(self, Z, n=None, predict_y=True, prior=False):
         """
         Sample from model.
 
@@ -336,6 +336,7 @@ class Model:
             Z (torch.tensor): Input of shape (data_points,input_dims).
             n (int): Number of samples.
             predict_y (boolean): Predict the data values \\(y\\) instead of the function values \\(f\\).
+            prior (boolean): Sample from prior instead of posterior.
 
         Returns:
             torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
@@ -346,7 +347,10 @@ class Model:
                 S = 1
 
             # TODO: predict_y and non-Gaussian likelihoods
-            mu, var = self.predict(Z, full=True, tensor=True, predict_y=predict_y)  # MxD and MxMxD
+            if prior:
+                mu, var = self.mean(Z), self.kernel(Z)
+            else:
+                mu, var = self.predict(Z, full=True, tensor=True, predict_y=predict_y)  # MxD, MxMxD
             eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             var += self.jitter * var.diagonal().mean() * eye  # MxM
 

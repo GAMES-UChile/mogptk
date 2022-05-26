@@ -87,6 +87,7 @@ class CONV(Model):
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
 
+        # TODO: improve CONV initialization
         for q in range(self.Q):
             self.gpr.kernel[q].weight.assign([5.0*amplitude[q,:].mean() for amplitude in amplitudes])
             self.gpr.kernel[q].variance.assign([10.0*variance[q,:] for variance in variances])
