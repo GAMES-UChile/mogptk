@@ -256,9 +256,7 @@ class Data:
 
         self.X = X # shape (n,input_dims)
         self.Y = Y # shape (n)
-        self.Y_err = None
-        if Y_err is not None:
-            self.Y_err = Y_err # shape (n)
+        self.Y_err = Y_err # shape (n) or None
         self.X_pred = None
         self.mask = np.array([True] * Y.shape[0])
         self.F = None
@@ -492,6 +490,8 @@ class Data:
 
         self.X = self.X[ind,:]
         self.Y = self.Y[ind]
+        if self.Y_err is not None:
+            self.Y_err = self.Y_err[ind]
         self.mask = self.mask[ind]
 
     def aggregate(self, duration, f=np.mean):
@@ -511,6 +511,8 @@ class Data:
         """
         if 1 < self.get_input_dims():
             raise ValueError("aggregate works only with a single input dimension")
+        if self.Y_err is not None:
+            raise ValueError("aggregate does not work with Y_err set")
 
         start = np.min(self.X[:,0])
         end = np.max(self.X[:,0])
@@ -658,6 +660,8 @@ class Data:
                 n = 0
             else:
                 n = int(pct * len(self.Y))
+        elif not isinstance(n, int) or isinstance(n, float) and not n.is_integer():
+            raise ValueError('n must be an integer')
 
         idx = np.random.choice(len(self.Y), n, replace=False)
         self.mask[idx] = False
