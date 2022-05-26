@@ -127,7 +127,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
     else:
         return errors
 
-def plot_spectrum(means, scales, dataset=None, weights=None, noises=None, method='LS', maxfreq=None, log=False, titles=None, show=True, filename=None, title=None):
+def plot_spectrum(means, scales, dataset=None, weights=None, noises=None, method='LS', maxfreq=None, log=False, n=10000, titles=None, show=True, filename=None, title=None):
     """
     Plot spectral Gaussians of given means, scales and weights.
     """
@@ -171,14 +171,14 @@ def plot_spectrum(means, scales, dataset=None, weights=None, noises=None, method
             x_high = norm.ppf(0.99, loc=means[:,j,i], scale=scales[:,j,i]).max()
 
             if dataset is not None:
-                dataset[j].plot_spectrum(ax=axes[j,i], method=method, transformed=True, log=False)
-                x_low = min(x_low, axes[j,i].get_xlim()[0])
-                x_high = max(x_high, axes[j,i].get_xlim()[1])
+                dataset[j].plot_spectrum(ax=axes[j,i], method=method, transformed=True, n=n, log=False)
+                x_low = axes[j,i].get_xlim()[0]
+                x_high =  axes[j,i].get_xlim()[1]
             if maxfreq is not None:
                 x_high = maxfreq[j,i]
 
             psds = []
-            x = np.linspace(x_low, x_high, 1001)
+            x = np.linspace(x_low, x_high, n)
             psd_total = np.zeros(x.shape)
             for q in range(mixtures):
                 psd = weights[q,j] * norm.pdf(x, loc=means[q,j,i], scale=scales[q,j,i])

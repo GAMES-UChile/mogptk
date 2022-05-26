@@ -94,10 +94,9 @@ class MOSM(Model):
         variance = np.zeros((output_dims,self.Q,input_dims[0]))
         for q in range(self.Q):
             for j in range(output_dims):
-                if q < amplitudes[j].shape[0]:
-                    weight[j,q] = amplitudes[j][q,:].mean()
-                    mean[j,q,:] = means[j][q,:]
-                    variance[j,q,:] = variances[j][q,:]
+                weight[j,q] = 10.0*amplitudes[j][q,:].mean()
+                mean[j,q,:] = means[j][q,:]
+                variance[j,q,:] = variances[j][q,:]
 
         self.gpr.kernel.weight.assign(weight)
         self.gpr.kernel.mean.assign(mean)

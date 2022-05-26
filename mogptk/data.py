@@ -916,7 +916,7 @@ class Data:
         amplitudes = np.sqrt(psd[peaks])
         return amplitudes, positions, variances
 
-    def get_ls_estimation(self, Q=1, n=1000):
+    def get_ls_estimation(self, Q=1, n=10000):
         """
         Peak estimation of the spectrum using Lomb-Scargle.
 
@@ -940,7 +940,7 @@ class Data:
         nyquist = self.get_nyquist_estimation()
         x, y = self.get_train_data(transformed=True)
         for i in range(input_dims):
-            w = np.linspace(0.0, nyquist[i], n+1)[1:]
+            w = np.linspace(0.0, nyquist[i], n)[1:]
             psd = signal.lombscargle(x[:,i]*2.0*np.pi, y, w)
             psd /= x.shape[0]/4.0
             amplitudes, positions, variances = self._get_psd_peaks(w, psd)
@@ -1138,7 +1138,7 @@ class Data:
             ax.legend(handles=legends, ncol=5)
         return ax
 
-    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, log=False, transformed=True, n=1000):
+    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, log=False, transformed=True, n=10000):
         """
         Plot the spectrum of the data. By default it plots up to 99% of the total area under the PSD.
 

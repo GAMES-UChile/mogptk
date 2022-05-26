@@ -161,13 +161,13 @@ class Model:
         if len(set(names)) != len(names):
             raise ValueError("all data channels must have unique names")
 
-        for channel in dataset:
-            for dim in range(channel.get_input_dims()):
-                xran = np.max(channel.X[:,dim]) - np.min(channel.X[:,dim])
-                if xran < 1e-3:
-                    logger.warning("Very small X range may give problems, it is suggested to scale up your X axis")
-                elif 1e4 < xran:
-                    logger.warning("Very large X range may give problems, it is suggested to scale down your X axis")
+        #for j, channel in enumerate(dataset):
+        #    for dim in range(channel.get_input_dims()):
+        #        xran = np.max(channel.X[:,dim]) - np.min(channel.X[:,dim])
+        #        if xran < 1e-3:
+        #            logger.warning("Very small X range may give problems, it is suggested to scale up your X axis for channel %d" % j)
+        #        elif 1e4 < xran:
+        #            logger.warning("Very large X range may give problems, it is suggested to scale down your X axis for channel %d" % j)
 
         self.name = name
         self.dataset = dataset
@@ -178,8 +178,7 @@ class Model:
 
         y_err = None
         if all(channel.Y_err is not None for channel in self.dataset):
-            # TODO: doesn't transform...
-            Y_err = [np.array(channel.Y_err[channel.mask]) for channel in self.dataset]
+            Y_err = [channel.Y_err[channel.mask] for channel in self.dataset]
             Y_err_lower = [self.dataset[j].Y_transformer.forward(Y[j] - Y_err[j], X[j]) for j in range(len(self.dataset))]
             Y_err_upper = [self.dataset[j].Y_transformer.forward(Y[j] + Y_err[j], X[j]) for j in range(len(self.dataset))]
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
@@ -223,6 +222,18 @@ class Model:
 
         self.gpr.kernel.copy_parameters(other.kernel)
 
+    def num_parameters(self):
+        """
+        Returns the number of trainable parameters.
+
+        Returns:
+            int: Number of parameters.
+
+        Examples:
+            >>> n = model.num_parameters()
+        """
+        return sum([p.num_parameters if p.train else 0 for p in self.gpr.get_parameters()])
+
     def save(self, filename):
         """
         Save the model to a given file that can then be loaded using `LoadModel()`.
@@ -243,7 +254,7 @@ class Model:
 
     def log_marginal_likelihood(self):
         """
-        Returns the log marginal likelihood of the kernel and its data and parameters.
+        Returns the log marginal likelihood of the kernel and its data and parameters. When using the exact model the calculation of the log marginal likelihood is tractable and thus exact. For other models this is an approximation of the real log marginal likelihood.
 
         Returns:
             float: The current log marginal likelihood.
@@ -374,12 +385,11 @@ class Model:
 
         if verbose:
             training_points = sum([len(channel.get_train_data()[1]) for channel in self.dataset])
-            parameters = sum([p.num_parameters if p.train else 0 for p in self.gpr.get_parameters()])
             print('\nStarting optimization using', method)
             if self.name is not None:
                 print('‣ Model: %s' % self.name)
             print('‣ Channels: %d' % len(self.dataset))
-            print('‣ Parameters: %d' % parameters)
+            print('‣ Parameters: %d' % self.num_parameters())
             print('‣ Training points: %d' % training_points)
             print('‣ Initial loss: %6g' % self.loss())
             if error is not None:

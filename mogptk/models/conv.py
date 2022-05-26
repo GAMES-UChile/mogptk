@@ -74,7 +74,6 @@ class CONV(Model):
 
         output_dims = self.dataset.get_output_dims()
 
-        # TODO: CONV initialization
         if not method.lower() in ['bnse', 'ls', 'sm']:
             raise ValueError("valid methods of estimation are BNSE, LS, and SM")
 
@@ -88,18 +87,9 @@ class CONV(Model):
             logger.warning('{} could not find peaks for MOSM'.format(method))
             return
 
-        constant = np.empty((output_dims, self.Q))
         for q in range(self.Q):
-            constant[:,q] = np.array([amplitude[q,:] for amplitude in amplitudes]).mean(axis=1)
-            self.gpr.kernel[q].variance.assign([variance[q,:] * 10.0 for variance in variances])
-
-        for i, channel in enumerate(self.dataset):
-            _, y = channel.get_train_data(transformed=True)
-            if 0.0 < constant[i,:].sum():
-                constant[i,:] = constant[i,:] / constant[i,:].sum() * y.var()
-
-        for q in range(self.Q):
-            self.gpr.kernel[q].weight.assign(constant[:,q])
+            self.gpr.kernel[q].weight.assign([5.0*amplitude[q,:].mean() for amplitude in amplitudes])
+            self.gpr.kernel[q].variance.assign([10.0*variance[q,:] for variance in variances])
 
         # noise
         if isinstance(self.gpr.likelihood, GaussianLikelihood):
