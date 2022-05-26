@@ -2,7 +2,7 @@ import numpy as np
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import GaussianConvolutionProcessKernel, MixtureKernel
+from ..gpr import GaussianConvolutionProcessKernel, MixtureKernel, GaussianLikelihood
 
 class CONV(Model):
     """
@@ -11,7 +11,7 @@ class CONV(Model):
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -37,7 +37,7 @@ class CONV(Model):
 
     [1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009
     """
-    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="CONV"):
+    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="CONV"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -54,7 +54,7 @@ class CONV(Model):
             kernel[q].variance.assign(np.random.rand(output_dims,input_dims))
             kernel[q].base_variance.assign(np.random.rand(input_dims))
 
-        super().__init__(dataset, kernel, inference, mean, name)
+        super().__init__(dataset, kernel, model, mean, name)
         self.Q = Q
 
     def init_parameters(self, method='SM', iters=500):
@@ -100,4 +100,12 @@ class CONV(Model):
 
         for q in range(self.Q):
             self.gpr.kernel[q].weight.assign(constant[:,q])
-        # TODO: estimate noise
+
+        # noise
+        if isinstance(self.gpr.likelihood, GaussianLikelihood):
+            _, Y = self.dataset.get_train_data(transformed=True)
+            Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+            if self.gpr.likelihood.scale().ndim == 0:
+                self.gpr.likelihood.scale.assign(np.mean(Y_std))
+            else:
+                self.gpr.likelihood.scale.assign(Y_std)

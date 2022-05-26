@@ -2,7 +2,7 @@ import numpy as np
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import CrossSpectralKernel, MixtureKernel
+from ..gpr import CrossSpectralKernel, MixtureKernel, GaussianLikelihood
 
 class CSM(Model):
     """
@@ -12,7 +12,7 @@ class CSM(Model):
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
-        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -38,7 +38,7 @@ class CSM(Model):
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
-    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name="CSM"):
+    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name="CSM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -55,7 +55,7 @@ class CSM(Model):
             kernel[q].mean.assign(np.random.rand(input_dims))
             kernel[q].variance.assign(np.random.rand(input_dims))
 
-        super().__init__(dataset, kernel, inference, mean, name)
+        super().__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
@@ -101,4 +101,12 @@ class CSM(Model):
 
         for q in range(self.Q):
             self.gpr.kernel[q].amplitude.assign(constant[:,q,:])
-        # TODO: estimate noise
+
+        # noise
+        if isinstance(self.gpr.likelihood, GaussianLikelihood):
+            _, Y = self.dataset.get_train_data(transformed=True)
+            Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+            if self.gpr.likelihood.scale().ndim == 0:
+                self.gpr.likelihood.scale.assign(np.mean(Y_std))
+            else:
+                self.gpr.likelihood.scale.assign(Y_std)

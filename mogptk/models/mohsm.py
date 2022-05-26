@@ -2,7 +2,7 @@ import numpy as np
 
 from ..dataset import DataSet
 from ..model import Model, Exact, logger
-from ..gpr import MultiOutputHarmonizableSpectralKernel, MixtureKernel
+from ..gpr import MultiOutputHarmonizableSpectralKernel, MixtureKernel, GaussianLikelihood
 
 class MOHSM(Model):
     """
@@ -12,7 +12,7 @@ class MOHSM(Model):
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         P (int): Number of components.
         Q (int): Number of subcomponents.
-        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -48,16 +48,15 @@ class MOHSM(Model):
                 raise ValueError("input dimensions for all channels must match")
 
         spectral = MultiOutputHarmonizableSpectralKernel(output_dims=output_dims, input_dims=input_dims)
-        kernel_p = MixtureKernel(spectral, Q)
-        kernel = MixtureKernel(kernel_p, P)
+        kernel = MixtureKernel(spectral, P*Q)  # TODO: P>1 not supported
         for p in range(P):
             for q in range(Q):
-                kernel[p][q].magnitude.assign(np.random.rand(output_dims))
-                kernel[p][q].mean.assign(np.random.rand(output_dims,input_dims))
-                kernel[p][q].variance.assign(np.random.rand(output_dims,input_dims))
-                kernel[p][q].lengthscale.assign(np.random.rand(output_dims))
+                kernel[p*Q+q].weight.assign(np.random.rand(output_dims))
+                kernel[p*Q+q].mean.assign(np.random.rand(output_dims,input_dims))
+                kernel[p*Q+q].variance.assign(np.random.rand(output_dims,input_dims))
+                kernel[p*Q+q].lengthscale.assign(np.random.rand(output_dims))
         
-        super(MOHSM, self).__init__(dataset, kernel, model, mean, name)
+        super().__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         self.P = P
     
@@ -85,42 +84,41 @@ class MOHSM(Model):
                     self.gpr.kernel[p*self.Q+q].center.assign((1000*p/(self.P-1))*np.ones(input_dims[0]))
                     self.gpr.kernel[p*self.Q+q].lengthscale.assign(((self.P+1)/1000)*np.ones(output_dims))
 
-            dataset = self.dataset.copy()
-            
-            if input_dims[0]==1:
-                for i, channel in enumerate(dataset):
-                    m = len(dataset[i].X[0])-1
-                    if self.P ==2:
-                        if p == 0: 
-                            channel.filter(dataset[i].X[0][0], dataset[i].X[0][int(m/2)])
-                        if p == 1: 
-                            channel.filter(dataset[i].X[0][int(m/2)], dataset[i].X[0][m])
-                    else:
+            #dataset = self.dataset.copy()
+            #if input_dims[0]==1:
+            #    for i, channel in enumerate(dataset):
+            #        m = len(dataset[i].X[0])-1
+            #        if self.P ==2:
+            #            if p == 0: 
+            #                channel.filter(dataset[i].X[0][0], dataset[i].X[0][int(m/2)])
+            #            if p == 1: 
+            #                channel.filter(dataset[i].X[0][int(m/2)], dataset[i].X[0][m])
+            #        else:
 
-                        if p == 0:
-                            channel.filter(dataset[i].X[0][0], dataset[i].X[0][int(m/(self.P+1))])
-                        elif p == self.P-1:
-                            channel.filter(dataset[i].X[0][int(m*(p+1)/(self.P+1))], dataset[i].X[0][int(m)])
-                        else:
-                            channel.filter(dataset[i].X[0][int(m*p/(self.P+1))], dataset[i].X[0][int(m*(p+2)/(self.P+1))])
+            #            if p == 0:
+            #                channel.filter(dataset[i].X[0][0], dataset[i].X[0][int(m/(self.P+1))])
+            #            elif p == self.P-1:
+            #                channel.filter(dataset[i].X[0][int(m*(p+1)/(self.P+1))], dataset[i].X[0][int(m)])
+            #            else:
+            #                channel.filter(dataset[i].X[0][int(m*p/(self.P+1))], dataset[i].X[0][int(m*(p+2)/(self.P+1))])
 
             if method.lower() == 'bnse':
-                amplitudes, means, variances = dataset.get_bnse_estimation(self.Q, iters=iters)
+                amplitudes, means, variances = self.dataset.get_bnse_estimation(self.Q, iters=iters)
             elif method.lower() == 'ls':
-                amplitudes, means, variances = dataset.get_ls_estimation(self.Q)
+                amplitudes, means, variances = self.dataset.get_ls_estimation(self.Q)
             else:
-                amplitudes, means, variances = dataset.get_sm_estimation(self.Q, iters=iters)
+                amplitudes, means, variances = self.dataset.get_sm_estimation(self.Q, iters=iters)
             if len(amplitudes) == 0:
                 logger.warning('{} could not find peaks for MOHSM'.format(method))
                 return
 
-            magnitude = np.zeros((output_dims, self.Q))
+            weight = np.zeros((output_dims, self.Q))
             for q in range(self.Q):
                 mean = np.zeros((output_dims,input_dims[0]))
                 variance = np.zeros((output_dims,input_dims[0]))
                 for j in range(output_dims):
                     if q < amplitudes[j].shape[0]:
-                        magnitude[j,q] = amplitudes[j][q,:].mean()
+                        weight[j,q] = amplitudes[j][q,:].mean()
                         mean[j,:] = means[j][q,:]
                         # maybe will have problems with higher input dimensions
                         variance[j,:] = variances[j][q,:] * (4 + 20 * (max(input_dims) - 1)) # 20
@@ -128,12 +126,19 @@ class MOHSM(Model):
                 self.gpr.kernel[p*self.Q+q].variance.assign(variance)
 
             # normalize proportional to channels variances
-            for j, channel in enumerate(dataset):
-                _, y = channel.get_train_data(transformed=self.rescale_x)
-                x, _ = channel.get_data(transformed=self.rescale_x)
-                if 0.0 < magnitude[j,:].sum():
-                    magnitude[j,:] = (np.sqrt(magnitude[j,:] / magnitude[j,:].sum() * y.var())) * 2
+            for j, channel in enumerate(self.dataset):
+                x, y = channel.get_train_data(transformed=True)
+                if 0.0 < weight[j,:].sum():
+                    weight[j,:] = (np.sqrt(weight[j,:] / weight[j,:].sum() * y.var())) * 2
 
             for q in range(self.Q):
-                self.gpr.kernel[p*self.Q+q].magnitude.assign(magnitude[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale().cpu().detach().numpy()))
-            # TODO: estimate noise
+                self.gpr.kernel[p*self.Q+q].weight.assign(weight[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale().cpu().detach().numpy()))
+
+        # noise
+        if isinstance(self.gpr.likelihood, GaussianLikelihood):
+            _, Y = self.dataset.get_train_data(transformed=True)
+            Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+            if self.gpr.likelihood.scale().ndim == 0:
+                self.gpr.likelihood.scale.assign(np.mean(Y_std))
+            else:
+                self.gpr.likelihood.scale.assign(Y_std)

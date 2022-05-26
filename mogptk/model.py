@@ -134,20 +134,20 @@ class Hensman:
         return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Model:
-    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
+    def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
         """
         Model is the base class for multi-output Gaussian process models.
 
         Args:
             dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
             kernel (mogptk.gpr.kernel.Kernel): The kernel class.
-            model: Gaussian process model to use, such as `mogptk.model.Exact`.
+            model: Gaussian process model to use, such as `mogptk.Exact`.
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
 
         Atributes:
             dataset (mogptk.dataset.DataSet): Dataset.
-            gpr (The mogptk.gpr.model.Model): GPR model.
+            gpr (mogptk.gpr.model.Model): GPR model.
             times (numpy.ndarray): Training times of shape (iters,).
             losses (numpy.ndarray): Losses of shape (iters,).
             errors (numpy.ndarray): Errors of shape (iters,).
@@ -185,7 +185,7 @@ class Model:
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
-        self.gpr = inference._build(kernel, x, y, y_err, mean, name)
+        self.gpr = model._build(kernel, x, y, y_err, mean, name)
 
         self.times = np.zeros(0)
         self.losses = np.zeros(0)
@@ -612,7 +612,7 @@ class Model:
             return Samples[0]
         return Samples
 
-    def plot_losses(self, title=None, figsize=(18,6), legend=True, errors=True, log=False):
+    def plot_losses(self, title=None, figsize=(12,4), legend=True, errors=True, log=False):
         """
         Plot the losses and errors during training. In order to display the errors, make sure to set the error parameter when training.
 
@@ -683,7 +683,7 @@ class Model:
             Lower = [Lower]
             Upper = [Upper]
 
-        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(18,6*len(self.dataset)), squeeze=False, constrained_layout=True)
+        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(12,4*len(self.dataset)), squeeze=False, constrained_layout=True)
         for j, data in enumerate(self.dataset):
             # TODO: ability to plot conditional or marginal distribution to reduce input dims
             if data.get_input_dims() > 2:
@@ -699,12 +699,14 @@ class Model:
                 if transformed:
                     yl = data.Y_transformer.forward(yl, x)
                     yu = data.Y_transformer.forward(yu, x)
+                x = x.astype(data.X_dtypes[0])
                 ax[j,0].errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
 
             # prediction
             idx = np.argsort(X[j][:,0])
-            ax[j,0].plot(X[j][idx,0], Mu[j][idx], ls=':', color='blue', lw=2)
-            ax[j,0].fill_between(X[j][idx,0], Lower[j][idx], Upper[j][idx], color='blue', alpha=0.3)
+            x = X[j][idx,0].astype(data.X_dtypes[0])
+            ax[j,0].plot(x, Mu[j][idx], ls=':', color='blue', lw=2)
+            ax[j,0].fill_between(x, Lower[j][idx], Upper[j][idx], color='blue', alpha=0.3)
             label = 'Posterior Mean'
             legends.append(patches.Rectangle(
                 (1, 1), 1, 1, fill=True, color='blue', alpha=0.3, lw=0, label='95% Error Bars'
@@ -731,17 +733,19 @@ class Model:
 
             if data.has_test_data():
                 x, y = data.get_test_data(transformed=transformed)
+                x = x.astype(data.X_dtypes[0])
                 ax[j,0].plot(x, y, 'g.', ms=10)
                 legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Latent'))
 
             x, y = data.get_train_data(transformed=transformed)
+            x = x.astype(data.X_dtypes[0])
             ax[j,0].plot(x, y, 'r.', ms=10)
             legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Observations'))
 
             if 0 < len(data.removed_ranges[0]):
                 for removed_range in data.removed_ranges[0]:
-                    x0 = removed_range[0]
-                    x1 = removed_range[1]
+                    x0 = removed_range[0].astype(data.X_dtypes[0])
+                    x1 = removed_range[1].astype(data.X_dtypes[0])
                     y0 = ax[j,0].get_ylim()[0]
                     y1 = ax[j,0].get_ylim()[1]
                     ax[j,0].add_patch(patches.Rectangle(
@@ -751,7 +755,9 @@ class Model:
                     (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.4, lw=0, label='Removed Ranges'
                 ))
 
-            ax[j,0].set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
+            xmin = xmin.astype(data.X_dtypes[0])
+            xmax = xmax.astype(data.X_dtypes[0])
+            ax[j,0].set_xlim(xmin-(xmax-xmin)*0.001, xmax+(xmax-xmin)*0.001)
             ax[j,0].set_xlabel(data.X_labels[0])
             ax[j,0].set_ylabel(data.Y_label)
             ax[j,0].set_title(data.name if title is None else title, fontsize=14)
@@ -760,7 +766,7 @@ class Model:
                 ax[j,0].legend(handles=legends[::-1])
         return fig, ax
 
-    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(18,18)):
+    def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
         """
         Plot the gram matrix of associated kernel.
 
@@ -822,7 +828,7 @@ class Model:
         ax.tick_params(axis='both', which='both', length=0)
         return fig, ax
 
-    def plot_kernel(self, dist=None, n=101, title=None, figsize=(18,18)):
+    def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
         """
         Plot the kernel matrix at a range of data point distances for each channel for stationary kernels.
 

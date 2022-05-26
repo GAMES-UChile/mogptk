@@ -589,6 +589,7 @@ class Data:
         Returns the observations used for training.
 
         Arguments:
+            float64 (boolean): Return as float64s.
             transformed (boolean): Return transformed data.
 
         Returns:
@@ -911,7 +912,7 @@ class Data:
         amplitudes = np.sqrt(psd[peaks])
         return amplitudes, positions, variances
 
-    def get_ls_estimation(self, Q=1, n=10000):
+    def get_ls_estimation(self, Q=1, n=1000):
         """
         Peak estimation of the spectrum using Lomb-Scargle.
 
@@ -1057,7 +1058,7 @@ class Data:
             raise NotImplementedError("two dimensional input data not yet implemented")
 
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(18,6), squeeze=True, constrained_layout=True)
+            _, ax = plt.subplots(1, 1, figsize=(12,4), squeeze=True, constrained_layout=True)
 
         legends = []
         if errorbars and self.Y_err is not None:
@@ -1067,6 +1068,7 @@ class Data:
             if transformed:
                 yl = self.Y_transformer.forward(yl, x)
                 yu = self.Y_transformer.forward(yu, x)
+            x = x.astype(self.X_dtypes[0])
             ax.errorbar(x, y, [y-yl, yu-y], elinewidth=1.5, ecolor='lightgray', capsize=0, ls='', marker='')
 
         if self.X_pred is None:
@@ -1094,17 +1096,19 @@ class Data:
 
         if self.has_test_data():
             x, y = self.get_test_data(transformed=transformed)
+            x = x.astype(self.X_dtypes[0])
             ax.plot(x, y, 'g.', ms=10)
             legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Latent'))
 
         x, y = self.get_train_data(transformed=transformed)
+        x = x.astype(self.X_dtypes[0])
         ax.plot(x, y, 'r.', ms=10)
         legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Observations'))
 
         if 0 < len(self.removed_ranges[0]):
             for removed_range in self.removed_ranges[0]:
-                x0 = removed_range[0]
-                x1 = removed_range[1]
+                x0 = removed_range[0].astype(self.X_dtypes[0])
+                x1 = removed_range[1].astype(self.X_dtypes[0])
                 y0 = ax.get_ylim()[0]
                 y1 = ax.get_ylim()[1]
                 ax.add_patch(patches.Rectangle(
@@ -1114,18 +1118,20 @@ class Data:
                 (1, 1), 1, 1, fill=True, color='xkcd:strawberry', alpha=0.4, lw=0, label='Removed Ranges'
             ))
 
-        ax.set_xlim(xmin - (xmax - xmin)*0.001, xmax + (xmax - xmin)*0.001)
-        ax.set_xlabel(self.X_labels[0])
-        ax.set_ylabel(self.Y_label)
-        ax.set_title(self.name if title is None else title, fontsize=14)
+        xmin = xmin.astype(self.X_dtypes[0])
+        xmax = xmax.astype(self.X_dtypes[0])
+        ax.set_xlim(xmin-(xmax-xmin)*0.001, xmax+(xmax-xmin)*0.001)
+        ax.set_xlabel(self.X_labels[0], fontsize=14)
+        ax.set_ylabel(self.Y_label, fontsize=14)
+        ax.set_title(self.name if title is None else title, fontsize=16)
 
         if legend:
             ax.legend(handles=legends, ncol=5)
         return ax
 
-    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, log=False, transformed=True, n=1001):
+    def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, log=False, transformed=True, n=1000):
         """
-        Plot the spectrum of the data.
+        Plot the spectrum of the data. By default it plots up to 99% of the total area under the PSD.
 
         Args:
             title (str): Set the title of the plot.
@@ -1151,22 +1157,21 @@ class Data:
 
         ax_set = ax is not None
         if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(12,3), squeeze=True, constrained_layout=True)
+            _, ax = plt.subplots(1, 1, figsize=(12,4), squeeze=True, constrained_layout=True)
         
         X_scale = 1.0
         if _is_datetime64(self.X_dtypes[0]):
             if per is None:
                 per = _datetime64_unit_names[_get_time_unit(self.X_dtypes[0])]
             else:
-                unit = _parse_delta(per, self.X_dtypes[0])
-                X_scale = np.timedelta64(1,_get_time_unit(self.X_dtypes[0])) / unit
+                X_scale = 1.0/_parse_delta(per, self.X_dtypes[0])
                 if not isinstance(per, str):
                     per = '%s' % (unit,)
 
         if per is not None:
-            ax.set_xlabel('Frequency [1/'+per+']')
+            ax.set_xlabel('Frequency [1/'+per+']', fontsize=14)
         else:
-            ax.set_xlabel('Frequency')
+            ax.set_xlabel('Frequency', fontsize=14)
         
         X = self.X
         Y = self.Y
@@ -1184,7 +1189,7 @@ class Data:
 
         Y_freq_err = np.array([])
         if method.lower() == 'ls':
-            X_freq = np.linspace(0.0, nyquist, n)[1:]
+            X_freq = np.linspace(0.0, nyquist, n+1)[1:]
             Y_freq = signal.lombscargle(X*2.0*np.pi, Y, X_freq)
         elif method.lower() == 'bnse':
             X_freq, Y_freq, Y_freq_err = BNSE(X, Y, max_freq=nyquist, n=n)
@@ -1193,11 +1198,19 @@ class Data:
 
         Y_freq /= Y_freq.sum()*(X_freq[1]-X_freq[0]) # normalize
 
+        if maxfreq is None:
+            # cutoff at 99%
+            idx = np.cumsum(Y_freq)*(X_freq[1]-X_freq[0]) < 0.99
+            X_freq = X_freq[idx]
+            Y_freq = Y_freq[idx]
+            if len(Y_freq_err) != 0:
+                Y_freq_err = Y_freq_err[idx]
+
         ax.plot(X_freq, Y_freq, '-', c='k', lw=2)
         if len(Y_freq_err) != 0:
             Y_freq_err = 2.0*np.sqrt(Y_freq_err)
             ax.fill_between(X_freq, Y_freq-Y_freq_err, Y_freq+Y_freq_err, color='k', alpha=0.2)
-        ax.set_title((self.name + ' Spectrum' if self.name is not None else '') if title is None else title, fontsize=14)
+        ax.set_title((self.name + ' Spectrum' if self.name is not None else '') if title is None else title, fontsize=16)
 
         if log:
             ax.set_xscale('log')

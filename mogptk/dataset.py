@@ -654,7 +654,7 @@ class DataSet:
             >>> fig, axes = dataset.plot(title='Title')
         """
         if figsize is None:
-            figsize = (18, 6.0*len(self.channels))
+            figsize = (12,4*len(self.channels))
 
         h = figsize[1]
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
@@ -706,7 +706,7 @@ class DataSet:
             maxfreq = [maxfreq] * len(self.channels)
 
         if figsize is None:
-            figsize = (12,3*len(self.channels))
+            figsize = (12,4*len(self.channels))
 
         fig, axes = plt.subplots(self.get_output_dims(), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         if title != None:

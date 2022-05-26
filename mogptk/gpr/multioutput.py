@@ -82,6 +82,9 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
         self.variance = Parameter(variance, lower=config.positive_minimum)
         self.delay = Parameter(delay)
         self.phase = Parameter(phase)
+        if output_dims == 1:
+            self.delay.train = False
+            self.phase.train = False
 
         self.twopi = np.power(2.0*np.pi,float(input_dims)/2.0)
 
@@ -165,6 +168,9 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
         self.variance = Parameter(variance, lower=config.positive_minimum)
         self.delay = Parameter(delay)
         self.phase = Parameter(phase)
+        if output_dims == 1:
+            self.delay.train = False
+            self.phase.train = False
 
         self.twopi = np.power(2.0*np.pi,float(self.input_dims)/2.0)
 
@@ -246,6 +252,9 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
         self.variance = Parameter(variance, lower=config.positive_minimum)
         self.delay = Parameter(delay)
         self.phase = Parameter(phase)
+        if output_dims == 1:
+            self.delay.train = False
+            self.phase.train = False
 
         self.twopi = np.power(2.0*np.pi,float(input_dims)/2.0)
 
@@ -336,6 +345,9 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
         self.center = Parameter(center)
         self.delay = Parameter(delay)
         self.phase = Parameter(phase)
+        if output_dims == 1:
+            self.delay.train = False
+            self.phase.train = False
 
         self.twopi = np.power(2.0*np.pi, float(self.input_dims))
 

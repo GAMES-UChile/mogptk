@@ -217,13 +217,17 @@ class Model:
         """
         def param_range(lower, upper, train=True, pegged=False):
             if lower is not None:
-                if np.prod(lower.shape) == 1:
+                if lower.size == 1:
                     lower = lower.item()
+                elif (lower.max()-lower.min())/lower.mean() < 1e-6:
+                    lower = lower.mean().item()
                 else:
                     lower = lower.tolist()
             if upper is not None:
-                if np.prod(upper.shape) == 1:
+                if upper.size == 1:
                     upper = upper.item()
+                elif (upper.max()-upper.min())/upper.mean() < 1e-6:
+                    upper = upper.mean().item()
                 else:
                     upper = upper.tolist()
 

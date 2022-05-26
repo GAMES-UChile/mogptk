@@ -70,20 +70,19 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
             X2, Y2 = model.dataset.get_test_data(transformed=transformed)
             if len(X) != len(X2) or not all(np.array_equal(X[j],X2[j]) for j in range(len(X))) or not all(np.array_equal(Y[j],Y2[j]) for j in range(len(X))):
                 raise ValueError("all models must have the same data set for testing, otherwise explicitly provide X and Y")
-        if sum(x.shape[0] for Xc in X for x in Xc) == 0:
+        if sum(x.size for x in X) == 0:
             raise ValueError("models have no test data")
-
     elif X is None and Y is not None or X is not None and Y is None:
         raise ValueError("X and Y must both be set or omitted")
 
     output_dims = models[0].dataset.get_output_dims()
+    for model in models[1:]:
+        if model.dataset.get_output_dims() != output_dims:
+            raise ValueError("all models must have the same number of channels")
     if not isinstance(X, list):
         X = [X] * output_dims
     if not isinstance(Y, list):
         Y = [Y] * output_dims
-    for model in models[1:]:
-        if model.dataset.get_output_dims() != output_dims:
-            raise ValueError("all models must have the same number of channels")
     if len(X) != output_dims or len(X) != len(Y):
         raise ValueError("X and Y must be lists with as many entries as channels")
 
@@ -94,7 +93,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
         if name is None:
             name = "Model " + str(k+1)
 
-        _, Y_pred, _, _ = model.predict(X, transformed=transformed)
+        X, Y_pred, _, _ = model.predict(X, transformed=transformed)
         if len(model.dataset) == 1:
             Y_pred = [Y_pred]
 
@@ -109,8 +108,8 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
                 })
             errors.append(model_errors)
         else:
-            Ys_true = np.array([y_true for y_true in Y_true]).reshape(-1)
-            Ys_pred = np.array([y_pred for y_pred in Y_pred]).reshape(-1)
+            Ys_true = np.concatenate(Y_true, axis=0)
+            Ys_pred = np.concatenate(Y_pred, axis=0)
             errors.append({
                 "Name": name,
                 "MAE": mean_absolute_error(Ys_true, Ys_pred),
@@ -128,7 +127,7 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
     else:
         return errors
 
-def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noises=None, method='LS', log=False, titles=None, show=True, filename=None, title=None):
+def plot_spectrum(means, scales, dataset=None, weights=None, noises=None, method='LS', maxfreq=None, log=False, titles=None, show=True, filename=None, title=None):
     """
     Plot spectral Gaussians of given means, scales and weights.
     """
@@ -138,8 +137,8 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
         scales = np.expand_dims(scales, axis=2)
     if isinstance(weights, np.ndarray) and weights.ndim == 1:
         weights = np.expand_dims(weights, axis=1)
-    if isinstance(nyquist, np.ndarray) and nyquist.ndim == 1:
-        nyquist = np.expand_dims(nyquist, axis=1)
+    if isinstance(maxfreq, np.ndarray) and maxfreq.ndim == 1:
+        maxfreq = np.expand_dims(maxfreq, axis=1)
 
     if means.ndim != 3:
         raise ValueError('means and scales must have shape (mixtures,output_dims,input_dims)')
@@ -158,11 +157,11 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
         raise ValueError('weights must have shape (mixtures,output_dims)')
     elif not isinstance(weights, np.ndarray):
         weights = np.ones((mixtures,output_dims))
-    if isinstance(nyquist, np.ndarray) and (nyquist.ndim != 2 or nyquist.shape[0] != output_dims or nyquist.shape[1] != input_dims):
-        raise ValueError('nyquist must have shape (output_dims,input_dims)')
+    if isinstance(maxfreq, np.ndarray) and (maxfreq.ndim != 2 or maxfreq.shape[0] != output_dims or maxfreq.shape[1] != input_dims):
+        raise ValueError('maxfreq must have shape (output_dims,input_dims)')
 
-    h = 3.0*output_dims
-    fig, axes = plt.subplots(output_dims, input_dims, figsize=(12,h), squeeze=False, constrained_layout=True)
+
+    fig, axes = plt.subplots(output_dims, input_dims, figsize=(12,4.0*output_dims), squeeze=False, constrained_layout=True)
     if title is not None:
         fig.suptitle(title, y=(h+0.8)/h, fontsize=18)
     
@@ -172,17 +171,11 @@ def plot_spectrum(means, scales, dataset=None, weights=None, nyquist=None, noise
             x_high = norm.ppf(0.99, loc=means[:,j,i], scale=scales[:,j,i]).max()
 
             if dataset is not None:
-                X = dataset[j].X[:,i]
-                if 1 < len(X):
-                    idx = np.argsort(X)
-                    X = X[idx]
-                    dist = np.abs(X[1:]-X[:-1])
-                    nyquist_data = 0.5 / np.average(dist)
-                    x_low = 0.5 / np.abs(X[-1]-X[0])
-                    x_high = nyquist_data
                 dataset[j].plot_spectrum(ax=axes[j,i], method=method, transformed=True, log=False)
-            elif isinstance(nyquist, np.ndarray):
-                x_high = min(x_high, nyquist[j,i])
+                x_low = min(x_low, axes[j,i].get_xlim()[0])
+                x_high = max(x_high, axes[j,i].get_xlim()[1])
+            if maxfreq is not None:
+                x_high = maxfreq[j,i]
 
             psds = []
             x = np.linspace(x_low, x_high, 1001)

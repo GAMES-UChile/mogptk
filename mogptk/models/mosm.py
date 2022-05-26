@@ -13,7 +13,7 @@ class MOSM(Model):
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.model.Exact`.
+        model: Gaussian process model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -38,7 +38,7 @@ class MOSM(Model):
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
-    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="MOSM"):
+    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="MOSM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -53,7 +53,7 @@ class MOSM(Model):
         kernel.mean.assign(np.random.rand(output_dims,Q,input_dims))
         kernel.variance.assign(np.random.rand(output_dims,Q,input_dims))
 
-        super().__init__(dataset, kernel, inference, mean, name)
+        super().__init__(dataset, kernel, model, mean, name)
         self.Q = Q
         nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
         self.gpr.kernel.mean.assign(upper=nyquist)
@@ -102,7 +102,15 @@ class MOSM(Model):
         self.gpr.kernel.weight.assign(weight)
         self.gpr.kernel.mean.assign(mean)
         self.gpr.kernel.variance.assign(variance)
-        # TODO: estimate noise
+
+        # noise
+        if isinstance(self.gpr.likelihood, GaussianLikelihood):
+            _, Y = self.dataset.get_train_data(transformed=True)
+            Y_std = [Y[j].std() for j in range(self.dataset.get_output_dims())]
+            if self.gpr.likelihood.scale().ndim == 0:
+                self.gpr.likelihood.scale.assign(np.mean(Y_std))
+            else:
+                self.gpr.likelihood.scale.assign(Y_std)
 
     def check(self):
         """
@@ -132,10 +140,8 @@ class MOSM(Model):
         """
         input_dims = self.dataset.get_input_dims()[0]
         names = self.dataset.get_names()
-        if maxfreq is None:
-            nyquist = self.dataset.get_nyquist_estimation()
-        else:
-            nyquist = [maxfreq] * len(self.dataset)
+        if maxfreq is not None:
+            maxfreq = [maxfreq] * len(self.dataset)
         means = self.gpr.kernel.mean.numpy().transpose([1,0,2])
         scales = np.sqrt(self.gpr.kernel.variance.numpy().transpose([1,0,2]))
         weights = self.gpr.kernel.weight.numpy().transpose([1,0])**2
@@ -148,7 +154,7 @@ class MOSM(Model):
                 raise ValueError("likelihood variance must not be per data point to enable spectral noise")
             noises = self.gpr.likelihood.scale.numpy()
 
-        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, nyquist=nyquist, noises=noises, method=method, log=log, titles=names, title=title)
+        return plot_spectrum(means, scales, dataset=self.dataset, weights=weights, noises=noises, method=method, maxfreq=maxfreq, log=log, titles=names, title=title)
 
     def plot_cross_spectrum(self, title=None, figsize=(12,12)):
         """
