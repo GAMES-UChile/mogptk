@@ -494,7 +494,7 @@ class Data:
             self.Y_err = self.Y_err[ind]
         self.mask = self.mask[ind]
 
-    def aggregate(self, duration, f=np.mean):
+    def aggregate(self, duration, f=np.mean, f_err=None):
         """
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -503,6 +503,7 @@ class Data:
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
             f (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`.
+            f_err (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`. This function is used to map the Y_err error values and uses by default the same function as for the Y values.
 
         Examples:
             >>> data.aggregate(5)
@@ -511,20 +512,26 @@ class Data:
         """
         if 1 < self.get_input_dims():
             raise ValueError("aggregate works only with a single input dimension")
-        if self.Y_err is not None:
-            raise ValueError("aggregate does not work with Y_err set")
 
         start = np.min(self.X[:,0])
         end = np.max(self.X[:,0])
         step = _parse_delta(duration, self.X_dtypes[0])
+        if f_err is None:
+            f = f_err
 
         X = np.arange(start+step/2, end+step/2, step).reshape(-1,1)
         Y = np.empty((X.shape[0],))
+        if self.Y_err is not None:
+            Y_err = np.empty((X.shape[0],))
         for i in range(X.shape[0]):
             ind = (self.X[:,0] >= X[i,0]-step/2) & (self.X[:,0] < X[i,0]+step/2)
             Y[i] = f(self.Y[ind])
+            if self.Y_err is not None:
+                Y_err[i] = f_err(self.Y_err[ind])
         self.X = X
         self.Y = Y
+        if self.Y_err is not None:
+            self.Y_err = Y_err
         self.mask = np.array([True] * len(self.Y))
 
     ################################################################

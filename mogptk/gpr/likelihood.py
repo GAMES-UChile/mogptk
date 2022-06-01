@@ -435,9 +435,9 @@ class BernoulliLikelihood(Likelihood):
     """
     Bernoulli likelihood given by
 
-    $$ p(y|f) = h(f)^k (1-h(f))^{1-k} $$
+    $$ p(y|f) = h(f)^k (1-h(f))^{n-k} $$
 
-    with \\(h\\) the link function, \\(k\\) the number of \\(y\\) values equal to 1, and \\(y \\in \\{0.0,1.0\\}\\).
+    with \\(h\\) the link function, \\(k\\) the number of \\(y\\) values equal to 1, \\(n\\) the number of data points, and \\(y \\in \\{0.0,1.0\\}\\).
 
     Args:
         link (function): Link function to map function values to the support of the likelihood.

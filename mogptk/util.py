@@ -172,7 +172,8 @@ def plot_spectrum(means, scales, dataset=None, weights=None, noises=None, method
             x_high = norm.ppf(0.99, loc=means[:,j,i], scale=scales[:,j,i]).max()
 
             if dataset is not None:
-                dataset[j].plot_spectrum(ax=axes[j,i], method=method, transformed=True, n=n, log=False)
+                maxf = maxfreq[j,i] if maxfreq is not None else None
+                dataset[j].plot_spectrum(ax=axes[j,i], method=method, transformed=True, n=n, log=False, maxfreq=maxf)
                 x_low = axes[j,i].get_xlim()[0]
                 x_high =  axes[j,i].get_xlim()[1]
             if maxfreq is not None:
