@@ -517,7 +517,7 @@ class Data:
         end = np.max(self.X[:,0])
         step = _parse_delta(duration, self.X_dtypes[0])
         if f_err is None:
-            f = f_err
+            f_err = f
 
         X = np.arange(start+step/2, end+step/2, step).reshape(-1,1)
         Y = np.empty((X.shape[0],))
