@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L1-L774" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L1-L774" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -466,9 +466,9 @@ class BernoulliLikelihood(Likelihood):
     &#34;&#34;&#34;
     Bernoulli likelihood given by
 
-    $$ p(y|f) = h(f)^k (1-h(f))^{1-k} $$
+    $$ p(y|f) = h(f)^k (1-h(f))^{n-k} $$
 
-    with \\(h\\) the link function, \\(k\\) the number of \\(y\\) values equal to 1, and \\(y \\in \\{0.0,1.0\\}\\).
+    with \\(h\\) the link function, \\(k\\) the number of \\(y\\) values equal to 1, \\(n\\) the number of data points, and \\(y \\in \\{0.0,1.0\\}\\).
 
     Args:
         link (function): Link function to map function values to the support of the likelihood.
@@ -821,7 +821,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L21-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L21-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def exp(x):
     &#34;&#34;&#34;
@@ -841,7 +841,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L5-L11" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L5-L11" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def identity(x):
     &#34;&#34;&#34;
@@ -861,7 +861,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L29-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L29-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inv_probit(x):
     &#34;&#34;&#34;
@@ -882,7 +882,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L39-L45" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L39-L45" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def logistic(x):
     &#34;&#34;&#34;
@@ -902,7 +902,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L13-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L13-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def square(x):
     &#34;&#34;&#34;
@@ -924,8 +924,8 @@ class ChiSquaredLikelihood(Likelihood):
 </code></dt>
 <dd>
 <div class="desc"><p>Bernoulli likelihood given by</p>
-<p><span><span class="MathJax_Preview"> p(y|f) = h(f)^k (1-h(f))^{1-k} </span><script type="math/tex; mode=display"> p(y|f) = h(f)^k (1-h(f))^{1-k} </script></span></p>
-<p>with <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> the link function, <span><span class="MathJax_Preview">k</span><script type="math/tex">k</script></span> the number of <span><span class="MathJax_Preview">y</span><script type="math/tex">y</script></span> values equal to 1, and <span><span class="MathJax_Preview">y \in \{0.0,1.0\}</span><script type="math/tex">y \in \{0.0,1.0\}</script></span>.</p>
+<p><span><span class="MathJax_Preview"> p(y|f) = h(f)^k (1-h(f))^{n-k} </span><script type="math/tex; mode=display"> p(y|f) = h(f)^k (1-h(f))^{n-k} </script></span></p>
+<p>with <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> the link function, <span><span class="MathJax_Preview">k</span><script type="math/tex">k</script></span> the number of <span><span class="MathJax_Preview">y</span><script type="math/tex">y</script></span> values equal to 1, <span><span class="MathJax_Preview">n</span><script type="math/tex">n</script></span> the number of data points, and <span><span class="MathJax_Preview">y \in \{0.0,1.0\}</span><script type="math/tex">y \in \{0.0,1.0\}</script></span>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>link</code></strong> :&ensp;<code>function</code></dt>
@@ -938,15 +938,15 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L434-L475" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L434-L475" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class BernoulliLikelihood(Likelihood):
     &#34;&#34;&#34;
     Bernoulli likelihood given by
 
-    $$ p(y|f) = h(f)^k (1-h(f))^{1-k} $$
+    $$ p(y|f) = h(f)^k (1-h(f))^{n-k} $$
 
-    with \\(h\\) the link function, \\(k\\) the number of \\(y\\) values equal to 1, and \\(y \\in \\{0.0,1.0\\}\\).
+    with \\(h\\) the link function, \\(k\\) the number of \\(y\\) values equal to 1, \\(n\\) the number of data points, and \\(y \\in \\{0.0,1.0\\}\\).
 
     Args:
         link (function): Link function to map function values to the support of the likelihood.
@@ -1028,7 +1028,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L477-L523" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L477-L523" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class BetaLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1114,7 +1114,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L745-L774" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L745-L774" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1185,7 +1185,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L364-L399" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L364-L399" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ExponentialLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1269,7 +1269,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L525-L568" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L525-L568" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GammaLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1343,7 +1343,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L47-L61" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L47-L61" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussHermiteQuadrature:
     def __init__(self, deg=20, t_scale=None, w_scale=None):
@@ -1385,7 +1385,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L277-L320" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L277-L320" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1475,7 +1475,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L401-L432" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L401-L432" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LaplaceLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1544,7 +1544,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L63-L166" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L63-L166" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Likelihood:
     &#34;&#34;&#34;
@@ -1679,7 +1679,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L82-L92" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L82-L92" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prob(self, y, f, X=None):
     &#34;&#34;&#34;
@@ -1714,7 +1714,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L112-L124" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L112-L124" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean(self, f, X=None):
     &#34;&#34;&#34;
@@ -1760,7 +1760,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L140-L166" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L140-L166" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, mu, var, X=None, full=False):
     &#34;&#34;&#34;
@@ -1799,7 +1799,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L76-L80" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L76-L80" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def validate_y(self, y, X=None):
     &#34;&#34;&#34;
@@ -1828,7 +1828,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L126-L138" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L126-L138" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def variance(self, f, X=None):
     &#34;&#34;&#34;
@@ -1866,7 +1866,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L94-L110" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L94-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def variational_expectation(self, y, mu, var, X=None):
     &#34;&#34;&#34;
@@ -1914,7 +1914,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L706-L743" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L706-L743" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LogGaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2000,7 +2000,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L657-L704" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L657-L704" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LogLogisticLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2085,7 +2085,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L168-L275" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L168-L275" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2234,7 +2234,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L570-L609" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L570-L609" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PoissonLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2322,7 +2322,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L322-L362" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L322-L362" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class StudentTLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2411,7 +2411,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/gpr/likelihood.py#L611-L655" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/likelihood.py#L611-L655" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class WeibullLikelihood(Likelihood):
     &#34;&#34;&#34;

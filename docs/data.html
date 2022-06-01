@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L1-L1394" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L1-L1401" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import re
 import copy
@@ -525,7 +525,7 @@ class Data:
             self.Y_err = self.Y_err[ind]
         self.mask = self.mask[ind]
 
-    def aggregate(self, duration, f=np.mean):
+    def aggregate(self, duration, f=np.mean, f_err=None):
         &#34;&#34;&#34;
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -534,6 +534,7 @@ class Data:
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
             f (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`.
+            f_err (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`. This function is used to map the Y_err error values and uses by default the same function as for the Y values.
 
         Examples:
             &gt;&gt;&gt; data.aggregate(5)
@@ -542,20 +543,26 @@ class Data:
         &#34;&#34;&#34;
         if 1 &lt; self.get_input_dims():
             raise ValueError(&#34;aggregate works only with a single input dimension&#34;)
-        if self.Y_err is not None:
-            raise ValueError(&#34;aggregate does not work with Y_err set&#34;)
 
         start = np.min(self.X[:,0])
         end = np.max(self.X[:,0])
         step = _parse_delta(duration, self.X_dtypes[0])
+        if f_err is None:
+            f_err = f
 
         X = np.arange(start+step/2, end+step/2, step).reshape(-1,1)
         Y = np.empty((X.shape[0],))
+        if self.Y_err is not None:
+            Y_err = np.empty((X.shape[0],))
         for i in range(X.shape[0]):
             ind = (self.X[:,0] &gt;= X[i,0]-step/2) &amp; (self.X[:,0] &lt; X[i,0]+step/2)
             Y[i] = f(self.Y[ind])
+            if self.Y_err is not None:
+                Y_err[i] = f_err(self.Y_err[ind])
         self.X = X
         self.Y = Y
+        if self.Y_err is not None:
+            self.Y_err = Y_err
         self.mask = np.array([True] * len(self.Y))
 
     ################################################################
@@ -1463,7 +1470,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L78-L191" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L78-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadFunction(f, start, end, n, var=0.0, name=&#34;&#34;, random=False):
     &#34;&#34;&#34;
@@ -1608,7 +1615,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L24-L76" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L24-L76" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadSplitData(x_train, x_test, y_train, y_test, name=&#34;&#34;):
     &#34;&#34;&#34;
@@ -1699,7 +1706,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L197-L1262" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L197-L1269" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Data:
     def __init__(self, X, Y, Y_err=None, name=None, x_labels=None, y_label=None):
@@ -2001,7 +2008,7 @@ def _get_time_unit(dtype):
             self.Y_err = self.Y_err[ind]
         self.mask = self.mask[ind]
 
-    def aggregate(self, duration, f=np.mean):
+    def aggregate(self, duration, f=np.mean, f_err=None):
         &#34;&#34;&#34;
         Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -2010,6 +2017,7 @@ def _get_time_unit(dtype):
         Args:
             duration (float, str): Duration along the X axis or as a string in the duration format.
             f (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`.
+            f_err (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`. This function is used to map the Y_err error values and uses by default the same function as for the Y values.
 
         Examples:
             &gt;&gt;&gt; data.aggregate(5)
@@ -2018,20 +2026,26 @@ def _get_time_unit(dtype):
         &#34;&#34;&#34;
         if 1 &lt; self.get_input_dims():
             raise ValueError(&#34;aggregate works only with a single input dimension&#34;)
-        if self.Y_err is not None:
-            raise ValueError(&#34;aggregate does not work with Y_err set&#34;)
 
         start = np.min(self.X[:,0])
         end = np.max(self.X[:,0])
         step = _parse_delta(duration, self.X_dtypes[0])
+        if f_err is None:
+            f_err = f
 
         X = np.arange(start+step/2, end+step/2, step).reshape(-1,1)
         Y = np.empty((X.shape[0],))
+        if self.Y_err is not None:
+            Y_err = np.empty((X.shape[0],))
         for i in range(X.shape[0]):
             ind = (self.X[:,0] &gt;= X[i,0]-step/2) &amp; (self.X[:,0] &lt; X[i,0]+step/2)
             Y[i] = f(self.Y[ind])
+            if self.Y_err is not None:
+                Y_err[i] = f_err(self.Y_err[ind])
         self.X = X
         self.Y = Y
+        if self.Y_err is not None:
+            self.Y_err = Y_err
         self.mask = np.array([True] * len(self.Y))
 
     ################################################################
@@ -2771,7 +2785,7 @@ def _get_time_unit(dtype):
 <h3>Methods</h3>
 <dl>
 <dt id="mogptk.data.Data.aggregate"><code class="name flex">
-<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=&lt;function mean&gt;)</span>
+<span>def <span class="ident">aggregate</span></span>(<span>self, duration, f=&lt;function mean&gt;, f_err=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Aggregate the data by duration and apply a function to obtain a reduced dataset.</p>
@@ -2782,6 +2796,8 @@ def _get_time_unit(dtype):
 <dd>Duration along the X axis or as a string in the duration format.</dd>
 <dt><strong><code>f</code></strong> :&ensp;<code>function</code></dt>
 <dd>Function to use to reduce data mapping a numpy array to a scalar, such as <code>numpy.mean</code>.</dd>
+<dt><strong><code>f_err</code></strong> :&ensp;<code>function</code></dt>
+<dd>Function to use to reduce data mapping a numpy array to a scalar, such as <code>numpy.mean</code>. This function is used to map the Y_err error values and uses by default the same function as for the Y values.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code class="language-python-repl">&gt;&gt;&gt; data.aggregate(5)
@@ -2791,9 +2807,9 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L497-L528" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L497-L535" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def aggregate(self, duration, f=np.mean):
+<pre><code class="python">def aggregate(self, duration, f=np.mean, f_err=None):
     &#34;&#34;&#34;
     Aggregate the data by duration and apply a function to obtain a reduced dataset.
 
@@ -2802,6 +2818,7 @@ def _get_time_unit(dtype):
     Args:
         duration (float, str): Duration along the X axis or as a string in the duration format.
         f (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`.
+        f_err (function): Function to use to reduce data mapping a numpy array to a scalar, such as `numpy.mean`. This function is used to map the Y_err error values and uses by default the same function as for the Y values.
 
     Examples:
         &gt;&gt;&gt; data.aggregate(5)
@@ -2810,20 +2827,26 @@ def _get_time_unit(dtype):
     &#34;&#34;&#34;
     if 1 &lt; self.get_input_dims():
         raise ValueError(&#34;aggregate works only with a single input dimension&#34;)
-    if self.Y_err is not None:
-        raise ValueError(&#34;aggregate does not work with Y_err set&#34;)
 
     start = np.min(self.X[:,0])
     end = np.max(self.X[:,0])
     step = _parse_delta(duration, self.X_dtypes[0])
+    if f_err is None:
+        f_err = f
 
     X = np.arange(start+step/2, end+step/2, step).reshape(-1,1)
     Y = np.empty((X.shape[0],))
+    if self.Y_err is not None:
+        Y_err = np.empty((X.shape[0],))
     for i in range(X.shape[0]):
         ind = (self.X[:,0] &gt;= X[i,0]-step/2) &amp; (self.X[:,0] &lt; X[i,0]+step/2)
         Y[i] = f(self.Y[ind])
+        if self.Y_err is not None:
+            Y_err[i] = f_err(self.Y_err[ind])
     self.X = X
     self.Y = Y
+    if self.Y_err is not None:
+        self.Y_err = Y_err
     self.mask = np.array([True] * len(self.Y))</code></pre>
 </details>
 </dd>
@@ -2840,7 +2863,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L391-L401" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L391-L401" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy(self):
     &#34;&#34;&#34;
@@ -2877,7 +2900,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L467-L495" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L467-L495" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def filter(self, start, end, dim=None):
     &#34;&#34;&#34;
@@ -2939,7 +2962,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L960-L1007" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L967-L1014" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_bnse_estimation(self, Q=1, n=1000, iters=200):
     &#34;&#34;&#34;
@@ -3011,7 +3034,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L571-L587" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L578-L594" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3049,7 +3072,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L558-L569" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L565-L576" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_input_dims(self):
     &#34;&#34;&#34;
@@ -3092,7 +3115,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L919-L958" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L926-L965" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_ls_estimation(self, Q=1, n=10000):
     &#34;&#34;&#34;
@@ -3150,7 +3173,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L532-L543" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L539-L550" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_name(self):
     &#34;&#34;&#34;
@@ -3182,7 +3205,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L880-L900" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L887-L907" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_nyquist_estimation(self):
     &#34;&#34;&#34;
@@ -3223,7 +3246,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L793-L805" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L800-L812" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_prediction_data(self):
     &#34;&#34;&#34;
@@ -3273,7 +3296,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L1009-L1043" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L1016-L1050" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_sm_estimation(self, Q=1, method=&#39;LS&#39;, optimizer=&#39;Adam&#39;, iters=200, params={}):
     &#34;&#34;&#34;
@@ -3332,7 +3355,7 @@ def _get_time_unit(dtype):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L608-L632" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L615-L639" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_test_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3382,7 +3405,7 @@ transformed (boolean): Return transformed data.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L589-L606" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L596-L613" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_train_data(self, transformed=False):
     &#34;&#34;&#34;
@@ -3418,7 +3441,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L545-L556" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L552-L563" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def has_test_data(self):
     &#34;&#34;&#34;
@@ -3462,7 +3485,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L1045-L1139" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L1052-L1146" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot(self, pred=None, title=None, ax=None, legend=True, errorbars=True, transformed=False):
     &#34;&#34;&#34;
@@ -3593,7 +3616,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L1141-L1235" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L1148-L1242" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, title=None, method=&#39;ls&#39;, ax=None, per=None, maxfreq=None, log=False, transformed=True, n=10000):
     &#34;&#34;&#34;
@@ -3705,7 +3728,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L778-L789" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L785-L796" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_indices(self, indices):
     &#34;&#34;&#34;
@@ -3743,7 +3766,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L747-L776" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L754-L783" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_random_ranges(self, n, duration, dim=0):
     &#34;&#34;&#34;
@@ -3797,7 +3820,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L645-L667" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L652-L674" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_randomly(self, n=None, pct=None):
     &#34;&#34;&#34;
@@ -3848,7 +3871,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L693-L726" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L700-L733" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_range(self, start=None, end=None, dim=None):
     &#34;&#34;&#34;
@@ -3903,7 +3926,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L728-L745" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L735-L752" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def remove_relative_range(self, start=0.0, end=1.0, dim=None):
     &#34;&#34;&#34;
@@ -3933,7 +3956,7 @@ True
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L636-L643" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L643-L650" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def reset(self):
     &#34;&#34;&#34;
@@ -3958,7 +3981,7 @@ f (function): Function taking a numpy.ndarray X of shape (data_points,) for each
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L438-L449" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L438-L449" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_function(self, f):
     &#34;&#34;&#34;
@@ -3992,7 +4015,7 @@ f (function): Function taking a numpy.ndarray X of shape (data_points,) for each
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L415-L436" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L415-L436" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_labels(self, x_labels, y_label):
     &#34;&#34;&#34;
@@ -4034,7 +4057,7 @@ f (function): Function taking a numpy.ndarray X of shape (data_points,) for each
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L403-L413" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L403-L413" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_name(self, name):
     &#34;&#34;&#34;
@@ -4065,7 +4088,7 @@ f (function): Function taking a numpy.ndarray X of shape (data_points,) for each
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L807-L820" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L814-L827" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_data(self, X):
     &#34;&#34;&#34;
@@ -4110,7 +4133,7 @@ f (function): Function taking a numpy.ndarray X of shape (data_points,) for each
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L822-L876" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L829-L883" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_prediction_range(self, start=None, end=None, n=None, step=None):
     &#34;&#34;&#34;
@@ -4189,7 +4212,7 @@ f (function): Function taking a numpy.ndarray X of shape (data_points,) for each
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/a20a6459d7453f93206f50405ec779883077dbaf/mogptk/data.py#L451-L465" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/data.py#L451-L465" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def transform(self, transformer):
     &#34;&#34;&#34;
