@@ -17,6 +17,48 @@ from .util import *
 
 logger = logging.getLogger('mogptk')
 
+class Kernels(dict):
+    __getattr__ = dict.get
+
+kernels = Kernels({
+    'White': gpr.WhiteKernel,
+    'Constant': gpr.ConstantKernel,
+    'Linear': gpr.LinearKernel,
+    'Polynomial': gpr.PolynomialKernel,
+    'Function': gpr.FunctionKernel,
+    'Exponential': gpr.ExponentialKernel,
+    'Exp': gpr.ExponentialKernel,
+    'SquaredExponential': gpr.SquaredExponentialKernel,
+    'SqExp': gpr.SquaredExponentialKernel,
+    'SE': gpr.SquaredExponentialKernel,
+    'RBF': gpr.SquaredExponentialKernel,
+    'RationalQuadratic': gpr.RationalQuadraticKernel,
+    'RQ': gpr.RationalQuadraticKernel,
+    'Periodic': gpr.PeriodicKernel,
+    'ExpSineSquared': gpr.PeriodicKernel,
+    'LocallyPeriodic': gpr.LocallyPeriodicKernel,
+    'Cosine': gpr.CosineKernel,
+    'Sinc': gpr.SincKernel,
+    'Spectral': gpr.SpectralKernel,
+    'SpectralMixture': gpr.SpectralMixtureKernel,
+    'Matern': gpr.MaternKernel,
+    'IndependentMultiOutput': gpr.IndependentMultiOutputKernel,
+    'IMO': gpr.IndependentMultiOutputKernel,
+    'MultiOutputSpectral': gpr.MultiOutputSpectralKernel,
+    'MultiOutputSpectralMixture': gpr.MultiOutputSpectralMixtureKernel,
+    'MOSM': gpr.MultiOutputSpectralMixtureKernel,
+    'UncoupledMultiOutputSpectral': gpr.UncoupledMultiOutputSpectralKernel,
+    'uMOS': gpr.UncoupledMultiOutputSpectralKernel,
+    'MultiOutputHarmonizableSpectral': gpr.MultiOutputHarmonizableSpectralKernel,
+    'MOHS': gpr.MultiOutputHarmonizableSpectralKernel,
+    'CrossSpectral': gpr.CrossSpectralKernel,
+    'LinearModelOfCoregionalization': gpr.LinearModelOfCoregionalizationKernel,
+    'LMC': gpr.LinearModelOfCoregionalizationKernel,
+    'GaussianConvolutionProcess': gpr.GaussianConvolutionProcessKernel,
+    'CONV': gpr.GaussianConvolutionProcessKernel,
+    'GCP': gpr.GaussianConvolutionProcessKernel,
+})
+
 def LoadModel(filename):
     """
     Load model from a given file that was previously saved with `model.save()`.

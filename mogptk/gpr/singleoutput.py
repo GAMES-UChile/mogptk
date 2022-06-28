@@ -141,7 +141,7 @@ class PolynomialKernel(Kernel):
         X1, _ = self._active_input(X1)
         return (self.magnitude() * X1.square().sum(dim=1) + self.bias())**self.degree
 
-class PhiKernel(Kernel):
+class FunctionKernel(Kernel):
     """
     A kernel determined by a function \\(\\phi\\) given by
 
