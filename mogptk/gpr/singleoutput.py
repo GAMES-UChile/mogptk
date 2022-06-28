@@ -2,39 +2,6 @@ import torch
 import numpy as np
 from . import Kernel, Parameter, config
 
-class ConstantKernel(Kernel):
-    """
-    A constant or bias kernel given by
-
-    $$ K(x,x') = \\sigma^2 $$
-
-    with \\(\\sigma^2\\) the magnitude.
-
-    Args:
-        input_dims (int): Number of input dimensions.
-        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
-
-    Attributes:
-        magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-    """
-    def __init__(self, input_dims=1, active_dims=None, name="Constant"):
-        super().__init__(input_dims, active_dims, name)
-
-        self.magnitude = Parameter(1.0, lower=config.positive_minimum)
-
-    def K(self, X1, X2=None):
-        # X has shape (data_points,input_dims)
-        X1, X2 = self._active_input(X1, X2)
-        if X2 is None:
-            X2 = X1
-        return self.magnitude() * torch.ones(X1.shape[0], X2.shape[0], dtype=config.dtype, device=config.device)
-
-    def K_diag(self, X1):
-        # X has shape (data_points,input_dims)
-        X1, _ = self._active_input(X1)
-        return self.magnitude().repeat(X1.shape[0])
-
 class WhiteKernel(Kernel):
     """
     A white kernel given by
@@ -62,6 +29,39 @@ class WhiteKernel(Kernel):
         if X2 is None:
             return self.magnitude() * torch.eye(X1.shape[0], X1.shape[0], dtype=config.dtype, device=config.device)
         return torch.zeros(X1.shape[0], X2.shape[0], dtype=config.dtype, device=config.device)
+
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.magnitude().repeat(X1.shape[0])
+
+class ConstantKernel(Kernel):
+    """
+    A constant or bias kernel given by
+
+    $$ K(x,x') = \\sigma^2 $$
+
+    with \\(\\sigma^2\\) the magnitude.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+
+    Attributes:
+        magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
+    """
+    def __init__(self, input_dims=1, active_dims=None, name="Constant"):
+        super().__init__(input_dims, active_dims, name)
+
+        self.magnitude = Parameter(1.0, lower=config.positive_minimum)
+
+    def K(self, X1, X2=None):
+        # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
+        if X2 is None:
+            X2 = X1
+        return self.magnitude() * torch.ones(X1.shape[0], X2.shape[0], dtype=config.dtype, device=config.device)
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
@@ -531,7 +531,7 @@ class SincKernel(Kernel):
 
 class SpectralKernel(Kernel):
     """
-    A spectral kernel given by
+    A spectral kernel as proposed by [1] given by
 
     $$ K(x,x') = \\sigma^2 \\exp\\left(-2\\pi^2 \\Sigma \\tau^2\\right) \\cos(2\\pi \\mu \\tau) $$
 
@@ -546,6 +546,8 @@ class SpectralKernel(Kernel):
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (input_dims,).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (input_dims,).
+
+    [1] A.G. Wilson, R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", Proceedings of the 30th International Conference on Machine Learning, 2013
     """
     def __init__(self, input_dims=1, active_dims=None, name="Spectral"):
         super().__init__(input_dims, active_dims, name)
@@ -573,7 +575,7 @@ class SpectralKernel(Kernel):
 
 class SpectralMixtureKernel(Kernel):
     """
-    A spectral mixture kernel given by
+    A spectral mixture kernel as proposed by [1] given by
 
     $$ K(x,x') = \\sum_{q=0}^Q \\sigma_q^2 \\exp\\left(-2\\pi^2 \\Sigma_q \\tau^2\\right) \\cos(2\\pi \\mu_q \\tau) $$
 
@@ -589,6 +591,8 @@ class SpectralMixtureKernel(Kernel):
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) of shape (Q,).
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (Q,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (Q,input_dims).
+
+    [1] A.G. Wilson, R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", Proceedings of the 30th International Conference on Machine Learning, 2013
     """
     def __init__(self, Q=1, input_dims=1, active_dims=None, name="SM"):
         super().__init__(input_dims, active_dims, name)

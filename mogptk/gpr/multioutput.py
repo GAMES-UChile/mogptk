@@ -41,7 +41,7 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x') = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi_{ij}) $$
 
-    $$ \\alpha_{ij} = w_{ij}\\sqrt\\left((2\\pi)^n|\\Sigma_{ij}|\\right) $$ 
+    $$ \\alpha_{ij} = w_{ij}\\sqrt{\\left((2\\pi)^n|\\Sigma_{ij}|\\right)} $$
 
     $$ w_{ij} = w_iw_j\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
 
@@ -126,7 +126,7 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x') = \\sum_{q=0}^Q\\alpha_{ijq} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ijq})^T\\Sigma_{ijq}(\\tau+\\theta_{ijq})\\right) \\cos((\\tau+\\theta_{ijq})^T\\mu_{ijq} + \\phi_{ijq}) $$
 
-    $$ \\alpha_{ijq} = w_{ijq}\\sqrt\\left((2\\pi)^n|\\Sigma_{ijq}|\\right) $$
+    $$ \\alpha_{ijq} = w_{ijq}\\sqrt{\\left((2\\pi)^n|\\Sigma_{ijq}|\\right)} $$
 
     $$ w_{ijq} = w_{iq}w_{jq}\\exp\\left(-\\frac{1}{4}(\\mu_{iq}-\\mu_{jq})^T(\\Sigma_{iq}+\\Sigma_{jq})^{-1}(\\mu_{iq}-\\mu_{jq})\\right) $$
 
@@ -214,7 +214,7 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x') = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi_{ij}) $$
 
-    $$ \\alpha_{ij} = w_{ij}\\sqrt\\left((2\\pi)^n|\\Sigma_{ij}|\\right) $$ 
+    $$ \\alpha_{ij} = w_{ij}\\sqrt{\\left((2\\pi)^n|\\Sigma_{ij}|\\right)} $$
 
     $$ w_{ij} = \\sigma_{ij}^2\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
 
@@ -298,7 +298,7 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x') = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi) \\exp\\left(-\\frac{l_{ij}}{2}|\\bar{x}-c|\\right) $$
 
-    $$ \\alpha_{ij} = w_{ij}(2\\pi)^n\\sqrt\\left(|\\Sigma_{ij}|\\right) $$
+    $$ \\alpha_{ij} = w_{ij}(2\\pi)^n\\sqrt{\\left(|\\Sigma_{ij}|\\right)} $$
 
     $$ w_{ij} = w_iw_j\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
 

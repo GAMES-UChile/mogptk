@@ -30,7 +30,7 @@ def inv_probit(x):
     """
     The inverse probit link function given by
 
-    $$ y = \\frac{1}{2} \\left(1 + \\erf(x/\\sqrt{2})\\right) $$
+    $$ y = \\frac{1}{2} \\left(1 + \\operatorname{erf}(x/\\sqrt{2})\\right) $$
     """
     jitter = 1e-3
     return 0.5*(1.0+torch.erf(x/np.sqrt(2.0))) * (1.0-2.0*jitter) + jitter
