@@ -27,44 +27,11 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L1-L666" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L1-L670" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
 from . import Kernel, Parameter, config
-
-class ConstantKernel(Kernel):
-    &#34;&#34;&#34;
-    A constant or bias kernel given by
-
-    $$ K(x,x&#39;) = \\sigma^2 $$
-
-    with \\(\\sigma^2\\) the magnitude.
-
-    Args:
-        input_dims (int): Number of input dimensions.
-        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
-
-    Attributes:
-        magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-    &#34;&#34;&#34;
-    def __init__(self, input_dims=1, active_dims=None, name=&#34;Constant&#34;):
-        super().__init__(input_dims, active_dims, name)
-
-        self.magnitude = Parameter(1.0, lower=config.positive_minimum)
-
-    def K(self, X1, X2=None):
-        # X has shape (data_points,input_dims)
-        X1, X2 = self._active_input(X1, X2)
-        if X2 is None:
-            X2 = X1
-        return self.magnitude() * torch.ones(X1.shape[0], X2.shape[0], dtype=config.dtype, device=config.device)
-
-    def K_diag(self, X1):
-        # X has shape (data_points,input_dims)
-        X1, _ = self._active_input(X1)
-        return self.magnitude().repeat(X1.shape[0])
 
 class WhiteKernel(Kernel):
     &#34;&#34;&#34;
@@ -93,6 +60,39 @@ class WhiteKernel(Kernel):
         if X2 is None:
             return self.magnitude() * torch.eye(X1.shape[0], X1.shape[0], dtype=config.dtype, device=config.device)
         return torch.zeros(X1.shape[0], X2.shape[0], dtype=config.dtype, device=config.device)
+
+    def K_diag(self, X1):
+        # X has shape (data_points,input_dims)
+        X1, _ = self._active_input(X1)
+        return self.magnitude().repeat(X1.shape[0])
+
+class ConstantKernel(Kernel):
+    &#34;&#34;&#34;
+    A constant or bias kernel given by
+
+    $$ K(x,x&#39;) = \\sigma^2 $$
+
+    with \\(\\sigma^2\\) the magnitude.
+
+    Args:
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+
+    Attributes:
+        magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
+    &#34;&#34;&#34;
+    def __init__(self, input_dims=1, active_dims=None, name=&#34;Constant&#34;):
+        super().__init__(input_dims, active_dims, name)
+
+        self.magnitude = Parameter(1.0, lower=config.positive_minimum)
+
+    def K(self, X1, X2=None):
+        # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
+        if X2 is None:
+            X2 = X1
+        return self.magnitude() * torch.ones(X1.shape[0], X2.shape[0], dtype=config.dtype, device=config.device)
 
     def K_diag(self, X1):
         # X has shape (data_points,input_dims)
@@ -172,7 +172,7 @@ class PolynomialKernel(Kernel):
         X1, _ = self._active_input(X1)
         return (self.magnitude() * X1.square().sum(dim=1) + self.bias())**self.degree
 
-class PhiKernel(Kernel):
+class FunctionKernel(Kernel):
     &#34;&#34;&#34;
     A kernel determined by a function \\(\\phi\\) given by
 
@@ -562,7 +562,7 @@ class SincKernel(Kernel):
 
 class SpectralKernel(Kernel):
     &#34;&#34;&#34;
-    A spectral kernel given by
+    A spectral kernel as proposed by [1] given by
 
     $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-2\\pi^2 \\Sigma \\tau^2\\right) \\cos(2\\pi \\mu \\tau) $$
 
@@ -577,6 +577,8 @@ class SpectralKernel(Kernel):
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (input_dims,).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (input_dims,).
+
+    [1] A.G. Wilson, R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, Proceedings of the 30th International Conference on Machine Learning, 2013
     &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Spectral&#34;):
         super().__init__(input_dims, active_dims, name)
@@ -604,7 +606,7 @@ class SpectralKernel(Kernel):
 
 class SpectralMixtureKernel(Kernel):
     &#34;&#34;&#34;
-    A spectral mixture kernel given by
+    A spectral mixture kernel as proposed by [1] given by
 
     $$ K(x,x&#39;) = \\sum_{q=0}^Q \\sigma_q^2 \\exp\\left(-2\\pi^2 \\Sigma_q \\tau^2\\right) \\cos(2\\pi \\mu_q \\tau) $$
 
@@ -620,6 +622,8 @@ class SpectralMixtureKernel(Kernel):
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) of shape (Q,).
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (Q,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (Q,input_dims).
+
+    [1] A.G. Wilson, R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, Proceedings of the 30th International Conference on Machine Learning, 2013
     &#34;&#34;&#34;
     def __init__(self, Q=1, input_dims=1, active_dims=None, name=&#34;SM&#34;):
         super().__init__(input_dims, active_dims, name)
@@ -731,7 +735,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L5-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L38-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ConstantKernel(Kernel):
     &#34;&#34;&#34;
@@ -809,7 +813,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L448-L484" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L448-L484" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CosineKernel(Kernel):
     &#34;&#34;&#34;
@@ -892,7 +896,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L186-L222" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L186-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ExponentialKernel(Kernel):
     &#34;&#34;&#34;
@@ -948,6 +952,93 @@ class MaternKernel(Kernel):
 </li>
 </ul>
 </dd>
+<dt id="mogptk.gpr.singleoutput.FunctionKernel"><code class="flex name class">
+<span>class <span class="ident">FunctionKernel</span></span>
+<span>(</span><span>phi, input_dims=1, active_dims=None, name='Phi')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A kernel determined by a function <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> given by</p>
+<p><span><span class="MathJax_Preview"> K(x,x') = \phi(x) \sigma^2 \phi(x') </span><script type="math/tex; mode=display"> K(x,x') = \phi(x) \sigma^2 \phi(x') </script></span></p>
+<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude and <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> the function.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>phi</code></strong> :&ensp;<code>function</code></dt>
+<dd>Function that takes (data_points,input_dims) as input and (data_points,feature_dims) as output. Input and output must be tensors.</dd>
+<dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of input dimensions.</dd>
+<dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
+<dd>Indices of active dimensions of shape (input_dims,).</dd>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Kernel name.</dd>
+</dl>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>magnitude</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
+<dd>Magnitude <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> a scalar.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L144-L184" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class FunctionKernel(Kernel):
+    &#34;&#34;&#34;
+    A kernel determined by a function \\(\\phi\\) given by
+
+    $$ K(x,x&#39;) = \\phi(x) \\sigma^2 \\phi(x&#39;) $$
+
+    with \\(\\sigma^2\\) the magnitude and \\(\\phi\\) the function.
+
+    Args:
+        phi (function): Function that takes (data_points,input_dims) as input and (data_points,feature_dims) as output. Input and output must be tensors.
+        input_dims (int): Number of input dimensions.
+        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
+        name (str): Kernel name.
+
+    Attributes:
+        magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
+    &#34;&#34;&#34;
+    def __init__(self, phi, input_dims=1, active_dims=None, name=&#34;Phi&#34;):
+        super().__init__(input_dims, active_dims, name)
+
+        out = phi(torch.ones(42, input_dims, dtype=config.dtype, device=config.device))
+        if not torch.is_tensor(out) or out.dtype != config.dtype or out.device != config.device:
+            raise ValueError(&#34;phi must return a tensor of the same dtype and device as the input&#34;)
+        if out.ndim != 2 or out.shape[0] != 42:
+            raise ValueError(&#34;phi must take (data_points,input_dims) as input, and return (data_points,feature_dims) as output&#34;)
+
+        feature_dims = out.shape[1]
+        magnitude = torch.ones(feature_dims)
+
+        self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
+        self.phi = phi
+
+    def K(self, X1, X2=None):
+        # X has shape (data_points,input_dims)
+        X1, X2 = self._active_input(X1, X2)
+        variance = self.magnitude().diagflat()
+        if X2 is None:
+            X1 = self.phi(X1)
+            return X1.mm(variance.mm(X1.T))
+        else:
+            return self.phi(X1).mm(variance.mm(self.phi(X2).T))</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
 <dt id="mogptk.gpr.singleoutput.LinearKernel"><code class="flex name class">
 <span>class <span class="ident">LinearKernel</span></span>
 <span>(</span><span>input_dims=1, active_dims=None, name='Linear')</span>
@@ -975,7 +1066,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L71-L104" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L71-L104" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearKernel(Kernel):
     &#34;&#34;&#34;
@@ -1061,7 +1152,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L390-L446" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L390-L446" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LocallyPeriodicKernel(Kernel):
     &#34;&#34;&#34;
@@ -1166,7 +1257,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L617-L666" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L621-L670" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MaternKernel(Kernel):
     &#34;&#34;&#34;
@@ -1268,7 +1359,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L333-L388" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L333-L388" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PeriodicKernel(Kernel):
     &#34;&#34;&#34;
@@ -1343,93 +1434,6 @@ class MaternKernel(Kernel):
 </li>
 </ul>
 </dd>
-<dt id="mogptk.gpr.singleoutput.PhiKernel"><code class="flex name class">
-<span>class <span class="ident">PhiKernel</span></span>
-<span>(</span><span>phi, input_dims=1, active_dims=None, name='Phi')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>A kernel determined by a function <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> given by</p>
-<p><span><span class="MathJax_Preview"> K(x,x') = \phi(x) \sigma^2 \phi(x') </span><script type="math/tex; mode=display"> K(x,x') = \phi(x) \sigma^2 \phi(x') </script></span></p>
-<p>with <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude and <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> the function.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>phi</code></strong> :&ensp;<code>function</code></dt>
-<dd>Function that takes (data_points,input_dims) as input and (data_points,feature_dims) as output. Input and output must be tensors.</dd>
-<dt><strong><code>input_dims</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of input dimensions.</dd>
-<dt><strong><code>active_dims</code></strong> :&ensp;<code>list</code> of <code>int</code></dt>
-<dd>Indices of active dimensions of shape (input_dims,).</dd>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
-<dd>Kernel name.</dd>
-</dl>
-<h2 id="attributes">Attributes</h2>
-<dl>
-<dt><strong><code>magnitude</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
-<dd>Magnitude <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> a scalar.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L144-L184" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">class PhiKernel(Kernel):
-    &#34;&#34;&#34;
-    A kernel determined by a function \\(\\phi\\) given by
-
-    $$ K(x,x&#39;) = \\phi(x) \\sigma^2 \\phi(x&#39;) $$
-
-    with \\(\\sigma^2\\) the magnitude and \\(\\phi\\) the function.
-
-    Args:
-        phi (function): Function that takes (data_points,input_dims) as input and (data_points,feature_dims) as output. Input and output must be tensors.
-        input_dims (int): Number of input dimensions.
-        active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
-
-    Attributes:
-        magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
-    &#34;&#34;&#34;
-    def __init__(self, phi, input_dims=1, active_dims=None, name=&#34;Phi&#34;):
-        super().__init__(input_dims, active_dims, name)
-
-        out = phi(torch.ones(42, input_dims, dtype=config.dtype, device=config.device))
-        if not torch.is_tensor(out) or out.dtype != config.dtype or out.device != config.device:
-            raise ValueError(&#34;phi must return a tensor of the same dtype and device as the input&#34;)
-        if out.ndim != 2 or out.shape[0] != 42:
-            raise ValueError(&#34;phi must take (data_points,input_dims) as input, and return (data_points,feature_dims) as output&#34;)
-
-        feature_dims = out.shape[1]
-        magnitude = torch.ones(feature_dims)
-
-        self.magnitude = Parameter(magnitude, lower=config.positive_minimum)
-        self.phi = phi
-
-    def K(self, X1, X2=None):
-        # X has shape (data_points,input_dims)
-        X1, X2 = self._active_input(X1, X2)
-        variance = self.magnitude().diagflat()
-        if X2 is None:
-            X1 = self.phi(X1)
-            return X1.mm(variance.mm(X1.T))
-        else:
-            return self.phi(X1).mm(variance.mm(self.phi(X2).T))</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></li>
-</ul>
-<h3>Inherited members</h3>
-<ul class="hlist">
-<li><code><b><a title="mogptk.gpr.kernel.Kernel" href="kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></b></code>:
-<ul class="hlist">
-<li><code><a title="mogptk.gpr.kernel.Kernel.K" href="kernel.html#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.K_diag" href="kernel.html#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.copy_parameters" href="kernel.html#mogptk.gpr.kernel.Kernel.copy_parameters">copy_parameters</a></code></li>
-<li><code><a title="mogptk.gpr.kernel.Kernel.iterkernels" href="kernel.html#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
-</ul>
-</li>
-</ul>
-</dd>
 <dt id="mogptk.gpr.singleoutput.PolynomialKernel"><code class="flex name class">
 <span>class <span class="ident">PolynomialKernel</span></span>
 <span>(</span><span>degree, input_dims=1, active_dims=None, name='Polynomial')</span>
@@ -1461,7 +1465,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L106-L142" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L106-L142" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PolynomialKernel(Kernel):
     &#34;&#34;&#34;
@@ -1552,7 +1556,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L277-L331" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L277-L331" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class RationalQuadraticKernel(Kernel):
     &#34;&#34;&#34;
@@ -1655,7 +1659,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L486-L530" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L486-L530" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SincKernel(Kernel):
     &#34;&#34;&#34;
@@ -1724,7 +1728,7 @@ class MaternKernel(Kernel):
 <span>(</span><span>input_dims=1, active_dims=None, name='Spectral')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>A spectral kernel given by</p>
+<div class="desc"><p>A spectral kernel as proposed by [1] given by</p>
 <p><span><span class="MathJax_Preview"> K(x,x') = \sigma^2 \exp\left(-2\pi^2 \Sigma \tau^2\right) \cos(2\pi \mu \tau) </span><script type="math/tex; mode=display"> K(x,x') = \sigma^2 \exp\left(-2\pi^2 \Sigma \tau^2\right) \cos(2\pi \mu \tau) </script></span></p>
 <p>with <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">\Sigma</span><script type="math/tex">\Sigma</script></span> the variance, and <span><span class="MathJax_Preview">\mu</span><script type="math/tex">\mu</script></span> the mean. When the mean is zero, this kernel is equivalent to the SquaredExponential kernel with <span><span class="MathJax_Preview">l = \frac{1}{2\pi\sqrt{\Sigma}}</span><script type="math/tex">l = \frac{1}{2\pi\sqrt{\Sigma}}</script></span>.</p>
 <h2 id="args">Args</h2>
@@ -1744,15 +1748,16 @@ class MaternKernel(Kernel):
 <dd>Mean <span><span class="MathJax_Preview">\mu</span><script type="math/tex">\mu</script></span> of shape (input_dims,).</dd>
 <dt><strong><code>variance</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Variance <span><span class="MathJax_Preview">\Sigma</span><script type="math/tex">\Sigma</script></span> of shape (input_dims,).</dd>
-</dl></div>
+</dl>
+<p>[1] A.G. Wilson, R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", Proceedings of the 30th International Conference on Machine Learning, 2013</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L532-L572" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L532-L574" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralKernel(Kernel):
     &#34;&#34;&#34;
-    A spectral kernel given by
+    A spectral kernel as proposed by [1] given by
 
     $$ K(x,x&#39;) = \\sigma^2 \\exp\\left(-2\\pi^2 \\Sigma \\tau^2\\right) \\cos(2\\pi \\mu \\tau) $$
 
@@ -1767,6 +1772,8 @@ class MaternKernel(Kernel):
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (input_dims,).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (input_dims,).
+
+    [1] A.G. Wilson, R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, Proceedings of the 30th International Conference on Machine Learning, 2013
     &#34;&#34;&#34;
     def __init__(self, input_dims=1, active_dims=None, name=&#34;Spectral&#34;):
         super().__init__(input_dims, active_dims, name)
@@ -1813,7 +1820,7 @@ class MaternKernel(Kernel):
 <span>(</span><span>Q=1, input_dims=1, active_dims=None, name='SM')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>A spectral mixture kernel given by</p>
+<div class="desc"><p>A spectral mixture kernel as proposed by [1] given by</p>
 <p><span><span class="MathJax_Preview"> K(x,x') = \sum_{q=0}^Q \sigma_q^2 \exp\left(-2\pi^2 \Sigma_q \tau^2\right) \cos(2\pi \mu_q \tau) </span><script type="math/tex; mode=display"> K(x,x') = \sum_{q=0}^Q \sigma_q^2 \exp\left(-2\pi^2 \Sigma_q \tau^2\right) \cos(2\pi \mu_q \tau) </script></span></p>
 <p>with <span><span class="MathJax_Preview">Q</span><script type="math/tex">Q</script></span> the number of mixtures, <span><span class="MathJax_Preview">\tau = |x-x'|</span><script type="math/tex">\tau = |x-x'|</script></span>, <span><span class="MathJax_Preview">\sigma^2</span><script type="math/tex">\sigma^2</script></span> the magnitude, <span><span class="MathJax_Preview">\Sigma</span><script type="math/tex">\Sigma</script></span> the variance, and <span><span class="MathJax_Preview">\mu</span><script type="math/tex">\mu</script></span> the mean.</p>
 <h2 id="args">Args</h2>
@@ -1835,15 +1842,16 @@ class MaternKernel(Kernel):
 <dd>Mean <span><span class="MathJax_Preview">\mu</span><script type="math/tex">\mu</script></span> of shape (Q,input_dims).</dd>
 <dt><strong><code>variance</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Variance <span><span class="MathJax_Preview">\Sigma</span><script type="math/tex">\Sigma</script></span> of shape (Q,input_dims).</dd>
-</dl></div>
+</dl>
+<p>[1] A.G. Wilson, R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", Proceedings of the 30th International Conference on Machine Learning, 2013</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L574-L615" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L576-L619" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SpectralMixtureKernel(Kernel):
     &#34;&#34;&#34;
-    A spectral mixture kernel given by
+    A spectral mixture kernel as proposed by [1] given by
 
     $$ K(x,x&#39;) = \\sum_{q=0}^Q \\sigma_q^2 \\exp\\left(-2\\pi^2 \\Sigma_q \\tau^2\\right) \\cos(2\\pi \\mu_q \\tau) $$
 
@@ -1859,6 +1867,8 @@ class MaternKernel(Kernel):
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) of shape (Q,).
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (Q,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (Q,input_dims).
+
+    [1] A.G. Wilson, R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, Proceedings of the 30th International Conference on Machine Learning, 2013
     &#34;&#34;&#34;
     def __init__(self, Q=1, input_dims=1, active_dims=None, name=&#34;SM&#34;):
         super().__init__(input_dims, active_dims, name)
@@ -1931,7 +1941,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L224-L275" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L224-L275" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SquaredExponentialKernel(Kernel):
     &#34;&#34;&#34;
@@ -2027,7 +2037,7 @@ class MaternKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/singleoutput.py#L38-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/singleoutput.py#L5-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class WhiteKernel(Kernel):
     &#34;&#34;&#34;
@@ -2104,6 +2114,9 @@ class MaternKernel(Kernel):
 <h4><code><a title="mogptk.gpr.singleoutput.ExponentialKernel" href="#mogptk.gpr.singleoutput.ExponentialKernel">ExponentialKernel</a></code></h4>
 </li>
 <li>
+<h4><code><a title="mogptk.gpr.singleoutput.FunctionKernel" href="#mogptk.gpr.singleoutput.FunctionKernel">FunctionKernel</a></code></h4>
+</li>
+<li>
 <h4><code><a title="mogptk.gpr.singleoutput.LinearKernel" href="#mogptk.gpr.singleoutput.LinearKernel">LinearKernel</a></code></h4>
 </li>
 <li>
@@ -2114,9 +2127,6 @@ class MaternKernel(Kernel):
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.singleoutput.PeriodicKernel" href="#mogptk.gpr.singleoutput.PeriodicKernel">PeriodicKernel</a></code></h4>
-</li>
-<li>
-<h4><code><a title="mogptk.gpr.singleoutput.PhiKernel" href="#mogptk.gpr.singleoutput.PhiKernel">PhiKernel</a></code></h4>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.singleoutput.PolynomialKernel" href="#mogptk.gpr.singleoutput.PolynomialKernel">PolynomialKernel</a></code></h4>

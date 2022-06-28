@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L1-L984" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L1-L1031" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import time
@@ -47,6 +47,48 @@ from .dataset import DataSet
 from .util import *
 
 logger = logging.getLogger(&#39;mogptk&#39;)
+
+class Kernels(dict):
+    __getattr__ = dict.get
+
+kernels = Kernels({
+    &#39;White&#39;: gpr.WhiteKernel,
+    &#39;Constant&#39;: gpr.ConstantKernel,
+    &#39;Linear&#39;: gpr.LinearKernel,
+    &#39;Polynomial&#39;: gpr.PolynomialKernel,
+    &#39;Function&#39;: gpr.FunctionKernel,
+    &#39;Exponential&#39;: gpr.ExponentialKernel,
+    &#39;Exp&#39;: gpr.ExponentialKernel,
+    &#39;SquaredExponential&#39;: gpr.SquaredExponentialKernel,
+    &#39;SqExp&#39;: gpr.SquaredExponentialKernel,
+    &#39;SE&#39;: gpr.SquaredExponentialKernel,
+    &#39;RBF&#39;: gpr.SquaredExponentialKernel,
+    &#39;RationalQuadratic&#39;: gpr.RationalQuadraticKernel,
+    &#39;RQ&#39;: gpr.RationalQuadraticKernel,
+    &#39;Periodic&#39;: gpr.PeriodicKernel,
+    &#39;ExpSineSquared&#39;: gpr.PeriodicKernel,
+    &#39;LocallyPeriodic&#39;: gpr.LocallyPeriodicKernel,
+    &#39;Cosine&#39;: gpr.CosineKernel,
+    &#39;Sinc&#39;: gpr.SincKernel,
+    &#39;Spectral&#39;: gpr.SpectralKernel,
+    &#39;SpectralMixture&#39;: gpr.SpectralMixtureKernel,
+    &#39;Matern&#39;: gpr.MaternKernel,
+    &#39;IndependentMultiOutput&#39;: gpr.IndependentMultiOutputKernel,
+    &#39;IMO&#39;: gpr.IndependentMultiOutputKernel,
+    &#39;MultiOutputSpectral&#39;: gpr.MultiOutputSpectralKernel,
+    &#39;MultiOutputSpectralMixture&#39;: gpr.MultiOutputSpectralMixtureKernel,
+    &#39;MOSM&#39;: gpr.MultiOutputSpectralMixtureKernel,
+    &#39;UncoupledMultiOutputSpectral&#39;: gpr.UncoupledMultiOutputSpectralKernel,
+    &#39;uMOS&#39;: gpr.UncoupledMultiOutputSpectralKernel,
+    &#39;MultiOutputHarmonizableSpectral&#39;: gpr.MultiOutputHarmonizableSpectralKernel,
+    &#39;MOHS&#39;: gpr.MultiOutputHarmonizableSpectralKernel,
+    &#39;CrossSpectral&#39;: gpr.CrossSpectralKernel,
+    &#39;LinearModelOfCoregionalization&#39;: gpr.LinearModelOfCoregionalizationKernel,
+    &#39;LMC&#39;: gpr.LinearModelOfCoregionalizationKernel,
+    &#39;GaussianConvolutionProcess&#39;: gpr.GaussianConvolutionProcessKernel,
+    &#39;CONV&#39;: gpr.GaussianConvolutionProcessKernel,
+    &#39;GCP&#39;: gpr.GaussianConvolutionProcessKernel,
+})
 
 def LoadModel(filename):
     &#34;&#34;&#34;
@@ -560,13 +602,14 @@ class Model:
         y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
-    def predict(self, X=None, sigma=2, transformed=False, predict_y=True):
+    def predict(self, X=None, sigma=2, predict_y=True, transformed=False):
         &#34;&#34;&#34;
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
             X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             sigma (float): Number of standard deviations to display upwards and downwards.
+            predict_y (boolean): Predict data values instead of function values.
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
@@ -731,7 +774,7 @@ class Model:
             ax.legend(handles=legends)
         return fig, ax
 
-    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, predict_y=True, transformed=False):
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, predict_y=True, transformed=False):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -740,6 +783,7 @@ class Model:
             figsize (tuple): Set the figure size.
             legend (boolean): Disable legend.
             errorbars (boolean): Plot data error bars if available.
+            sigma (float): Number of standard deviations to display upwards and downwards.
             predict_y (boolean): Predict data values instead of function values.
             transformed (boolean): Display transformed Y data as used for training.
 
@@ -750,14 +794,17 @@ class Model:
         Examples:
             &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
         &#34;&#34;&#34;
-        X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y, transformed=transformed)
+        X, Mu, Lower, Upper = self.predict(X, sigma=sigma, predict_y=predict_y, transformed=transformed)
         if len(self.dataset) == 1:
             X = [X]
             Mu = [Mu]
             Lower = [Lower]
             Upper = [Upper]
 
-        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(12,4*len(self.dataset)), squeeze=False, constrained_layout=True)
+        if figsize is None:
+            figsize = (12,4*len(self.dataset))
+
+        fig, ax = plt.subplots(len(self.dataset), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         for j, data in enumerate(self.dataset):
             # TODO: ability to plot conditional or marginal distribution to reduce input dims
             if data.get_input_dims() &gt; 2:
@@ -1038,7 +1085,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L20-L32" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L62-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -1076,7 +1123,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L34-L58" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L76-L100" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
@@ -1125,7 +1172,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L115-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L157-L176" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman:
     &#34;&#34;&#34;
@@ -1148,6 +1195,35 @@ def _format_time(s):
             return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
         return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
 </details>
+</dd>
+<dt id="mogptk.model.Kernels"><code class="flex name class">
+<span>class <span class="ident">Kernels</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>dict() -&gt; new empty dictionary
+dict(mapping) -&gt; new dictionary initialized from a mapping object's
+(key, value) pairs
+dict(iterable) -&gt; new dictionary initialized as if via:
+d = {}
+for k, v in iterable:
+d[k] = v
+dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
+in the keyword argument list.
+For example:
+dict(one=1, two=2)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L20-L21" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class Kernels(dict):
+    __getattr__ = dict.get</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.dict</li>
+</ul>
 </dd>
 <dt id="mogptk.model.Model"><code class="flex name class">
 <span>class <span class="ident">Model</span></span>
@@ -1177,7 +1253,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L136-L952" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L178-L999" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
@@ -1575,13 +1651,14 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
-    def predict(self, X=None, sigma=2, transformed=False, predict_y=True):
+    def predict(self, X=None, sigma=2, predict_y=True, transformed=False):
         &#34;&#34;&#34;
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
             X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             sigma (float): Number of standard deviations to display upwards and downwards.
+            predict_y (boolean): Predict data values instead of function values.
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
@@ -1746,7 +1823,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             ax.legend(handles=legends)
         return fig, ax
 
-    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, predict_y=True, transformed=False):
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, predict_y=True, transformed=False):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -1755,6 +1832,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             figsize (tuple): Set the figure size.
             legend (boolean): Disable legend.
             errorbars (boolean): Plot data error bars if available.
+            sigma (float): Number of standard deviations to display upwards and downwards.
             predict_y (boolean): Predict data values instead of function values.
             transformed (boolean): Display transformed Y data as used for training.
 
@@ -1765,14 +1843,17 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         Examples:
             &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
         &#34;&#34;&#34;
-        X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y, transformed=transformed)
+        X, Mu, Lower, Upper = self.predict(X, sigma=sigma, predict_y=predict_y, transformed=transformed)
         if len(self.dataset) == 1:
             X = [X]
             Mu = [Mu]
             Lower = [Lower]
             Upper = [Upper]
 
-        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(12,4*len(self.dataset)), squeeze=False, constrained_layout=True)
+        if figsize is None:
+            figsize = (12,4*len(self.dataset))
+
+        fig, ax = plt.subplots(len(self.dataset), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         for j, data in enumerate(self.dataset):
             # TODO: ability to plot conditional or marginal distribution to reduce input dims
             if data.get_input_dims() &gt; 2:
@@ -2024,7 +2105,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L291-L301" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L333-L343" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def AIC(self):
     &#34;&#34;&#34;
@@ -2055,7 +2136,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L279-L289" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L321-L331" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def BIC(self):
     &#34;&#34;&#34;
@@ -2095,7 +2176,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L588-L611" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L631-L654" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -2131,7 +2212,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L216-L223" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L258-L265" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy_parameters(self, other):
     &#34;&#34;&#34;
@@ -2164,7 +2245,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L315-L367" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L357-L409" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;, use_all_data=False):
     &#34;&#34;&#34;
@@ -2237,7 +2318,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L204-L214" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L246-L256" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -2268,7 +2349,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L267-L277" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L309-L319" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -2299,7 +2380,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L303-L313" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L345-L355" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -2330,7 +2411,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L225-L235" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L267-L277" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def num_parameters(self):
     &#34;&#34;&#34;
@@ -2361,7 +2442,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L237-L247" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L279-L289" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def num_training_points(self):
     &#34;&#34;&#34;
@@ -2398,7 +2479,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L917-L952" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L964-L999" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_correlation(self, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2466,7 +2547,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L812-L872" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L859-L919" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2557,7 +2638,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L874-L915" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L921-L962" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2631,7 +2712,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L658-L701" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L701-L744" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_losses(self, title=None, figsize=(12,4), legend=True, errors=True, log=False):
     &#34;&#34;&#34;
@@ -2680,7 +2761,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 </details>
 </dd>
 <dt id="mogptk.model.Model.plot_prediction"><code class="name flex">
-<span>def <span class="ident">plot_prediction</span></span>(<span>self, X=None, title=None, figsize=None, legend=True, errorbars=True, predict_y=True, transformed=False)</span>
+<span>def <span class="ident">plot_prediction</span></span>(<span>self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, predict_y=True, transformed=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot the data including removed observations, latent function, and predictions of this model for each channel.</p>
@@ -2694,6 +2775,8 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <dd>Disable legend.</dd>
 <dt><strong><code>errorbars</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Plot data error bars if available.</dd>
+<dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
+<dd>Number of standard deviations to display upwards and downwards.</dd>
 <dt><strong><code>predict_y</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Predict data values instead of function values.</dd>
 <dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
@@ -2712,9 +2795,9 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L703-L810" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L746-L857" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, predict_y=True, transformed=False):
+<pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, predict_y=True, transformed=False):
     &#34;&#34;&#34;
     Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -2723,6 +2806,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
         figsize (tuple): Set the figure size.
         legend (boolean): Disable legend.
         errorbars (boolean): Plot data error bars if available.
+        sigma (float): Number of standard deviations to display upwards and downwards.
         predict_y (boolean): Predict data values instead of function values.
         transformed (boolean): Display transformed Y data as used for training.
 
@@ -2733,14 +2817,17 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
     Examples:
         &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
     &#34;&#34;&#34;
-    X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y, transformed=transformed)
+    X, Mu, Lower, Upper = self.predict(X, sigma=sigma, predict_y=predict_y, transformed=transformed)
     if len(self.dataset) == 1:
         X = [X]
         Mu = [Mu]
         Lower = [Lower]
         Upper = [Upper]
 
-    fig, ax = plt.subplots(len(self.dataset), 1, figsize=(12,4*len(self.dataset)), squeeze=False, constrained_layout=True)
+    if figsize is None:
+        figsize = (12,4*len(self.dataset))
+
+    fig, ax = plt.subplots(len(self.dataset), 1, figsize=figsize, squeeze=False, constrained_layout=True)
     for j, data in enumerate(self.dataset):
         # TODO: ability to plot conditional or marginal distribution to reduce input dims
         if data.get_input_dims() &gt; 2:
@@ -2825,7 +2912,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 </details>
 </dd>
 <dt id="mogptk.model.Model.predict"><code class="name flex">
-<span>def <span class="ident">predict</span></span>(<span>self, X=None, sigma=2, transformed=False, predict_y=True)</span>
+<span>def <span class="ident">predict</span></span>(<span>self, X=None, sigma=2, predict_y=True, transformed=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if <code>X</code> is passed, use that as the prediction range and return the prediction instead of saving it.</p>
@@ -2835,6 +2922,8 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <dd>Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
 <dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
 <dd>Number of standard deviations to display upwards and downwards.</dd>
+<dt><strong><code>predict_y</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Predict data values instead of function values.</dd>
 <dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Return transformed data as used for training.</dd>
 </dl>
@@ -2855,15 +2944,16 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L532-L586" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L574-L629" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def predict(self, X=None, sigma=2, transformed=False, predict_y=True):
+<pre><code class="python">def predict(self, X=None, sigma=2, predict_y=True, transformed=False):
     &#34;&#34;&#34;
     Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
     Args:
         X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
         sigma (float): Number of standard deviations to display upwards and downwards.
+        predict_y (boolean): Predict data values instead of function values.
         transformed (boolean): Return transformed data as used for training.
 
     Returns:
@@ -2925,7 +3015,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L195-L202" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L237-L244" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -2968,7 +3058,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L613-L656" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L656-L699" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, X=None, n=None, predict_y=True, prior=False, transformed=False):
     &#34;&#34;&#34;
@@ -3032,7 +3122,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L249-L265" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L291-L307" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -3090,7 +3180,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L369-L503" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L411-L545" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -3247,7 +3337,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L81-L94" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L123-L136" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau:
     &#34;&#34;&#34;
@@ -3285,7 +3375,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L60-L79" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L102-L121" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson:
     &#34;&#34;&#34;
@@ -3329,7 +3419,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/model.py#L96-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/model.py#L138-L155" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias:
     &#34;&#34;&#34;
@@ -3377,6 +3467,9 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 </li>
 <li>
 <h4><code><a title="mogptk.model.Hensman" href="#mogptk.model.Hensman">Hensman</a></code></h4>
+</li>
+<li>
+<h4><code><a title="mogptk.model.Kernels" href="#mogptk.model.Kernels">Kernels</a></code></h4>
 </li>
 <li>
 <h4><code><a title="mogptk.model.Model" href="#mogptk.model.Model">Model</a></code></h4>

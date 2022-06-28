@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/multioutput.py#L1-L552" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/multioutput.py#L1-L552" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -72,7 +72,7 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x&#39;) = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi_{ij}) $$
 
-    $$ \\alpha_{ij} = w_{ij}\\sqrt\\left((2\\pi)^n|\\Sigma_{ij}|\\right) $$ 
+    $$ \\alpha_{ij} = w_{ij}\\sqrt{\\left((2\\pi)^n|\\Sigma_{ij}|\\right)} $$
 
     $$ w_{ij} = w_iw_j\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
 
@@ -157,7 +157,7 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x&#39;) = \\sum_{q=0}^Q\\alpha_{ijq} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ijq})^T\\Sigma_{ijq}(\\tau+\\theta_{ijq})\\right) \\cos((\\tau+\\theta_{ijq})^T\\mu_{ijq} + \\phi_{ijq}) $$
 
-    $$ \\alpha_{ijq} = w_{ijq}\\sqrt\\left((2\\pi)^n|\\Sigma_{ijq}|\\right) $$
+    $$ \\alpha_{ijq} = w_{ijq}\\sqrt{\\left((2\\pi)^n|\\Sigma_{ijq}|\\right)} $$
 
     $$ w_{ijq} = w_{iq}w_{jq}\\exp\\left(-\\frac{1}{4}(\\mu_{iq}-\\mu_{jq})^T(\\Sigma_{iq}+\\Sigma_{jq})^{-1}(\\mu_{iq}-\\mu_{jq})\\right) $$
 
@@ -245,7 +245,7 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x&#39;) = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi_{ij}) $$
 
-    $$ \\alpha_{ij} = w_{ij}\\sqrt\\left((2\\pi)^n|\\Sigma_{ij}|\\right) $$ 
+    $$ \\alpha_{ij} = w_{ij}\\sqrt{\\left((2\\pi)^n|\\Sigma_{ij}|\\right)} $$
 
     $$ w_{ij} = \\sigma_{ij}^2\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
 
@@ -329,7 +329,7 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x&#39;) = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi) \\exp\\left(-\\frac{l_{ij}}{2}|\\bar{x}-c|\\right) $$
 
-    $$ \\alpha_{ij} = w_{ij}(2\\pi)^n\\sqrt\\left(|\\Sigma_{ij}|\\right) $$
+    $$ \\alpha_{ij} = w_{ij}(2\\pi)^n\\sqrt{\\left(|\\Sigma_{ij}|\\right)} $$
 
     $$ w_{ij} = w_iw_j\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
 
@@ -626,7 +626,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/multioutput.py#L398-L456" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/multioutput.py#L398-L456" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CrossSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -737,7 +737,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/multioutput.py#L502-L552" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/multioutput.py#L502-L552" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussianConvolutionProcessKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -828,7 +828,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/multioutput.py#L5-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/multioutput.py#L5-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class IndependentMultiOutputKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -912,7 +912,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/multioutput.py#L458-L500" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/multioutput.py#L458-L500" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -984,7 +984,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dd>
 <div class="desc"><p>Multi-output harmonizable spectral kernel (MOHSM) where each channel and cross-channel is modelled with a spectral kernel as proposed by [1]. You can add the mixture kernel with <code>MixtureKernel(MultiOutputHarmonizableSpectralKernel(...), Q=3)</code>.</p>
 <p><span><span class="MathJax_Preview"> K_{ij}(x,x') = \alpha_{ij} \exp\left(-\frac{1}{2}(\tau+\theta_{ij})^T\Sigma_{ij}(\tau+\theta_{ij})\right) \cos((\tau+\theta_{ij})^T\mu_{ij} + \phi) \exp\left(-\frac{l_{ij}}{2}|\bar{x}-c|\right) </span><script type="math/tex; mode=display"> K_{ij}(x,x') = \alpha_{ij} \exp\left(-\frac{1}{2}(\tau+\theta_{ij})^T\Sigma_{ij}(\tau+\theta_{ij})\right) \cos((\tau+\theta_{ij})^T\mu_{ij} + \phi) \exp\left(-\frac{l_{ij}}{2}|\bar{x}-c|\right) </script></span></p>
-<p><span><span class="MathJax_Preview"> \alpha_{ij} = w_{ij}(2\pi)^n\sqrt\left(|\Sigma_{ij}|\right) </span><script type="math/tex; mode=display"> \alpha_{ij} = w_{ij}(2\pi)^n\sqrt\left(|\Sigma_{ij}|\right) </script></span></p>
+<p><span><span class="MathJax_Preview"> \alpha_{ij} = w_{ij}(2\pi)^n\sqrt{\left(|\Sigma_{ij}|\right)} </span><script type="math/tex; mode=display"> \alpha_{ij} = w_{ij}(2\pi)^n\sqrt{\left(|\Sigma_{ij}|\right)} </script></span></p>
 <p><span><span class="MathJax_Preview"> w_{ij} = w_iw_j\exp\left(-\frac{1}{4}(\mu_i-\mu_j)^T(\Sigma_i+\Sigma_j)^{-1}(\mu_i-\mu_j)\right) </span><script type="math/tex; mode=display"> w_{ij} = w_iw_j\exp\left(-\frac{1}{4}(\mu_i-\mu_j)^T(\Sigma_i+\Sigma_j)^{-1}(\mu_i-\mu_j)\right) </script></span></p>
 <p><span><span class="MathJax_Preview"> \mu_{ij} = (\Sigma_i+\Sigma_j)^{-1}(\Sigma_i\mu_j + \Sigma_j\mu_i) </span><script type="math/tex; mode=display"> \mu_{ij} = (\Sigma_i+\Sigma_j)^{-1}(\Sigma_i\mu_j + \Sigma_j\mu_i) </script></span></p>
 <p><span><span class="MathJax_Preview"> \Sigma_{ij} = 2\Sigma_i(\Sigma_i+\Sigma_j)^{-1}\Sigma_j</span><script type="math/tex; mode=display"> \Sigma_{ij} = 2\Sigma_i(\Sigma_i+\Sigma_j)^{-1}\Sigma_j</script></span></p>
@@ -1021,7 +1021,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/multioutput.py#L295-L396" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/multioutput.py#L295-L396" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1029,7 +1029,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x&#39;) = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi) \\exp\\left(-\\frac{l_{ij}}{2}|\\bar{x}-c|\\right) $$
 
-    $$ \\alpha_{ij} = w_{ij}(2\\pi)^n\\sqrt\\left(|\\Sigma_{ij}|\\right) $$
+    $$ \\alpha_{ij} = w_{ij}(2\\pi)^n\\sqrt{\\left(|\\Sigma_{ij}|\\right)} $$
 
     $$ w_{ij} = w_iw_j\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
 
@@ -1152,7 +1152,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dd>
 <div class="desc"><p>Multi-output spectral kernel (MOSM) where each channel and cross-channel is modelled with a spectral kernel as proposed by [1]. You can add the mixture kernel with <code>MixtureKernel(MultiOutputSpectralKernel(...), Q=3)</code>.</p>
 <p><span><span class="MathJax_Preview"> K_{ij}(x,x') = \alpha_{ij} \exp\left(-\frac{1}{2}(\tau+\theta_{ij})^T\Sigma_{ij}(\tau+\theta_{ij})\right) \cos((\tau+\theta_{ij})^T\mu_{ij} + \phi_{ij}) </span><script type="math/tex; mode=display"> K_{ij}(x,x') = \alpha_{ij} \exp\left(-\frac{1}{2}(\tau+\theta_{ij})^T\Sigma_{ij}(\tau+\theta_{ij})\right) \cos((\tau+\theta_{ij})^T\mu_{ij} + \phi_{ij}) </script></span></p>
-<p><span><span class="MathJax_Preview"> \alpha_{ij} = w_{ij}\sqrt\left((2\pi)^n|\Sigma_{ij}|\right) </span><script type="math/tex; mode=display"> \alpha_{ij} = w_{ij}\sqrt\left((2\pi)^n|\Sigma_{ij}|\right) </script></span> </p>
+<p><span><span class="MathJax_Preview"> \alpha_{ij} = w_{ij}\sqrt{\left((2\pi)^n|\Sigma_{ij}|\right)} </span><script type="math/tex; mode=display"> \alpha_{ij} = w_{ij}\sqrt{\left((2\pi)^n|\Sigma_{ij}|\right)} </script></span></p>
 <p><span><span class="MathJax_Preview"> w_{ij} = w_iw_j\exp\left(-\frac{1}{4}(\mu_i-\mu_j)^T(\Sigma_i+\Sigma_j)^{-1}(\mu_i-\mu_j)\right) </span><script type="math/tex; mode=display"> w_{ij} = w_iw_j\exp\left(-\frac{1}{4}(\mu_i-\mu_j)^T(\Sigma_i+\Sigma_j)^{-1}(\mu_i-\mu_j)\right) </script></span></p>
 <p><span><span class="MathJax_Preview"> \mu_{ij} = (\Sigma_i+\Sigma_j)^{-1}(\Sigma_i\mu_j + \Sigma_j\mu_i) </span><script type="math/tex; mode=display"> \mu_{ij} = (\Sigma_i+\Sigma_j)^{-1}(\Sigma_i\mu_j + \Sigma_j\mu_i) </script></span></p>
 <p><span><span class="MathJax_Preview"> \Sigma_{ij} = 2\Sigma_i(\Sigma_i+\Sigma_j)^{-1}\Sigma_j</span><script type="math/tex; mode=display"> \Sigma_{ij} = 2\Sigma_i(\Sigma_i+\Sigma_j)^{-1}\Sigma_j</script></span></p>
@@ -1185,7 +1185,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/multioutput.py#L38-L121" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/multioutput.py#L38-L121" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1193,7 +1193,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x&#39;) = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi_{ij}) $$
 
-    $$ \\alpha_{ij} = w_{ij}\\sqrt\\left((2\\pi)^n|\\Sigma_{ij}|\\right) $$ 
+    $$ \\alpha_{ij} = w_{ij}\\sqrt{\\left((2\\pi)^n|\\Sigma_{ij}|\\right)} $$
 
     $$ w_{ij} = w_iw_j\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
 
@@ -1298,7 +1298,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dd>
 <div class="desc"><p>Multi-output spectral mixture kernel (MOSM) where each channel and cross-channel is modelled with a spectral kernel as proposed by [1].</p>
 <p><span><span class="MathJax_Preview"> K_{ij}(x,x') = \sum_{q=0}^Q\alpha_{ijq} \exp\left(-\frac{1}{2}(\tau+\theta_{ijq})^T\Sigma_{ijq}(\tau+\theta_{ijq})\right) \cos((\tau+\theta_{ijq})^T\mu_{ijq} + \phi_{ijq}) </span><script type="math/tex; mode=display"> K_{ij}(x,x') = \sum_{q=0}^Q\alpha_{ijq} \exp\left(-\frac{1}{2}(\tau+\theta_{ijq})^T\Sigma_{ijq}(\tau+\theta_{ijq})\right) \cos((\tau+\theta_{ijq})^T\mu_{ijq} + \phi_{ijq}) </script></span></p>
-<p><span><span class="MathJax_Preview"> \alpha_{ijq} = w_{ijq}\sqrt\left((2\pi)^n|\Sigma_{ijq}|\right) </span><script type="math/tex; mode=display"> \alpha_{ijq} = w_{ijq}\sqrt\left((2\pi)^n|\Sigma_{ijq}|\right) </script></span></p>
+<p><span><span class="MathJax_Preview"> \alpha_{ijq} = w_{ijq}\sqrt{\left((2\pi)^n|\Sigma_{ijq}|\right)} </span><script type="math/tex; mode=display"> \alpha_{ijq} = w_{ijq}\sqrt{\left((2\pi)^n|\Sigma_{ijq}|\right)} </script></span></p>
 <p><span><span class="MathJax_Preview"> w_{ijq} = w_{iq}w_{jq}\exp\left(-\frac{1}{4}(\mu_{iq}-\mu_{jq})^T(\Sigma_{iq}+\Sigma_{jq})^{-1}(\mu_{iq}-\mu_{jq})\right) </span><script type="math/tex; mode=display"> w_{ijq} = w_{iq}w_{jq}\exp\left(-\frac{1}{4}(\mu_{iq}-\mu_{jq})^T(\Sigma_{iq}+\Sigma_{jq})^{-1}(\mu_{iq}-\mu_{jq})\right) </script></span></p>
 <p><span><span class="MathJax_Preview"> \mu_{ijq} = (\Sigma_{iq}+\Sigma_{jq})^{-1}(\Sigma_{iq}\mu_{jq} + \Sigma_{jq}\mu_{iq}) </span><script type="math/tex; mode=display"> \mu_{ijq} = (\Sigma_{iq}+\Sigma_{jq})^{-1}(\Sigma_{iq}\mu_{jq} + \Sigma_{jq}\mu_{iq}) </script></span></p>
 <p><span><span class="MathJax_Preview"> \Sigma_{ijq} = 2\Sigma_{iq}(\Sigma_{iq}+\Sigma_{jq})^{-1}\Sigma_{jq}</span><script type="math/tex; mode=display"> \Sigma_{ijq} = 2\Sigma_{iq}(\Sigma_{iq}+\Sigma_{jq})^{-1}\Sigma_{jq}</script></span></p>
@@ -1333,7 +1333,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/multioutput.py#L123-L209" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/multioutput.py#L123-L209" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1341,7 +1341,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x&#39;) = \\sum_{q=0}^Q\\alpha_{ijq} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ijq})^T\\Sigma_{ijq}(\\tau+\\theta_{ijq})\\right) \\cos((\\tau+\\theta_{ijq})^T\\mu_{ijq} + \\phi_{ijq}) $$
 
-    $$ \\alpha_{ijq} = w_{ijq}\\sqrt\\left((2\\pi)^n|\\Sigma_{ijq}|\\right) $$
+    $$ \\alpha_{ijq} = w_{ijq}\\sqrt{\\left((2\\pi)^n|\\Sigma_{ijq}|\\right)} $$
 
     $$ w_{ijq} = w_{iq}w_{jq}\\exp\\left(-\\frac{1}{4}(\\mu_{iq}-\\mu_{jq})^T(\\Sigma_{iq}+\\Sigma_{jq})^{-1}(\\mu_{iq}-\\mu_{jq})\\right) $$
 
@@ -1449,7 +1449,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dd>
 <div class="desc"><p>Uncoupled multi-output spectral kernel (uMOSM) where each channel and cross-channel is modelled with a spectral kernel. It is similar to the MOSM kernel but instead of training a weight per channel, we train the lower triangular of the weight between all channels. You can add the mixture kernel with <code>MixtureKernel(UncoupledMultiOutputSpectralKernel(...), Q=3)</code>.</p>
 <p><span><span class="MathJax_Preview"> K_{ij}(x,x') = \alpha_{ij} \exp\left(-\frac{1}{2}(\tau+\theta_{ij})^T\Sigma_{ij}(\tau+\theta_{ij})\right) \cos((\tau+\theta_{ij})^T\mu_{ij} + \phi_{ij}) </span><script type="math/tex; mode=display"> K_{ij}(x,x') = \alpha_{ij} \exp\left(-\frac{1}{2}(\tau+\theta_{ij})^T\Sigma_{ij}(\tau+\theta_{ij})\right) \cos((\tau+\theta_{ij})^T\mu_{ij} + \phi_{ij}) </script></span></p>
-<p><span><span class="MathJax_Preview"> \alpha_{ij} = w_{ij}\sqrt\left((2\pi)^n|\Sigma_{ij}|\right) </span><script type="math/tex; mode=display"> \alpha_{ij} = w_{ij}\sqrt\left((2\pi)^n|\Sigma_{ij}|\right) </script></span> </p>
+<p><span><span class="MathJax_Preview"> \alpha_{ij} = w_{ij}\sqrt{\left((2\pi)^n|\Sigma_{ij}|\right)} </span><script type="math/tex; mode=display"> \alpha_{ij} = w_{ij}\sqrt{\left((2\pi)^n|\Sigma_{ij}|\right)} </script></span></p>
 <p><span><span class="MathJax_Preview"> w_{ij} = \sigma_{ij}^2\exp\left(-\frac{1}{4}(\mu_i-\mu_j)^T(\Sigma_i+\Sigma_j)^{-1}(\mu_i-\mu_j)\right) </span><script type="math/tex; mode=display"> w_{ij} = \sigma_{ij}^2\exp\left(-\frac{1}{4}(\mu_i-\mu_j)^T(\Sigma_i+\Sigma_j)^{-1}(\mu_i-\mu_j)\right) </script></span></p>
 <p><span><span class="MathJax_Preview"> \mu_{ij} = (\Sigma_i+\Sigma_j)^{-1}(\Sigma_i\mu_j + \Sigma_j\mu_i) </span><script type="math/tex; mode=display"> \mu_{ij} = (\Sigma_i+\Sigma_j)^{-1}(\Sigma_i\mu_j + \Sigma_j\mu_i) </script></span></p>
 <p><span><span class="MathJax_Preview"> \Sigma_{ij} = 2\Sigma_i(\Sigma_i+\Sigma_j)^{-1}\Sigma_j</span><script type="math/tex; mode=display"> \Sigma_{ij} = 2\Sigma_i(\Sigma_i+\Sigma_j)^{-1}\Sigma_j</script></span></p>
@@ -1481,7 +1481,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/75aa74b07f3bf8dd9eab3ddd9cac349d8097006e/mogptk/gpr/multioutput.py#L211-L293" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/multioutput.py#L211-L293" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1489,7 +1489,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 
     $$ K_{ij}(x,x&#39;) = \\alpha_{ij} \\exp\\left(-\\frac{1}{2}(\\tau+\\theta_{ij})^T\\Sigma_{ij}(\\tau+\\theta_{ij})\\right) \\cos((\\tau+\\theta_{ij})^T\\mu_{ij} + \\phi_{ij}) $$
 
-    $$ \\alpha_{ij} = w_{ij}\\sqrt\\left((2\\pi)^n|\\Sigma_{ij}|\\right) $$ 
+    $$ \\alpha_{ij} = w_{ij}\\sqrt{\\left((2\\pi)^n|\\Sigma_{ij}|\\right)} $$
 
     $$ w_{ij} = \\sigma_{ij}^2\\exp\\left(-\\frac{1}{4}(\\mu_i-\\mu_j)^T(\\Sigma_i+\\Sigma_j)^{-1}(\\mu_i-\\mu_j)\\right) $$
 
