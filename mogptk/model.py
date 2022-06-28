@@ -529,13 +529,14 @@ class Model:
         y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
-    def predict(self, X=None, sigma=2, transformed=False, predict_y=True):
+    def predict(self, X=None, sigma=2, predict_y=True, transformed=False):
         """
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
             X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             sigma (float): Number of standard deviations to display upwards and downwards.
+            predict_y (boolean): Predict data values instead of function values.
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
@@ -700,7 +701,7 @@ class Model:
             ax.legend(handles=legends)
         return fig, ax
 
-    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, predict_y=True, transformed=False):
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, predict_y=True, transformed=False):
         """
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -709,6 +710,7 @@ class Model:
             figsize (tuple): Set the figure size.
             legend (boolean): Disable legend.
             errorbars (boolean): Plot data error bars if available.
+            sigma (float): Number of standard deviations to display upwards and downwards.
             predict_y (boolean): Predict data values instead of function values.
             transformed (boolean): Display transformed Y data as used for training.
 
@@ -719,14 +721,17 @@ class Model:
         Examples:
             >>> fig, axes = dataset.plot(title='Title')
         """
-        X, Mu, Lower, Upper = self.predict(X, predict_y=predict_y, transformed=transformed)
+        X, Mu, Lower, Upper = self.predict(X, sigma=sigma, predict_y=predict_y, transformed=transformed)
         if len(self.dataset) == 1:
             X = [X]
             Mu = [Mu]
             Lower = [Lower]
             Upper = [Upper]
 
-        fig, ax = plt.subplots(len(self.dataset), 1, figsize=(12,4*len(self.dataset)), squeeze=False, constrained_layout=True)
+        if figsize is None:
+            figsize = (12,4*len(self.dataset))
+
+        fig, ax = plt.subplots(len(self.dataset), 1, figsize=figsize, squeeze=False, constrained_layout=True)
         for j, data in enumerate(self.dataset):
             # TODO: ability to plot conditional or marginal distribution to reduce input dims
             if data.get_input_dims() > 2:

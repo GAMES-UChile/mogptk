@@ -216,6 +216,7 @@ class Kernels(Kernel):
             i += 1
         self.kernels = kernels
 
+        self.input_dims = kernels[0].input_dims
         output_dims = [kernel.output_dims for kernel in kernels if kernel.output_dims is not None]
         if len(output_dims) == 0:
             self.output_dims = None

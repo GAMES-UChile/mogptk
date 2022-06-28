@@ -702,8 +702,8 @@ class Data:
         Removes observations in the interval `[start,end]`.
         
         Args:
-            start (float, str): Start of interval. Defaults to the first value in observations.
-            end (float, str): End of interval (not included). Defaults to the last value in observations.
+            start (float, str): Start of interval (inclusive). Defaults to the first value in observations.
+            end (float, str): End of interval (inclusive). Defaults to the last value in observations.
             dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
 
         Examples:
@@ -722,12 +722,12 @@ class Data:
         end = self._normalize_x_val(end)
 
         if dim is not None:
-            mask = np.logical_and(self.X[:,dim] >= start[dim], self.X[:,dim] < end[dim])
+            mask = np.logical_and(self.X[:,dim] >= start[dim], self.X[:,dim] <= end[dim])
             self._add_range(start[dim], end[dim], dim)
         else:
-            mask = np.logical_and(self.X[:,0] >= start[0], self.X[:,0] < end[0])
+            mask = np.logical_and(self.X[:,0] >= start[0], self.X[:,0] <= end[0])
             for i in range(1,self.get_input_dims()):
-                mask = np.logical_or(mask, np.logical_and(self.X[:,i] >= start[i], self.X[:,i] < end[i]))
+                mask = np.logical_or(mask, np.logical_and(self.X[:,i] >= start[i], self.X[:,i] <= end[i]))
             for i in range(self.get_input_dims()):
                 self._add_range(start[i], end[i], i)
         self.mask[mask] = False
