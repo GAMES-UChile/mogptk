@@ -228,6 +228,7 @@ class Model:
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
         self.gpr = model._build(kernel, x, y, y_err, mean, name)
 
+        self.iters = 0
         self.times = np.zeros(0)
         self.losses = np.zeros(0)
         self.errors = np.zeros(0)
@@ -713,7 +714,7 @@ class Model:
             figure: Matplotlib figure.
             axis: Matplotlib axis.
         """
-        if not hasattr(self, 'losses'):
+        if self.iters == 0:
             raise Exception("must be trained in order to plot the losses")
 
         fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
