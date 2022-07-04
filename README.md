@@ -84,6 +84,8 @@ Implemented likelihoods:
 
 **[06 - Custom Kernels and Mean Functions](https://games-uchile.github.io/mogptk/examples.html?q=06_Custom_Kernels_and_Mean_Functions)** Use or create custom kernels as well as training custom mean functions.
 
+**[07 - Multi Input](https://games-uchile.github.io/mogptk/examples.html?q=07_Multi_Input)** Use 8 input dimensions to train the Abalone data set.
+
 ## Examples
 
 **[Airline passengers](https://games-uchile.github.io/mogptk/examples.html?q=example_airline_passengers)**: Regression using a single output spectral mixture on the yearly number of passengers of an airline.
