@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L1-L898" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L1-L895" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import sys
 import torch
@@ -42,7 +42,7 @@ def _init_grid(N, X):
         raise ValueError(&#34;number of inducing points must equal N = n^%d&#34; % X.shape[1])
     n = int(n)
 
-    Z = torch.empty((N,X.shape[1]))
+    Z = torch.empty((N,X.shape[1]), device=config.device, dtype=config.dtype)
     grid = torch.meshgrid([torch.linspace(torch.min(X[:,i]), torch.max(X[:,i]), n) for i in range(X.shape[1])])
     for i in range(X.shape[1]):
         Z[:,i] = grid[i].flatten()
@@ -50,18 +50,15 @@ def _init_grid(N, X):
 
 def _init_random(N, X):
     sampler = qmc.Halton(d=X.shape[1])
-    samples = sampler.random(n=N)
-    Z = torch.empty((N,X.shape[1]))
+    samples = torch.tensor(sampler.random(n=N), device=config.device, dtype=config.dtype)
+    Z = torch.empty((N,X.shape[1]), device=config.device, dtype=config.dtype)
     for i in range(X.shape[1]):
         Z[:,i] = torch.min(X[:,i]) + (torch.max(X[:,i])-torch.min(X[:,i]))*samples[:,i]
     return Z
 
 def _init_density(N, X):
     kernel = gaussian_kde(X.T.detach().cpu().numpy(), bw_method=&#39;scott&#39;)
-    samples = kernel.resample(N).T
-    Z = torch.empty((N,X.shape[1]))
-    for i in range(X.shape[1]):
-        Z[:,i] = torch.tensor(samples[:,i], device=config.device, dtype=config.dtype)
+    Z = torch.tensor(kernel.resample(N).T, device=config.device, dtype=config.dtype)
     return Z
 
 def init_inducing_points(Z, X, method=&#39;grid&#39;, output_dims=None):
@@ -960,7 +957,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L36-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L33-L66" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_inducing_points(Z, X, method=&#39;grid&#39;, output_dims=None):
     &#34;&#34;&#34;
@@ -1012,7 +1009,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L71-L78" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L68-L75" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CholeskyException(Exception):
     def __init__(self, message, K, model):
@@ -1058,7 +1055,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L367-L457" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L364-L454" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact(Model):
     &#34;&#34;&#34;
@@ -1166,7 +1163,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L420-L457" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L417-L454" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -1252,7 +1249,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L881-L898" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L878-L895" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman(SparseHensman):
     &#34;&#34;&#34;
@@ -1312,7 +1309,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L80-L365" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L77-L362" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     &#34;&#34;&#34;
@@ -1631,7 +1628,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L317-L329" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L314-L326" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -1661,7 +1658,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L205-L212" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L202-L209" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -1687,7 +1684,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L283-L292" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L280-L289" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -1715,7 +1712,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L294-L303" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L291-L300" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     &#34;&#34;&#34;
@@ -1742,7 +1739,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L305-L315" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L302-L312" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -1767,7 +1764,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L194-L203" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L191-L200" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def parameters(self):
     &#34;&#34;&#34;
@@ -1789,7 +1786,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L214-L266" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L211-L263" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self, file=None):
     &#34;&#34;&#34;
@@ -1870,7 +1867,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L331-L365" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L328-L362" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, Z, n=None, predict_y=True, prior=False):
     &#34;&#34;&#34;
@@ -1917,7 +1914,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L184-L192" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L181-L189" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def zero_grad(self):
     for p in self._params:
@@ -1959,7 +1956,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L563-L659" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L560-L656" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau(Model):
     &#34;&#34;&#34;
@@ -2073,7 +2070,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L588-L625" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L585-L622" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -2123,7 +2120,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L631-L659" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L628-L656" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -2204,7 +2201,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L459-L561" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L456-L558" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson(Model):
     &#34;&#34;&#34;
@@ -2324,7 +2321,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L518-L561" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L515-L558" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -2420,7 +2417,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L770-L879" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L767-L876" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SparseHensman(Model):
     &#34;&#34;&#34;
@@ -2551,7 +2548,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L821-L842" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L818-L839" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -2585,7 +2582,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L813-L819" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L810-L816" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def kl_gaussian(self, q_mu, q_sqrt):
     S_diag = q_sqrt.diagonal().square() # NxN
@@ -2604,7 +2601,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L866-L879" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L863-L876" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():
@@ -2670,7 +2667,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L661-L768" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L658-L765" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias(Model):
     &#34;&#34;&#34;
@@ -2795,7 +2792,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L694-L718" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L691-L715" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -2832,7 +2829,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/model.py#L724-L768" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/model.py#L721-L765" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, Xs, full=False, tensor=False, predict_y=True):
     with torch.no_grad():

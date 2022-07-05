@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/models/mohsm.py#L1-L144" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/models/mohsm.py#L1-L144" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
@@ -163,7 +163,7 @@ class MOHSM(Model):
                     weight[j,:] = (np.sqrt(weight[j,:] / weight[j,:].sum() * y.var())) * 2
 
             for q in range(self.Q):
-                self.gpr.kernel[p*self.Q+q].weight.assign(weight[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale().cpu().detach().numpy()))
+                self.gpr.kernel[p*self.Q+q].weight.assign(weight[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale.numpy()))
 
         # noise
         if isinstance(self.gpr.likelihood, GaussianLikelihood):
@@ -247,7 +247,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/models/mohsm.py#L7-L144" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/models/mohsm.py#L7-L144" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MOHSM(Model):
     &#34;&#34;&#34;
@@ -377,7 +377,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
                     weight[j,:] = (np.sqrt(weight[j,:] / weight[j,:].sum() * y.var())) * 2
 
             for q in range(self.Q):
-                self.gpr.kernel[p*self.Q+q].weight.assign(weight[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale().cpu().detach().numpy()))
+                self.gpr.kernel[p*self.Q+q].weight.assign(weight[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale.numpy()))
 
         # noise
         if isinstance(self.gpr.likelihood, GaussianLikelihood):
@@ -413,7 +413,7 @@ In all cases the noise is initialized with 1/30 of the variance of each channel.
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/models/mohsm.py#L63-L144" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/models/mohsm.py#L63-L144" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, iters=500):
     &#34;&#34;&#34;
@@ -487,7 +487,7 @@ In all cases the noise is initialized with 1/30 of the variance of each channel.
                 weight[j,:] = (np.sqrt(weight[j,:] / weight[j,:].sum() * y.var())) * 2
 
         for q in range(self.Q):
-            self.gpr.kernel[p*self.Q+q].weight.assign(weight[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale().cpu().detach().numpy()))
+            self.gpr.kernel[p*self.Q+q].weight.assign(weight[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale.numpy()))
 
     # noise
     if isinstance(self.gpr.likelihood, GaussianLikelihood):

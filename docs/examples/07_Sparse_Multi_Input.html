@@ -3,7 +3,7 @@
 <head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>07_Multi_Input</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>07_Sparse_Multi_Input</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 
 
 
@@ -14579,7 +14579,7 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<h1 id="07-Multi-Input-example-using-the-Abalone-dataset">07 Multi Input example using the Abalone dataset<a class="anchor-link" href="#07-Multi-Input-example-using-the-Abalone-dataset">&#182;</a></h1><p><em>[Estimated time of execution: 5 min]</em></p>
+<h1 id="07-Sparse-Multi-Input-example-using-the-Abalone-dataset">07 Sparse Multi Input example using the Abalone dataset<a class="anchor-link" href="#07-Sparse-Multi-Input-example-using-the-Abalone-dataset">&#182;</a></h1><p><em>[Estimated time of execution: 5 min]</em></p>
 <p>This notebook shows how to train a multi-input dataset using MOGPTK.</p>
 <p>Abalone is a dataset containing the measurements of 4177 abalones (a type of marine snail) for their lengths, weights, sex and age. Specifically, the following features are given:</p>
 <ul>
@@ -14676,7 +14676,7 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 <span class="n">inference</span> <span class="o">=</span> <span class="n">mogptk</span><span class="o">.</span><span class="n">Titsias</span><span class="p">(</span><span class="n">inducing_points</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">init_inducing_points</span><span class="o">=</span><span class="s1">&#39;random&#39;</span><span class="p">)</span>
 
 <span class="c1"># Set up model</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">mogptk</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">inference</span><span class="o">=</span><span class="n">inference</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">mogptk</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">inference</span><span class="p">)</span>
 
 <span class="c1"># Initialize parameters</span>
 <span class="n">model</span><span class="o">.</span><span class="n">gpr</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">lengthscale</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span>

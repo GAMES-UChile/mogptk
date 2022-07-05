@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/plot.py#L1-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/plot.py#L1-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import matplotlib
@@ -41,7 +41,7 @@ def plot_gram(K):
     fig, ax = plt.subplots(1, 1, figsize=(6,6))
     fig.suptitle(&#39;Matrix is not positive semi-definitive&#39;, fontsize=16)
 
-    K = K.detach().numpy()
+    K = K.detach().cpu().numpy()
     K_real = K[~np.isnan(K) &amp; ~np.isinf(K)]
     if len(K_real) != 0:
         vmin, vmax = np.abs(K_real).min(), np.abs(K_real).max()
@@ -82,13 +82,13 @@ def plot_gram(K):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/cdf21a6f4a499e5e8ab10b9101c4b7b6294540eb/mogptk/gpr/plot.py#L9-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae653667af71e338642ff73b405cebe3d2e105a8/mogptk/gpr/plot.py#L9-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_gram(K):
     fig, ax = plt.subplots(1, 1, figsize=(6,6))
     fig.suptitle(&#39;Matrix is not positive semi-definitive&#39;, fontsize=16)
 
-    K = K.detach().numpy()
+    K = K.detach().cpu().numpy()
     K_real = K[~np.isnan(K) &amp; ~np.isinf(K)]
     if len(K_real) != 0:
         vmin, vmax = np.abs(K_real).min(), np.abs(K_real).max()
