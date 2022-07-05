@@ -10,7 +10,7 @@ def plot_gram(K):
     fig, ax = plt.subplots(1, 1, figsize=(6,6))
     fig.suptitle('Matrix is not positive semi-definitive', fontsize=16)
 
-    K = K.detach().numpy()
+    K = K.detach().cpu().numpy()
     K_real = K[~np.isnan(K) & ~np.isinf(K)]
     if len(K_real) != 0:
         vmin, vmax = np.abs(K_real).min(), np.abs(K_real).max()

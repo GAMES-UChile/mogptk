@@ -132,7 +132,7 @@ class MOHSM(Model):
                     weight[j,:] = (np.sqrt(weight[j,:] / weight[j,:].sum() * y.var())) * 2
 
             for q in range(self.Q):
-                self.gpr.kernel[p*self.Q+q].weight.assign(weight[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale().cpu().detach().numpy()))
+                self.gpr.kernel[p*self.Q+q].weight.assign(weight[:,q]/np.sqrt(self.gpr.kernel[p*self.Q+q].lengthscale.numpy()))
 
         # noise
         if isinstance(self.gpr.likelihood, GaussianLikelihood):

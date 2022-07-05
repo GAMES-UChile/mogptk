@@ -597,14 +597,9 @@ class Model:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
 
-        mu, var = self.gpr.predict(x, predict_y=predict_y, tensor=True)
-        lower = mu - sigma*torch.sqrt(var)
-        upper = mu + sigma*torch.sqrt(var)
-
-        mu = mu.cpu().numpy()
-        var = var.cpu().numpy()
-        lower = lower.cpu().numpy()
-        upper = upper.cpu().numpy()
+        mu, var = self.gpr.predict(x, predict_y=predict_y, tensor=False)
+        lower = mu - sigma*np.sqrt(var)
+        upper = mu + sigma*np.sqrt(var)
 
         i = 0
         Mu = []

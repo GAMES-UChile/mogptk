@@ -11,7 +11,7 @@ def _init_grid(N, X):
         raise ValueError("number of inducing points must equal N = n^%d" % X.shape[1])
     n = int(n)
 
-    Z = torch.empty((N,X.shape[1]))
+    Z = torch.empty((N,X.shape[1]), device=config.device, dtype=config.dtype)
     grid = torch.meshgrid([torch.linspace(torch.min(X[:,i]), torch.max(X[:,i]), n) for i in range(X.shape[1])])
     for i in range(X.shape[1]):
         Z[:,i] = grid[i].flatten()
@@ -19,18 +19,15 @@ def _init_grid(N, X):
 
 def _init_random(N, X):
     sampler = qmc.Halton(d=X.shape[1])
-    samples = sampler.random(n=N)
-    Z = torch.empty((N,X.shape[1]))
+    samples = torch.tensor(sampler.random(n=N), device=config.device, dtype=config.dtype)
+    Z = torch.empty((N,X.shape[1]), device=config.device, dtype=config.dtype)
     for i in range(X.shape[1]):
         Z[:,i] = torch.min(X[:,i]) + (torch.max(X[:,i])-torch.min(X[:,i]))*samples[:,i]
     return Z
 
 def _init_density(N, X):
     kernel = gaussian_kde(X.T.detach().cpu().numpy(), bw_method='scott')
-    samples = kernel.resample(N).T
-    Z = torch.empty((N,X.shape[1]))
-    for i in range(X.shape[1]):
-        Z[:,i] = torch.tensor(samples[:,i], device=config.device, dtype=config.dtype)
+    Z = torch.tensor(kernel.resample(N).T, device=config.device, dtype=config.dtype)
     return Z
 
 def init_inducing_points(Z, X, method='grid', output_dims=None):
