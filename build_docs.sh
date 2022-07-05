@@ -3,7 +3,15 @@
 rm -rf docs
 mkdir docs
 
-find examples/* -type f -name '*.ipynb' -exec jupyter nbconvert --to html --output-dir docs/examples {} + || exit 1
+custom_css='<style>\
+body{max-width:100ch}\
+pre{overflow-x:scroll}\
+<\/style>'
+
+echo $custom_css
+
+find examples/* -maxdepth 0 -type f -name '*.ipynb' -exec jupyter nbconvert --to html --output-dir docs/examples {} + || exit 1
+find docs/examples/* -maxdepth 0 -type f -name '*.html' -exec sed -i "s/<\/head>/$custom_css<\/head>/g" {} + || exit 1
 
 pdoc --html --template-dir . --force -o docs mogptk || exit 1
 mv -f docs/mogptk/* docs || exit 1
@@ -12,7 +20,7 @@ rmdir docs/mogptk || exit 1
 # create examples bootstrap
 sed -n '1,/<main>/p' docs/index.html > docs/examples.html
 cat >> docs/examples.html <<\EOT
-<article id="content" style="padding:0">
+<article id="content" style="padding:0;max-width:100%">
     <iframe id="example" width="100%" height="100%"></iframe>
 </article>
 <script>
@@ -23,3 +31,4 @@ cat >> docs/examples.html <<\EOT
 </script>
 EOT
 sed -n '/<nav id=\"sidebar\">/,$p' docs/index.html >> docs/examples.html
+sed -i 's/href="#/href="index.html#/g' docs/examples.html
