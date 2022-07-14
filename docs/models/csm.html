@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/models/csm.py#L1-L110" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/models/csm.py#L1-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
@@ -208,16 +208,23 @@ class CSM(Model):
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
 </dl>
-<h2 id="atributes">Atributes</h2>
-<p>dataset (mogptk.dataset.DataSet): Dataset.
-gpr (mogptk.gpr.model.Model): GPR model.
-times (numpy.ndarray): Training times of shape (iters,).
-losses (numpy.ndarray): Losses of shape (iters,).
-errors (numpy.ndarray): Errors of shape (iters,).</p></div>
+<h2 id="attributes_1">Attributes</h2>
+<dl>
+<dt><strong><code>dataset</code></strong> :&ensp;<code><a title="mogptk.dataset.DataSet" href="../dataset.html#mogptk.dataset.DataSet">DataSet</a></code></dt>
+<dd>Dataset.</dd>
+<dt><strong><code>gpr</code></strong> :&ensp;<code><a title="mogptk.gpr.model.Model" href="../gpr/model.html#mogptk.gpr.model.Model">Model</a></code></dt>
+<dd>GPR model.</dd>
+<dt><strong><code>times</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Training times of shape (iters,).</dd>
+<dt><strong><code>losses</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Losses of shape (iters,).</dd>
+<dt><strong><code>errors</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Errors of shape (iters,).</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/models/csm.py#L7-L110" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/models/csm.py#L7-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CSM(Model):
     &#34;&#34;&#34;
@@ -351,7 +358,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/models/csm.py#L65-L110" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/models/csm.py#L65-L110" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, iters=500):
     &#34;&#34;&#34;

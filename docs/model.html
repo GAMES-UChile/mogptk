@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L1-L1027" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L1-L1027" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import time
@@ -218,7 +218,7 @@ class Model:
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
 
-        Atributes:
+        Attributes:
             dataset (mogptk.dataset.DataSet): Dataset.
             gpr (mogptk.gpr.model.Model): GPR model.
             times (numpy.ndarray): Training times of shape (iters,).
@@ -1081,7 +1081,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L62-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L62-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -1119,7 +1119,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L76-L100" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L76-L100" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
@@ -1168,7 +1168,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L157-L176" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L157-L176" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman:
     &#34;&#34;&#34;
@@ -1211,7 +1211,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L20-L21" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L20-L21" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernels(dict):
     __getattr__ = dict.get</code></pre>
@@ -1240,16 +1240,23 @@ dict(one=1, two=2)</p></div>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the model.</dd>
 </dl>
-<h2 id="atributes">Atributes</h2>
-<p>dataset (mogptk.dataset.DataSet): Dataset.
-gpr (mogptk.gpr.model.Model): GPR model.
-times (numpy.ndarray): Training times of shape (iters,).
-losses (numpy.ndarray): Losses of shape (iters,).
-errors (numpy.ndarray): Errors of shape (iters,).</p></div>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>dataset</code></strong> :&ensp;<code><a title="mogptk.dataset.DataSet" href="dataset.html#mogptk.dataset.DataSet">DataSet</a></code></dt>
+<dd>Dataset.</dd>
+<dt><strong><code>gpr</code></strong> :&ensp;<code><a title="mogptk.gpr.model.Model" href="gpr/model.html#mogptk.gpr.model.Model">Model</a></code></dt>
+<dd>GPR model.</dd>
+<dt><strong><code>times</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Training times of shape (iters,).</dd>
+<dt><strong><code>losses</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Losses of shape (iters,).</dd>
+<dt><strong><code>errors</code></strong> :&ensp;<code>numpy.ndarray</code></dt>
+<dd>Errors of shape (iters,).</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L178-L995" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L178-L995" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
@@ -1263,7 +1270,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
 
-        Atributes:
+        Attributes:
             dataset (mogptk.dataset.DataSet): Dataset.
             gpr (mogptk.gpr.model.Model): GPR model.
             times (numpy.ndarray): Training times of shape (iters,).
@@ -2097,7 +2104,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L334-L344" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L334-L344" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def AIC(self):
     &#34;&#34;&#34;
@@ -2128,7 +2135,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L322-L332" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L322-L332" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def BIC(self):
     &#34;&#34;&#34;
@@ -2168,7 +2175,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L627-L650" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L627-L650" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -2204,7 +2211,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L259-L266" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L259-L266" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy_parameters(self, other):
     &#34;&#34;&#34;
@@ -2237,7 +2244,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L358-L410" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L358-L410" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;, use_all_data=False):
     &#34;&#34;&#34;
@@ -2310,7 +2317,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L247-L257" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L247-L257" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -2341,7 +2348,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L310-L320" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L310-L320" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -2372,7 +2379,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L346-L356" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L346-L356" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -2403,7 +2410,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L268-L278" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L268-L278" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def num_parameters(self):
     &#34;&#34;&#34;
@@ -2434,7 +2441,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L280-L290" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L280-L290" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def num_training_points(self):
     &#34;&#34;&#34;
@@ -2471,7 +2478,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L960-L995" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L960-L995" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_correlation(self, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2539,7 +2546,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L855-L915" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L855-L915" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2630,7 +2637,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L917-L958" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L917-L958" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2704,7 +2711,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L697-L740" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L697-L740" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_losses(self, title=None, figsize=(12,4), legend=True, errors=True, log=False):
     &#34;&#34;&#34;
@@ -2787,7 +2794,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L742-L853" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L742-L853" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, predict_y=True, transformed=False):
     &#34;&#34;&#34;
@@ -2936,7 +2943,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L575-L625" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L575-L625" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=2, predict_y=True, transformed=False):
     &#34;&#34;&#34;
@@ -3002,7 +3009,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L238-L245" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L238-L245" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -3045,7 +3052,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L652-L695" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L652-L695" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, X=None, n=None, predict_y=True, prior=False, transformed=False):
     &#34;&#34;&#34;
@@ -3109,7 +3116,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L292-L308" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L292-L308" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -3167,7 +3174,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L412-L546" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L412-L546" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -3324,7 +3331,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L123-L136" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L123-L136" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau:
     &#34;&#34;&#34;
@@ -3362,7 +3369,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L102-L121" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L102-L121" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson:
     &#34;&#34;&#34;
@@ -3406,7 +3413,7 @@ errors (numpy.ndarray): Errors of shape (iters,).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/fed33b0a8a5ccde46d78acc0550ac3ab3d521d06/mogptk/model.py#L138-L155" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/674d08870ac7a00a70c6b1c377fb47b3ad68a2f6/mogptk/model.py#L138-L155" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias:
     &#34;&#34;&#34;

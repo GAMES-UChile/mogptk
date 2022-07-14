@@ -187,7 +187,7 @@ class Model:
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
 
-        Atributes:
+        Attributes:
             dataset (mogptk.dataset.DataSet): Dataset.
             gpr (mogptk.gpr.model.Model): GPR model.
             times (numpy.ndarray): Training times of shape (iters,).

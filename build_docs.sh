@@ -8,8 +8,6 @@ body{max-width:100ch}\
 pre{overflow-x:scroll}\
 <\/style>'
 
-echo $custom_css
-
 find examples/* -maxdepth 0 -type f -name '*.ipynb' -exec jupyter nbconvert --to html --output-dir docs/examples {} + || exit 1
 find docs/examples/* -maxdepth 0 -type f -name '*.html' -exec sed -i "s/<\/head>/$custom_css<\/head>/g" {} + || exit 1
 
