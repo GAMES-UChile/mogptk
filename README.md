@@ -129,5 +129,25 @@ Please use our publication at arXiv to cite our toolkit: [MOGPTK: The Multi-Outp
 }
 ```
 
+## Citations
+- [A.I. Cowen-Rivers, et al., SAMBA: Safe Model-Based & Active Reinforcement Learning](https://arxiv.org/abs/2006.09436)
+- [O.A. Guerrero, et al., Subnational Sustainable Development: The Role of Vertical Intergovernmental Transfers in Reaching Multidimensional Goals](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3837492)
+- [O.A. Guerrero, G. Castañeda, How Does Government Expenditure Impact Sustainable Development? Studying the Multidimensional Link between Budgets and Development Gaps](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3800218)
+- [T.V. Vo, et al., Federated Estimation of Causal Effects from Observational Data](https://arxiv.org/abs/2106.00456)
+- [Q. Lin, et al., Multi-output Gaussian process prediction for computationally expensive problems with multiple levels of fidelity](https://www.sciencedirect.com/science/article/pii/S0950705121004147?casa_token=9CDCb7EpGKUAAAAA:nn6LhsAIYn0b5o9JkRJgz4GlPY4pAYeKz-Xchf-1yxJ5czbLLw7jaBQRF3IXtcs6M1fUYkT0aEI)
+- [S. Covino, et al., Detecting the periodicity of highly irregularly sampled light-curves with GPs](https://arxiv.org/abs/2203.03614)
+- [Y. Jung, J. Park, Scalable Inference for Hybrid Bayesian HMM using GP Emission](https://www.tandfonline.com/doi/abs/10.1080/10618600.2021.2023021)
+- [H. Liu, et al., Scalable multi-task GPs with neural embedding of coregionalization](https://www.sciencedirect.com/science/article/abs/pii/S0950705122003641)
+- [L.M. Rivera-Muñoz, et al., Missing Data Estimation in a Low-Cost Sensor network for Measuring Air Quality](https://link.springer.com/article/10.1007/s11270-021-05363-1)
+
+### Used in code
+- https://github.com/jdjmoon/TRF
+- https://github.com/ErickRosete/Multivariate_regression
+- https://github.com/clara-risk/fire_weather_interpolate
+- https://github.com/becre2021/multichannels-corrnp
+- https://github.com/ArthurLeroy/MAGMAclust
+- https://github.com/nicdel-git/master_thesis
+
+
 ## License
 Released under the [MIT license](LICENSE).
