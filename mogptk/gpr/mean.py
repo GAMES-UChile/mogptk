@@ -101,4 +101,4 @@ class LinearMean(Mean):
         self.slope = Parameter(torch.zeros(input_dims))
 
     def mean(self, X):
-        return self.bias() + X.mm(self.slope().reshape(1,-1))
+        return self.bias() + X.mm(self.slope().reshape(-1,1))
