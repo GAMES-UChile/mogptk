@@ -62,7 +62,7 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,input_dims).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,).
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
@@ -148,7 +148,7 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,Q,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,Q,input_dims).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,Q,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,Q).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,Q).
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
@@ -235,7 +235,7 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,input_dims).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,).
     """
     def __init__(self, output_dims, input_dims=1, active_dims=None, name="uMOSM"):
         super().__init__(output_dims, input_dims, active_dims, name)
@@ -321,7 +321,7 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (output_dims,).
         center (mogptk.gpr.parameter.Parameter): Center \\(c\\) of shape (input_dims,).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,).
 
     [1] M. Altamirano, "Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
     """

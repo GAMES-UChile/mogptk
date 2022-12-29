@@ -11,7 +11,7 @@ class CONV(Model):
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.Exact`.
+        inference: Gaussian process inference model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -37,7 +37,7 @@ class CONV(Model):
 
     [1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009
     """
-    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="CONV"):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="CONV"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -54,7 +54,7 @@ class CONV(Model):
             kernel[q].variance.assign(np.random.rand(output_dims,input_dims))
             kernel[q].base_variance.assign(np.random.rand(input_dims))
 
-        super().__init__(dataset, kernel, model, mean, name)
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
 
     def init_parameters(self, method='SM', iters=500):

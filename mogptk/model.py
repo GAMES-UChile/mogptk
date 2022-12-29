@@ -176,14 +176,14 @@ class Hensman:
         return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Model:
-    def __init__(self, dataset, kernel, model=Exact(), mean=None, name=None):
+    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
         """
         Model is the base class for multi-output Gaussian process models.
 
         Args:
             dataset (mogptk.dataset.DataSet, mogptk.data.Data): `DataSet` with `Data` objects for all the channels. When a (list or dict of) `Data` object is passed, it will automatically be converted to a `DataSet`.
             kernel (mogptk.gpr.kernel.Kernel): The kernel class.
-            model: Gaussian process model to use, such as `mogptk.Exact`.
+            inference: Gaussian process inference model to use, such as `mogptk.Exact`.
             mean (mogptk.gpr.mean.Mean): The mean class.
             name (str): Name of the model.
 
@@ -226,7 +226,7 @@ class Model:
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
-        self.gpr = model._build(kernel, x, y, y_err, mean, name)
+        self.gpr = inference._build(kernel, x, y, y_err, mean, name)
 
         self.iters = 0
         self.times = np.zeros(0)
@@ -263,7 +263,7 @@ class Model:
         if not isinstance(other, Model):
             raise ValueError("other must be of type Model")
 
-        self.gpr.kernel.copy_parameters(other.kernel)
+        self.gpr.kernel.copy_parameters(other.gpr.kernel)
 
     def num_parameters(self):
         """

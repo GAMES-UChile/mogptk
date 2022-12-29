@@ -12,7 +12,7 @@ class SM(Model):
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.Exact`.
+        inference: Gaussian process inference model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -37,7 +37,7 @@ class SM(Model):
 
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013
     """
-    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name="SM"):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name="SM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -52,7 +52,7 @@ class SM(Model):
             kernel[j].mean.assign(np.random.rand(Q,input_dims))
             kernel[j].variance.assign(np.random.rand(Q,input_dims))
 
-        super().__init__(dataset, kernel, model, mean, name)
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
         for j in range(output_dims):
