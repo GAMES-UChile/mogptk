@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/gpr/multioutput.py#L1-L552" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/gpr/multioutput.py#L1-L552" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -93,7 +93,7 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,input_dims).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,).
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
@@ -179,7 +179,7 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,Q,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,Q,input_dims).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,Q,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,Q).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,Q).
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
@@ -266,7 +266,7 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,input_dims).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,).
     &#34;&#34;&#34;
     def __init__(self, output_dims, input_dims=1, active_dims=None, name=&#34;uMOSM&#34;):
         super().__init__(output_dims, input_dims, active_dims, name)
@@ -352,7 +352,7 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (output_dims,).
         center (mogptk.gpr.parameter.Parameter): Center \\(c\\) of shape (input_dims,).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,).
 
     [1] M. Altamirano, &#34;Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
     &#34;&#34;&#34;
@@ -626,7 +626,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/gpr/multioutput.py#L398-L456" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/gpr/multioutput.py#L398-L456" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CrossSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -737,7 +737,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/gpr/multioutput.py#L502-L552" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/gpr/multioutput.py#L502-L552" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussianConvolutionProcessKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -828,7 +828,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/gpr/multioutput.py#L5-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/gpr/multioutput.py#L5-L36" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class IndependentMultiOutputKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -912,7 +912,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/gpr/multioutput.py#L458-L500" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/gpr/multioutput.py#L458-L500" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1015,13 +1015,13 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dt><strong><code>delay</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Delay <span><span class="MathJax_Preview">\theta</span><script type="math/tex">\theta</script></span> of shape (output_dims,input_dims).</dd>
 <dt><strong><code>phase</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
-<dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> of shape (output_dims,).</dd>
+<dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> in hertz of shape (output_dims,).</dd>
 </dl>
 <p>[1] M. Altamirano, "Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/gpr/multioutput.py#L295-L396" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/gpr/multioutput.py#L295-L396" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1052,7 +1052,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (output_dims,).
         center (mogptk.gpr.parameter.Parameter): Center \\(c\\) of shape (input_dims,).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,).
 
     [1] M. Altamirano, &#34;Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
     &#34;&#34;&#34;
@@ -1179,13 +1179,13 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dt><strong><code>delay</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Delay <span><span class="MathJax_Preview">\theta</span><script type="math/tex">\theta</script></span> of shape (output_dims,input_dims).</dd>
 <dt><strong><code>phase</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
-<dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> of shape (output_dims,).</dd>
+<dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> in hertz of shape (output_dims,).</dd>
 </dl>
 <p>[1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/gpr/multioutput.py#L38-L121" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/gpr/multioutput.py#L38-L121" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1214,7 +1214,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,input_dims).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,).
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
@@ -1327,13 +1327,13 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dt><strong><code>delay</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Delay <span><span class="MathJax_Preview">\theta</span><script type="math/tex">\theta</script></span> of shape (output_dims,Q,input_dims).</dd>
 <dt><strong><code>phase</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
-<dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> of shape (output_dims,Q).</dd>
+<dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> in hertz of shape (output_dims,Q).</dd>
 </dl>
 <p>[1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/gpr/multioutput.py#L123-L209" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/gpr/multioutput.py#L123-L209" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1363,7 +1363,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,Q,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,Q,input_dims).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,Q,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,Q).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,Q).
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
@@ -1476,12 +1476,12 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dt><strong><code>delay</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Delay <span><span class="MathJax_Preview">\theta</span><script type="math/tex">\theta</script></span> of shape (output_dims,input_dims).</dd>
 <dt><strong><code>phase</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
-<dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> of shape (output_dims,).</dd>
+<dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> in hertz of shape (output_dims,).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/gpr/multioutput.py#L211-L293" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/gpr/multioutput.py#L211-L293" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1510,7 +1510,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         mean (mogptk.gpr.parameter.Parameter): Mean \\(\\mu\\) of shape (output_dims,input_dims).
         variance (mogptk.gpr.parameter.Parameter): Variance \\(\\Sigma\\) of shape (output_dims,input_dims).
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
-        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) of shape (output_dims,).
+        phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,).
     &#34;&#34;&#34;
     def __init__(self, output_dims, input_dims=1, active_dims=None, name=&#34;uMOSM&#34;):
         super().__init__(output_dims, input_dims, active_dims, name)

@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/models/sm_lmc.py#L1-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/models/sm_lmc.py#L1-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 
@@ -43,7 +43,7 @@ class SM_LMC(Model):
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
-        model: Gaussian process model to use, such as `mogptk.Exact`.
+        inference: Gaussian process inference model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -70,7 +70,7 @@ class SM_LMC(Model):
     [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, &#34;Geostatistics for Natural Resource Evaluation&#34;, Oxford University Press, 1997
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;SM-LMC&#34;):
+    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name=&#34;SM-LMC&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -88,7 +88,7 @@ class SM_LMC(Model):
             kernel[q].mean.assign(np.random.rand(input_dims))
             kernel[q].variance.assign(np.random.rand(input_dims))
 
-        super().__init__(dataset, kernel, model, mean, name)
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
@@ -155,7 +155,7 @@ class SM_LMC(Model):
 <dl>
 <dt id="mogptk.models.sm_lmc.SM_LMC"><code class="flex name class">
 <span>class <span class="ident">SM_LMC</span></span>
-<span>(</span><span>dataset, Q=1, Rq=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='SM-LMC')</span>
+<span>(</span><span>dataset, Q=1, Rq=1, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name='SM-LMC')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Spectral Mixture Linear Model of Coregionalization kernel with <code>Q</code> components and <code>Rq</code> latent functions. The SM kernel as proposed by [1] is combined with the LMC kernel as proposed by [2]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
@@ -167,8 +167,8 @@ class SM_LMC(Model):
 <dd>Number of components.</dd>
 <dt><strong><code>Rq</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of subcomponents.</dd>
-<dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
+<dt><strong><code>inference</code></strong></dt>
+<dd>Gaussian process inference model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -205,8 +205,8 @@ class SM_LMC(Model):
 <dd><code>DataSet</code> with <code>Data</code> objects for all the channels. When a (list or dict of) <code>Data</code> object is passed, it will automatically be converted to a <code>DataSet</code>.</dd>
 <dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="../gpr/kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
 <dd>The kernel class.</dd>
-<dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
+<dt><strong><code>inference</code></strong></dt>
+<dd>Gaussian process inference model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -228,7 +228,7 @@ class SM_LMC(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/models/sm_lmc.py#L7-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/models/sm_lmc.py#L7-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SM_LMC(Model):
     &#34;&#34;&#34;
@@ -238,7 +238,7 @@ class SM_LMC(Model):
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
-        model: Gaussian process model to use, such as `mogptk.Exact`.
+        inference: Gaussian process inference model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -265,7 +265,7 @@ class SM_LMC(Model):
     [1] A.G. Wilson and R.P. Adams, &#34;Gaussian Process Kernels for Pattern Discovery and Extrapolation&#34;, International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, &#34;Geostatistics for Natural Resource Evaluation&#34;, Oxford University Press, 1997
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, Rq=1, model=Exact(), mean=None, name=&#34;SM-LMC&#34;):
+    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name=&#34;SM-LMC&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -283,7 +283,7 @@ class SM_LMC(Model):
             kernel[q].mean.assign(np.random.rand(input_dims))
             kernel[q].variance.assign(np.random.rand(input_dims))
 
-        super().__init__(dataset, kernel, model, mean, name)
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)
@@ -365,7 +365,7 @@ class SM_LMC(Model):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/models/sm_lmc.py#L68-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/models/sm_lmc.py#L68-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, iters=500):
     &#34;&#34;&#34;

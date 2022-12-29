@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/models/mosm.py#L1-L256" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/models/mosm.py#L1-L256" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import numpy as np
 import matplotlib.pyplot as plt
@@ -44,7 +44,7 @@ class MOSM(Model):
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.Exact`.
+        inference: Gaussian process inference model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -69,7 +69,7 @@ class MOSM(Model):
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name=&#34;MOSM&#34;):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name=&#34;MOSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -84,7 +84,7 @@ class MOSM(Model):
         kernel.mean.assign(np.random.rand(output_dims,Q,input_dims))
         kernel.variance.assign(np.random.rand(output_dims,Q,input_dims))
 
-        super().__init__(dataset, kernel, model, mean, name)
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
         self.gpr.kernel.mean.assign(upper=nyquist)
@@ -298,7 +298,7 @@ class MOSM(Model):
 <dl>
 <dt id="mogptk.models.mosm.MOSM"><code class="flex name class">
 <span>class <span class="ident">MOSM</span></span>
-<span>(</span><span>dataset, Q=1, model=&lt;mogptk.model.Exact object&gt;, mean=None, name='MOSM')</span>
+<span>(</span><span>dataset, Q=1, inference=&lt;mogptk.model.Exact object&gt;, mean=None, name='MOSM')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Multi-Output Spectral Mixture kernel with <code>Q</code> components as proposed by [1]. The parameters will be randomly instantiated, use <code>init_parameters()</code> to initialize the parameters to reasonable values for the current data set.</p>
@@ -308,8 +308,8 @@ class MOSM(Model):
 <dd><code>DataSet</code> object of data for all channels.</dd>
 <dt><strong><code>Q</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of components.</dd>
-<dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
+<dt><strong><code>inference</code></strong></dt>
+<dd>Gaussian process inference model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -341,8 +341,8 @@ gpr: The mogptk.gpr.model.Model.</p>
 <dd><code>DataSet</code> with <code>Data</code> objects for all the channels. When a (list or dict of) <code>Data</code> object is passed, it will automatically be converted to a <code>DataSet</code>.</dd>
 <dt><strong><code>kernel</code></strong> :&ensp;<code><a title="mogptk.gpr.kernel.Kernel" href="../gpr/kernel.html#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
 <dd>The kernel class.</dd>
-<dt><strong><code>model</code></strong></dt>
-<dd>Gaussian process model to use, such as <code>mogptk.Exact</code>.</dd>
+<dt><strong><code>inference</code></strong></dt>
+<dd>Gaussian process inference model to use, such as <code>mogptk.Exact</code>.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="../gpr/mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>The mean class.</dd>
 <dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
@@ -364,7 +364,7 @@ gpr: The mogptk.gpr.model.Model.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/models/mosm.py#L9-L256" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/models/mosm.py#L9-L256" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MOSM(Model):
     &#34;&#34;&#34;
@@ -373,7 +373,7 @@ gpr: The mogptk.gpr.model.Model.</p>
     Args:
         dataset (mogptk.dataset.DataSet): `DataSet` object of data for all channels.
         Q (int): Number of components.
-        model: Gaussian process model to use, such as `mogptk.Exact`.
+        inference: Gaussian process inference model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
         name (str): Name of the model.
 
@@ -398,7 +398,7 @@ gpr: The mogptk.gpr.model.Model.</p>
 
     [1] G. Parra and F. Tobar, &#34;Spectral Mixture Kernels for Multi-Output Gaussian Processes&#34;, Advances in Neural Information Processing Systems 31, 2017
     &#34;&#34;&#34;
-    def __init__(self, dataset, Q=1, model=Exact(), mean=None, name=&#34;MOSM&#34;):
+    def __init__(self, dataset, Q=1, inference=Exact(), mean=None, name=&#34;MOSM&#34;):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -413,7 +413,7 @@ gpr: The mogptk.gpr.model.Model.</p>
         kernel.mean.assign(np.random.rand(output_dims,Q,input_dims))
         kernel.variance.assign(np.random.rand(output_dims,Q,input_dims))
 
-        super().__init__(dataset, kernel, model, mean, name)
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
         self.gpr.kernel.mean.assign(upper=nyquist)
@@ -629,7 +629,7 @@ gpr: The mogptk.gpr.model.Model.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/models/mosm.py#L114-L123" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/models/mosm.py#L114-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def check(self):
     &#34;&#34;&#34;
@@ -664,7 +664,7 @@ gpr: The mogptk.gpr.model.Model.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/models/mosm.py#L61-L112" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/models/mosm.py#L61-L112" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_parameters(self, method=&#39;BNSE&#39;, iters=500):
     &#34;&#34;&#34;
@@ -740,7 +740,7 @@ gpr: The mogptk.gpr.model.Model.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/models/mosm.py#L158-L256" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/models/mosm.py#L158-L256" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_cross_spectrum(self, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -871,7 +871,7 @@ gpr: The mogptk.gpr.model.Model.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/e04a7dcaddc10bd2de25f1295ddd9c7a92c3ae83/mogptk/models/mosm.py#L125-L156" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/models/mosm.py#L125-L156" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_spectrum(self, method=&#39;LS&#39;, maxfreq=None, log=False, noise=False, title=None):
     &#34;&#34;&#34;
