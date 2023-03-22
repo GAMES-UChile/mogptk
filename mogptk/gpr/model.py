@@ -264,7 +264,7 @@ class Model:
 
     def _cholesky(self, K, add_jitter=False):
         if add_jitter:
-            K += (self.jitter * K.diagonal().mean()).repeat(K.shape[0]).diagflat()
+            K = K + (self.jitter * K.diagonal().mean()).repeat(K.shape[0]).diagflat()
         try:
             return torch.linalg.cholesky(K)
         except RuntimeError as e:

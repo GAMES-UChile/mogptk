@@ -3,9 +3,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-import warnings
-warnings.simplefilter('ignore', UserWarning)
-
 def plot_gram(K):
     fig, ax = plt.subplots(1, 1, figsize=(6,6))
     fig.suptitle('Matrix is not positive semi-definitive', fontsize=16)
