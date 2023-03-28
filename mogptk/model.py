@@ -116,8 +116,8 @@ class Snelson:
         self.jitter = jitter
 
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        if variance is None:
-            variance = [1.0] * kernel.output_dims
+        if self.variance is None:
+            self.variance = [1.0] * kernel.output_dims
         return gpr.Snelson(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class OpperArchambeau:
@@ -133,7 +133,7 @@ class OpperArchambeau:
         self.jitter = jitter
 
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)
+        return gpr.OpperArchambeau(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Titsias:
     """
