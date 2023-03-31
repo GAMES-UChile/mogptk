@@ -139,6 +139,7 @@ Please use our publication at arXiv to cite our toolkit: [MOGPTK: The Multi-Outp
 - [Y. Jung, J. Park, Scalable Inference for Hybrid Bayesian HMM using GP Emission](https://www.tandfonline.com/doi/abs/10.1080/10618600.2021.2023021)
 - [H. Liu, et al., Scalable multi-task GPs with neural embedding of coregionalization](https://www.sciencedirect.com/science/article/abs/pii/S0950705122003641)
 - [L.M. Rivera-Muñoz, et al., Missing Data Estimation in a Low-Cost Sensor network for Measuring Air Quality](https://link.springer.com/article/10.1007/s11270-021-05363-1)
+- [G. Caballero, et al., Synergy of Sentinel-1 and Sentinel-2 Time Series for Cloud-Free Vegetation Water Content Mapping with Multi-Output Gaussian Processes](https://www.mdpi.com/2072-4292/15/7/1822)
 
 ### Used in code
 - https://github.com/jdjmoon/TRF
