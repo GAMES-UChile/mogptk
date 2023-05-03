@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L1-L1027" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L1-L1024" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import time
@@ -147,8 +147,8 @@ class Snelson:
         self.jitter = jitter
 
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        if variance is None:
-            variance = [1.0] * kernel.output_dims
+        if self.variance is None:
+            self.variance = [1.0] * kernel.output_dims
         return gpr.Snelson(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
 
 class OpperArchambeau:
@@ -164,7 +164,7 @@ class OpperArchambeau:
         self.jitter = jitter
 
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)
+        return gpr.OpperArchambeau(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
 
 class Titsias:
     &#34;&#34;&#34;
@@ -494,15 +494,13 @@ class Model:
             raise ValueError(&#39;optimizer must be LBFGS, Adam, SGD, or AdaGrad&#39;)
 
         if verbose:
-            print(&#39;\nStarting optimization using&#39;, method)
+            print(&#39;Starting optimization using&#39;, method)
             if self.name is not None:
                 print(&#39;‣ Model: %s&#39; % self.name)
             print(&#39;‣ Channels: %d&#39; % len(self.dataset))
             print(&#39;‣ Parameters: %d&#39; % self.num_parameters())
             print(&#39;‣ Training points: %d&#39; % self.num_training_points())
-            print(&#39;‣ Initial loss: %6g&#39; % self.loss())
-            if error is not None:
-                print(&#39;‣ Initial error: %6g&#39; % self.error(error, error_use_all_data))
+            print(&#39;‣ Iterations: %d&#39; % iters)
 
         iter_offset = 0
         times = np.zeros((iters+1,))
@@ -514,11 +512,14 @@ class Model:
             losses = np.concatenate((self.losses[:-1],losses))
             errors = np.concatenate((self.errors[:-1],errors))
         initial_time = time.time()
+        progress_time = 0.0
 
         iters_len = int(math.log10(iter_offset+iters)) + 1
-        def progress(i, loss):
+        def progress(i, loss, last=False):
+            nonlocal progress_time
+
             elapsed_time = time.time() - initial_time
-            write = verbose and i % max(1,iters/100) == 0
+            write = verbose and (i == 0 or last or 10.0 &lt;= elapsed_time-progress_time)
             i += iter_offset
             times[i] = elapsed_time
             losses[i] = loss
@@ -526,11 +527,11 @@ class Model:
                 errors[i] = float(self.error(error, error_use_all_data))
                 if write:
                     print(&#34;  %*d/%*d %s  loss=%12g  error=%12g&#34; % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
+                    progress_time = elapsed_time
             elif write:
                 print(&#34;  %*d/%*d %s  loss=%12g&#34; % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i]))
+                progress_time = elapsed_time
 
-        if verbose:
-            print(&#34;\nStart %s:&#34; % (method,))
         if method == &#39;LBFGS&#39;:
             if not &#39;max_iter&#39; in kwargs:
                 kwargs[&#39;max_iter&#39;] = iters
@@ -556,16 +557,11 @@ class Model:
             for i in range(iters):
                 progress(i, self.loss())
                 optimizer.step()
-        progress(iters, self.loss())
+        progress(iters, self.loss(), last=True)
 
         if verbose:
             elapsed_time = time.time() - initial_time
-            print(&#34;Finished&#34;)
-            print(&#39;\nOptimization finished in %s&#39; % _format_duration(elapsed_time))
-            print(&#39;‣ Iterations: %d&#39; % iters)
-            print(&#39;‣ Final loss: %6g&#39;% losses[iter_offset+iters])
-            if error is not None:
-                print(&#39;‣ Final error: %6g&#39; % errors[iter_offset+iters])
+            print(&#39;Optimization finished in %s&#39; % _format_duration(elapsed_time))
 
         self.iters = iter_offset+iters
         self.times = times[:iter_offset+iters+1]
@@ -614,10 +610,10 @@ class Model:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            numpy.ndarray: X prediction of shape (n,) for each channel.
-            numpy.ndarray: Y mean prediction of shape (n,) for each channel.
-            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,) for each channel.
-            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,) for each channel.
+            numpy.ndarray: X prediction of shape (data_points,input_dims) for each channel.
+            numpy.ndarray: Y mean prediction of shape (data_points,) for each channel.
+            numpy.ndarray: Y lower prediction of uncertainty interval of shape (data_points,) for each channel.
+            numpy.ndarray: Y upper prediction of uncertainty interval of shape (data_points,) for each channel.
 
         Examples:
             &gt;&gt;&gt; model.predict(X)
@@ -664,7 +660,7 @@ class Model:
             X2 (list, dict): Same as X1 if None.
 
         Returns:
-            numpy.ndarray: kernel evaluated at X1 and X2 of shape (n1,n2).
+            numpy.ndarray: kernel evaluated at X1 and X2 of shape (data_points1,data_points2).
 
         Examples:
             &gt;&gt;&gt; channel0 = np.array([&#39;1987-05-20&#39;, &#39;1987-05-21&#39;])
@@ -775,6 +771,7 @@ class Model:
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
         Args:
+            X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             title (str): Set the title of the plot.
             figsize (tuple): Set the figure size.
             legend (boolean): Disable legend.
@@ -1081,7 +1078,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L62-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L62-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -1119,7 +1116,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L76-L100" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L76-L100" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
@@ -1168,7 +1165,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L157-L176" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L157-L176" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman:
     &#34;&#34;&#34;
@@ -1211,7 +1208,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L20-L21" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L20-L21" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernels(dict):
     __getattr__ = dict.get</code></pre>
@@ -1256,7 +1253,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L178-L995" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L178-L992" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
@@ -1546,15 +1543,13 @@ dict(one=1, two=2)</p></div>
             raise ValueError(&#39;optimizer must be LBFGS, Adam, SGD, or AdaGrad&#39;)
 
         if verbose:
-            print(&#39;\nStarting optimization using&#39;, method)
+            print(&#39;Starting optimization using&#39;, method)
             if self.name is not None:
                 print(&#39;‣ Model: %s&#39; % self.name)
             print(&#39;‣ Channels: %d&#39; % len(self.dataset))
             print(&#39;‣ Parameters: %d&#39; % self.num_parameters())
             print(&#39;‣ Training points: %d&#39; % self.num_training_points())
-            print(&#39;‣ Initial loss: %6g&#39; % self.loss())
-            if error is not None:
-                print(&#39;‣ Initial error: %6g&#39; % self.error(error, error_use_all_data))
+            print(&#39;‣ Iterations: %d&#39; % iters)
 
         iter_offset = 0
         times = np.zeros((iters+1,))
@@ -1566,11 +1561,14 @@ dict(one=1, two=2)</p></div>
             losses = np.concatenate((self.losses[:-1],losses))
             errors = np.concatenate((self.errors[:-1],errors))
         initial_time = time.time()
+        progress_time = 0.0
 
         iters_len = int(math.log10(iter_offset+iters)) + 1
-        def progress(i, loss):
+        def progress(i, loss, last=False):
+            nonlocal progress_time
+
             elapsed_time = time.time() - initial_time
-            write = verbose and i % max(1,iters/100) == 0
+            write = verbose and (i == 0 or last or 10.0 &lt;= elapsed_time-progress_time)
             i += iter_offset
             times[i] = elapsed_time
             losses[i] = loss
@@ -1578,11 +1576,11 @@ dict(one=1, two=2)</p></div>
                 errors[i] = float(self.error(error, error_use_all_data))
                 if write:
                     print(&#34;  %*d/%*d %s  loss=%12g  error=%12g&#34; % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
+                    progress_time = elapsed_time
             elif write:
                 print(&#34;  %*d/%*d %s  loss=%12g&#34; % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i]))
+                progress_time = elapsed_time
 
-        if verbose:
-            print(&#34;\nStart %s:&#34; % (method,))
         if method == &#39;LBFGS&#39;:
             if not &#39;max_iter&#39; in kwargs:
                 kwargs[&#39;max_iter&#39;] = iters
@@ -1608,16 +1606,11 @@ dict(one=1, two=2)</p></div>
             for i in range(iters):
                 progress(i, self.loss())
                 optimizer.step()
-        progress(iters, self.loss())
+        progress(iters, self.loss(), last=True)
 
         if verbose:
             elapsed_time = time.time() - initial_time
-            print(&#34;Finished&#34;)
-            print(&#39;\nOptimization finished in %s&#39; % _format_duration(elapsed_time))
-            print(&#39;‣ Iterations: %d&#39; % iters)
-            print(&#39;‣ Final loss: %6g&#39;% losses[iter_offset+iters])
-            if error is not None:
-                print(&#39;‣ Final error: %6g&#39; % errors[iter_offset+iters])
+            print(&#39;Optimization finished in %s&#39; % _format_duration(elapsed_time))
 
         self.iters = iter_offset+iters
         self.times = times[:iter_offset+iters+1]
@@ -1666,10 +1659,10 @@ dict(one=1, two=2)</p></div>
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            numpy.ndarray: X prediction of shape (n,) for each channel.
-            numpy.ndarray: Y mean prediction of shape (n,) for each channel.
-            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,) for each channel.
-            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,) for each channel.
+            numpy.ndarray: X prediction of shape (data_points,input_dims) for each channel.
+            numpy.ndarray: Y mean prediction of shape (data_points,) for each channel.
+            numpy.ndarray: Y lower prediction of uncertainty interval of shape (data_points,) for each channel.
+            numpy.ndarray: Y upper prediction of uncertainty interval of shape (data_points,) for each channel.
 
         Examples:
             &gt;&gt;&gt; model.predict(X)
@@ -1716,7 +1709,7 @@ dict(one=1, two=2)</p></div>
             X2 (list, dict): Same as X1 if None.
 
         Returns:
-            numpy.ndarray: kernel evaluated at X1 and X2 of shape (n1,n2).
+            numpy.ndarray: kernel evaluated at X1 and X2 of shape (data_points1,data_points2).
 
         Examples:
             &gt;&gt;&gt; channel0 = np.array([&#39;1987-05-20&#39;, &#39;1987-05-21&#39;])
@@ -1827,6 +1820,7 @@ dict(one=1, two=2)</p></div>
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
         Args:
+            X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             title (str): Set the title of the plot.
             figsize (tuple): Set the figure size.
             legend (boolean): Disable legend.
@@ -2104,7 +2098,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L334-L344" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L334-L344" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def AIC(self):
     &#34;&#34;&#34;
@@ -2135,7 +2129,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L322-L332" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L322-L332" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def BIC(self):
     &#34;&#34;&#34;
@@ -2165,7 +2159,7 @@ dict(one=1, two=2)</p></div>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>numpy.ndarray</code></dt>
-<dd>kernel evaluated at X1 and X2 of shape (n1,n2).</dd>
+<dd>kernel evaluated at X1 and X2 of shape (data_points1,data_points2).</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code class="language-python-repl">&gt;&gt;&gt; channel0 = np.array(['1987-05-20', '1987-05-21'])
@@ -2175,7 +2169,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L627-L650" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L623-L646" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -2186,7 +2180,7 @@ dict(one=1, two=2)</p></div>
         X2 (list, dict): Same as X1 if None.
 
     Returns:
-        numpy.ndarray: kernel evaluated at X1 and X2 of shape (n1,n2).
+        numpy.ndarray: kernel evaluated at X1 and X2 of shape (data_points1,data_points2).
 
     Examples:
         &gt;&gt;&gt; channel0 = np.array([&#39;1987-05-20&#39;, &#39;1987-05-21&#39;])
@@ -2211,7 +2205,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L259-L266" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L259-L266" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy_parameters(self, other):
     &#34;&#34;&#34;
@@ -2244,7 +2238,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L358-L410" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L358-L410" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;, use_all_data=False):
     &#34;&#34;&#34;
@@ -2317,7 +2311,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L247-L257" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L247-L257" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     &#34;&#34;&#34;
@@ -2348,7 +2342,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L310-L320" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L310-L320" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -2379,7 +2373,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L346-L356" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L346-L356" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -2410,7 +2404,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L268-L278" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L268-L278" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def num_parameters(self):
     &#34;&#34;&#34;
@@ -2441,7 +2435,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L280-L290" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L280-L290" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def num_training_points(self):
     &#34;&#34;&#34;
@@ -2478,7 +2472,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L960-L995" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L957-L992" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_correlation(self, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2546,7 +2540,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L855-L915" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L852-L912" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2637,7 +2631,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L917-L958" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L914-L955" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2711,7 +2705,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L697-L740" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L693-L736" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_losses(self, title=None, figsize=(12,4), legend=True, errors=True, log=False):
     &#34;&#34;&#34;
@@ -2766,6 +2760,8 @@ dict(one=1, two=2)</p></div>
 <div class="desc"><p>Plot the data including removed observations, latent function, and predictions of this model for each channel.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>list, dict</code></dt>
+<dd>Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
 <dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
 <dd>Set the title of the plot.</dd>
 <dt><strong><code>figsize</code></strong> :&ensp;<code>tuple</code></dt>
@@ -2794,13 +2790,14 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L742-L853" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L738-L850" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, predict_y=True, transformed=False):
     &#34;&#34;&#34;
     Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
     Args:
+        X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
         title (str): Set the title of the plot.
         figsize (tuple): Set the figure size.
         legend (boolean): Disable legend.
@@ -2929,13 +2926,13 @@ dict(one=1, two=2)</p></div>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>numpy.ndarray</code></dt>
-<dd>X prediction of shape (n,) for each channel.</dd>
+<dd>X prediction of shape (data_points,input_dims) for each channel.</dd>
 <dt><code>numpy.ndarray</code></dt>
-<dd>Y mean prediction of shape (n,) for each channel.</dd>
+<dd>Y mean prediction of shape (data_points,) for each channel.</dd>
 <dt><code>numpy.ndarray</code></dt>
-<dd>Y lower prediction of uncertainty interval of shape (n,) for each channel.</dd>
+<dd>Y lower prediction of uncertainty interval of shape (data_points,) for each channel.</dd>
 <dt><code>numpy.ndarray</code></dt>
-<dd>Y upper prediction of uncertainty interval of shape (n,) for each channel.</dd>
+<dd>Y upper prediction of uncertainty interval of shape (data_points,) for each channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code class="language-python-repl">&gt;&gt;&gt; model.predict(X)
@@ -2943,7 +2940,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L575-L625" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L571-L621" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, sigma=2, predict_y=True, transformed=False):
     &#34;&#34;&#34;
@@ -2956,10 +2953,10 @@ dict(one=1, two=2)</p></div>
         transformed (boolean): Return transformed data as used for training.
 
     Returns:
-        numpy.ndarray: X prediction of shape (n,) for each channel.
-        numpy.ndarray: Y mean prediction of shape (n,) for each channel.
-        numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,) for each channel.
-        numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,) for each channel.
+        numpy.ndarray: X prediction of shape (data_points,input_dims) for each channel.
+        numpy.ndarray: Y mean prediction of shape (data_points,) for each channel.
+        numpy.ndarray: Y lower prediction of uncertainty interval of shape (data_points,) for each channel.
+        numpy.ndarray: Y upper prediction of uncertainty interval of shape (data_points,) for each channel.
 
     Examples:
         &gt;&gt;&gt; model.predict(X)
@@ -3009,7 +3006,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L238-L245" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L238-L245" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -3052,7 +3049,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L652-L695" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L648-L691" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, X=None, n=None, predict_y=True, prior=False, transformed=False):
     &#34;&#34;&#34;
@@ -3116,7 +3113,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L292-L308" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L292-L308" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -3174,7 +3171,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L412-L546" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L412-L542" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(
     self,
@@ -3230,15 +3227,13 @@ dict(one=1, two=2)</p></div>
         raise ValueError(&#39;optimizer must be LBFGS, Adam, SGD, or AdaGrad&#39;)
 
     if verbose:
-        print(&#39;\nStarting optimization using&#39;, method)
+        print(&#39;Starting optimization using&#39;, method)
         if self.name is not None:
             print(&#39;‣ Model: %s&#39; % self.name)
         print(&#39;‣ Channels: %d&#39; % len(self.dataset))
         print(&#39;‣ Parameters: %d&#39; % self.num_parameters())
         print(&#39;‣ Training points: %d&#39; % self.num_training_points())
-        print(&#39;‣ Initial loss: %6g&#39; % self.loss())
-        if error is not None:
-            print(&#39;‣ Initial error: %6g&#39; % self.error(error, error_use_all_data))
+        print(&#39;‣ Iterations: %d&#39; % iters)
 
     iter_offset = 0
     times = np.zeros((iters+1,))
@@ -3250,11 +3245,14 @@ dict(one=1, two=2)</p></div>
         losses = np.concatenate((self.losses[:-1],losses))
         errors = np.concatenate((self.errors[:-1],errors))
     initial_time = time.time()
+    progress_time = 0.0
 
     iters_len = int(math.log10(iter_offset+iters)) + 1
-    def progress(i, loss):
+    def progress(i, loss, last=False):
+        nonlocal progress_time
+
         elapsed_time = time.time() - initial_time
-        write = verbose and i % max(1,iters/100) == 0
+        write = verbose and (i == 0 or last or 10.0 &lt;= elapsed_time-progress_time)
         i += iter_offset
         times[i] = elapsed_time
         losses[i] = loss
@@ -3262,11 +3260,11 @@ dict(one=1, two=2)</p></div>
             errors[i] = float(self.error(error, error_use_all_data))
             if write:
                 print(&#34;  %*d/%*d %s  loss=%12g  error=%12g&#34; % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
+                progress_time = elapsed_time
         elif write:
             print(&#34;  %*d/%*d %s  loss=%12g&#34; % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i]))
+            progress_time = elapsed_time
 
-    if verbose:
-        print(&#34;\nStart %s:&#34; % (method,))
     if method == &#39;LBFGS&#39;:
         if not &#39;max_iter&#39; in kwargs:
             kwargs[&#39;max_iter&#39;] = iters
@@ -3292,16 +3290,11 @@ dict(one=1, two=2)</p></div>
         for i in range(iters):
             progress(i, self.loss())
             optimizer.step()
-    progress(iters, self.loss())
+    progress(iters, self.loss(), last=True)
 
     if verbose:
         elapsed_time = time.time() - initial_time
-        print(&#34;Finished&#34;)
-        print(&#39;\nOptimization finished in %s&#39; % _format_duration(elapsed_time))
-        print(&#39;‣ Iterations: %d&#39; % iters)
-        print(&#39;‣ Final loss: %6g&#39;% losses[iter_offset+iters])
-        if error is not None:
-            print(&#39;‣ Final error: %6g&#39; % errors[iter_offset+iters])
+        print(&#39;Optimization finished in %s&#39; % _format_duration(elapsed_time))
 
     self.iters = iter_offset+iters
     self.times = times[:iter_offset+iters+1]
@@ -3331,7 +3324,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L123-L136" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L123-L136" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau:
     &#34;&#34;&#34;
@@ -3346,7 +3339,7 @@ dict(one=1, two=2)</p></div>
         self.jitter = jitter
 
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        return gpr.OpperArchambeau(kernel, x, y, likelihood=likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
+        return gpr.OpperArchambeau(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.model.Snelson"><code class="flex name class">
@@ -3369,7 +3362,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L102-L121" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L102-L121" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson:
     &#34;&#34;&#34;
@@ -3388,8 +3381,8 @@ dict(one=1, two=2)</p></div>
         self.jitter = jitter
 
     def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        if variance is None:
-            variance = [1.0] * kernel.output_dims
+        if self.variance is None:
+            self.variance = [1.0] * kernel.output_dims
         return gpr.Snelson(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)</code></pre>
 </details>
 </dd>
@@ -3413,7 +3406,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/c4bfff1375a348c212618334e3ccb413bc873e0d/mogptk/model.py#L138-L155" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/ae777b90752156fccdebbbca47263d68264ef6f1/mogptk/model.py#L138-L155" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias:
     &#34;&#34;&#34;

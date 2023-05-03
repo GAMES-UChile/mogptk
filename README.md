@@ -86,6 +86,8 @@ Implemented likelihoods:
 
 **[07 - Sparse Multi Input](https://games-uchile.github.io/mogptk/examples.html?q=07_Sparse_Multi_Input)** Use 8 input dimensions to train the Abalone data set using sparse GPs.
 
+**[08 - Multi Likelihood Classification](https://games-uchile.github.io/mogptk/examples.html?q=08_Multi_Likelihood_Classification)** Use a different likelihood for each channel, one Bernoulli for classification and one StudentT's for regression.
+
 ## Examples
 
 **[Airline passengers](https://games-uchile.github.io/mogptk/examples.html?q=example_airline_passengers)**: Regression using a single output spectral mixture on the yearly number of passengers of an airline.
