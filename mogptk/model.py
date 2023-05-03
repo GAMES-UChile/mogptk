@@ -486,11 +486,11 @@ class Model:
         progress_time = 0.0
 
         iters_len = int(math.log10(iter_offset+iters)) + 1
-        def progress(i, loss):
+        def progress(i, loss, last=False):
             nonlocal progress_time
 
             elapsed_time = time.time() - initial_time
-            write = verbose and 10.0 <= elapsed_time-progress_time
+            write = verbose and (last or 10.0 <= elapsed_time-progress_time)
             i += iter_offset
             times[i] = elapsed_time
             losses[i] = loss
@@ -530,7 +530,7 @@ class Model:
             for i in range(iters):
                 progress(i, self.loss())
                 optimizer.step()
-        progress(iters, self.loss())
+        progress(iters, self.loss(), last=True)
 
         if verbose:
             elapsed_time = time.time() - initial_time
@@ -588,10 +588,10 @@ class Model:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            numpy.ndarray: X prediction of shape (n,) for each channel.
-            numpy.ndarray: Y mean prediction of shape (n,) for each channel.
-            numpy.ndarray: Y lower prediction of uncertainty interval of shape (n,) for each channel.
-            numpy.ndarray: Y upper prediction of uncertainty interval of shape (n,) for each channel.
+            numpy.ndarray: X prediction of shape (data_points,input_dims) for each channel.
+            numpy.ndarray: Y mean prediction of shape (data_points,) for each channel.
+            numpy.ndarray: Y lower prediction of uncertainty interval of shape (data_points,) for each channel.
+            numpy.ndarray: Y upper prediction of uncertainty interval of shape (data_points,) for each channel.
 
         Examples:
             >>> model.predict(X)
@@ -638,7 +638,7 @@ class Model:
             X2 (list, dict): Same as X1 if None.
 
         Returns:
-            numpy.ndarray: kernel evaluated at X1 and X2 of shape (n1,n2).
+            numpy.ndarray: kernel evaluated at X1 and X2 of shape (data_points1,data_points2).
 
         Examples:
             >>> channel0 = np.array(['1987-05-20', '1987-05-21'])
@@ -749,6 +749,7 @@ class Model:
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
         Args:
+            X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             title (str): Set the title of the plot.
             figsize (tuple): Set the figure size.
             legend (boolean): Disable legend.
