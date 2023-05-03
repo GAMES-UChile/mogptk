@@ -483,11 +483,14 @@ class Model:
             losses = np.concatenate((self.losses[:-1],losses))
             errors = np.concatenate((self.errors[:-1],errors))
         initial_time = time.time()
+        progress_time = 0.0
 
         iters_len = int(math.log10(iter_offset+iters)) + 1
         def progress(i, loss):
+            nonlocal progress_time
+
             elapsed_time = time.time() - initial_time
-            write = verbose and i % max(1,iters/100) == 0
+            write = verbose and 10.0 <= elapsed_time-progress_time
             i += iter_offset
             times[i] = elapsed_time
             losses[i] = loss
@@ -495,8 +498,10 @@ class Model:
                 errors[i] = float(self.error(error, error_use_all_data))
                 if write:
                     print("  %*d/%*d %s  loss=%12g  error=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
+                    progress_time = elapsed_time
             elif write:
                 print("  %*d/%*d %s  loss=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i]))
+                progress_time = elapsed_time
 
         if verbose:
             print("\nStart %s:" % (method,))
