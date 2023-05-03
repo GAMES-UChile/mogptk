@@ -463,15 +463,13 @@ class Model:
             raise ValueError('optimizer must be LBFGS, Adam, SGD, or AdaGrad')
 
         if verbose:
-            print('\nStarting optimization using', method)
+            print('Starting optimization using', method)
             if self.name is not None:
                 print('‣ Model: %s' % self.name)
             print('‣ Channels: %d' % len(self.dataset))
             print('‣ Parameters: %d' % self.num_parameters())
             print('‣ Training points: %d' % self.num_training_points())
-            print('‣ Initial loss: %6g' % self.loss())
-            if error is not None:
-                print('‣ Initial error: %6g' % self.error(error, error_use_all_data))
+            print('‣ Iterations: %d' % iters)
 
         iter_offset = 0
         times = np.zeros((iters+1,))
@@ -490,7 +488,7 @@ class Model:
             nonlocal progress_time
 
             elapsed_time = time.time() - initial_time
-            write = verbose and (last or 10.0 <= elapsed_time-progress_time)
+            write = verbose and (i == 0 or last or 10.0 <= elapsed_time-progress_time)
             i += iter_offset
             times[i] = elapsed_time
             losses[i] = loss
@@ -503,8 +501,6 @@ class Model:
                 print("  %*d/%*d %s  loss=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i]))
                 progress_time = elapsed_time
 
-        if verbose:
-            print("\nStart %s:" % (method,))
         if method == 'LBFGS':
             if not 'max_iter' in kwargs:
                 kwargs['max_iter'] = iters
@@ -534,12 +530,7 @@ class Model:
 
         if verbose:
             elapsed_time = time.time() - initial_time
-            print("Finished")
-            print('\nOptimization finished in %s' % _format_duration(elapsed_time))
-            print('‣ Iterations: %d' % iters)
-            print('‣ Final loss: %6g'% losses[iter_offset+iters])
-            if error is not None:
-                print('‣ Final error: %6g' % errors[iter_offset+iters])
+            print('Optimization finished in %s' % _format_duration(elapsed_time))
 
         self.iters = iter_offset+iters
         self.times = times[:iter_offset+iters+1]
