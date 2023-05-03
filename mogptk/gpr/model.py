@@ -892,4 +892,4 @@ class Hensman(SparseHensman):
     """
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0), jitter=1e-8,
                  mean=None, name="Hensman"):
-        super().__init__(kernel, X, y, None, likelihood, jitter, mean, name)
+        super().__init__(kernel, X, y, None, 'grid', likelihood, jitter, mean, name)
