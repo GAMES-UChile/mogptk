@@ -323,6 +323,8 @@ class Data:
         # try to cast unknown data types, X becomes np.float64 or np.datetime64
         input_dims = len(X)
         if hasattr(self, 'X_dtypes'):
+            if input_dims != len(self.X_dtypes):
+                raise ValueError("X must have %d input dimensions" % (len(self.X_dtypes),))
             for i in range(input_dims):
                 try:
                     X[i] = X[i].astype(self.X_dtypes[i])
