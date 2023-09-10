@@ -496,10 +496,14 @@ class Model:
                 errors[i] = float(self.error(error, error_use_all_data))
                 if write:
                     print("  %*d/%*d %s  loss=%12g  error=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
-                    progress_time = elapsed_time
             elif write:
                 print("  %*d/%*d %s  loss=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i]))
-                progress_time = elapsed_time
+
+            if write:
+                if i == 0 or last:
+                    progress_time = elapsed_time
+                else:
+                    progress_time += 10.0
 
         if method == 'LBFGS':
             if not 'max_iter' in kwargs:
