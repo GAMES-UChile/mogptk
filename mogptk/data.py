@@ -5,6 +5,7 @@ import datetime
 import logging
 import collections
 
+import torch
 import numpy as np
 import pandas as pd
 from scipy import signal
@@ -204,9 +205,9 @@ class Data:
         It is possible to use the format given by `numpy.meshgrid` for X as a list of numpy arrays for each input dimension, and its values in Y. Each input dimension and Y must have shape (N1,N2,...,Nn) where n is the number of input dimensions and N the number of data points per input dimension.
 
         Args:
-            X (list, numpy.ndarray, pandas.Series, dict): Independent variable data of shape (data_points,) or (data_points,input_dims), or a list with elements of shape (data_points,) for each input dimension.
-            Y (list, numpy.ndarray, pandas.Series): Dependent variable data of shape (data_points,).
-            Y_err (list, numpy.ndarray, pandas.Series): Standard deviation of the dependent variable data of shape (n,).
+            X (list, numpy.ndarray, pandas.Series, torch.Tensor, dict): Independent variable data of shape (data_points,) or (data_points,input_dims), or a list with elements of shape (data_points,) for each input dimension.
+            Y (list, numpy.ndarray, pandas.Series, torch.Tensor): Dependent variable data of shape (data_points,).
+            Y_err (list, numpy.ndarray, pandas.Series, torch.Tensor): Standard deviation of the dependent variable data of shape (n,).
             name (str): Name of data.
             x_labels (str, list of str): Name or names of input dimensions.
             y_label (str): Name of output dimension.
@@ -309,16 +310,18 @@ class Data:
                 X = [np.array(x) for x in X]
             else:
                 X = [np.array(X)]
-        elif isinstance(X, (np.ndarray, pd.Series)):
+        elif isinstance(X, (np.ndarray, pd.Series, torch.Tensor)):
             if isinstance(X, pd.Series):
                 X = X.to_numpy()
+            elif isinstance(X, torch.Tensor):
+                X = X.numpy()
             if X.ndim == 1:
                 X = X.reshape(-1, 1)
             if X.ndim != 2:
                 raise ValueError("X must be either a one or two dimensional array of data")
             X = [X[:,i] for i in range(X.shape[1])]
         else:
-            raise ValueError("X must be list, numpy.ndarray, or pandas.Series")
+            raise ValueError("X must be list, numpy.ndarray, pandas.Series, or torch.Tensor")
 
         # try to cast unknown data types, X becomes np.float64 or np.datetime64
         input_dims = len(X)
@@ -365,8 +368,10 @@ class Data:
             Y = np.array(Y)
         elif isinstance(Y, pd.Series):
             Y = Y.to_numpy()
+        elif isinstance(Y, torch.Tensor):
+            Y = Y.numpy()
         elif not isinstance(Y, np.ndarray):
-            raise ValueError("Y must be list, numpy.ndarray, or pandas.Series")
+            raise ValueError("Y must be list, numpy.ndarray, pandas.Series, or torch.Tensor")
 
         # try to cast unknown data types, Y becomes np.float64
         try:

@@ -135,7 +135,7 @@ class DataSet:
     DataSet is a class that holds multiple Data objects as channels. It is the complete representation of the data used for fitting multi-output Gaussian processes.
 
     Args:
-        *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict, numpy.ndarray): Accepts multiple arguments, each of which should be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed its channels will be added. It is also possible to pass X and Y data array directly by either passing two `numpy.ndarrays` or two lists of `numpy.ndarrays` for X and Y data.
+        *args (mogptk.data.Data, mogptk.dataset.DataSet, list, dict, numpy.ndarray, pandas.Series, torch.Tensor): Accepts multiple arguments, each of which should be either a `DataSet` or `Data` object, a list of `Data` objects or a dictionary of `Data` objects. Each `Data` object will be added to the list of channels. In case of a dictionary, the key will set the name of the channel. If a `DataSet` is passed its channels will be added. It is also possible to pass X and Y data array directly by either passing two `numpy.ndarrays` of shape (output_dims, data_points, input_dims) and (output_dims, data_points) respectively, or two lists of `numpy.ndarrays` for X and Y data of shape (data_points, input_dims) and (data_points,) respectively.
 
     Examples:
         Different ways to initiate a DataSet:
@@ -186,12 +186,17 @@ class DataSet:
             X = self.get_prediction()
             for name, channel_x in x_dict.items():
                 X[self.get_index(name)] = channel_x
-        elif isinstance(X, np.ndarray):
-            X = [X] * self.get_output_dims()
-        elif isinstance(X, pd.Series):
-            X = [X.to_numpy()] * self.get_output_dims()
+        elif isinstance(X, (np.ndarray, pd.Series, torch.Tensor)):
+            if isinstance(X, pd.Series):
+                X = X.to_numpy()
+            elif isinstance(X, torch.Tensor):
+                X = X.numpy()
+            if len(X.shape) == 3 and X.shape[0] == self.get_output_dims():
+                X = [X[i,:,:] for i in range(self.get_output_dims())]
+            else:
+                X = [X] * self.get_output_dims()
         elif not isinstance(X, list):
-            raise ValueError("X must be a list, dict, numpy.ndarray, or pandas.Series")
+            raise ValueError("X must be a list, dict, numpy.ndarray, pandas.Series, or torch.Tensor")
         elif not any(isinstance(x, (list,np.ndarray)) for x in X):
             X = [X] * self.get_output_dims()
         if len(X) != self.get_output_dims():
