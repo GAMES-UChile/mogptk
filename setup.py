@@ -8,6 +8,7 @@ requirements = [
     'python-dateutil',
     'scipy>=1.7',
     'torch>=1.11',
+    'ipython',
 ]
 
 this_directory = path.abspath(path.dirname(__file__))
