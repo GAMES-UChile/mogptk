@@ -309,7 +309,7 @@ class Model:
         self.zero_grad()
         loss = -self.log_marginal_likelihood() - self.log_prior()
         loss.backward()
-        return loss
+        return float(loss)
 
     def K(self, X1, X2=None):
         """

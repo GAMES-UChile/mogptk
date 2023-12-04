@@ -353,14 +353,14 @@ class Model:
         Examples:
             >>> model.loss()
         """
-        return self.gpr.loss().detach().cpu().item()
+        return self.gpr.loss()
 
     def error(self, method='MAE', use_all_data=False):
         """
         Returns the error of the kernel prediction with the removed data points in the data set.
 
         Args:
-            method (str,function): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE. When a function is given, it should have parameters (y_true,y_pred) or (y_true,y_pred,model).
+            method (str,function): Error calculation method, such as MAE, MAPE, sMAPE, MSE, or RMSE. When a function is given, it should have parameters (y_true,y_pred).
 
         Returns:
             float: The current error.
@@ -493,7 +493,7 @@ class Model:
             times[i] = elapsed_time
             losses[i] = loss
             if error is not None:
-                errors[i] = float(self.error(error, error_use_all_data))
+                errors[i] = float(self.error(error, error_use_all_data)) # TODO: cast needed?
                 if write:
                     print("  %*d/%*d %s  loss=%12g  error=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
             elif write:

@@ -12,8 +12,9 @@ build-docs:
 	rm -rf docs
 	mkdir -p docs
 	custom_css='<style>\
-	body{max-width:100ch}\
+	body{box-sizing:border-box;max-width:min(100ch, calc(100% - 250px))}\
 	pre{overflow-x:scroll}\
+	#sidebar{min-width:250px;max-width:400px}\
 	<\/style>'
 	find examples/* -maxdepth 0 -type f -name '*.ipynb' -exec jupyter nbconvert --to html --output-dir docs/examples {} + || exit 1
 	find docs/examples/* -maxdepth 0 -type f -name '*.html' -exec sed -i "s/<\/head>/$custom_css<\/head>/g" {} + || exit 1
