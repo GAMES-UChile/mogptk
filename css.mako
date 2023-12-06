@@ -10,12 +10,19 @@
     display: flex !important;
   }
   body {
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
     line-height: 1.5em;
+  }
+  iframe {
+    border: 0;
   }
   #content {
     padding: 20px;
   }
   #sidebar {
+    box-sizing: border-box;
     padding: 30px;
     overflow: hidden;
   }
@@ -287,6 +294,7 @@
   @media screen and (min-width: 700px) {
     #sidebar {
       width: 30%;
+      max-width: 400px;
       height: 100vh;
       overflow: auto;
       position: sticky;
