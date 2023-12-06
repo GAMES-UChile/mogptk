@@ -1,7 +1,7 @@
 import torch
 
 class Config:
-    dtype = torch.float64
+    dtype = torch.float32
     if torch.cuda.is_available():
         device = torch.device('cuda', torch.cuda.current_device())
     else:
@@ -14,7 +14,7 @@ def use_half_precision():
     Use half precision (float16) for all tensors. This may be much faster on GPUs, but has reduced precision and may more often cause numerical instability. Only recommended on GPUs.
     """
     if config.device.type == 'cpu':
-        print('WARNING: half precision not recommend on CPU')
+        print('WARNING: half precision not recommended on CPU')
     config.dtype = torch.float16
 
 def use_single_precision():

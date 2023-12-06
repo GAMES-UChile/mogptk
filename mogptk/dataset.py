@@ -1,5 +1,6 @@
 import copy
 
+import torch
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -166,7 +167,7 @@ class DataSet:
         self.channels = []
         if len(args) == 2 and (isinstance(args[1], np.ndarray) or isinstance(args[1], list) and all(isinstance(item, np.ndarray) for item in args[1])):
             if names is None or isinstance(names, str):
-                names = [names]
+                names = [names]*len(args[0])
 
             if isinstance(args[0], np.ndarray):
                 for name, y in zip(names, args[1]):

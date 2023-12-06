@@ -329,17 +329,18 @@ class MultiOutputKernel(Kernel):
         c1 = X1[:,0].long()
         m1 = [c1==i for i in range(self.output_dims)]
         x1 = [X1[m1[i],1:] for i in range(self.output_dims)]
-        r1 = [torch.nonzero(m1[i], as_tuple=False) for i in range(self.output_dims)]  # as_tuple avoids warning
+        r1 = [torch.nonzero(m1[i], as_tuple=False) for i in range(self.output_dims)]
 
         if X2 is None:
             r2 = [r1[i].reshape(1,-1) for i in range(self.output_dims)]
-            res = torch.empty(X1.shape[0], X1.shape[0], device=config.device, dtype=config.dtype)  # N1 x N1
-            # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
+
+            res = torch.empty(X1.shape[0], X1.shape[0], device=config.device, dtype=config.dtype)  # NxM
             for i in range(self.output_dims):
                 for j in range(i+1):
                     # calculate sub kernel matrix and add to main kernel matrix
                     if i == j:
-                        res[r1[i],r2[i]] = self.Ksub(i, i, x1[i])
+                        k = self.Ksub(i, i, x1[i])
+                        res[r1[i],r2[i]] = k
                     else:
                         k = self.Ksub(i, j, x1[i], x1[j])
                         res[r1[i],r2[j]] = k
@@ -349,9 +350,9 @@ class MultiOutputKernel(Kernel):
             c2 = X2[:,0].long()
             m2 = [c2==j for j in range(self.output_dims)]
             x2 = [X2[m2[j],1:] for j in range(self.output_dims)]
-            r2 = [torch.nonzero(m2[j], as_tuple=False).reshape(1,-1) for j in range(self.output_dims)]  # as_tuple avoids warning
+            r2 = [torch.nonzero(m2[j], as_tuple=False).reshape(1,-1) for j in range(self.output_dims)]
 
-            res = torch.empty(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)  # N1 x N2
+            res = torch.empty(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)  # NxM
             for i in range(self.output_dims):
                 for j in range(self.output_dims):
                     # calculate sub kernel matrix and add to main kernel matrix
@@ -363,12 +364,11 @@ class MultiOutputKernel(Kernel):
         # extract channel mask, get data, and find indices that belong to the channels
         c1 = X1[:,0].long()
         m1 = [c1==i for i in range(self.output_dims)]
-        x1 = [X1[m1[i],1:] for i in range(self.output_dims)]  # I is broadcastable with last dimension in X
-        r1 = [torch.nonzero(m1[i], as_tuple=False)[:,0] for i in range(self.output_dims)]  # as_tuple avoids warning
+        x1 = [X1[m1[i],1:] for i in range(self.output_dims)]
+        r1 = [torch.nonzero(m1[i], as_tuple=False)[:,0] for i in range(self.output_dims)]
 
-        res = torch.empty(X1.shape[0], device=config.device, dtype=config.dtype)  # N1 x N1
+        res = torch.empty(X1.shape[0], device=config.device, dtype=config.dtype)  # NxM
 
-        # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
         for i in range(self.output_dims):
             # calculate sub kernel matrix and add to main kernel matrix
             res[r1[i]] = self.Ksub_diag(i, x1[i])

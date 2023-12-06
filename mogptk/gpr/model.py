@@ -180,13 +180,9 @@ class Model:
 
     def zero_grad(self):
         for p in self._params:
-            p = p.unconstrained
-            if p.grad is not None:
-                if p.grad.grad_fn is not None:
-                    p.grad.detach_()
-                else:
-                    p.grad.requires_grad_(False)
-                p.grad.zero_()
+            p._constrained = None
+            if p.unconstrained.grad is not None:
+                p.unconstrained.grad = None
 
     def parameters(self):
         """
@@ -198,6 +194,17 @@ class Model:
         for p in self._params:
             if p.train:
                 yield p.unconstrained
+
+    def named_parameters(self):
+        """
+        Yield trainable parameters of model.
+
+        Returns:
+            Parameter generator
+        """
+        for p in self._params:
+            if p.train:
+                yield p.name, p.unconstrained
 
     def get_parameters(self):
         """
@@ -309,7 +316,7 @@ class Model:
         self.zero_grad()
         loss = -self.log_marginal_likelihood() - self.log_prior()
         loss.backward()
-        return float(loss)
+        return loss
 
     def K(self, X1, X2=None):
         """

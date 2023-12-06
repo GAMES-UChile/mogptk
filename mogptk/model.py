@@ -317,7 +317,7 @@ class Model:
         Examples:
             >>> model.log_marginal_likelihood()
         """
-        return self.gpr.log_marginal_likelihood().detach().cpu().item()
+        return float(self.gpr.log_marginal_likelihood())
 
     def BIC(self):
         """
@@ -353,7 +353,7 @@ class Model:
         Examples:
             >>> model.loss()
         """
-        return self.gpr.loss()
+        return float(self.gpr.loss())
 
     def error(self, method='MAE', use_all_data=False):
         """
@@ -483,7 +483,7 @@ class Model:
         initial_time = time.time()
         progress_time = 0.0
 
-        iters_len = int(math.log10(iter_offset+iters)) + 1
+        iters_len = 1 if iters == 0 else int(math.log10(iter_offset+iters)) + 1
         def progress(i, loss, last=False):
             nonlocal progress_time
 

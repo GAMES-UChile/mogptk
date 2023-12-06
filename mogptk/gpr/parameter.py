@@ -95,6 +95,7 @@ class Parameter:
         self.unconstrained = None
         self.pegged_parameter = None
         self.pegged_transform = None
+        self._constrained = None
 
         self.assign(value, lower=lower, upper=upper)
 
@@ -129,14 +130,17 @@ class Parameter:
         Returns:
             torch.tensor
         """
-        if self.pegged:
-            other = self.pegged_parameter.constrained
-            if self.pegged_transform is not None:
-                other = self.pegged_transform(other)
-            return other
-        if self.transform is not None:
-            return self.transform.forward(self.unconstrained)
-        return self.unconstrained
+        if self._constrained is None:
+            if self.pegged:
+                other = self.pegged_parameter.constrained
+                if self.pegged_transform is not None:
+                    other = self.pegged_transform(other)
+                self._constrained = other
+            elif self.transform is not None:
+                self._constrained = self.transform.forward(self.unconstrained)
+            else:
+                self._constrained = self.unconstrained
+        return self._constrained
 
     def numpy(self):
         """
@@ -255,6 +259,7 @@ class Parameter:
         self.unconstrained = value
         self.pegged_parameter = None
         self.pegged_transform = None
+        self._constrained = None
 
     def peg(self, other, transform=None):
         """
@@ -271,6 +276,7 @@ class Parameter:
         self.pegged_parameter = other
         self.pegged_transform = transform
         self.train = False
+        self._constrained = None
 
     def log_prior(self):
         """
