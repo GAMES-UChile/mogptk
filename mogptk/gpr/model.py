@@ -256,7 +256,7 @@ class Model(torch.nn.Module):
         Returns:
             torch.tensor: Loss.
         """
-        self.zero_grad()
+        self.zero_grad(set_to_none=True)
         loss = -self.log_marginal_likelihood() - self.log_prior()
         loss.backward()
         return loss
