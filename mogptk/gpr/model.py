@@ -113,6 +113,7 @@ class Model(torch.nn.Module):
         self.likelihood = likelihood
         self.jitter = jitter
         self.input_dims = X.shape[1]
+        self.compiled_forward = None
 
     def __setattr__(self, name, val):
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
@@ -249,6 +250,13 @@ class Model(torch.nn.Module):
         """
         return sum([p.log_prior() for p in self.parameters()])
 
+    def forward(self, x=None):
+        return -self.log_marginal_likelihood() - self.log_prior()
+
+    def compile(self):
+        if self.compiled_forward is None:
+            self.compiled_forward = torch.jit.trace(self.forward, ())
+
     def loss(self):
         """
         Model loss for training.
@@ -257,7 +265,10 @@ class Model(torch.nn.Module):
             torch.tensor: Loss.
         """
         self.zero_grad(set_to_none=True)
-        loss = -self.log_marginal_likelihood() - self.log_prior()
+        if self.compiled_forward is None:
+            loss = self.forward()
+        else:
+            loss = self.compiled_forward()
         loss.backward()
         return loss
 
