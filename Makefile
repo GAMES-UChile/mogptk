@@ -10,7 +10,7 @@ build:
 install: build
 	python -m pip install -e .
 
-build-docs:
+docs:
 	rm -rf docs
 	mkdir -p docs
 	custom_css='<style>\
@@ -37,16 +37,17 @@ build-docs:
 	EOT
 	sed -n '/<nav id="sidebar">/,$$p' docs/index.html >> docs/examples.html
 	sed -i 's/href="#/href="index.html#/g' docs/examples.html
+	cp resources/* docs
 
 test:
 	python -m unittest discover tests/unit
 
-release: clean build build-docs test
+release: clean build docs test
 	twine upload dist/*
 
 clean:
 	rm -rf docs
 	rm -f dist/*
 
-.PHONY: build install build-docs test release clean
-.SILENT: build install build-docs test release clean
+.PHONY: build install docs test release clean
+.SILENT: build install docs test release clean
