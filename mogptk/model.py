@@ -233,6 +233,19 @@ class Model:
 
     ################################################################
 
+    def __str__(self):
+        s = 'Model: %s\n' % self.gpr._get_name()
+        s += '‣ Kernel: %s\n' % self.gpr.kernel._get_name()
+        s += '‣ Likelihood: %s\n' % self.gpr.likelihood._get_name()
+        if self.gpr.mean is not None:
+            s += '‣ Mean: %s\n' % self.gpr.mean._get_name()
+        s += '‣ Parameters: %d\n' % self.num_parameters()
+        for p in self.gpr.parameters():
+            s += '  - %s %s\n' % (p._name, p.shape)
+        s += '‣ Channels: %d\n' % len(self.dataset)
+        s += '‣ Training points: %d\n' % self.num_training_points()
+        return s
+
     def print_parameters(self):
         """
         Print the parameters of the model in a table.
@@ -243,6 +256,10 @@ class Model:
         self.gpr.print_parameters()
 
     def get_parameters(self):
+        print("DEPRECATED: use model.parameters() instead of model.get_parameters()")
+        return self.parameters()
+
+    def parameters(self):
         """
         Returns all parameters of the kernel.
 
@@ -250,18 +267,27 @@ class Model:
             list: mogptk.gpr.parameter.Parameter
 
         Examples:
-            >>> params = model.get_parameters()
+            >>> params = model.parameters()
         """
-        return self.gpr.get_parameters()
+        return self.gpr.parameters()
 
     def copy_parameters(self, other):
+        print("DEPRECATED: use model.load_kernel_parameters() instead of model.copy_parameters()")
+        self.load_kernel_parameters()
+
+    def load_kernel_parameters(self, other):
         """
-        Copy the kernel parameters from another model.
+        Load the kernel parameters from another model.
+
+        Examples:
+            >>> params = model.load_kernel_parameters(model2)
         """
         if not isinstance(other, Model):
             raise ValueError("other must be of type Model")
+        if type(self.gpr.kernel) != type(other.gpr.kernel):
+            raise ValueError("other must have the same kernel")
 
-        self.gpr.kernel.copy_parameters(other.gpr.kernel)
+        self.gpr.kernel.load_state_dict(other.gpr.kernel.state_dict())
 
     def num_parameters(self):
         """
@@ -462,8 +488,11 @@ class Model:
 
         if verbose:
             print('Starting optimization using', method)
-            if self.name is not None:
-                print('‣ Model: %s' % self.name)
+            print('‣ Model: %s' % self.gpr._get_name())
+            print('  ‣ Kernel: %s' % self.gpr.kernel._get_name())
+            print('  ‣ Likelihood: %s' % self.gpr.likelihood._get_name())
+            if self.gpr.mean is not None:
+                print('  ‣ Mean: %s' % self.gpr.mean._get_name())
             print('‣ Channels: %d' % len(self.dataset))
             print('‣ Parameters: %d' % self.num_parameters())
             print('‣ Training points: %d' % self.num_training_points())
