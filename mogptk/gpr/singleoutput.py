@@ -13,13 +13,12 @@ class WhiteKernel(Kernel):
     Args:
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
     """
-    def __init__(self, input_dims=1, active_dims=None, name="White"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         self.magnitude = Parameter(1.0, lower=config.positive_minimum)
 
@@ -46,13 +45,12 @@ class ConstantKernel(Kernel):
     Args:
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
     """
-    def __init__(self, input_dims=1, active_dims=None, name="Constant"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         self.magnitude = Parameter(1.0, lower=config.positive_minimum)
 
@@ -79,14 +77,13 @@ class LinearKernel(Kernel):
     Args:
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         bias (mogptk.gpr.parameter.Parameter): Bias \\(c\\) a scalar.
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
     """
-    def __init__(self, input_dims=1, active_dims=None, name="Linear"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         self.bias = Parameter(0.0, lower=0.0)
         self.magnitude = Parameter(1.0, lower=config.positive_minimum)
@@ -115,15 +112,14 @@ class PolynomialKernel(Kernel):
         degree (int): Degree of the polynomial.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         degree (float): Degree \\(d\\).
         bias (mogptk.gpr.parameter.Parameter): Bias \\(c\\) a scalar.
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
     """
-    def __init__(self, degree, input_dims=1, active_dims=None, name="Polynomial"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, degree, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         self.degree = degree
         self.bias = Parameter(0.0, lower=0.0)
@@ -153,13 +149,12 @@ class FunctionKernel(Kernel):
         phi (function): Function that takes (data_points,input_dims) as input and (data_points,feature_dims) as output. Input and output must be tensors.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
     """
-    def __init__(self, phi, input_dims=1, active_dims=None, name="Phi"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, phi, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         out = phi(torch.ones(42, input_dims, dtype=config.dtype, device=config.device))
         if not torch.is_tensor(out) or out.dtype != config.dtype or out.device != config.device:
@@ -194,14 +189,13 @@ class ExponentialKernel(Kernel):
     Args:
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
     """
-    def __init__(self, input_dims=1, active_dims=None, name="Exponential"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         magnitude = 1.0
         lengthscale = torch.ones(input_dims)
@@ -233,15 +227,14 @@ class SquaredExponentialKernel(Kernel):
         order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
         cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 < order`.
     """
-    def __init__(self, order=0, input_dims=1, active_dims=None, name="SE"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, order=0, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         magnitude = 1.0
         lengthscale = 1.0
@@ -287,7 +280,6 @@ class RationalQuadraticKernel(Kernel):
         order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         alpha (float): Relative weighting of small-scale and large-scale fluctuations \\(\\alpha\\).
@@ -295,8 +287,8 @@ class RationalQuadraticKernel(Kernel):
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
         cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 < order`.
     """
-    def __init__(self, alpha=1.0, order=0, input_dims=1, active_dims=None, name="RQ"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, alpha=1.0, order=0, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         magnitude = 1.0
         lengthscale = 1.0
@@ -342,7 +334,6 @@ class PeriodicKernel(Kernel):
         order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
@@ -350,8 +341,8 @@ class PeriodicKernel(Kernel):
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
         cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 < order`.
     """
-    def __init__(self, order=0, input_dims=1, active_dims=None, name="Periodic"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, order=0, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         magnitude = 1.0
         period = torch.ones(input_dims)
@@ -399,7 +390,6 @@ class LocallyPeriodicKernel(Kernel):
         order (int): Order of cross lengthscales.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
@@ -407,8 +397,8 @@ class LocallyPeriodicKernel(Kernel):
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,) or scalar.
         cross_lengthscale (mogptk.gpr.parameter.Parameter): Cross lengthscale \\(L\\) of shape (input_dims,order) if `0 < order`.
     """
-    def __init__(self, order=0, input_dims=1, active_dims=None, name="LocallyPeriodic"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, order=0, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         magnitude = 1.0
         period = torch.ones(input_dims)
@@ -456,14 +446,13 @@ class CosineKernel(Kernel):
     Args:
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
     """
-    def __init__(self, input_dims=1, active_dims=None, name="Cosine"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         magnitude = 1.0
         lengthscale = torch.ones(input_dims)
@@ -494,15 +483,14 @@ class SincKernel(Kernel):
     Args:
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         frequency (mogptk.gpr.parameter.Parameter): Frequency \\(\\xi_0\\) of shape (input_dims,).
         bandwidth (mogptk.gpr.parameter.Parameter): Bandwidth \\(\\Delta\\) of shape (input_dims,).
     """
-    def __init__(self, input_dims=1, active_dims=None, name="Sinc"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         magnitude = 1.0
         frequency = torch.ones(input_dims)
@@ -540,7 +528,6 @@ class SpectralKernel(Kernel):
     Args:
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
@@ -549,8 +536,8 @@ class SpectralKernel(Kernel):
 
     [1] A.G. Wilson, R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", Proceedings of the 30th International Conference on Machine Learning, 2013
     """
-    def __init__(self, input_dims=1, active_dims=None, name="Spectral"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         magnitude = 1.0
         mean = torch.zeros(input_dims)
@@ -585,7 +572,6 @@ class SpectralMixtureKernel(Kernel):
         Q (int): Number of mixture components.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) of shape (Q,).
@@ -594,8 +580,8 @@ class SpectralMixtureKernel(Kernel):
 
     [1] A.G. Wilson, R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", Proceedings of the 30th International Conference on Machine Learning, 2013
     """
-    def __init__(self, Q=1, input_dims=1, active_dims=None, name="SM"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, Q=1, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         magnitude = torch.ones(Q)
         mean = torch.zeros(Q,input_dims)
@@ -630,14 +616,13 @@ class MaternKernel(Kernel):
         nu (float): Parameter that must be 0.5, 1.5, or 2.5.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         magnitude (mogptk.gpr.parameter.Parameter): Magnitude \\(\\sigma^2\\) a scalar.
         lengthscale (mogptk.gpr.parameter.Parameter): Lengthscale \\(l\\) of shape (input_dims,).
     """
-    def __init__(self, nu=0.5, input_dims=1, active_dims=None, name="Matérn"):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, nu=0.5, input_dims=1, active_dims=None):
+        super().__init__(input_dims, active_dims)
 
         if nu not in [0.5, 1.5, 2.5]:
             raise ValueError("nu parameter must be 0.5, 1.5, or 2.5")

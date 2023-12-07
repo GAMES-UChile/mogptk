@@ -73,7 +73,7 @@ class Sigmoid(Transform):
         y = (y-self.lower)/(self.upper-self.lower)
         return torch.log(y) - torch.log(1-y)
 
-class Parameter:
+class Parameter(torch.nn.Parameter):
     """
     Parameter class that allows for parameter training in a constraint space.
 
@@ -85,29 +85,30 @@ class Parameter:
         prior (Likelihood,torch.distribution): Prior distribution.
         train (boolean): Train parameter, otherwise keep its value fixed.
     """
-    def __init__(self, value, name=None, lower=None, upper=None, prior=None, train=True):
-        self.name = name
+    def __new__(cls, value, name=None, lower=None, upper=None, prior=None, train=True):
+        value = Parameter.to_tensor(value)
+        self = super().__new__(cls, value)
+
+        self._name = name
         self.lower = None
         self.upper = None
         self.prior = prior
         self.train = train
         self.transform = None
-        self.unconstrained = None
         self.pegged_parameter = None
         self.pegged_transform = None
-        self._constrained = None
 
         self.assign(value, lower=lower, upper=upper)
-
-        self.num_parameters = int(np.prod(self.unconstrained.shape))
+        self.num_parameters = int(np.prod(self.shape))
+        return self
 
     def __repr__(self):
-        name = self.name
+        name = self._name
         if self.pegged:
-            name = self.pegged_parameter.name
+            name = self.pegged_parameter._name
         if name is None:
             return '{}'.format(self.constrained.tolist())
-        return '{}={}'.format(self.name, self.constrained.tolist())
+        return '{}={}'.format(self._name, self.constrained.tolist())
     
     def __call__(self):
         """
@@ -130,17 +131,14 @@ class Parameter:
         Returns:
             torch.tensor
         """
-        if self._constrained is None:
-            if self.pegged:
-                other = self.pegged_parameter.constrained
-                if self.pegged_transform is not None:
-                    other = self.pegged_transform(other)
-                self._constrained = other
-            elif self.transform is not None:
-                self._constrained = self.transform.forward(self.unconstrained)
-            else:
-                self._constrained = self.unconstrained
-        return self._constrained
+        if self.pegged:
+            other = self.pegged_parameter.constrained
+            if self.pegged_transform is not None:
+                other = self.pegged_transform(other)
+            return other
+        if self.transform is not None:
+            return self.transform.forward(self)
+        return self
 
     def numpy(self):
         """
@@ -154,12 +152,10 @@ class Parameter:
     @staticmethod
     def to_tensor(value):
         if isinstance(value, Parameter):
-            value = value.constrained.detach()
-        if not isinstance(value, torch.Tensor):
-            value = torch.tensor(value, device=config.device, dtype=config.dtype)
-        else:
-            value = value.detach().to(config.device, config.dtype)
-        return value
+            return value.constrained.detach()
+        if isinstance(value, torch.Tensor):
+            return value.detach().to(config.device, config.dtype)
+        return torch.tensor(value, device=config.device, dtype=config.dtype)
 
     def assign(self, value=None, name=None, lower=None, upper=None, prior=None, train=None):
         """
@@ -175,16 +171,15 @@ class Parameter:
         """
         if value is not None:
             value = Parameter.to_tensor(value)
-            if self.unconstrained is not None:
-                origshape = value.shape
-                while value.ndim < self.unconstrained.ndim and self.unconstrained.shape[value.ndim] == 1:
-                    value = value.unsqueeze(-1)
-                while self.unconstrained.ndim < value.ndim and value.shape[-1] == 1:
-                    value = value.squeeze(-1)
-                if value.shape != self.unconstrained.shape:
-                    raise ValueError("parameter shape must match: %s != %s" % (origshape, self.unconstrained.shape))
+            origshape = value.shape
+            while value.ndim < self.ndim and self.shape[value.ndim] == 1:
+                value = value.unsqueeze(-1)
+            while self.ndim < value.ndim and value.shape[-1] == 1:
+                value = value.squeeze(-1)
+            if value.shape != self.shape:
+                raise ValueError("parameter shape must match: %s != %s" % (origshape, self.shape))
         else:
-            value = self.constrained.detach()
+            value = self.data
 
         if lower is not None:
             if not isinstance(lower, torch.Tensor):
@@ -219,11 +214,11 @@ class Parameter:
             upper = self.upper
 
         if name is None:
-            name = self.name
+            name = self._name
         else:
-            idx = self.name.rfind('.')
+            idx = self._name.rfind('.')
             if idx != -1:
-                name = self.name[:idx+1] + name
+                name = self._name[:idx+1] + name
         if prior is None:
             prior = self.prior
         if train is None:
@@ -250,16 +245,15 @@ class Parameter:
             value = transform.inverse(value)
         value.requires_grad = True
 
-        self.name = name
-        self.prior = prior
+        self._name = name
+        self.data = value
         self.lower = lower
         self.upper = upper
+        self.prior = prior
         self.train = train
         self.transform = transform
-        self.unconstrained = value
         self.pegged_parameter = None
         self.pegged_transform = None
-        self._constrained = None
 
     def peg(self, other, transform=None):
         """
@@ -276,7 +270,6 @@ class Parameter:
         self.pegged_parameter = other
         self.pegged_transform = transform
         self.train = False
-        self._constrained = None
 
     def log_prior(self):
         """

@@ -1,14 +1,12 @@
 import torch
 from . import Parameter, config
 
-class Mean:
+class Mean(torch.nn.Module):
     """
     Defines a trainable mean function, complementary to the the way we also have a trainable covariance function (the kernel).
     """
-    def __init__(self, name="Mean"):
-        if not isinstance(name, str):
-            raise ValueError("name must be string")
-        self.name = name
+    def __init__(self):
+        super().__init__()
 
     def __call__(self, X):
         """
@@ -25,14 +23,13 @@ class Mean:
 
     def __setattr__(self, name, val):
         if name == 'train':
-            from .util import _find_parameters
-            for _, p in _find_parameters(self):
+            for p in self.parameters():
                 p.train = val
             return
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
-        if isinstance(val, Parameter) and val.name is None:
-            val.name = name
+        if isinstance(val, Parameter) and val._name is None:
+            val._name = 'mean.' + name
         super().__setattr__(name, val)
 
     def _check_input(self, X):
@@ -42,8 +39,8 @@ class Mean:
             X = X.to(device, dtype)
         if X.ndim != 2:
             raise ValueError("X should have two dimensions (data_points,input_dims)")
-        if X.shape[0] == 0 or X.shape[1] == 0:
-            raise ValueError("X must not be empty")
+        #if X.shape[0] == 0 or X.shape[1] == 0:
+        #    raise ValueError("X must not be empty")
         return X
 
     def mean(self, X):
@@ -67,13 +64,13 @@ class ConstantMean(Mean):
     with \\(b\\) the bias.
 
     Args:
-        name (str): Name of the mean function.
 
     Attributes:
         bias (mogptk.gpr.parameter.Parameter): Bias \\(b\\).
     """
-    def __init__(self, name="ConstantMean"):
-        super().__init__(name)
+    def __init__(self):
+        super().__init__()
+
         self.bias = Parameter(0.0)
 
     def mean(self, X):
@@ -89,14 +86,14 @@ class LinearMean(Mean):
 
     Args:
         input_dims (int): Number of input dimensions.
-        name (str): Name of the mean function.
 
     Attributes:
         bias (mogptk.gpr.parameter.Parameter): Bias \\(b\\).
         slope (mogptk.gpr.parameter.Parameter): Slope \\(a\\).
     """
-    def __init__(self, input_dims=1, name="LinearMean"):
-        super().__init__(name)
+    def __init__(self, input_dims=1):
+        super().__init__()
+
         self.bias = Parameter(0.0)
         self.slope = Parameter(torch.zeros(input_dims))
 

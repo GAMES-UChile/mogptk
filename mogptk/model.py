@@ -86,7 +86,7 @@ class Exact:
         self.data_variance = data_variance
         self.jitter = jitter
 
-    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None):
         variance = self.variance
         if variance is None:
             if kernel.output_dims is not None:
@@ -96,7 +96,7 @@ class Exact:
         data_variance = self.data_variance
         if data_variance is None and y_err is not None:
             data_variance = y_err**2
-        model = gpr.Exact(kernel, x, y, variance=variance, data_variance=data_variance, jitter=self.jitter, mean=mean, name=name)
+        model = gpr.Exact(kernel, x, y, variance=variance, data_variance=data_variance, jitter=self.jitter, mean=mean)
         return model
 
 class Snelson:
@@ -115,10 +115,10 @@ class Snelson:
         self.variance = variance
         self.jitter = jitter
 
-    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None):
         if self.variance is None:
             self.variance = [1.0] * kernel.output_dims
-        return gpr.Snelson(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+        return gpr.Snelson(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean)
 
 class OpperArchambeau:
     """
@@ -132,8 +132,8 @@ class OpperArchambeau:
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        return gpr.OpperArchambeau(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+    def _build(self, kernel, x, y, y_err=None, mean=None):
+        return gpr.OpperArchambeau(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean)
 
 class Titsias:
     """
@@ -151,8 +151,8 @@ class Titsias:
         self.variance = variance
         self.jitter = jitter
 
-    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        return gpr.Titsias(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+    def _build(self, kernel, x, y, y_err=None, mean=None):
+        return gpr.Titsias(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean)
 
 class Hensman:
     """
@@ -170,13 +170,13 @@ class Hensman:
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None):
         if self.inducing_points is None:
-            return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
-        return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+            return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean)
+        return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean)
 
 class Model:
-    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
+    def __init__(self, dataset, kernel, inference=Exact(), mean=None):
         """
         Model is the base class for multi-output Gaussian process models.
 
@@ -185,7 +185,6 @@ class Model:
             kernel (mogptk.gpr.kernel.Kernel): The kernel class.
             inference: Gaussian process inference model to use, such as `mogptk.Exact`.
             mean (mogptk.gpr.mean.Mean): The mean class.
-            name (str): Name of the model.
 
         Attributes:
             dataset (mogptk.dataset.DataSet): Dataset.
@@ -211,7 +210,6 @@ class Model:
         #        elif 1e4 < xran:
         #            logger.warning("Very large X range may give problems, it is suggested to scale down your X axis for channel %d" % j)
 
-        self.name = name
         self.dataset = dataset
         self.is_multioutput = kernel.output_dims is not None
 
@@ -226,7 +224,7 @@ class Model:
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
-        self.gpr = inference._build(kernel, x, y, y_err, mean, name)
+        self.gpr = inference._build(kernel, x, y, y_err, mean)
 
         self.iters = 0
         self.times = np.zeros(0)
@@ -234,6 +232,19 @@ class Model:
         self.errors = np.zeros(0)
 
     ################################################################
+
+    def __str__(self):
+        s = 'Model: %s\n' % self.gpr._get_name()
+        s += '‣ Kernel: %s\n' % self.gpr.kernel._get_name()
+        s += '‣ Likelihood: %s\n' % self.gpr.likelihood._get_name()
+        if self.gpr.mean is not None:
+            s += '‣ Mean: %s\n' % self.gpr.mean._get_name()
+        s += '‣ Parameters: %d\n' % self.num_parameters()
+        for p in self.gpr.parameters():
+            s += '  - %s %s\n' % (p._name, p.shape)
+        s += '‣ Channels: %d\n' % len(self.dataset)
+        s += '‣ Training points: %d\n' % self.num_training_points()
+        return s
 
     def print_parameters(self):
         """
@@ -245,6 +256,10 @@ class Model:
         self.gpr.print_parameters()
 
     def get_parameters(self):
+        print("DEPRECATED: use model.parameters() instead of model.get_parameters()")
+        return self.parameters()
+
+    def parameters(self):
         """
         Returns all parameters of the kernel.
 
@@ -252,18 +267,27 @@ class Model:
             list: mogptk.gpr.parameter.Parameter
 
         Examples:
-            >>> params = model.get_parameters()
+            >>> params = model.parameters()
         """
-        return self.gpr.get_parameters()
+        return self.gpr.parameters()
 
     def copy_parameters(self, other):
+        print("DEPRECATED: use model.load_kernel_parameters() instead of model.copy_parameters()")
+        self.load_kernel_parameters()
+
+    def load_kernel_parameters(self, other):
         """
-        Copy the kernel parameters from another model.
+        Load the kernel parameters from another model.
+
+        Examples:
+            >>> params = model.load_kernel_parameters(model2)
         """
         if not isinstance(other, Model):
             raise ValueError("other must be of type Model")
+        if type(self.gpr.kernel) != type(other.gpr.kernel):
+            raise ValueError("other must have the same kernel")
 
-        self.gpr.kernel.copy_parameters(other.gpr.kernel)
+        self.gpr.kernel.load_state_dict(other.gpr.kernel.state_dict())
 
     def num_parameters(self):
         """
@@ -275,7 +299,7 @@ class Model:
         Examples:
             >>> n = model.num_parameters()
         """
-        return sum([p.num_parameters if p.train else 0 for p in self.gpr.get_parameters()])
+        return sum([p.num_parameters if p.train else 0 for p in self.gpr.parameters()])
 
     def num_training_points(self):
         """
@@ -409,14 +433,8 @@ class Model:
         else:
             raise ValueError("valid error calculation methods are MAE, MAPE, sMAPE, MSE, and RMSE")
 
-    def train(
-        self,
-        method='Adam',
-        iters=500,
-        verbose=False,
-        error=None,
-        plot=False,
-        **kwargs):
+    def train(self, method='Adam', iters=500, verbose=False, error=None, plot=False, jit=True,
+              **kwargs):
         """
         Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.
 
@@ -426,6 +444,7 @@ class Model:
             verbose (bool): Print verbose output about the state of the optimizer.
             error (str,function): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, sMAPE, MSE, or RMSE. When a function is given, it should have parameters (y_true,y_pred) or (y_true,y_pred,model).
             plot (bool): Plot the loss and, if error is data set, the error of the test data points.
+            jit (bool): Use the PyTorch JIT trace functionality to improve performance.
             **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
 
         Returns:
@@ -464,8 +483,11 @@ class Model:
 
         if verbose:
             print('Starting optimization using', method)
-            if self.name is not None:
-                print('‣ Model: %s' % self.name)
+            print('‣ Model: %s' % self.gpr._get_name())
+            print('  ‣ Kernel: %s' % self.gpr.kernel._get_name())
+            print('  ‣ Likelihood: %s' % self.gpr.likelihood._get_name())
+            if self.gpr.mean is not None:
+                print('  ‣ Mean: %s' % self.gpr.mean._get_name())
             print('‣ Channels: %d' % len(self.dataset))
             print('‣ Parameters: %d' % self.num_parameters())
             print('‣ Training points: %d' % self.num_training_points())
@@ -482,6 +504,11 @@ class Model:
             errors = np.concatenate((self.errors[:-1],errors))
         initial_time = time.time()
         progress_time = 0.0
+
+        if jit:
+            self.gpr.compile()
+        else:
+            self.gpr.compiled_forward = None
 
         iters_len = 1 if iters == 0 else int(math.log10(iter_offset+iters)) + 1
         def progress(i, loss, last=False):
