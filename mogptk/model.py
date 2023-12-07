@@ -86,7 +86,7 @@ class Exact:
         self.data_variance = data_variance
         self.jitter = jitter
 
-    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None):
         variance = self.variance
         if variance is None:
             if kernel.output_dims is not None:
@@ -96,7 +96,7 @@ class Exact:
         data_variance = self.data_variance
         if data_variance is None and y_err is not None:
             data_variance = y_err**2
-        model = gpr.Exact(kernel, x, y, variance=variance, data_variance=data_variance, jitter=self.jitter, mean=mean, name=name)
+        model = gpr.Exact(kernel, x, y, variance=variance, data_variance=data_variance, jitter=self.jitter, mean=mean)
         return model
 
 class Snelson:
@@ -115,10 +115,10 @@ class Snelson:
         self.variance = variance
         self.jitter = jitter
 
-    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None):
         if self.variance is None:
             self.variance = [1.0] * kernel.output_dims
-        return gpr.Snelson(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+        return gpr.Snelson(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean)
 
 class OpperArchambeau:
     """
@@ -132,8 +132,8 @@ class OpperArchambeau:
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        return gpr.OpperArchambeau(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+    def _build(self, kernel, x, y, y_err=None, mean=None):
+        return gpr.OpperArchambeau(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean)
 
 class Titsias:
     """
@@ -151,8 +151,8 @@ class Titsias:
         self.variance = variance
         self.jitter = jitter
 
-    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
-        return gpr.Titsias(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean, name=name)
+    def _build(self, kernel, x, y, y_err=None, mean=None):
+        return gpr.Titsias(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean)
 
 class Hensman:
     """
@@ -170,13 +170,13 @@ class Hensman:
         self.likelihood = likelihood
         self.jitter = jitter
 
-    def _build(self, kernel, x, y, y_err=None, mean=None, name=None):
+    def _build(self, kernel, x, y, y_err=None, mean=None):
         if self.inducing_points is None:
-            return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
-        return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean, name=name)
+            return gpr.Hensman(kernel, x, y, likelihood=self.likelihood, jitter=self.jitter, mean=mean)
+        return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean)
 
 class Model:
-    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
+    def __init__(self, dataset, kernel, inference=Exact(), mean=None):
         """
         Model is the base class for multi-output Gaussian process models.
 
@@ -185,7 +185,6 @@ class Model:
             kernel (mogptk.gpr.kernel.Kernel): The kernel class.
             inference: Gaussian process inference model to use, such as `mogptk.Exact`.
             mean (mogptk.gpr.mean.Mean): The mean class.
-            name (str): Name of the model.
 
         Attributes:
             dataset (mogptk.dataset.DataSet): Dataset.
@@ -211,7 +210,6 @@ class Model:
         #        elif 1e4 < xran:
         #            logger.warning("Very large X range may give problems, it is suggested to scale down your X axis for channel %d" % j)
 
-        self.name = name
         self.dataset = dataset
         self.is_multioutput = kernel.output_dims is not None
 
@@ -226,7 +224,7 @@ class Model:
             y_err_lower = np.concatenate(Y_err_lower, axis=0)
             y_err_upper = np.concatenate(Y_err_upper, axis=0)
             y_err = (y_err_upper-y_err_lower)/2.0 # TODO: strictly incorrect: takes average error after transformation
-        self.gpr = inference._build(kernel, x, y, y_err, mean, name)
+        self.gpr = inference._build(kernel, x, y, y_err, mean)
 
         self.iters = 0
         self.times = np.zeros(0)
@@ -275,7 +273,7 @@ class Model:
         Examples:
             >>> n = model.num_parameters()
         """
-        return sum([p.num_parameters if p.train else 0 for p in self.gpr.get_parameters()])
+        return sum([p.num_parameters if p.train else 0 for p in self.gpr.parameters()])
 
     def num_training_points(self):
         """

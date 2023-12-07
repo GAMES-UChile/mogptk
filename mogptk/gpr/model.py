@@ -74,7 +74,7 @@ class CholeskyException(Exception):
     def __str__(self):
         return self.message
 
-class Model:
+class Model(torch.nn.Module):
     """
     Base model class.
 
@@ -83,7 +83,9 @@ class Model:
         likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
         mean (mogptk.gpr.mean.Mean): Mean.
     """
-    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0), jitter=1e-8, mean=None, name=None):
+    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0), jitter=1e-8, mean=None):
+        super().__init__()
+
         if not issubclass(type(kernel), Kernel):
             raise ValueError("kernel must derive from mogptk.gpr.Kernel")
         X, y = self._check_input(X, y)
@@ -104,21 +106,17 @@ class Model:
         elif config.dtype == torch.float64:
             jitter = max(jitter, 1e-15)
 
-        self._params = []
         self.kernel = kernel
         self.X = X
         self.y = y
+        self.mean = mean
         self.likelihood = likelihood
         self.jitter = jitter
-        self.mean = mean
-        self.name = name
         self.input_dims = X.shape[1]
 
     def __setattr__(self, name, val):
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
-        elif isinstance(val, (Parameter, Kernel, Mean, Likelihood)):
-            self._register_parameters(val)
         super().__setattr__(name, val)        
 
     def _check_input(self, X, y=None):
@@ -159,61 +157,6 @@ class Model:
         if self.kernel.output_dims is not None and 0 < value.ndim and value.shape[0] == self.kernel.output_dims:
             return torch.index_select(value, dim=0, index=X[:,0].long())
         return value
-
-    def _register_parameters(self, obj, name=None):
-        if isinstance(obj, Parameter):
-            if obj.name is not None:
-                if name is None:
-                    name = obj.name
-                else:
-                    name += "." + obj.name
-            elif name is None:
-                name = ""
-            obj.name = name
-            self._params.append(obj)
-        elif isinstance(obj, list):
-            for i, v in enumerate(obj):
-                self._register_parameters(v, (name if name is not None else "")+"["+str(i)+"]")
-        elif issubclass(type(obj), (Kernel, Mean, Likelihood)):
-            for v in obj.__dict__.values():
-                self._register_parameters(v, (name+"." if name is not None else "")+obj.name)
-
-    def zero_grad(self):
-        for p in self._params:
-            p._constrained = None
-            if p.unconstrained.grad is not None:
-                p.unconstrained.grad = None
-
-    def parameters(self):
-        """
-        Yield trainable parameters of model.
-
-        Returns:
-            Parameter generator
-        """
-        for p in self._params:
-            if p.train:
-                yield p.unconstrained
-
-    def named_parameters(self):
-        """
-        Yield trainable parameters of model.
-
-        Returns:
-            Parameter generator
-        """
-        for p in self._params:
-            if p.train:
-                yield p.name, p.unconstrained
-
-    def get_parameters(self):
-        """
-        Return all parameters of model.
-
-        Returns:
-            list: List of Parameters.
-        """
-        return self._params
     
     def print_parameters(self, file=None):
         """
@@ -251,8 +194,8 @@ class Model:
             try:
                 get_ipython  # fails if we're not in a notebook
                 table = '<table><tr><th style="text-align:left">Name</th><th>Range</th><th>Value</th></tr>'
-                for p in self._params:
-                    table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (p.name, param_range(p.lower, p.upper, p.train, p.pegged), p.numpy())
+                for p in self.parameters():
+                    table += '<tr><td style="text-align:left">%s</td><td>%s</td><td>%s</td></tr>' % (p._name, param_range(p.lower, p.upper, p.train, p.pegged), p.numpy())
                 table += '</table>'
                 display(HTML(table))
                 return
@@ -260,8 +203,8 @@ class Model:
                 pass
 
         vals = [["Name", "Range", "Value"]]
-        for p in self._params:
-            vals.append([p.name, param_range(p.lower, p.upper, p.train, p.pegged), p.numpy().tolist()])
+        for p in self.parameters():
+            vals.append([p._name, param_range(p.lower, p.upper, p.train, p.pegged), p.numpy().tolist()])
 
         nameWidth = max([len(val[0]) for val in vals])
         rangeWidth = max([len(val[1]) for val in vals])
@@ -304,7 +247,7 @@ class Model:
         Returns:
             torch.tensor: Log prior.
         """
-        return sum([p.log_prior() for p in self._params])
+        return sum([p.log_prior() for p in self.parameters()])
 
     def loss(self):
         """
@@ -382,9 +325,8 @@ class Exact(Model):
         data_variance (torch.tensor): Assign different and fixed variances per data point. These are added to the kernel's diagonal while still training an additional Gaussian variance.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
-        name (str): Name of the model.
     """
-    def __init__(self, kernel, X, y, variance=1.0, data_variance=None, jitter=1e-8, mean=None, name="Exact"):
+    def __init__(self, kernel, X, y, variance=1.0, data_variance=None, jitter=1e-8, mean=None):
         if data_variance is not None:
             data_variance = Parameter.to_tensor(data_variance)
             if data_variance.ndim != 1 or X.ndim == 2 and data_variance.shape[0] != X.shape[0]:
@@ -399,7 +341,7 @@ class Exact(Model):
         if 1 < variance.ndim or variance.ndim == 1 and variance.shape[0] != channels:
             raise ValueError("variance must be float or have shape (channels,)")
 
-        super().__init__(kernel, X, y, GaussianLikelihood(torch.sqrt(variance)), jitter, mean, name)
+        super().__init__(kernel, X, y, GaussianLikelihood(torch.sqrt(variance)), jitter, mean)
 
         self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
@@ -473,17 +415,15 @@ class Snelson(Model):
         variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
-        name (str): Name of the model.
 
     [1] E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005
     """
-    def __init__(self, kernel, X, y, Z=10, Z_init='grid', variance=1.0, jitter=1e-8, mean=None,
-                 name="Snelson"):
+    def __init__(self, kernel, X, y, Z=10, Z_init='grid', variance=1.0, jitter=1e-8, mean=None):
         variance = Parameter.to_tensor(variance).squeeze()
         if 1 < variance.ndim or variance.ndim == 1 and variance.shape[0] != kernel.output_dims:
             raise ValueError("variance must be float or have shape (channels,)")
 
-        super().__init__(kernel, X, y, GaussianLikelihood(torch.sqrt(variance)), jitter, mean, name)
+        super().__init__(kernel, X, y, GaussianLikelihood(torch.sqrt(variance)), jitter, mean)
 
         Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
         Z = self._check_input(Z)
@@ -575,18 +515,17 @@ class OpperArchambeau(Model):
         likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
-        name (str): Name of the model.
 
     [1] M. Opper, C. Archambeau, "The Variational Gaussian Approximation Revisited", 2009
     """
     def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0),
-                 jitter=1e-8, mean=None, name="OpperArchambeau"):
-        super().__init__(kernel, X, y, likelihood, jitter, mean, name)
+                 jitter=1e-8, mean=None):
+        super().__init__(kernel, X, y, likelihood, jitter, mean)
 
         n = self.X.shape[0]
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
-        self.q_nu = Parameter(torch.zeros(n,1), name="q_nu")
-        self.q_lambda = Parameter(torch.ones(n,1), name="q_lambda", lower=config.positive_minimum)
+        self.q_nu = Parameter(torch.zeros(n,1))
+        self.q_lambda = Parameter(torch.ones(n,1), lower=config.positive_minimum)
         self.likelihood = likelihood
 
     def elbo(self):
@@ -675,16 +614,15 @@ class Titsias(Model):
         variance (float): Gaussian likelihood initial variance.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
-        name (str): Name of the model.
 
     [1] Titsias, "Variational learning of induced variables in sparse Gaussian processes", 2009
     """
     # See: http://krasserm.github.io/2020/12/12/gaussian-processes-sparse/
-    def __init__(self, kernel, X, y, Z, Z_init='grid', variance=1.0, jitter=1e-8,
-                 mean=None, name="Titsias"):
+    def __init__(self, kernel, X, y, Z, Z_init='grid', variance=1.0, jitter=1e-8, mean=None):
         # TODO: variance per channel
         variance = Parameter.to_tensor(variance)
-        super().__init__(kernel, X, y, GaussianLikelihood(torch.sqrt(variance)), jitter, mean, name)
+
+        super().__init__(kernel, X, y, GaussianLikelihood(torch.sqrt(variance)), jitter, mean)
 
         Z = init_inducing_points(Z, self.X, method=Z_init, output_dims=kernel.output_dims)
         Z = self._check_input(Z)
@@ -784,16 +722,14 @@ class SparseHensman(Model):
         likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
-        name (str): Name of the model.
 
     [1] J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015
     """
     # This version replaces mu_q by L.mu_q and sigma_q by L.sigma_q.L^T, where LL^T = Kuu
     # So that p(u) ~ N(0,1) and q(u) ~ N(L.mu_q, L.sigma_q.L^T)
-    def __init__(self, kernel, X, y, Z=None, Z_init='grid',
-                 likelihood=GaussianLikelihood(1.0), jitter=1e-8, mean=None,
-                 name="SparseHensman"):
-        super().__init__(kernel, X, y, likelihood, jitter, mean, name)
+    def __init__(self, kernel, X, y, Z=None, Z_init='grid', likelihood=GaussianLikelihood(1.0),
+                 jitter=1e-8, mean=None):
+        super().__init__(kernel, X, y, likelihood, jitter, mean)
 
         n = self.X.shape[0]
         self.is_sparse = Z is not None
@@ -804,8 +740,8 @@ class SparseHensman(Model):
 
         self.eye = torch.eye(n, device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
-        self.q_mu = Parameter(torch.zeros(n,1), name="q_mu")
-        self.q_sqrt = Parameter(torch.eye(n), name="q_sqrt")
+        self.q_mu = Parameter(torch.zeros(n,1))
+        self.q_sqrt = Parameter(torch.eye(n))
         self.q_sqrt.num_parameters = int((n*n+n)/2)
         if self.is_sparse:
             self.Z = Parameter(Z, name="induction_points")
@@ -893,10 +829,8 @@ class Hensman(SparseHensman):
         likelihood (mogptk.gpr.likelihood.Likelihood): Likelihood.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
-        name (str): Name of the model.
 
     [1] J. Hensman, et al., "Scalable Variational Gaussian Process Classification", 2015
     """
-    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0), jitter=1e-8,
-                 mean=None, name="Hensman"):
-        super().__init__(kernel, X, y, None, 'grid', likelihood, jitter, mean, name)
+    def __init__(self, kernel, X, y, likelihood=GaussianLikelihood(1.0), jitter=1e-8, mean=None):
+        super().__init__(kernel, X, y, None, 'grid', likelihood, jitter, mean)

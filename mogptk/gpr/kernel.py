@@ -2,25 +2,20 @@ import torch
 import copy
 from . import Parameter, config
 
-class Kernel:
+class Kernel(torch.nn.Module):
     """
     Base kernel.
 
     Args:
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
     """
-    def __init__(self, input_dims=None, active_dims=None, name=None):
-        if name is None:
-            name = self.__class__.__name__
-            if name.endswith('Kernel') and name != 'Kernel':
-                name = name[:-6]
+    def __init__(self, input_dims=None, active_dims=None):
+        super().__init__()
 
         self.input_dims = input_dims
         self.active_dims = active_dims  # checks input
         self.output_dims = None
-        self.name = name
 
     def __call__(self, X1, X2=None):
         """
@@ -38,14 +33,13 @@ class Kernel:
 
     def __setattr__(self, name, val):
         if name == 'train':
-            from .util import _find_parameters
-            for _, p in _find_parameters(self):
+            for p in self.parameters():
                 p.train = val
             return
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
-        if isinstance(val, Parameter) and val.name is None:
-            val.name = name
+        if isinstance(val, Parameter) and val._name is None:
+            val._name = 'kernel.' + name
         super().__setattr__(name, val)
 
     def _active_input(self, X1, X2=None):
@@ -201,10 +195,9 @@ class Kernels(Kernel):
 
     Args:
         kernels (list of Kernel): Kernels.
-        name (str): Kernel name.
     """
-    def __init__(self, *kernels, name="Kernels"):
-        super().__init__(name=name)
+    def __init__(self, *kernels):
+        super().__init__()
         kernels = self._check_kernels(kernels)
 
         i = 0
@@ -237,10 +230,9 @@ class AddKernel(Kernels):
 
     Args:
         kernels (list of Kernel): Kernels.
-        name (str): Kernel name.
     """
-    def __init__(self, *kernels, name="Add"):
-        super().__init__(*kernels, name=name)
+    def __init__(self, *kernels):
+        super().__init__(*kernels)
 
     def K(self, X1, X2=None):
         return torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=2).sum(dim=2)
@@ -254,10 +246,9 @@ class MulKernel(Kernels):
 
     Args:
         kernels (list of Kernel): Kernels.
-        name (str): Kernel name.
     """
-    def __init__(self, *kernels, name="Mul"):
-        super().__init__(*kernels, name=name)
+    def __init__(self, *kernels):
+        super().__init__(*kernels)
 
     def K(self, X1, X2=None):
         return torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=2).prod(dim=2)
@@ -272,13 +263,12 @@ class MixtureKernel(AddKernel):
     Args:
         kernel (Kernel): Single kernel.
         Q (int): Number of mixtures.
-        name (str): Kernel name.
     """
-    def __init__(self, kernel, Q, name="Mixture"):
+    def __init__(self, kernel, Q):
         if not issubclass(type(kernel), Kernel):
             raise ValueError("must pass kernel")
         kernels = self._check_kernels(kernel, Q)
-        super().__init__(*kernels, name=name)
+        super().__init__(*kernels)
 
 class AutomaticRelevanceDeterminationKernel(MulKernel):
     """
@@ -287,15 +277,16 @@ class AutomaticRelevanceDeterminationKernel(MulKernel):
     Args:
         kernel (Kernel): Single kernel.
         input_dims (int): Number of input dimensions.
-        name (str): Kernel name.
     """
-    def __init__(self, kernel, input_dims, name="ARD"):
+    def __init__(self, kernel, input_dims):
         if not issubclass(type(kernel), Kernel):
             raise ValueError("must pass kernel")
         kernels = self._check_kernels(kernel, input_dims)
         for i, kernel in enumerate(kernels):
             kernel.set_active_dims(i)
-        super().__init__(*kernels, name=name)
+        super().__init__(*kernels)
+
+cb = None
 
 class MultiOutputKernel(Kernel):
     """
@@ -307,12 +298,11 @@ class MultiOutputKernel(Kernel):
         output_dims (int): Number of output dimensions.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
     """
     # TODO: seems to accumulate a lot of memory in the loops to call Ksub, perhaps it's keeping the computational graph while indexing?
 
-    def __init__(self, output_dims, input_dims=None, active_dims=None, name=None):
-        super().__init__(input_dims, active_dims, name)
+    def __init__(self, output_dims, input_dims=None, active_dims=None):
+        super().__init__(input_dims, active_dims)
         self.output_dims = output_dims
 
     def _check_input(self, X1, X2=None):

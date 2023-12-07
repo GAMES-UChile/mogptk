@@ -60,18 +60,29 @@ class GaussHermiteQuadrature:
     def __call__(self, mu, var, F):
         return F(mu + var.sqrt().mm(self.t.T)).mm(self.w)  # Nx1
 
-class Likelihood:
+class Likelihood(torch.nn.Module):
     """
     Base likelihood.
 
     Args:
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     """
-    def __init__(self, name="Likelihood", quadratures=20):
-        self.name = name
+    def __init__(self, quadratures=20):
+        super().__init__()
+
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = None
+
+    def __setattr__(self, name, val):
+        if name == 'train':
+            for p in self.parameters():
+                p.train = val
+            return
+        if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
+            raise AttributeError("parameter is read-only, use Parameter.assign()")
+        if isinstance(val, Parameter) and val._name is None:
+            val._name = 'likelihood.' + name
+        super().__setattr__(name, val)
 
     def validate_y(self, y, X=None):
         """
@@ -171,10 +182,9 @@ class MultiOutputLikelihood(Likelihood):
 
     Args:
         likelihoods (mogptk.gpr.likelihood.Likelihood): List of likelihoods equal to the number of output dimensions.
-        name (str): Name of the likelihood.
     """
-    def __init__(self, *likelihoods, name="MultiOutputLikelihood"):
-        super().__init__(name=name)
+    def __init__(self, *likelihoods):
+        super().__init__()
 
         if isinstance(likelihoods, tuple):
             if len(likelihoods) == 1 and isinstance(likelihoods[0], list):
@@ -284,15 +294,14 @@ class GaussianLikelihood(Likelihood):
 
     Args:
         scale (float): Scale.
-        name (str): Name of the likelihood.
 
     Attributes:
         scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     """
-    def __init__(self, scale=1.0, name="Gaussian"):
-        super().__init__(name)
+    def __init__(self, scale=1.0):
+        super().__init__()
 
-        self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
+        self.scale = Parameter(scale, lower=config.positive_minimum)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -330,17 +339,16 @@ class StudentTLikelihood(Likelihood):
     Args:
         dof (float): Degrees of freedom.
         scale (float): Scale.
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
 
     Attributes:
         scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     """
-    def __init__(self, dof=3, scale=1.0, name="StudentT", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, dof=3, scale=1.0, quadratures=20):
+        super().__init__(quadratures)
 
         self.dof = torch.tensor(dof, device=config.device, dtype=config.dtype)
-        self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
+        self.scale = Parameter(scale, lower=config.positive_minimum)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -371,11 +379,10 @@ class ExponentialLikelihood(Likelihood):
 
     Args:
         link (function): Link function to map function values to the support of the likelihood.
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     """
-    def __init__(self, link=exp, name="Exponential", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, link=exp, quadratures=20):
+        super().__init__(quadratures)
 
         self.link = link
 
@@ -408,16 +415,15 @@ class LaplaceLikelihood(Likelihood):
 
     Args:
         scale (float): Scale.
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
 
     Attributes:
         scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     """
-    def __init__(self, scale=1.0, name="Laplace", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, scale=1.0, quadratures=20):
+        super().__init__(quadratures)
 
-        self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
+        self.scale = Parameter(scale, lower=config.positive_minimum)
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -441,11 +447,10 @@ class BernoulliLikelihood(Likelihood):
 
     Args:
         link (function): Link function to map function values to the support of the likelihood.
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     """
-    def __init__(self, link=inv_probit, name="Bernoulli", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, link=inv_probit, quadratures=20):
+        super().__init__(quadratures)
 
         self.link = link
 
@@ -485,17 +490,16 @@ class BetaLikelihood(Likelihood):
     Args:
         scale (float): Scale.
         link (function): Link function to map function values to the support of the likelihood.
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
 
     Attributes:
         scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     """
-    def __init__(self, scale=1.0, link=inv_probit, name="Beta", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, scale=1.0, link=inv_probit, quadratures=20):
+        super().__init__(quadratures)
 
         self.link = link
-        self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
+        self.scale = Parameter(scale, lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any((y <= 0.0) | (1.0 <= y)):
@@ -533,17 +537,16 @@ class GammaLikelihood(Likelihood):
     Args:
         shape (float): Shape.
         link (function): Link function to map function values to the support of the likelihood.
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
 
     Attributes:
         shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     """
-    def __init__(self, shape=1.0, link=exp, name="Gamma", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, shape=1.0, link=exp, quadratures=20):
+        super().__init__(quadratures)
 
         self.link = link
-        self.shape = Parameter(shape, name="shape", lower=config.positive_minimum)
+        self.shape = Parameter(shape, lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any(y <= 0.0):
@@ -577,11 +580,10 @@ class PoissonLikelihood(Likelihood):
 
     Args:
         link (function): Link function to map function values to the support of the likelihood.
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     """
-    def __init__(self, link=exp, name="Poisson", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, link=exp, quadratures=20):
+        super().__init__(quadratures)
 
         self.link = link
 
@@ -619,17 +621,16 @@ class WeibullLikelihood(Likelihood):
     Args:
         shape (float): Shape.
         link (function): Link function to map function values to the support of the likelihood.
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
 
     Attributes:
         shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     """
-    def __init__(self, shape=1.0, link=exp, name="Weibull", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, shape=1.0, link=exp, quadratures=20):
+        super().__init__(quadratures)
 
         self.link = link
-        self.shape = Parameter(shape, name="shape", lower=config.positive_minimum)
+        self.shape = Parameter(shape, lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any(y <= 0.0):
@@ -665,17 +666,16 @@ class LogLogisticLikelihood(Likelihood):
     Args:
         shape (float): Shape.
         link (function): Link function to map function values to the support of the likelihood.
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
 
     Attributes:
         shape (mogptk.gpr.parameter.Parameter): Shape \\(k\\).
     """
-    def __init__(self, shape=1.0, link=exp, name="LogLogistic", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, shape=1.0, link=exp, quadratures=20):
+        super().__init__(quadratures)
 
         self.link = link
-        self.shape = Parameter(shape, name="shape", lower=config.positive_minimum)
+        self.shape = Parameter(shape, lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any(y < 0.0):
@@ -713,16 +713,15 @@ class LogGaussianLikelihood(Likelihood):
 
     Args:
         scale (float): Scale.
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
 
     Attributes:
         scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     """
-    def __init__(self, scale=1.0, name="LogGaussian", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, scale=1.0, quadratures=20):
+        super().__init__(quadratures)
 
-        self.scale = Parameter(scale, name="scale", lower=config.positive_minimum)
+        self.scale = Parameter(scale, lower=config.positive_minimum)
 
     def validate_y(self, y, X=None):
         if torch.any(y <= 0.0):
@@ -751,11 +750,10 @@ class ChiSquaredLikelihood(Likelihood):
     with \\(y \\in (0.0,\\infty)\\).
 
     Args:
-        name (str): Name of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     """
-    def __init__(self, name="ChiSquared", quadratures=20):
-        super().__init__(name, quadratures)
+    def __init__(self, quadratures=20):
+        super().__init__(quadratures)
 
     def validate_y(self, y, X=None):
         if torch.any(y <= 0.0):

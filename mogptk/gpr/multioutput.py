@@ -9,12 +9,11 @@ class IndependentMultiOutputKernel(MultiOutputKernel):
     Args:
         kernels (list of Kernel): Kernels of shape (output_dims,).
         output_dims (int): Number of output dimensions.
-        name (str): Kernel name.
     """
-    def __init__(self, *kernels, output_dims=None, name="IMO"):
+    def __init__(self, *kernels, output_dims=None):
         if output_dims is None:
             output_dims = len(kernels)
-        super().__init__(output_dims, name=name)
+        super().__init__(output_dims)
         self.kernels = self._check_kernels(kernels, output_dims)
 
     def __getitem__(self, key):
@@ -55,7 +54,6 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
         output_dims (int): Number of output dimensions.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         weight (mogptk.gpr.parameter.Parameter): Weight \\(w\\) of shape (output_dims,).
@@ -66,8 +64,8 @@ class MultiOutputSpectralKernel(MultiOutputKernel):
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
-    def __init__(self, output_dims, input_dims=1, active_dims=None, name="MOSM"):
-        super().__init__(output_dims, input_dims, active_dims, name)
+    def __init__(self, output_dims, input_dims=1, active_dims=None):
+        super().__init__(output_dims, input_dims, active_dims)
 
         # TODO: incorporate mixtures?
         # TODO: allow different input_dims per channel
@@ -141,7 +139,6 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
         output_dims (int): Number of output dimensions.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         weight (mogptk.gpr.parameter.Parameter): Weight \\(w\\) of shape (output_dims,Q).
@@ -152,8 +149,8 @@ class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
 
     [1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017
     """
-    def __init__(self, Q, output_dims, input_dims=1, active_dims=None, name="MOSM"):
-        super().__init__(output_dims, input_dims, active_dims, name)
+    def __init__(self, Q, output_dims, input_dims=1, active_dims=None):
+        super().__init__(output_dims, input_dims, active_dims)
 
         # TODO: allow different input_dims per channel
         weight = torch.ones(output_dims, Q)
@@ -228,7 +225,6 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
         output_dims (int): Number of output dimensions.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         weight (mogptk.gpr.parameter.Parameter): Weight \\(w\\) of the lower-triangular of shape (output_dims,output_dims).
@@ -237,8 +233,8 @@ class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
         delay (mogptk.gpr.parameter.Parameter): Delay \\(\\theta\\) of shape (output_dims,input_dims).
         phase (mogptk.gpr.parameter.Parameter): Phase \\(\\phi\\) in hertz of shape (output_dims,).
     """
-    def __init__(self, output_dims, input_dims=1, active_dims=None, name="uMOSM"):
-        super().__init__(output_dims, input_dims, active_dims, name)
+    def __init__(self, output_dims, input_dims=1, active_dims=None):
+        super().__init__(output_dims, input_dims, active_dims)
 
         weight = torch.ones(output_dims, output_dims).tril()
         mean = torch.zeros(output_dims, input_dims)
@@ -312,7 +308,6 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
         output_dims (int): Number of output dimensions.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         weight (mogptk.gpr.parameter.Parameter): Weight \\(w\\) of shape (output_dims,).
@@ -325,8 +320,8 @@ class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
 
     [1] M. Altamirano, "Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
     """
-    def __init__(self, output_dims, input_dims=1, active_dims=None, name="MOHSM"):
-        super().__init__(output_dims, input_dims, active_dims, name)
+    def __init__(self, output_dims, input_dims=1, active_dims=None):
+        super().__init__(output_dims, input_dims, active_dims)
 
         # TODO: incorporate mixtures?
         # TODO: allow different input_dims per channel
@@ -404,7 +399,6 @@ class CrossSpectralKernel(MultiOutputKernel):
         input_dims (int): Number of input dimensions.
         Rq (int): Number of subcomponents.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         amplitude (mogptk.gpr.parameter.Parameter): Amplitude \\(\\sigma^2\\) of shape (output_dims,Rq).
@@ -414,8 +408,8 @@ class CrossSpectralKernel(MultiOutputKernel):
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
-    def __init__(self, output_dims, input_dims=1, Rq=1, active_dims=None, name="CSM"):
-        super().__init__(output_dims, input_dims, active_dims, name)
+    def __init__(self, output_dims, input_dims=1, Rq=1, active_dims=None):
+        super().__init__(output_dims, input_dims, active_dims)
 
         amplitude = torch.ones(output_dims, Rq)
         mean = torch.zeros(input_dims)
@@ -465,15 +459,14 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
         input_dims (int): Number of input dimensions.
         Q (int): Number of components.
         Rq (int): Number of subcomponents.
-        name (str): Kernel name.
 
     Attributes:
         weight (mogptk.gpr.parameter.Parameter): Weight \\(w\\) of shape (output_dims,Q,Rq).
 
     [1] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
-    def __init__(self, *kernels, output_dims, input_dims=1, Q=None, Rq=1, name="LMC"):
-        super().__init__(output_dims, input_dims, name=name)
+    def __init__(self, *kernels, output_dims, input_dims=1, Q=None, Rq=1):
+        super().__init__(output_dims, input_dims)
 
         if Q is None:
             Q = len(kernels)
@@ -507,7 +500,6 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         output_dims (int): Number of output dimensions.
         input_dims (int): Number of input dimensions.
         active_dims (list of int): Indices of active dimensions of shape (input_dims,).
-        name (str): Kernel name.
 
     Attributes:
         weight (mogptk.gpr.parameter.Parameter): Weight \\(w\\) of shape (output_dims,).
@@ -516,8 +508,8 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 
     [1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009
     """
-    def __init__(self, output_dims, input_dims=1, active_dims=None, name="CONV"):
-        super().__init__(output_dims, input_dims, active_dims, name)
+    def __init__(self, output_dims, input_dims=1, active_dims=None):
+        super().__init__(output_dims, input_dims, active_dims)
 
         weight = torch.ones(output_dims)
         variance = torch.ones(output_dims, input_dims)
