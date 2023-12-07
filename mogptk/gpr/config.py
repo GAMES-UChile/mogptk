@@ -1,7 +1,7 @@
 import torch
 
 class Config:
-    dtype = torch.float32
+    dtype = torch.float64
     if torch.cuda.is_available():
         device = torch.device('cuda', torch.cuda.current_device())
     else:
