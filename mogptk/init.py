@@ -86,7 +86,7 @@ def BNSE(x, y, y_err=None, max_freq=None, n=1000, iters=100):
         imag = torch.exp(exp2a)*torch.sin(exp3a) + torch.exp(exp2b)*torch.sin(exp3b)
         return a * real, a * imag
 
-    with torch.no_grad():
+    with torch.inference_mode():
         Ktt = kernel(x)
         Ktt += model.likelihood.scale().square() * torch.eye(x.shape[0], device=gpr.config.device, dtype=gpr.config.dtype)
         Ltt = model._cholesky(Ktt, add_jitter=True)

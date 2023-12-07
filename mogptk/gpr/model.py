@@ -329,7 +329,7 @@ class Model:
         Returns:
             numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
         """
-        with torch.no_grad():
+        with torch.inference_mode():
             return self.kernel(X1, X2).cpu().numpy()
 
     def sample(self, Z, n=None, predict_y=True, prior=False):
@@ -345,7 +345,7 @@ class Model:
         Returns:
             torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
         """
-        with torch.no_grad():
+        with torch.inference_mode():
             S = n
             if n is None:
                 S = 1
@@ -422,7 +422,7 @@ class Exact(Model):
         return p
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
-        with torch.no_grad():
+        with torch.inference_mode():
             Xs = self._check_input(Xs)  # MxD
             if self.mean is not None:
                 y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
@@ -520,7 +520,7 @@ class Snelson(Model):
         return p
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
-        with torch.no_grad():
+        with torch.inference_mode():
             Xs = self._check_input(Xs)  # MxD
             if self.mean is not None:
                 y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
@@ -633,7 +633,7 @@ class OpperArchambeau(Model):
         return self.elbo()
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
-        with torch.no_grad():
+        with torch.inference_mode():
             Xs = self._check_input(Xs)  # MxD
 
             Kff = self.kernel(self.X)
@@ -726,7 +726,7 @@ class Titsias(Model):
         return self.elbo()
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
-        with torch.no_grad():
+        with torch.inference_mode():
             Xs = self._check_input(Xs)  # MxD
             if self.mean is not None:
                 y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
@@ -868,7 +868,7 @@ class SparseHensman(Model):
         return mu, var
 
     def predict(self, Xs, full=False, tensor=False, predict_y=True):
-        with torch.no_grad():
+        with torch.inference_mode():
             Xs = self._check_input(Xs)  # MxD
 
             mu, var = self._predict(Xs, full=full)
