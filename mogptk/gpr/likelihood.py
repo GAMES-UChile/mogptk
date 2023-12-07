@@ -207,7 +207,7 @@ class MultiOutputLikelihood(Likelihood):
     def _channel_indices(self, X):
         c = X[:,0].long()
         m = [c==j for j in range(self.output_dims)]
-        r = [torch.nonzero(m[j], as_tuple=False).reshape(-1) for j in range(self.output_dims)]  # as_tuple avoids warning
+        r = [torch.nonzero(m[j], as_tuple=False).reshape(-1) for j in range(self.output_dims)]
         return r
 
     def validate_y(self, y, X=None):
@@ -222,9 +222,6 @@ class MultiOutputLikelihood(Likelihood):
     def log_prob(self, y, f, X=None):
         # y: Nx1
         # f: NxM
-        if self.output_dims == 1:
-            return self.likelihoods[0].log_prob(y,f)
-
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
@@ -233,9 +230,6 @@ class MultiOutputLikelihood(Likelihood):
 
     def variational_expectation(self, y, mu, var, X=None):
         # y,mu,var: Nx1
-        if self.output_dims == 1:
-            return self.likelihoods[0].variational_expectation(y,mu,var)
-
         q = torch.tensor(0.0, dtype=config.dtype, device=config.device)
         r = self._channel_indices(X)
         for i in range(self.output_dims):
@@ -244,9 +238,6 @@ class MultiOutputLikelihood(Likelihood):
 
     def mean(self, f, X=None):
         # f: NxM
-        if self.output_dims == 1:
-            return self.likelihoods[0].mean(f)
-
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
@@ -255,9 +246,6 @@ class MultiOutputLikelihood(Likelihood):
 
     def variance(self, f, X=None):
         # f: NxM
-        if self.output_dims == 1:
-            return self.likelihoods[0].variance(f)
-
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):

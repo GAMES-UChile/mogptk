@@ -55,6 +55,47 @@ class Mean(torch.nn.Module):
         """
         raise NotImplementedError()
 
+class MultiOutputMean(Mean):
+    """
+    Multi-output mean to assign a different mean per channel.
+
+    Args:
+        means (mogptk.gpr.mean.Mean): List of means equal to the number of output dimensions.
+    """
+    def __init__(self, *means):
+        super().__init__()
+
+        if isinstance(means, tuple):
+            if len(means) == 1 and isinstance(means[0], list):
+                means = means[0]
+            else:
+                means = list(means)
+        elif not isinstance(means, list):
+            means = [means]
+        if len(means) == 0:
+            raise ValueError("must pass at least one mean")
+        for i, mean in enumerate(means):
+            if not issubclass(type(mean), Mean):
+                raise ValueError("must pass means")
+            elif isinstance(mean, MultiOutputMean):
+                raise ValueError("can not nest MultiOutputMeans")
+
+        self.output_dims = len(means)
+        self.means = means
+
+    def _channel_indices(self, X):
+        c = X[:,0].long()
+        m = [c==j for j in range(self.output_dims)]
+        r = [torch.nonzero(m[i], as_tuple=False).reshape(-1) for i in range(self.output_dims)]
+        return r
+
+    def mean(self, X):
+        r = self._channel_indices(X)
+        res = torch.empty(X.shape[0], 1, device=config.device, dtype=config.dtype)  # Nx1
+        for i in range(self.output_dims):
+            res[r[i]] = self.means[i].mean(X[r[i],1:])
+        return res
+
 class ConstantMean(Mean):
     """
     Constant mean function:
@@ -74,7 +115,7 @@ class ConstantMean(Mean):
         self.bias = Parameter(0.0)
 
     def mean(self, X):
-        return self.bias().repeat(X.shape[0])
+        return self.bias().repeat(X.shape[0], 1)
 
 class LinearMean(Mean):
     """
