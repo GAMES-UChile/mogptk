@@ -14,6 +14,7 @@ class MOHSM(Model):
         Q (int): Number of subcomponents.
         inference: Gaussian process inference model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
+        name (str): Name of the model.
 
     Atributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -36,7 +37,7 @@ class MOHSM(Model):
 
     [1] M. Altamirano, "Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021
     """
-    def __init__(self, dataset, P=1, Q=1, inference=Exact(), mean=None):
+    def __init__(self, dataset, P=1, Q=1, inference=Exact(), mean=None, name="MOHSM"):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -55,7 +56,7 @@ class MOHSM(Model):
                 kernel[p*Q+q].variance.assign(np.random.rand(output_dims,input_dims))
                 kernel[p*Q+q].lengthscale.assign(np.random.rand(output_dims))
         
-        super().__init__(dataset, kernel, inference, mean)
+        super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         self.P = P
     

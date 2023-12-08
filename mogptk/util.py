@@ -89,7 +89,9 @@ def error(*models, X=None, Y=None, per_channel=False, transformed=False, disp=Fa
     Y_true = Y
     errors = []
     for k, model in enumerate(models):
-        name = '%d %s' % (str(k+1), model._get_name())
+        name = model.name
+        if name is None:
+            name = 'Model %d' % (str(k+1),)
 
         X, Y_pred, _, _ = model.predict(X, transformed=transformed)
         if len(model.dataset) == 1:

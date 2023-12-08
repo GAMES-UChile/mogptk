@@ -176,7 +176,7 @@ class Hensman:
         return gpr.SparseHensman(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, likelihood=self.likelihood, jitter=self.jitter, mean=mean)
 
 class Model:
-    def __init__(self, dataset, kernel, inference=Exact(), mean=None):
+    def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
         """
         Model is the base class for multi-output Gaussian process models.
 
@@ -185,6 +185,7 @@ class Model:
             kernel (mogptk.gpr.kernel.Kernel): The kernel class.
             inference: Gaussian process inference model to use, such as `mogptk.Exact`.
             mean (mogptk.gpr.mean.Mean): The mean class.
+            name (str): Name of the model.
 
         Attributes:
             dataset (mogptk.dataset.DataSet): Dataset.
@@ -210,6 +211,7 @@ class Model:
         #        elif 1e4 < xran:
         #            logger.warning("Very large X range may give problems, it is suggested to scale down your X axis for channel %d" % j)
 
+        self.name = name
         self.dataset = dataset
         self.is_multioutput = kernel.output_dims is not None
 
