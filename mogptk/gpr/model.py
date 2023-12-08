@@ -15,7 +15,7 @@ def _init_grid(N, X):
     n = int(n)
 
     Z = torch.empty((N,X.shape[1]), device=config.device, dtype=config.dtype)
-    grid = torch.meshgrid([torch.linspace(torch.min(X[:,i]), torch.max(X[:,i]), n) for i in range(X.shape[1])])
+    grid = torch.meshgrid([torch.linspace(torch.min(X[:,i]), torch.max(X[:,i]), n) for i in range(X.shape[1])], indexing='ij')
     for i in range(X.shape[1]):
         Z[:,i] = grid[i].flatten()
     return Z
