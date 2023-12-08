@@ -111,18 +111,15 @@ class Parameter(torch.nn.Parameter):
     def __new__(cls, value, name=None, lower=None, upper=None, prior=None, train=True):
         value = Parameter.to_tensor(value)
         self = super().__new__(cls, value)
-
         self._name = name
         self.lower = None
         self.upper = None
         self.prior = prior
         self.train = train
-        self.transform = None
         self.pegged_parameter = None
         self.pegged_transform = None
-
-        self.assign(value, lower=lower, upper=upper)
         self.num_parameters = int(np.prod(self.shape))
+        self.assign(value, lower=lower, upper=upper)
         return self
 
     def __repr__(self):
@@ -148,10 +145,12 @@ class Parameter(torch.nn.Parameter):
         result._name = self._name
         result.lower = self.lower
         result.upper = self.upper
+        result.transform = Parameter.to_transform(self.lower, self.upper)
         result.prior = self.prior
         result.train = self.train
         result.pegged_parameter = self.pegged_parameter
         result.pegged_transform = self.pegged_transform
+        result.num_parameters = self.num_parameters
         memo[id(self)] = result
         return result
 
@@ -159,20 +158,22 @@ class Parameter(torch.nn.Parameter):
         parent = super().__reduce_ex__(proto)
         return (
             Parameter._rebuild,
-            (parent[0], parent[1], self._name, self.lower, self.upper, self.prior, self.train, self.pegged_parameter, self.pegged_transform),
+            (parent[0], parent[1], self._name, self.lower, self.upper, self.prior, self.train, self.pegged_parameter, self.pegged_transform, self.num_parameters),
         )
 
     @staticmethod
-    def _rebuild(call, args, name, lower, upper, prior, train, pegged_parameter, pegged_transform):
+    def _rebuild(call, args, name, lower, upper, prior, train, pegged_parameter, pegged_transform, num_parameters):
         result = call(*args)
         result.__class__ = Parameter
         result._name = name
         result.lower = lower
         result.upper = upper
+        result.transform = Parameter.to_transform(lower, upper)
         result.prior = prior
         result.train = train
         result.pegged_parameter = pegged_parameter
         result.pegged_transform = pegged_transform
+        result.num_parameters = num_parameters
         return result
 
     def clone(self):
@@ -214,7 +215,19 @@ class Parameter(torch.nn.Parameter):
             return value.constrained.detach()
         if isinstance(value, torch.Tensor):
             return value.detach().to(config.device, config.dtype)
-        return torch.tensor(value, device=config.device, dtype=config.dtype)
+        return torch.tensor(np.array(value), device=config.device, dtype=config.dtype)
+
+    @staticmethod
+    def to_transform(lower, upper):
+        if lower is not None and upper is not None:
+            if torch.any(upper < lower):
+                raise ValueError("lower limit %s must be lower than upper limit %s" % (lower, upper))
+            return Sigmoid(lower=lower, upper=upper)
+        elif lower is not None:
+            return Softplus(lower=lower)
+        elif upper is not None:
+            return Softplus(lower=upper, beta=-0.1)
+        return None
 
     def assign(self, value=None, name=None, lower=None, upper=None, prior=None, train=None):
         """
@@ -286,16 +299,7 @@ class Parameter(torch.nn.Parameter):
             else:
                 train = self.train
 
-        transform = None
-        if lower is not None and upper is not None:
-            if torch.any(upper < lower):
-                raise ValueError("lower limit %s must be lower than upper limit %s" % (lower, upper))
-            transform = Sigmoid(lower=lower, upper=upper)
-        elif lower is not None:
-            transform = Softplus(lower=lower)
-        elif upper is not None:
-            transform = Softplus(lower=upper, beta=-0.1)
-
+        transform = Parameter.to_transform(lower, upper)
         if transform is not None:
             if lower is not None:
                 value = torch.where(value < lower, lower * torch.ones_like(value), value)
