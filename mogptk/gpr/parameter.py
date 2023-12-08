@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as functional
+import copy
 
 from .config import config
 
@@ -123,15 +124,40 @@ class Parameter(torch.nn.Parameter):
         return self.constrained
 
     def __deepcopy__(self, memo):
-        other = self.clone()
-        memo[id(self)] = other
-        return other
+        result = torch.nn.Parameter(self.data.clone(memory_format=torch.preserve_format), self.requires_grad)
+        result.__class__ = self.__class__
+        result._name = self._name
+        result.lower = self.lower
+        result.upper = self.upper
+        result.prior = self.prior
+        result.train = self.train
+        result.pegged_parameter = self.pegged_parameter
+        result.pegged_transform = self.pegged_transform
+        memo[id(self)] = result
+        return result
+
+    def __reduce_ex__(self, proto):
+        parent = super().__reduce_ex__(proto)
+        return (
+            Parameter._rebuild,
+            (parent[0], parent[1], self._name, self.lower, self.upper, self.prior, self.train, self.pegged_parameter, self.pegged_transform),
+        )
+
+    @staticmethod
+    def _rebuild(call, args, name, lower, upper, prior, train, pegged_parameter, pegged_transform):
+        result = call(*args)
+        result.__class__ = Parameter
+        result._name = name
+        result.lower = lower
+        result.upper = upper
+        result.prior = prior
+        result.train = train
+        result.pegged_parameter = pegged_parameter
+        result.pegged_transform = pegged_transform
+        return result
 
     def clone(self):
-        p = Parameter(super().clone(), name=self._name, lower=self.lower, upper=self.upper, prior=self.prior, train=self.train)
-        if self.pegged:
-            p.peg(self.pegged_parameter, self.pegged_transform)
-        return p
+        return copy.deepcopy(self)
 
     @property
     def pegged(self):
