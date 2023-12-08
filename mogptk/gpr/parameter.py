@@ -44,9 +44,12 @@ class Softplus(Transform):
         return self.lower + functional.softplus(x, beta=self.beta, threshold=self.threshold)
 
     def inverse(self, y):
-        if torch.any(y < self.lower):
-            raise ValueError("values must be at least %s" % self.lower)
-        return y-self.lower + torch.log(-torch.expm1(-self.beta*(y-self.lower)))/self.beta
+        if self.beta < 0.0:
+            if torch.any(self.lower < y):
+                raise ValueError("values must be smaller than %s" % self.lower)
+        elif torch.any(y < self.lower):
+            raise ValueError("values must be greater than %s" % self.lower)
+        return (y-self.lower) + torch.log(-torch.expm1(-self.beta*y-self.lower))/self.beta
 
 class Sigmoid(Transform):
     """
@@ -246,7 +249,7 @@ class Parameter(torch.nn.Parameter):
         elif lower is not None:
             transform = Softplus(lower=lower)
         elif upper is not None:
-            transform = Softplus(lower=upper, beta=-1.0)
+            transform = Softplus(lower=upper, beta=-0.1)
 
         if transform is not None:
             if lower is not None:
