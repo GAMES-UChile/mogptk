@@ -271,6 +271,7 @@ class Model(torch.nn.Module):
 
     def __getstate__(self):
         state = super().__getstate__()
+        state['_modules'] = state['_modules'].copy()
         state['_modules'].pop('_compiled_forward', None)
         return state
 
