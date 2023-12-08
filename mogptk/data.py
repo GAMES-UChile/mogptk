@@ -626,8 +626,8 @@ class Data:
             transformed (boolean): Return transformed data.
 
         Returns:
-            list of numpy.ndarray: X data of shape [(n,)] * input_dims.
-            numpy.ndarray: Y data of shape (n,).
+            numpy.ndarray: X data of shape (data_points,input_dims).
+            numpy.ndarray: Y data of shape (data_points,).
 
         Examples:
             >>> x, y = data.get_test_data()
@@ -636,7 +636,7 @@ class Data:
         if self.F is not None:
             if X.shape[0] == 0:
                 X, _ = self.get_data()
-            Y = self.F(X)
+            Y = self.F(X).reshape(-1)
             if transformed:
                 Y = self.Y_transformer.forward(Y, X)
             return X, Y
@@ -1106,26 +1106,26 @@ class Data:
                 n = int((xmax-xmin) / dt) + 1
                 x = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt, dtype=self.X_dtypes[0])
             else:
-                n = len(self.X[0])*10
+                n = len(self.X)*10
                 x = np.linspace(xmin, xmax, n)
 
             y = self.F(x)
             if transformed:
                 y = self.Y_transformer.forward(y, x)
 
-            ax.plot(x, y, 'g--', lw=1)
-            legends.append(plt.Line2D([0], [0], ls='--', color='g', label='True'))
+            ax.plot(x, y, 'r--', lw=1)
+            legends.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent'))
 
         if self.has_test_data():
             x, y = self.get_test_data(transformed=transformed)
             x = x.astype(self.X_dtypes[0])
             ax.plot(x, y, 'g.', ms=10)
-            legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Latent'))
+            legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Test data'))
 
         x, y = self.get_train_data(transformed=transformed)
         x = x.astype(self.X_dtypes[0])
         ax.plot(x, y, 'r.', ms=10)
-        legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Observations'))
+        legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Train data'))
 
         if 0 < len(self.removed_ranges[0]):
             for removed_range in self.removed_ranges[0]:
@@ -1148,7 +1148,7 @@ class Data:
         ax.set_title(self.name if title is None else title, fontsize=16)
 
         if legend:
-            ax.legend(handles=legends, ncol=5)
+            ax.legend(handles=legends)
         return ax
 
     def plot_spectrum(self, title=None, method='ls', ax=None, per=None, maxfreq=None, log=False, transformed=True, n=10000):

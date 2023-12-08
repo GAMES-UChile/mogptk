@@ -833,10 +833,10 @@ class Model:
             xmin = min(np.min(data.X), np.min(X[j]))
             xmax = max(np.max(data.X), np.max(X[j]))
             if data.F is not None:
-                if np.issubdtype(data.X.dtypes[0], np.datetime64):
+                if np.issubdtype(data.X_dtypes[0], np.datetime64):
                     dt = np.timedelta64(1,data.X.get_time_unit())
                     n = int((xmax-xmin) / dt) + 1
-                    x = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt, dtype=data.X.dtypes[0])
+                    x = np.arange(xmin, xmax+np.timedelta64(1,'us'), dt, dtype=data.X_dtypes[0])
                 else:
                     n = len(data.X)*10
                     x = np.linspace(xmin, xmax, n)
@@ -846,18 +846,18 @@ class Model:
                     y = data.Y_transformer.forward(y, x)
 
                 ax[j,0].plot(x, y, 'r--', lw=1)
-                legends.append(plt.Line2D([0], [0], ls='--', color='r', label='True'))
+                legends.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent'))
 
             if data.has_test_data():
                 x, y = data.get_test_data(transformed=transformed)
                 x = x.astype(data.X_dtypes[0])
                 ax[j,0].plot(x, y, 'g.', ms=10)
-                legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Latent'))
+                legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Test data'))
 
             x, y = data.get_train_data(transformed=transformed)
             x = x.astype(data.X_dtypes[0])
             ax[j,0].plot(x, y, 'r.', ms=10)
-            legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Observations'))
+            legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Train data'))
 
             if 0 < len(data.removed_ranges[0]):
                 for removed_range in data.removed_ranges[0]:
