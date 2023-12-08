@@ -507,12 +507,13 @@ class Model:
         initial_time = time.time()
         progress_time = 0.0
 
-        if jit is None:
-            jit = 1000 <= iters
-        if jit:
-            self.gpr.compile()
-        else:
-            self.gpr.compiled_forward = None
+        if jit is not None or iter_offset == 0:
+            if jit is None:
+                jit = 1000 <= iters
+            if jit:
+                self.gpr.compile()
+            else:
+                self.gpr.compiled_forward = None
 
         iters_len = 1 if iters == 0 else int(math.log10(iter_offset+iters)) + 1
         def progress(i, loss, last=False):
@@ -523,7 +524,7 @@ class Model:
             i += iter_offset
             times[i] = elapsed_time
             losses[i] = loss
-            warmup = ' (warmup)' if jit and i < 2 else ''
+            warmup = ' (warmup)' if jit and iter_offset == 0 and i < 2 else ''
             if error is not None:
                 errors[i] = float(self.error(error, error_use_all_data)) # TODO: cast needed?
                 if write:
