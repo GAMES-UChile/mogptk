@@ -572,11 +572,11 @@ class OpperArchambeau(Model):
         qf_mu = Kff.mm(q_nu)
         qf_var_diag = 1.0/q_lambda.square() - (invL.T.mm(invL)/q_lambda/q_lambda.T).diagonal().reshape(-1,1)
 
-        kl = -q_nu.shape[0]
-        kl += q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
+        kl = q_nu.T.mm(qf_mu).squeeze()  # Mahalanobis
         kl += L.diagonal().square().log().sum()  # determinant TODO: is this correct?
         #kl += invL.diagonal().square().sum()  # trace
         kl += invL.square().sum()  # trace
+        kl -= q_nu.shape[0]
 
         if self.mean is not None:
             qf_mu = qf_mu - self.mean(self.X).reshape(-1,1)  # Sx1
@@ -780,10 +780,10 @@ class SparseHensman(Model):
 
     def kl_gaussian(self, q_mu, q_sqrt):
         S_diag = q_sqrt.diagonal().square() # NxN
-        kl = -q_mu.shape[0]
-        kl += q_mu.T.mm(q_mu).squeeze()  # Mahalanobis
+        kl = q_mu.T.mm(q_mu).squeeze()  # Mahalanobis
         kl -= S_diag.log().sum()  # determinant of q_var
         kl += S_diag.sum()  # same as Trace(p_var^(-1).q_var)
+        kl -= q_mu.shape[0]
         return 0.5*kl
 
     def elbo(self):

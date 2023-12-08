@@ -1,7 +1,7 @@
 """
 .. include:: ./documentation.md
 """
-from .gpr import *
+from .gpr.config import *
 from .util import *
 
 from .transformer import *
