@@ -470,9 +470,10 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
 
         if Q is None:
             Q = len(kernels)
+        kernels = self._check_kernels(kernels, Q)
         weight = torch.ones(output_dims, Q, Rq)
 
-        self.kernels = self._check_kernels(kernels, Q)
+        self.kernels = torch.nn.ModuleList(kernels)
         self.weight = Parameter(weight, lower=config.positive_minimum)
 
     def __getitem__(self, key):
