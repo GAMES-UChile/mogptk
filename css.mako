@@ -19,6 +19,9 @@
     border: 0;
   }
   #content {
+    overflow: auto;
+    height: 100vh;
+    box-sizing: border-box;
     padding: 20px;
   }
   #sidebar {
