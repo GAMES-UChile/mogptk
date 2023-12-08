@@ -90,7 +90,7 @@ class Kernel(torch.nn.Module):
             if len(kernels) != 1:
                 raise ValueError("must pass %d kernels" % length)
             for i in range(length - len(kernels)):
-                kernels.append(copy.deepcopy(kernels[0]))
+                kernels.append(kernels[0].clone())
         for i, kernel in enumerate(kernels):
             if not issubclass(type(kernel), Kernel):
                 raise ValueError("must pass kernels")
@@ -105,6 +105,9 @@ class Kernel(torch.nn.Module):
                     input_dims = kernel.input_dims if kernel.input_dims is not None else 1
                     kernel.active_dims = [input_dim+1 for input_dim in range(input_dims)]
         return kernels
+
+    def clone(self):
+        return copy.deepcopy(self)
 
     @property
     def active_dims(self):

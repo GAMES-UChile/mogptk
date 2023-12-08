@@ -119,6 +119,17 @@ class Parameter(torch.nn.Parameter):
         """
         return self.constrained
 
+    def __deepcopy__(self, memo):
+        other = self.clone()
+        memo[id(self)] = other
+        return other
+
+    def clone(self):
+        p = Parameter(super().clone(), name=self._name, lower=self.lower, upper=self.upper, prior=self.prior, train=self.train)
+        if self.pegged:
+            p.peg(self.pegged_parameter, self.pegged_transform)
+        return p
+
     @property
     def pegged(self):
         return self.pegged_parameter is not None
