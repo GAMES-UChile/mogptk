@@ -131,13 +131,17 @@ def plot_spectrum(means, scales, dataset=None, weights=None, noises=None, method
     """
     Plot spectral Gaussians of given means, scales and weights.
     """
+    means = np.array(means)
+    scales = np.array(scales)
+    weights = np.array(weights)
+    maxfreq = np.array(maxfreq)
     if means.ndim == 2:
         means = np.expand_dims(means, axis=2)
     if scales.ndim == 2:
         scales = np.expand_dims(scales, axis=2)
-    if isinstance(weights, np.ndarray) and weights.ndim == 1:
+    if weights.ndim == 1:
         weights = np.expand_dims(weights, axis=1)
-    if isinstance(maxfreq, np.ndarray) and maxfreq.ndim == 1:
+    if maxfreq.ndim == 1:
         maxfreq = np.expand_dims(maxfreq, axis=1)
 
     if means.ndim != 3:

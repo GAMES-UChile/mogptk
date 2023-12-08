@@ -16,7 +16,6 @@ from pandas.plotting import register_matplotlib_converters
 
 from .transformer import Transformer
 from .init import BNSE
-from .util import plot_spectrum
 
 register_matplotlib_converters()
 
