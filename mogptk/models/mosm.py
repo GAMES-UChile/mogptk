@@ -56,7 +56,7 @@ class MOSM(Model):
         super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
         nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
-        self.gpr.kernel.mean.assign(upper=nyquist)
+        self.gpr.kernel.mean.assign(upper=np.maximum(self.gpr.kernel.mean.lower.detach().cpu().numpy(), nyquist))
 
     def init_parameters(self, method='BNSE', iters=500):
         """

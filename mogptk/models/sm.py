@@ -56,7 +56,7 @@ class SM(Model):
         self.Q = Q
         nyquist = np.array(self.dataset.get_nyquist_estimation())[:,None,:].repeat(Q,axis=1)
         for j in range(output_dims):
-            self.gpr.kernel[j].mean.assign(upper=nyquist[j,:,:])
+            self.gpr.kernel[j].mean.assign(upper=np.maximum(self.gpr.kernel[j].mean.lower.detach().cpu().numpy(), nyquist[j,:,:]))
 
     def init_parameters(self, method='LS', iters=500):
         """
