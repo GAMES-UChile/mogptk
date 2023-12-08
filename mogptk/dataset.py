@@ -165,18 +165,38 @@ class DataSet:
     """
     def __init__(self, *args, names=None):
         self.channels = []
-        if len(args) == 2 and (isinstance(args[1], np.ndarray) or isinstance(args[1], list) and all(isinstance(item, np.ndarray) for item in args[1])):
-            if names is None or isinstance(names, str):
-                names = [names]*len(args[0])
+        print(args)
+        if len(args) == 2 and (isinstance(args[0], (np.ndarray, pd.Series, torch.Tensor)) or isinstance(args[0], list) and all(isinstance(item, (np.ndarray, pd.Series, torch.Tensor)) for item in args[0])) and (isinstance(args[1], (np.ndarray, pd.Series, torch.Tensor)) or isinstance(args[1], list) and all(isinstance(item, (np.ndarray, pd.Series, torch.Tensor)) for item in args[1])):
 
-            if isinstance(args[0], np.ndarray):
-                for name, y in zip(names, args[1]):
-                    self.append(Data(args[0], y, name=name))
-                return
-            elif isinstance(args[0], list) and all(isinstance(item, np.ndarray) for item in args[0]) and isinstance(args[1], list) and len(args[0]) == len(args[1]):
-                for name, x, y in zip(names, args[0], args[1]):
-                    self.append(Data(x, y, name=name))
-                return
+            if isinstance(args[0], (np.ndarray, torch.Tensor)) and args[0].ndim == 3:
+                args[0] = [channel for channel in args[0]]
+            if isinstance(args[1], (np.ndarray, torch.Tensor)) and args[1].ndim == 2:
+                args[1] = [channel for channel in args[1]]
+
+            if names is None or isinstance(names, str):
+                n = 1
+                if isinstance(args[0], list):
+                    n = max(n, len(args[0]))
+                if isinstance(args[1], list):
+                    n = max(n, len(args[1]))
+                names = [names]*n
+
+            if isinstance(args[0], list):
+                if isinstance(args[1], list):
+                    if len(args[0]) != len(args[1]):
+                        raise ValueError("X and y must have the same number of output dimensions")
+                    for name, x, y in zip(names, args[0], args[1]):
+                        self.append(Data(x, y, name=name))
+                else:
+                    for name, x in zip(names, args[0]):
+                        self.append(Data(x, args[1], name=name))
+            else:
+                if isinstance(args[1], list):
+                    for name, y in zip(names, args[1]):
+                        self.append(Data(args[0], y, name=name))
+                else:
+                    self.append(Data(args[0], args[1], name=names[0]))
+            return
 
         for arg in args:
             self.append(arg)
