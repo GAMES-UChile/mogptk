@@ -209,7 +209,7 @@ class MultiOutputLikelihood(Likelihood):
                 raise ValueError("can not nest MultiOutputLikelihoods")
 
         self.output_dims = len(likelihoods)
-        self.likelihoods = likelihoods
+        self.likelihoods = torch.nn.ModuleList(likelihoods)
 
     def name(self):
         return '%s%s' % (self.__class__.__name__, [likelihood.name() for likelihood in self.likelihoods])
