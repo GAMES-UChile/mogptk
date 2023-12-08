@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 
 from ..dataset import DataSet
@@ -51,9 +52,9 @@ class CSM(Model):
         spectral = CrossSpectralKernel(output_dims=output_dims, input_dims=input_dims, Rq=Rq)
         kernel = MixtureKernel(spectral, Q)
         for q in range(Q):
-            kernel[q].amplitude.assign(np.random.rand(output_dims,Rq))
-            kernel[q].mean.assign(np.random.rand(input_dims))
-            kernel[q].variance.assign(np.random.rand(input_dims))
+            kernel[q].amplitude.assign(torch.rand(output_dims,Rq))
+            kernel[q].mean.assign(torch.rand(input_dims))
+            kernel[q].variance.assign(torch.rand(input_dims))
 
         super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
@@ -92,7 +93,7 @@ class CSM(Model):
         output_dims = self.dataset.get_output_dims()
         means = np.concatenate(means, axis=0)
         variances = np.concatenate(variances, axis=0)
-        constant = np.random.random((output_dims, self.Q, self.Rq))
+        constant = torch.rand(output_dims, self.Q, self.Rq)
         for q in range(self.Q):
             for j in range(len(self.dataset)):
                 constant[j,q,:] = amplitudes[j][q,:].mean()**2 / self.Rq

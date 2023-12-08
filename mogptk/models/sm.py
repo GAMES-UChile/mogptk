@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 
 from ..dataset import DataSet
@@ -48,9 +49,9 @@ class SM(Model):
                 for j in range(output_dims)],
             output_dims=output_dims)
         for j in range(output_dims):
-            kernel[j].magnitude.assign(np.random.rand(Q))
-            kernel[j].mean.assign(np.random.rand(Q,input_dims))
-            kernel[j].variance.assign(np.random.rand(Q,input_dims))
+            kernel[j].magnitude.assign(torch.rand(Q))
+            kernel[j].mean.assign(torch.rand(Q,input_dims))
+            kernel[j].variance.assign(torch.rand(Q,input_dims))
 
         super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
@@ -87,8 +88,8 @@ class SM(Model):
                 x_range = np.max(x, axis=0) - np.min(x, axis=0)
 
                 weights = [2.0*y.std()/self.Q] * self.Q
-                means = nyquist * np.random.rand(self.Q, input_dims[j])
-                variances = 1.0 / (np.abs(np.random.randn(self.Q, input_dims[j])) * x_range)
+                means = nyquist * torch.rand(self.Q, input_dims[j])
+                variances = 1.0 / (torch.abs(torch.randn(self.Q, input_dims[j])) * x_range)
 
                 self.gpr.kernel[j].magnitude.assign(weights)
                 self.gpr.kernel[j].mean.assign(means)

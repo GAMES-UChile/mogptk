@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 
 from ..dataset import DataSet
@@ -51,11 +52,11 @@ class SM_LMC(Model):
 
         spectral = [SpectralKernel(input_dims) for q in range(Q)]
         kernel = LinearModelOfCoregionalizationKernel(spectral, output_dims=output_dims, input_dims=input_dims, Q=Q, Rq=Rq)
-        kernel.weight.assign(np.random.rand(output_dims,Q,Rq))
+        kernel.weight.assign(torch.rand(output_dims,Q,Rq))
         for q in range(Q):
-            kernel[q].magnitude.assign(np.random.rand(1))
-            kernel[q].mean.assign(np.random.rand(input_dims))
-            kernel[q].variance.assign(np.random.rand(input_dims))
+            kernel[q].magnitude.assign(torch.rand(1))
+            kernel[q].mean.assign(torch.rand(input_dims))
+            kernel[q].variance.assign(torch.rand(input_dims))
 
         super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q
@@ -95,7 +96,7 @@ class SM_LMC(Model):
         output_dims = self.dataset.get_output_dims()
         means = np.concatenate(means, axis=0)
         variances = np.concatenate(variances, axis=0)
-        constant = np.random.random((output_dims, self.Q, self.Rq))
+        constant = torch.rand(output_dims, self.Q, self.Rq)
         for q in range(self.Q):
             for j in range(len(self.dataset)):
                 constant[j,q,:] = amplitudes[j][q,:].mean() / self.Rq

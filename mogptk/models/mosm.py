@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -49,9 +50,9 @@ class MOSM(Model):
                 raise ValueError("input dimensions for all channels must match")
 
         kernel = MultiOutputSpectralMixtureKernel(Q=Q, output_dims=output_dims, input_dims=input_dims)
-        kernel.weight.assign(np.random.rand(output_dims,Q))
-        kernel.mean.assign(np.random.rand(output_dims,Q,input_dims))
-        kernel.variance.assign(np.random.rand(output_dims,Q,input_dims))
+        kernel.weight.assign(torch.rand(output_dims,Q))
+        kernel.mean.assign(torch.rand(output_dims,Q,input_dims))
+        kernel.variance.assign(torch.rand(output_dims,Q,input_dims))
 
         super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q

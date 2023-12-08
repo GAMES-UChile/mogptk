@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 
 from ..dataset import DataSet
@@ -50,9 +51,9 @@ class CONV(Model):
         conv = GaussianConvolutionProcessKernel(output_dims=output_dims, input_dims=input_dims)
         kernel = MixtureKernel(conv, Q)
         for q in range(Q):
-            kernel[q].weight.assign(np.random.rand(output_dims))
-            kernel[q].variance.assign(np.random.rand(output_dims,input_dims))
-            kernel[q].base_variance.assign(np.random.rand(input_dims))
+            kernel[q].weight.assign(torch.rand(output_dims))
+            kernel[q].variance.assign(torch.rand(output_dims,input_dims))
+            kernel[q].base_variance.assign(torch.rand(input_dims))
 
         super().__init__(dataset, kernel, inference, mean, name)
         self.Q = Q

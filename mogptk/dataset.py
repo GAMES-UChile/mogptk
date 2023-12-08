@@ -165,7 +165,6 @@ class DataSet:
     """
     def __init__(self, *args, names=None):
         self.channels = []
-        print(args)
         if len(args) == 2 and (isinstance(args[0], (np.ndarray, pd.Series, torch.Tensor)) or isinstance(args[0], list) and all(isinstance(item, (np.ndarray, pd.Series, torch.Tensor)) for item in args[0])) and (isinstance(args[1], (np.ndarray, pd.Series, torch.Tensor)) or isinstance(args[1], list) and all(isinstance(item, (np.ndarray, pd.Series, torch.Tensor)) for item in args[1])):
 
             if isinstance(args[0], (np.ndarray, torch.Tensor)) and args[0].ndim == 3:

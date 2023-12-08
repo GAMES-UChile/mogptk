@@ -95,7 +95,7 @@ input_dims = 1
 kernel = mogptk.gpr.MixtureKernel(mogptk.gpr.SquaredExponentialKernel(), Q=Q)
 for i in range(Q):
     kernel[i].magnitude.assign(torch.rand(1))
-    kernel[i].l.assign(torch.rand(input_dims))
+    kernel[i].lengthscale.assign(torch.rand(input_dims))
 ```
 
 ### Unstable training: NaNs and Infs
@@ -104,6 +104,10 @@ Due to numerical issues this is unfortunately quite frequent in Gaussian process
 - Make sure all kernel and model parameters are in their valid range and there are no NaNs or Infs
 - Make sure your data has no NaNs or Infs
 - Make sure your data X and Y value ranges are not extremely small or big
+
+
+## Reproducibility
+All randomness is retrieved from the `torch` random number generator. You can make your examples reproducible by setting `torch.manual_seed(seed)`.
 
 
 ## Scalability

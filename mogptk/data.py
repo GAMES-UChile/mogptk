@@ -173,7 +173,7 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
             dt = _timedelta64_to_higher_unit(dt)
             x[i] = np.arange(start[i], start[i]+dt*(n[i]-1)+np.timedelta64(1,'us'), dt, dtype=start[i].dtype)
         elif random[i]:
-            x[i] = np.random.uniform(start[i], end[i], n[i])
+            x[i] = start[i] + (end[i]-start[i])*torch.rand(n[i]).numpy()
         else:
             x[i] = np.linspace(start[i], end[i], n[i])
 
@@ -185,7 +185,7 @@ def LoadFunction(f, start, end, n, var=0.0, name="", random=False):
     if y.ndim == 2 and y.shape[1] == 1:
         y = y[:,0]
     N = np.prod(n)
-    y += np.random.normal(0.0, var, (N,))
+    y += torch.normal(0.0, var, size=(N,)).numpy()
 
     data = Data(x, y, name=name)
     data.set_function(f)
@@ -677,7 +677,7 @@ class Data:
         elif not isinstance(n, int) or isinstance(n, float) and not n.is_integer():
             raise ValueError('n must be an integer')
 
-        idx = np.random.choice(len(self.Y), n, replace=False)
+        idx = torch.randperm(len(self.Y))[:n]
         self.mask[idx] = False
 
     def _add_range(self, start, end, dim):
@@ -775,7 +775,7 @@ class Data:
         if n < 1:
             return
 
-        delta = _parse_delta(duration, self.X.dtypes[dim])
+        delta = _parse_delta(duration, self.X_dtypes[dim])
         m = (np.max(self.X[:,dim])-np.min(self.X[:,dim])) - n*delta
         if m <= 0:
             raise ValueError("no data left after removing ranges")
@@ -785,7 +785,7 @@ class Data:
         for i in range(n):
             if self.X[locs,dim].shape[0] == 0:
                 break # range could not be removed, there is no remaining data range of width delta
-            x = self.X[locs,dim][np.random.randint(self.X[locs,dim].shape[0])]
+            x = self.X[locs,dim][torch.randint(high=self.X[locs,dim].shape[0], size=())]
             locs[(self.X[:,dim] > x-delta) & (self.X[:,dim] < x+delta)] = False
             self.remove_range(x, x+delta, dim)
 
@@ -1285,11 +1285,11 @@ def _is_homogeneous_type(seq):
 
 def _check_function(f, input_dims, is_datetime64):
     if not inspect.isfunction(f):
-        raise ValueError("must pass a function with input dimensions as parameters")
+        raise ValueError("must pass a function with %d parameters" % (input_dims,))
 
     sig = inspect.signature(f)
     if len(sig.parameters) != input_dims:
-        raise ValueError("must pass a function with input dimensions as parameters")
+        raise ValueError("must pass a function with %d parameters" % (input_dims,))
 
     x = [np.array([np.datetime64('2000', 'us')]) if is_datetime64[i] else np.ones((1,)) for i in range(input_dims)]
 
