@@ -21,6 +21,9 @@ class Mean(torch.nn.Module):
         X = self._check_input(X)
         return self.mean(X)
 
+    def name(self):
+        return self.__class__.__name__
+
     def __setattr__(self, name, val):
         if name == 'train':
             for p in self.parameters():
@@ -86,6 +89,9 @@ class MultiOutputMean(Mean):
 
         self.output_dims = len(means)
         self.means = means
+
+    def name(self):
+        return '%s%s' % (self.__class__.__name__, [mean.name() for mean in self.means])
 
     def _channel_indices(self, X):
         c = X[:,0].long()

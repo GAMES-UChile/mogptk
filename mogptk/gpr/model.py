@@ -118,6 +118,9 @@ class Model(torch.nn.Module):
         self.input_dims = X.shape[1]
         self.compiled_forward = None
 
+    def name(self):
+        return self.__class__.__name__
+
     def __setattr__(self, name, val):
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")

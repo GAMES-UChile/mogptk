@@ -73,6 +73,9 @@ class Likelihood(torch.nn.Module):
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = None
 
+    def name(self):
+        return self.__class__.__name__
+
     def __setattr__(self, name, val):
         if name == 'train':
             for p in self.parameters():
@@ -207,6 +210,9 @@ class MultiOutputLikelihood(Likelihood):
 
         self.output_dims = len(likelihoods)
         self.likelihoods = likelihoods
+
+    def name(self):
+        return '%s%s' % (self.__class__.__name__, [likelihood.name() for likelihood in self.likelihoods])
 
     def _channel_indices(self, X):
         c = X[:,0].long()

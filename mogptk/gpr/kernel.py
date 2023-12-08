@@ -17,6 +17,9 @@ class Kernel(torch.nn.Module):
         self.active_dims = active_dims  # checks input
         self.output_dims = None
 
+    def name(self):
+        return self.__class__.__name__
+
     def __call__(self, X1, X2=None):
         """
         Calculate kernel matrix. This is the same as calling `K(X1,X2)` but `X1` and `X2` don't necessarily have to be tensors. If `X2` is not given, it is assumed to be the same as `X1`. Not passing `X2` may be faster for some kernels.
@@ -213,6 +216,9 @@ class Kernels(Kernel):
             self.output_dims = None
         else:
             self.output_dims = output_dims[0]  # they are all equal
+
+    def name(self):
+        return '%s.%s' % (self.__class__.__name__, self.kernels[0].name())
 
     def __getitem__(self, key):
         return self.kernels[key]

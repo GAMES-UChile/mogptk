@@ -485,11 +485,11 @@ class Model:
 
         if verbose:
             print('Starting optimization using', method)
-            print('‣ Model: %s' % self.gpr._get_name())
-            print('  ‣ Kernel: %s' % self.gpr.kernel._get_name())
-            print('  ‣ Likelihood: %s' % self.gpr.likelihood._get_name())
+            print('‣ Model: %s' % self.gpr.name())
+            print('  ‣ Kernel: %s' % self.gpr.kernel.name())
+            print('  ‣ Likelihood: %s' % self.gpr.likelihood.name())
             if self.gpr.mean is not None:
-                print('  ‣ Mean: %s' % self.gpr.mean._get_name())
+                print('  ‣ Mean: %s' % self.gpr.mean.name())
             print('‣ Channels: %d' % len(self.dataset))
             print('‣ Parameters: %d' % self.num_parameters())
             print('‣ Training points: %d' % self.num_training_points())
