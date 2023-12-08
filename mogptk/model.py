@@ -515,7 +515,7 @@ class Model:
             nonlocal progress_time
 
             elapsed_time = time.time() - initial_time
-            write = verbose and (i == 0 or last or 10.0 <= elapsed_time-progress_time)
+            write = verbose and (last or 0.0 <= elapsed_time-progress_time)
             i += iter_offset
             times[i] = elapsed_time
             losses[i] = loss
@@ -527,10 +527,7 @@ class Model:
                 print("  %*d/%*d %s  loss=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i]))
 
             if write:
-                if i == 0 or last:
-                    progress_time = elapsed_time
-                else:
-                    progress_time += 10.0
+                progress_time += 10.0
 
         if method == 'LBFGS':
             if not 'max_iter' in kwargs:
