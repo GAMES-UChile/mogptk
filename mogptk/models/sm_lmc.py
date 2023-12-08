@@ -14,7 +14,6 @@ class SM_LMC(Model):
         Rq (int): Number of subcomponents.
         inference: Gaussian process inference model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
-        name (str): Name of the model.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -39,7 +38,7 @@ class SM_LMC(Model):
     [1] A.G. Wilson and R.P. Adams, "Gaussian Process Kernels for Pattern Discovery and Extrapolation", International Conference on Machine Learning 30, 2013\
     [2] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997
     """
-    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name="SM-LMC"):
+    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -57,7 +56,7 @@ class SM_LMC(Model):
             kernel[q].mean.assign(np.random.rand(input_dims))
             kernel[q].variance.assign(np.random.rand(input_dims))
 
-        super().__init__(dataset, kernel, inference, mean, name)
+        super().__init__(dataset, kernel, inference, mean)
         self.Q = Q
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)

@@ -14,7 +14,7 @@ class IndependentMultiOutputKernel(MultiOutputKernel):
         if output_dims is None:
             output_dims = len(kernels)
         super().__init__(output_dims)
-        self.kernels = self._check_kernels(kernels, output_dims)
+        self.kernels = torch.nn.ModuleList(self._check_kernels(kernels, output_dims))
 
     def __getitem__(self, key):
         return self.kernels[key]

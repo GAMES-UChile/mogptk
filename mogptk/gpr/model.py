@@ -5,6 +5,9 @@ from scipy.stats import qmc, gaussian_kde
 from IPython.display import display, HTML
 from . import Parameter, Mean, Kernel, MultiOutputKernel, Likelihood, MultiOutputLikelihood, GaussianLikelihood, config, plot_gram
 
+import warnings
+warnings.simplefilter('ignore', torch.jit.TracerWarning)
+
 def _init_grid(N, X):
     n = np.power(N,1.0/X.shape[1])
     if not n.is_integer():

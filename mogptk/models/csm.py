@@ -14,7 +14,6 @@ class CSM(Model):
         Rq (int): Number of subcomponents.
         inference: Gaussian process inference model to use, such as `mogptk.Exact`.
         mean (mogptk.gpr.mean.Mean): The mean class.
-        name (str): Name of the model.
 
     Attributes:
         dataset: The associated mogptk.dataset.DataSet.
@@ -38,7 +37,7 @@ class CSM(Model):
 
     [1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015
     """
-    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None, name="CSM"):
+    def __init__(self, dataset, Q=1, Rq=1, inference=Exact(), mean=None):
         if not isinstance(dataset, DataSet):
             dataset = DataSet(dataset)
 
@@ -55,7 +54,7 @@ class CSM(Model):
             kernel[q].mean.assign(np.random.rand(input_dims))
             kernel[q].variance.assign(np.random.rand(input_dims))
 
-        super().__init__(dataset, kernel, inference, mean, name)
+        super().__init__(dataset, kernel, inference, mean)
         self.Q = Q
         self.Rq = Rq
         nyquist = np.amin(self.dataset.get_nyquist_estimation(), axis=0)

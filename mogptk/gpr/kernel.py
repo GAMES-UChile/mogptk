@@ -124,16 +124,6 @@ class Kernel(torch.nn.Module):
         """
         yield self
 
-    def copy_parameters(self, other):
-        """
-        Copy parameters from other kernel.
-
-        Args:
-            other (Kernel): Source kernel.
-        """
-        from .util import _copy_parameters
-        _copy_parameters(self, other)
-
     def K(self, X1, X2=None):
         """
         Calculate kernel matrix. If `X2` is not given, it is assumed to be the same as `X1`. Not passing `X2` may be faster for some kernels.
@@ -207,7 +197,7 @@ class Kernels(Kernel):
                 kernels = kernels[:i] + subkernels + kernels[i+1:]
                 i += len(subkernels) - 1
             i += 1
-        self.kernels = kernels
+        self.kernels = torch.nn.ModuleList(kernels)
 
         self.input_dims = kernels[0].input_dims
         output_dims = [kernel.output_dims for kernel in kernels if kernel.output_dims is not None]
@@ -312,6 +302,46 @@ class MultiOutputKernel(Kernel):
         if X2 is not None and not torch.all(X2[:,0] == X2[:,0].long()) or not torch.all(X1[:,0] < self.output_dims):
             raise ValueError("X must have integers for the channel IDs in the first input dimension")
         return X1, X2
+
+    #def K2(self, X1, X2=None):
+    #    # X has shape (data_points,1+input_dims) where the first column is the channel ID
+    #    # extract channel mask, get data, and find indices that belong to the channels
+    #    c1 = X1[:,:1].long() # Nx1
+    #    dims = torch.arange(-1, self.output_dims, device=config.device, dtype=torch.long)
+    #    m1 = c1 == dims.reshape(1,-1) # Nx(O+1)
+    #    i1 = torch.cumsum(torch.count_nonzero(m1, dim=0), dim=0) # O+1
+
+    #    if X2 is None:
+    #        res = torch.empty(X1.shape[0], X1.shape[0], device=config.device, dtype=config.dtype)  # NxM
+    #        # calculate lower triangle of main kernel matrix, the upper triangle is a transpose
+    #        for i in range(self.output_dims):
+    #            for j in range(i+1):
+    #                # calculate sub kernel matrix and add to main kernel matrix
+    #                #n = int(1600/self.output_dims)
+    #                if i == j:
+    #                    k = self.Ksub(i, i, X1[i1[i]:i1[i+1],1:])
+    #                    #res[n*i:n*(i+1),n*i:n*(i+1)] = k
+    #                    res[i1[i]:i1[i+1],i1[i]:i1[i+1]] = k
+    #                else:
+    #                    k = self.Ksub(i, j, X1[i1[i]:i1[i+1],1:], X1[i1[j]:i1[j+1],1:])
+    #                    #res[n*i:n*(i+1),n*j:n*(j+1)] = k
+    #                    #res[n*j:n*(j+1),n*i:n*(i+1)] = k.T
+    #                    res[i1[i]:i1[i+1],i1[j]:i1[j+1]] = k
+    #                    res[i1[j]:i1[j+1],i1[i]:i1[i+1]] = k.T
+    #    else:
+    #        # extract channel mask, get data, and find indices that belong to the channels
+    #        c2 = X2[:,:1].long() # Nx1
+    #        m2 = c2 == torch.arange(-1, self.output_dims, device=config.device, dtype=config.dtype).reshape(1,-1) # Nx(O+1)
+    #        i2 = torch.cumsum(torch.count_nonzero(m2, dim=0), dim=0) # O+1
+
+    #        res = torch.empty(X1.shape[0], X2.shape[0], device=config.device, dtype=config.dtype)  # NxM
+    #        for i in range(self.output_dims):
+    #            for j in range(self.output_dims):
+    #                # calculate sub kernel matrix and add to main kernel matrix
+    #                k = self.Ksub(i, j, X1[i1[i]:i1[i+1],1:], X2[i2[j]:i2[j+1],1:])
+    #                res[i1[i]:i1[i+1],i2[j]:i2[j+1]] = k
+
+    #    return res
 
     def K(self, X1, X2=None):
         # X has shape (data_points,1+input_dims) where the first column is the channel ID

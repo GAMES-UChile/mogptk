@@ -39,8 +39,8 @@ class Mean(torch.nn.Module):
             X = X.to(device, dtype)
         if X.ndim != 2:
             raise ValueError("X should have two dimensions (data_points,input_dims)")
-        #if X.shape[0] == 0 or X.shape[1] == 0:
-        #    raise ValueError("X must not be empty")
+        if X.shape[0] == 0 or X.shape[1] == 0:
+            raise ValueError("X must not be empty")
         return X
 
     def mean(self, X):
