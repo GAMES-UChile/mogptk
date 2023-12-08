@@ -526,14 +526,14 @@ class Model:
             losses[i] = loss
             warmup = ' (warmup)' if jit and iter_offset == 0 and i < 2 else ''
             if error is not None:
-                errors[i] = float(self.error(error, error_use_all_data)) # TODO: cast needed?
+                errors[i] = float(self.error(error, error_use_all_data))
                 if write:
                     print("  %*d/%*d %s  loss=%12g  error=%12g%s" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i], warmup))
             elif write:
                 print("  %*d/%*d %s  loss=%12g%s" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], warmup))
 
             if write:
-                progress_time += 10.0
+                progress_time += 10.0 + float(int((elapsed_time-progress_time)/10.0))*10.0
 
         if method == 'LBFGS':
             if not 'max_iter' in kwargs:
