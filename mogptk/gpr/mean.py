@@ -29,7 +29,11 @@ class Mean(torch.nn.Module):
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
         if isinstance(val, Parameter) and val._name is None:
-            val._name = 'mean.' + name
+            val._name = '%s.%s' % (self.__class__.__name__, name)
+        elif isinstance(val, torch.nn.ModuleList):
+            for i, item in enumerate(val):
+                for p in item.parameters():
+                    p._name = '%s[%d].%s' % (self.__class__.__name__, i, p._name)
         super().__setattr__(name, val)
 
     def _check_input(self, X):
