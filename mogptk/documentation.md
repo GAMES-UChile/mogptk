@@ -107,17 +107,17 @@ Due to numerical issues this is unfortunately quite frequent in Gaussian process
 
 
 ## Scalability
-How model training scales in time and memory usage over some of the data and hyperparameter is shown in the plots below.
+How model training scales in time and memory usage over some of the hyperparameter is shown in the plots below.
 
 ![Exact model, MOSM kernel, memory and execution time scaling with hyperparameters](exact_mosm.png)
 
-For each plot, we initialize a MOSM kernel and use exact inference (ie. without inducing points). The data is generated randomly of size `(data_points,1+input_dims)`, where the first column contains the output indices. The output indices are assigned by dividing the data points in equal parts of output dimensions. We keep the other four parameters constant while varying one parameter for each of the plots.
+For each plot, we initialize a MOSM kernel and use exact inference (ie. without inducing points). The data is generated randomly of size `(data_points,1+input_dims)`, where the first column contains the output indices. The output indices are assigned by dividing the data points in equal parts of output dimensions (ie. total number of data points is constant while we increase the number of output dimension). We keep the other four parameters constant while varying one parameter for each of the plots.
 
 **Conclusions:**
 
-* There are no memory leaks since memory is constant for iterations and time is linear
-* It is quadratic in the number of data points, both in memory and time. I believe that Cholesky decomposition, which scales O(n^3), is really fast but that in this range the O(n^2) nature of the kernel matrix and other calculations is simply the slowest. For larger numbers of data points the cubic nature of time should take over.
-* Both the number of input dimensions and mixture components are linear in memory and time and are very fast in general. Note that these variables depend on the kernel and not on the inference model.
-* It is quadratic in time but something like O(1/n) for memory over the output dimensions. Both results are interesting. I believe that the sequential nature of how we compute each sub Gram matrix for each channel combination allows us to use less memory (which is recycled for each channel combination). Time is quadratic since we need to evaluate M*M sub Gram matrices, with M the number of channels.
+* There are no memory leaks since memory is constant over iterations and time is linear
+* It is quadratic over the number of data points, both in memory and time. I believe that Cholesky decomposition, which scales O(n^3), is really fast but that in this range the O(n^2) nature of the kernel matrix and other calculations is simply the slowest. For larger numbers of data points the cubic nature of time should take over.
+* Both over the number of input dimensions and mixture components are linear in memory and time and are very fast in general. Note that these variables depend on the kernel and not on the inference model.
+* It is quadratic in time but approximately O(1/n) for memory over the output dimensions. Both results are interesting. I believe that the sequential nature of how we compute each sub Gram matrix for each channel combination allows us to use less memory (which is recycled for each channel combination). Time is quadratic since we need to evaluate M*M sub Gram matrices, with M the number of channels.
 
 Regarding the output dimensions, the sub Gram matrixes are of course smaller since the total number of data points is kept constant. However instead of using large vectorized operations as we'd have for a single output dimension, we have to process each sub kernel sequentially with smaller vectorized operations for each sub kernel. This can't be optimized further since the number of data points per channel is variable. When the number of data points for all channels is equal, we could write an optimized multi-output kernel that calculates the resulting Gram matrix at once instead of calculating all the sub Gram matrices.
