@@ -2,8 +2,12 @@ import numpy as np
 import torch
 import torch.nn.functional as functional
 import copy
+import sys
 
 from .config import config
+
+def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
+    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
 class Transform:
     """
@@ -45,7 +49,9 @@ class Softplus(Transform):
         return self.lower + functional.softplus(x, beta=self.beta, threshold=self.threshold)
 
     def inverse(self, y):
-        if self.beta < 0.0:
+        if isclose(self.beta, 0.0):
+            return 0.0
+        elif self.beta < 0.0:
             if torch.any(self.lower < y):
                 raise ValueError("values must be smaller than %s" % self.lower)
         elif torch.any(y < self.lower):
@@ -74,8 +80,21 @@ class Sigmoid(Transform):
     def inverse(self, y):
         if torch.any(y < self.lower) or torch.any(self.upper < y):
             raise ValueError("values must be between %s and %s" % (self.lower, self.upper))
+
         y = (y-self.lower)/(self.upper-self.lower)
+        if isinstance(self.lower, float) and isinstance(self.upper, float):
+            if isclose(self.lower, self.upper):
+                y.fill_(sys.float_info.epsilon)
+        elif isinstance(self.lower, float):
+            lower = torch.tensor(self.lower).repeat(self.upper.size())
+            y[torch.isclose(lower, self.upper)] = sys.float_info.epsilon
+        elif isinstance(self.upper, float):
+            upper = torch.tensor(self.upper).repeat(self.lower.size())
+            y[torch.isclose(self.lower, upper)] = sys.float_info.epsilon
+        else:
+            y[torch.isclose(self.lower, self.upper)] = sys.float_info.epsilon
         return torch.log(y) - torch.log(1-y)
+
 
 class Parameter(torch.nn.Parameter):
     """
