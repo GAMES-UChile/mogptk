@@ -523,12 +523,13 @@ class Model:
             i += iter_offset
             times[i] = elapsed_time
             losses[i] = loss
+            warmup = ' (warmup)' if jit and i < 2 else ''
             if error is not None:
                 errors[i] = float(self.error(error, error_use_all_data)) # TODO: cast needed?
                 if write:
-                    print("  %*d/%*d %s  loss=%12g  error=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i]))
+                    print("  %*d/%*d %s  loss=%12g  error=%12g%s" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], errors[i], warmup))
             elif write:
-                print("  %*d/%*d %s  loss=%12g" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i]))
+                print("  %*d/%*d %s  loss=%12g%s" % (iters_len, i, iters_len, iter_offset+iters, _format_time(elapsed_time), losses[i], warmup))
 
             if write:
                 progress_time += 10.0
