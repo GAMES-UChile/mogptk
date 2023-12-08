@@ -433,7 +433,7 @@ class Model:
         else:
             raise ValueError("valid error calculation methods are MAE, MAPE, sMAPE, MSE, and RMSE")
 
-    def train(self, method='Adam', iters=500, verbose=False, error=None, plot=False, jit=True,
+    def train(self, method='Adam', iters=500, verbose=False, error=None, plot=False, jit=None,
               **kwargs):
         """
         Trains the model by optimizing the (hyper)parameters of the kernel to approach the training data.
@@ -444,7 +444,7 @@ class Model:
             verbose (bool): Print verbose output about the state of the optimizer.
             error (str,function): Calculate prediction error for each iteration by the given method, such as MAE, MAPE, sMAPE, MSE, or RMSE. When a function is given, it should have parameters (y_true,y_pred) or (y_true,y_pred,model).
             plot (bool): Plot the loss and, if error is data set, the error of the test data points.
-            jit (bool): Use the PyTorch JIT trace functionality to improve performance.
+            jit (bool): Use the PyTorch JIT trace functionality to improve performance, enabled by default when iters >= 1000.
             **kwargs (dict): Additional dictionary of parameters passed to the PyTorch optimizer. 
 
         Returns:
@@ -505,6 +505,8 @@ class Model:
         initial_time = time.time()
         progress_time = 0.0
 
+        if jit is None:
+            jit = 1000 <= iters
         if jit:
             self.gpr.compile()
         else:
