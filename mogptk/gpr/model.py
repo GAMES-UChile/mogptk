@@ -116,7 +116,7 @@ class Model(torch.nn.Module):
         self.likelihood = likelihood
         self.jitter = jitter
         self.input_dims = X.shape[1]
-        self.compiled_forward = None
+        self._compiled_forward = None
 
     def name(self):
         return self.__class__.__name__
@@ -266,8 +266,13 @@ class Model(torch.nn.Module):
         return -self.log_marginal_likelihood() - self.log_prior()
 
     def compile(self):
-        if self.compiled_forward is None:
-            self.compiled_forward = torch.jit.trace(self.forward, ())
+        if self._compiled_forward is None:
+            self._compiled_forward = torch.jit.trace(self.forward, ())
+
+    def __getstate__(self):
+        state = super().__getstate__()
+        state['_modules'].pop('_compiled_forward', None)
+        return state
 
     def loss(self):
         """
@@ -277,10 +282,10 @@ class Model(torch.nn.Module):
             torch.tensor: Loss.
         """
         self.zero_grad(set_to_none=True)
-        if self.compiled_forward is None:
+        if self._compiled_forward is None:
             loss = self.forward()
         else:
-            loss = self.compiled_forward()
+            loss = self._compiled_forward()
         loss.backward()
         return loss
 
