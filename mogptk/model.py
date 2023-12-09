@@ -117,7 +117,9 @@ class Snelson:
 
     def _build(self, kernel, x, y, y_err=None, mean=None):
         if self.variance is None:
-            self.variance = [1.0] * kernel.output_dims
+            self.variance = 1.0
+            if kernel.output_dims is not None:
+                self.variance = [1.0] * kernel.output_dims
         return gpr.Snelson(kernel, x, y, Z=self.inducing_points, Z_init=self.init_inducing_points, variance=self.variance, jitter=self.jitter, mean=mean)
 
 class OpperArchambeau:
