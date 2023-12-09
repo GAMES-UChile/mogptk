@@ -292,6 +292,21 @@ class MultiOutputLikelihood(Likelihood):
             f[:,r[i]] = self.likelihoods[i].sample(f[:,r[i]])
         return f  # nxN
 
+    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+        # mu,var: Nx1
+        r = self._channel_indices(X)
+        res = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
+        if ci is None:
+            for i in range(self.output_dims):
+                res[r[i],:] = self.likelihoods[i].predict(mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
+            return res
+
+        lower = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
+        upper = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
+        for i in range(self.output_dims):
+            res[r[i],:], lower[r[i],:], upper[r[i],:] = self.likelihoods[i].predict(mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
+        return res, lower, upper  # Nx1
+
     # TODO: predict is not possible?
     #def predict(self, mu, var, X=None, full=False):
     #    # mu: Nx1
