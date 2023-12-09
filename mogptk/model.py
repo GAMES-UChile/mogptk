@@ -760,6 +760,7 @@ class Model:
             ax2 = ax.twinx()
             ax2.plot(x, self.errors, c='k', ls='-.')
             ax2.set_ylabel('Error')
+            ax2.set_ylim(0.0, None)
             legends.append(plt.Line2D([0], [0], ls='-.', color='k', label='Error'))
             if log:
                 ax2.set_yscale('log')
@@ -825,12 +826,12 @@ class Model:
             idx = np.argsort(X[j][:,0])
             x = X[j][idx,0].astype(data.X_dtypes[0])
             ax[j,0].plot(x, Mu[j][idx], ls=':', color='blue', lw=2)
-            ax[j,0].fill_between(x, Lower[j][idx], Upper[j][idx], color='blue', alpha=0.3)
-            label = 'Posterior Mean'
-            legends.append(patches.Rectangle(
-                (1, 1), 1, 1, fill=True, color='blue', alpha=0.3, lw=0, label='95% Error Bars'
-            ))
-            legends.append(plt.Line2D([0], [0], ls=':', color='blue', lw=2, label=label))
+            if not np.all(Lower[j][idx] == Mu[j][idx]) and not np.all(Upper[j][idx] == Mu[j][idx]):
+                ax[j,0].fill_between(x, Lower[j][idx], Upper[j][idx], color='blue', alpha=0.3)
+                legends.append(patches.Rectangle(
+                    (1, 1), 1, 1, fill=True, color='blue', alpha=0.3, lw=0, label='95% Error Bars'
+                ))
+            legends.append(plt.Line2D([0], [0], ls=':', color='blue', lw=2, label='Posterior Mean'))
 
             xmin = min(np.min(data.X), np.min(X[j]))
             xmax = max(np.max(data.X), np.max(X[j]))
