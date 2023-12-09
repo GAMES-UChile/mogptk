@@ -121,6 +121,19 @@ class Model(torch.nn.Module):
     def name(self):
         return self.__class__.__name__
 
+    def forward(self, x=None):
+        return -self.log_marginal_likelihood() - self.log_prior()
+
+    def compile(self):
+        if self._compiled_forward is None:
+            self._compiled_forward = torch.jit.trace(self.forward, ())
+
+    def __getstate__(self):
+        state = super().__getstate__()
+        state['_modules'] = state['_modules'].copy()
+        state['_modules'].pop('_compiled_forward', None)
+        return state
+
     def __setattr__(self, name, val):
         if hasattr(self, name) and isinstance(getattr(self, name), Parameter):
             raise AttributeError("parameter is read-only, use Parameter.assign()")
@@ -262,19 +275,6 @@ class Model(torch.nn.Module):
         """
         return sum([p.log_prior() for p in self.parameters()])
 
-    def forward(self, x=None):
-        return -self.log_marginal_likelihood() - self.log_prior()
-
-    def compile(self):
-        if self._compiled_forward is None:
-            self._compiled_forward = torch.jit.trace(self.forward, ())
-
-    def __getstate__(self):
-        state = super().__getstate__()
-        state['_modules'] = state['_modules'].copy()
-        state['_modules'].pop('_compiled_forward', None)
-        return state
-
     def loss(self):
         """
         Model loss for training.
@@ -302,22 +302,62 @@ class Model(torch.nn.Module):
             numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
         """
         with torch.inference_mode():
-            return self.kernel(X1, X2).cpu().numpy()
+            return self.kernel(X1, X2)
 
-    def sample(self, Z, n=None, predict_y=True, prior=False):
+    def predict_f(self, X, full=False):
+        """
+        Get the predictive posterior for values of f.
+
+        Args:
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+            full (bool): Return the full variance matrix as opposed to the diagonal.
+
+        Returns:
+            torch.tensor: Mean of the predictive posterior of shape (data_points,).
+            torch.tensor: Variance of the predictive posterior of shape (data_points,) or (data_points,data_points).
+        """
+        raise NotImplementedError()
+
+    def predict_y(self, X, ci=None, sigma=None, n=10000):
+        """
+        Get the predictive posterior for values of y.
+
+        Args:
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+            ci (list of float): Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.
+            sigma (float): Number of standard deviations of the confidence interval. Only used for short-path for Gaussian likelihood.
+            n (int): Number of samples used from distribution to estimate quantile.
+
+        Returns:
+            torch.tensor: Mean of the predictive posterior of shape (data_points,).
+            torch.tensor: Lower confidence boundary of the predictive posterior of shape (data_points,).
+            torch.tensor: Upper confidence boundary of the predictive posterior of shape (data_points,).
+        """
+        with torch.inference_mode():
+            X = self._check_input(X)  # MxD
+
+            mu, var = self.predict_f(X)
+            if ci is None and sigma is not None:
+                p = 0.5*(1.0 + float(torch.erf(torch.tensor(sigma/np.sqrt(2.0)))))
+                ci = [1.0-p, p]
+            mu = self.likelihood.predict(mu, var, ci, sigma=sigma, n=n, X=X)
+            return mu
+
+    def sample_f(self, Z, n=None, prior=False):
         """
         Sample from model.
 
         Args:
             Z (torch.tensor): Input of shape (data_points,input_dims).
             n (int): Number of samples.
-            predict_y (boolean): Predict the data values \\(y\\) instead of the function values \\(f\\).
             prior (boolean): Sample from prior instead of posterior.
 
         Returns:
             torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
         """
         with torch.inference_mode():
+            Z = self._check_input(Z)  # MxD
+
             S = n
             if n is None:
                 S = 1
@@ -326,7 +366,7 @@ class Model(torch.nn.Module):
             if prior:
                 mu, var = self.mean(Z), self.kernel(Z)
             else:
-                mu, var = self.predict(Z, full=True, tensor=True, predict_y=predict_y)  # MxD, MxMxD
+                mu, var = self.predict_f(Z, full=True)  # MxD, MxMxD
             eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             var += self.jitter * var.diagonal().mean() * eye  # MxM
 
@@ -338,7 +378,7 @@ class Model(torch.nn.Module):
 
             if n is None:
                 samples = samples.squeeze()
-            return samples.cpu().numpy()
+            return samples
 
 class Exact(Model):
     """
@@ -392,9 +432,9 @@ class Exact(Model):
         p -= 0.5*y.T.mm(torch.cholesky_solve(y,L)).squeeze()
         return p
 
-    def predict(self, Xs, full=False, tensor=False, predict_y=True):
+    def predict_f(self, X, full=False):
         with torch.inference_mode():
-            Xs = self._check_input(Xs)  # MxD
+            X = self._check_input(X)  # MxD
             if self.mean is not None:
                 y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
             else:
@@ -404,32 +444,23 @@ class Exact(Model):
             Kff += self._index_channel(self.likelihood.scale().square(), self.X) * self.eye  # NxN
             if self.data_variance is not None:
                 Kff += self.data_variance
-            Kfs = self.kernel.K(self.X,Xs)  # NxM
+            Kfs = self.kernel.K(self.X,X)  # NxM
 
             Lff = self._cholesky(Kff, add_jitter=True)  # NxN
             v = torch.linalg.solve_triangular(Lff,Kfs,upper=False)  # NxM
 
             mu = Kfs.T.mm(torch.cholesky_solve(y,Lff))  # Mx1
             if self.mean is not None:
-                mu += self.mean(Xs).reshape(-1,1)  # Mx1
+                mu += self.mean(X).reshape(-1,1)  # Mx1
 
             if full:
-                Kss = self.kernel.K(Xs)  # MxM
+                Kss = self.kernel.K(X)  # MxM
                 var = Kss - v.T.mm(v)  # MxM
-                if predict_y:
-                    eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self._index_channel(self.likelihood.scale().square(), Xs) * eye
             else:
-                Kss_diag = self.kernel.K_diag(Xs)  # M
+                Kss_diag = self.kernel.K_diag(X)  # M
                 var = Kss_diag - v.T.square().sum(dim=1)  # M
-                if predict_y:
-                    var += self._index_channel(self.likelihood.scale().square(), Xs)
                 var = var.reshape(-1,1)
-
-            if tensor:
-                return mu, var
-            else:
-                return mu.cpu().numpy(), var.cpu().numpy()
+            return mu, var
 
 class Snelson(Model):
     """
@@ -488,9 +519,9 @@ class Snelson(Model):
         p += 0.5*c.T.mm(c).squeeze()
         return p
 
-    def predict(self, Xs, full=False, tensor=False, predict_y=True):
+    def predict_f(self, X, full=False):
         with torch.inference_mode():
-            Xs = self._check_input(Xs)  # MxD
+            X = self._check_input(X)  # MxD
             if self.mean is not None:
                 y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
             else:
@@ -499,7 +530,7 @@ class Snelson(Model):
             Kff_diag = self.kernel.K_diag(self.X)  # N
             Kuf = self.kernel.K(self.Z(),self.X)  # MxN
             Kuu = self.kernel.K(self.Z())  # MxM
-            Kus = self.kernel.K(self.Z(),Xs)  # MxS
+            Kus = self.kernel.K(self.Z(),X)  # MxS
 
             Luu = self._cholesky(Kuu, add_jitter=True)  # MxM;  Kuu^(1/2)
             v = torch.linalg.solve_triangular(Luu,Kuf,upper=False)  # MxN;  Kuu^(-1/2).Kuf
@@ -513,25 +544,16 @@ class Snelson(Model):
 
             mu = b.T.mm(c)  # Mx1
             if self.mean is not None:
-                mu += self.mean(Xs).reshape(-1,1)  # Mx1
+                mu += self.mean(X).reshape(-1,1)  # Mx1
 
             if full:
-                Kss = self.kernel(Xs)  # MxM
+                Kss = self.kernel(X)  # MxM
                 var = Kss - a.T.mm(w) + b.T.mm(u)  # MxM
-                if predict_y:
-                    eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self._select_channel(self.likelihood.scale().square(), Xs) * eye
             else:
-                Kss_diag = self.kernel.K_diag(Xs)  # M
+                Kss_diag = self.kernel.K_diag(X)  # M
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
-                if predict_y:
-                    var += self._index_channel(self.likelihood.scale().square(), Xs)
                 var = var.reshape(-1,1)
-
-            if tensor:
-                return mu, var
-            else:
-                return mu.cpu().numpy(), var.cpu().numpy()
+            return mu, var
 
 class OpperArchambeau(Model):
     """
@@ -600,35 +622,28 @@ class OpperArchambeau(Model):
         # maximize the lower bound
         return self.elbo()
 
-    def predict(self, Xs, full=False, tensor=False, predict_y=True):
+    def predict_f(self, X, full=False):
         with torch.inference_mode():
-            Xs = self._check_input(Xs)  # MxD
+            X = self._check_input(X)  # MxD
 
             Kff = self.kernel(self.X)
-            Kfs = self.kernel(self.X,Xs)  # NxS
+            Kfs = self.kernel(self.X,X)  # NxS
 
             L = self._cholesky(Kff + (1.0/self.q_lambda().square()).diagflat())  # NxN
             a = torch.linalg.solve_triangular(L,Kfs,upper=False)  # NxS;  Kuu^(-1/2).Kus
 
             mu = Kfs.T.mm(self.q_nu())  # Sx1
             if self.mean is not None:
-                mu += self.mean(Xs).reshape(-1,1)  # Sx1
+                mu += self.mean(X).reshape(-1,1)  # Sx1
 
             if full:
-                Kss = self.kernel(Xs)  # SxS
+                Kss = self.kernel(X)  # SxS
                 var = Kss - a.T.mm(a)  # SxS
             else:
-                Kss_diag = self.kernel.K_diag(Xs)  # M
+                Kss_diag = self.kernel.K_diag(X)  # M
                 var = Kss_diag - a.T.square().sum(dim=1)  # M
                 var = var.reshape(-1,1)
-
-            if predict_y:
-                mu, var = self.likelihood.predict(mu, var, full=full, X=Xs)
-
-            if tensor:
-                return mu, var
-            else:
-                return mu.cpu().numpy(), var.cpu().numpy()
+            return mu, var
 
 class Titsias(Model):
     """
@@ -692,15 +707,15 @@ class Titsias(Model):
         # maximize the lower bound
         return self.elbo()
 
-    def predict(self, Xs, full=False, tensor=False, predict_y=True):
+    def predict_f(self, X, full=False):
         with torch.inference_mode():
-            Xs = self._check_input(Xs)  # MxD
+            X = self._check_input(X)  # MxD
             if self.mean is not None:
                 y = self.y - self.mean(self.X).reshape(-1,1)  # Nx1
             else:
                 y = self.y  # Nx1
 
-            Kus = self.kernel(self.Z(),Xs)  # MxS
+            Kus = self.kernel(self.Z(),X)  # MxS
             Kuf = self.kernel(self.Z(),self.X)  # MxN
             Kuu = self.kernel(self.Z())  # MxM
 
@@ -715,28 +730,19 @@ class Titsias(Model):
             # mu = sigma^(-2).Ksu.Kuu^(-1/2).(sigma^(-2).Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2) + I)^(-1).Kuu^(-1/2).Kuf.y
             mu = b.T.mm(c)  # Mx1
             if self.mean is not None:
-                mu += self.mean(Xs).reshape(-1,1)  # Mx1
+                mu += self.mean(X).reshape(-1,1)  # Mx1
 
             # var = Kss - Qsf.(Qff + sigma^2 I)^(-1).Qfs
             # below is the equivalent but more stable version by using the matrix inversion lemma
             # var = Kss - Ksu.Kuu^(-1).Kus + Ksu.Kuu^(-1/2).(sigma^(-2).Kuu^(-1/2).Kuf.Kfu.Kuu^(-1/2) + I)^(-1).Kuu^(-1/2).Kus
             if full:
-                Kss = self.kernel(Xs)  # MxM
+                Kss = self.kernel(X)  # MxM
                 var = Kss - a.T.mm(a) + b.T.mm(b)  # MxM
-                if predict_y:
-                    eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
-                    var += self.likelihood.scale().square() * eye
             else:
-                Kss_diag = self.kernel.K_diag(Xs)  # M
+                Kss_diag = self.kernel.K_diag(X)  # M
                 var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
-                if predict_y:
-                    var += self.likelihood.scale().square()
                 var = var.reshape(-1,1)
-
-            if tensor:
-                return mu, var
-            else:
-                return mu.cpu().numpy(), var.cpu().numpy()
+            return mu, var
 
 class SparseHensman(Model):
     """
@@ -794,7 +800,7 @@ class SparseHensman(Model):
             y = self.y  # Nx1
 
         if self.is_sparse:
-            qf_mu, qf_var_diag = self._predict(self.X, full=False)
+            qf_mu, qf_var_diag = self._predict_f(self.X, full=False)
         else:
             Kff = self.kernel(self.X)
             Lff = self._cholesky(Kff, add_jitter=True)  # NxN
@@ -814,9 +820,9 @@ class SparseHensman(Model):
         # maximize the lower bound
         return self.elbo()
 
-    def _predict(self, Xs, full=False):
+    def _predict_f(self, X, full=False):
         Kuu = self.kernel(self.Z())
-        Kus = self.kernel(self.Z(),Xs)  # NxS
+        Kus = self.kernel(self.Z(),X)  # NxS
 
         Luu = self._cholesky(Kuu, add_jitter=True)  # NxN
         a = torch.linalg.solve_triangular(Luu,Kus,upper=False)  # NxS;  Kuu^(-1/2).Kus
@@ -824,28 +830,23 @@ class SparseHensman(Model):
 
         mu = Kus.T.mm(torch.linalg.solve_triangular(Luu.T,self.q_mu(),upper=True))  # Sx1
         if full:
-            Kss = self.kernel(Xs)  # SxS
+            Kss = self.kernel(X)  # SxS
             var = Kss - a.T.mm(a) + b.T.mm(b)  # SxS
         else:
-            Kss_diag = self.kernel.K_diag(Xs)  # M
+            Kss_diag = self.kernel.K_diag(X)  # M
             var = Kss_diag - a.T.square().sum(dim=1) + b.T.square().sum(dim=1)  # M
             var = var.reshape(-1,1)
         return mu, var
 
-    def predict(self, Xs, full=False, tensor=False, predict_y=True):
+    def predict_f(self, X, full=False):
         with torch.inference_mode():
-            Xs = self._check_input(Xs)  # MxD
+            X = self._check_input(X)  # MxD
 
-            mu, var = self._predict(Xs, full=full)
-            if predict_y:
-                mu, var = self.likelihood.predict(mu, var, full=full, X=Xs)
+            mu, var = self._predict_f(X, full=full)
             if self.mean is not None:
-                mu += self.mean(Xs).reshape(-1,1)  # Sx1
+                mu += self.mean(X).reshape(-1,1)  # Mx1
+            return mu, var
 
-            if tensor:
-                return mu, var
-            else:
-                return mu.cpu().numpy(), var.cpu().numpy()
 
 class Hensman(SparseHensman):
     """

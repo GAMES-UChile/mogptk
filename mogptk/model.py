@@ -408,7 +408,8 @@ class Model:
 
         # predict
         x  = self._to_kernel_format(X)
-        y_pred, _ = self.gpr.predict(x, predict_y=False)
+        y_pred = self.gpr.predict_y(x)
+        y_pred = y_pred.cpu().numpy()
 
         # transform to original
         i = 0
@@ -604,14 +605,15 @@ class Model:
         y = np.concatenate(Y, axis=0).reshape(-1, 1)
         return x, y
 
-    def predict(self, X=None, sigma=2, predict_y=True, transformed=False):
+    def predict(self, X=None, ci=None, sigma=2, n=10000, transformed=False):
         """
         Predict using the prediction range of the data set and save the prediction in that data set. Otherwise, if `X` is passed, use that as the prediction range and return the prediction instead of saving it.
 
         Args:
             X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
-            sigma (float): Number of standard deviations to display upwards and downwards.
-            predict_y (boolean): Predict data values instead of function values.
+            ci (list of float): Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.
+            sigma (float): Number of standard deviations of the confidence interval. For non-Gaussian likelihoods this is converted to confidence interval percentages using the standard normal distribution.
+            n (int): Number of samples used from distribution to estimate quantile.
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
@@ -629,19 +631,18 @@ class Model:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
 
-        mu, var = self.gpr.predict(x, predict_y=predict_y, tensor=False)
-        lower = mu - sigma*np.sqrt(var)
-        upper = mu + sigma*np.sqrt(var)
+        mu, lower, upper = self.gpr.predict_y(x, ci, sigma=sigma, n=n)
+        mu = mu.cpu().numpy()
+        lower = lower.cpu().numpy()
+        upper = upper.cpu().numpy()
 
         i = 0
         Mu = []
-        Var = []
         Lower = []
         Upper = []
         for j in range(self.dataset.get_output_dims()):
             N = X[j].shape[0]
             Mu.append(np.squeeze(mu[i:i+N]))
-            Var.append(np.squeeze(var[i:i+N]))
             Lower.append(np.squeeze(lower[i:i+N]))
             Upper.append(np.squeeze(upper[i:i+N]))
             i += N
@@ -675,20 +676,20 @@ class Model:
         X1 = self.dataset._format_X(X1)
         x1 = self._to_kernel_format(X1)
         if X2 is None:
-            return self.gpr.K(x1)
+            K = self.gpr.K(x1)
         else:
             X2 = self.dataset._format_X(X2)
             x2 = self._to_kernel_format(X2)
-            return self.gpr.K(x1, x2)
+            K = self.gpr.K(x1, x2)
+        return K.cpu().numpy()
 
-    def sample(self, X=None, n=None, predict_y=True, prior=False, transformed=False):
+    def sample(self, X=None, n=None, prior=False, transformed=False):
         """
         Sample n times from the kernel at input X .
 
         Args:
             X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
             n (int): Number of samples.
-            predict_y (boolean): Predict data values instead of function values.
             prior (boolean): Sample from prior instead of posterior.
             transformed (boolean): Return transformed data as used for training.
 
@@ -704,7 +705,8 @@ class Model:
         else:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
-        samples = self.gpr.sample(Z=x, n=n, predict_y=predict_y)
+        samples = self.gpr.sample_f(Z=x, n=n)
+        samples = samples.cpu().numpy()
 
         i = 0
         Samples = []
@@ -772,7 +774,7 @@ class Model:
             ax.legend(handles=legends)
         return fig, ax
 
-    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, predict_y=True, transformed=False):
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, transformed=False, n=10000):
         """
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -785,6 +787,7 @@ class Model:
             sigma (float): Number of standard deviations to display upwards and downwards.
             predict_y (boolean): Predict data values instead of function values.
             transformed (boolean): Display transformed Y data as used for training.
+            n (int): Number of samples used from distribution to estimate quantile.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -793,7 +796,7 @@ class Model:
         Examples:
             >>> fig, axes = dataset.plot(title='Title')
         """
-        X, Mu, Lower, Upper = self.predict(X, sigma=sigma, predict_y=predict_y, transformed=transformed)
+        X, Mu, Lower, Upper = self.predict(X, sigma=sigma, transformed=transformed, n=n)
         if len(self.dataset) == 1:
             X = [X]
             Mu = [Mu]
@@ -922,7 +925,7 @@ class Model:
                 X[j*n:(j+1)*n,1] = np.array((start[j]+end[j])/2.0)
             else:
                 X[j*n:(j+1)*n,1] = np.linspace(start[j], end[j], n)
-        k = self.gpr.K(X)
+        k = self.gpr.K(X).cpu().numpy()
             
         fig, ax = plt.subplots(1, 1, figsize=figsize, constrained_layout=True)
         if title is not None:
@@ -986,7 +989,7 @@ class Model:
                     continue
 
                 X0 = np.concatenate((i*channel,tau), axis=1)
-                k = self.gpr.K(X0,X1)
+                k = self.gpr.K(X0,X1).cpu().numpy()
                 ax[j,i].plot(tau, k, color='k')
                 ax[j,i].set_yticks([])
         return fig, ax
@@ -1010,7 +1013,7 @@ class Model:
         output_dims = len(self.dataset)
         X = np.zeros((output_dims, 2))
         X[:,0] = np.arange(output_dims)
-        K = self.gpr.K(X)
+        K = self.gpr.K(X).cpu().numpy()
 
         # normalise
         diag_sqrt = np.sqrt(np.diag(K))

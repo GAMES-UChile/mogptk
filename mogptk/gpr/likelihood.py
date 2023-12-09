@@ -119,8 +119,8 @@ class Likelihood(torch.nn.Module):
 
         Args:
             y (torch.tensor): Values for y of shape (data_points,).
-            mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,).
-            var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,).
+            mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,1).
+            var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,1).
             X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
         """
         # y,mu,var: Nx1
@@ -155,7 +155,21 @@ class Likelihood(torch.nn.Module):
         # f: NxM
         raise NotImplementedError()
 
-    def predict(self, mu, var, X=None, full=False):
+    def sample(self, f, X=None):
+        """
+        Sample from likelihood distribution.
+
+        Args:
+            f (torch.tensor): Samples for f of shape (data_points,n).
+            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+
+        Returns:
+            torch.tensor: Samples of shape (data_points,n).
+        """
+        # f: nxN
+        raise NotImplementedError()
+
+    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
         """
         Calculate the mean and variance of the predictive distribution
 
@@ -165,23 +179,32 @@ class Likelihood(torch.nn.Module):
         where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate both integrals.
 
         Args:
-            mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,).
-            var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,).
+            mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,1).
+            var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,1).
+            ci (list of float): Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.
+            sigma (float): Number of standard deviations of the confidence interval. Only used for short-path for Gaussian likelihood.
+            n (int): Number of samples used from distribution to estimate quantile.
             X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
-            full (boolean): Return the full covariance matrix.
 
         Returns:
             torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-            torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,) or (data_points,data_points).
+            torch.tensor: Lower confidence boundary of shape (data_points,).
+            torch.tensor: Upper confidence boundary of shape (data_points,).
         """
         # mu,var: Nx1
-        # TODO: full covariance matrix for likelihood predictions
-        if full:
-            raise NotImplementedError("full covariance not support for likelihood predictions")
+        mu = self.quadrature(mu, var, lambda f: self.mean(f, X=X))
+        if ci is None:
+            return mu
 
-        Ey = self.quadrature(mu, var, lambda f: self.mean(f,X=X))
-        Eyy = self.quadrature(mu, var, lambda f: self.mean(f,X=X).square() + self.variance(f,X=X))
-        return Ey, Eyy-Ey**2
+        # TODO: naive way of estimating the quantiles, can we use MCMC or something more efficient?
+        # TODO: is this correct???
+        samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) #nxN
+        samples_y = self.sample(samples_f, X=X) # nxN
+        #samples_y = self.sample(mu.T.repeat(n,1), X=X) # nxN
+        samples_y, _ = samples_y.sort(dim=0)
+        lower = int(ci[0]*n + 0.5)
+        upper = int(ci[1]*n + 0.5)
+        return mu, samples_y[lower,:], samples_y[upper,:]
 
 class MultiOutputLikelihood(Likelihood):
     """
@@ -262,6 +285,13 @@ class MultiOutputLikelihood(Likelihood):
             res[r[i],:] = self.likelihoods[i].variance(f[r[i],:])
         return res  # NxM
 
+    def sample(self, f, X=None):
+        # f: nxN
+        r = self._channel_indices(X)
+        for i in range(self.output_dims):
+            f[:,r[i]] = self.likelihoods[i].sample(f[:,r[i]])
+        return f  # nxN
+
     # TODO: predict is not possible?
     #def predict(self, mu, var, X=None, full=False):
     #    # mu: Nx1
@@ -320,11 +350,21 @@ class GaussianLikelihood(Likelihood):
     def variance(self, f, X=None):
         return self.scale().square()
 
-    def predict(self, mu, var, X=None, full=False):
-        if full:
-            return mu, var + self.scale().square()*torch.eye(var.shape[0])
+    def sample(self, f, X=None):
+        return torch.distributions.normal.Normal(f, scale=self.scale()).sample()
+
+    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+        if ci is None and sigma is None:
+            return mu
+
+        if sigma is None:
+            ci = torch.tensor(ci, device=config.device, dtype=config.dtype)
+            lower = mu + torch.sqrt(2.0)*self.scale()*torch.erfinv(2.0*ci[0] - 1.0)
+            upper = mu + torch.sqrt(2.0)*self.scale()*torch.erfinv(2.0*ci[1] - 1.0)
         else:
-            return mu, var + self.scale().square()
+            lower = mu - sigma*self.scale()
+            upper = mu + sigma*self.scale()
+        return mu, lower, upper
 
 class StudentTLikelihood(Likelihood):
     """
@@ -367,6 +407,9 @@ class StudentTLikelihood(Likelihood):
             return np.nan
         return self.scale().square() * self.dof/(self.dof-2.0)
 
+    def sample(self, f, X=None):
+        return torch.distributions.studentT.StudentT(self.dof, f, self.scale()).sample()
+
 class ExponentialLikelihood(Likelihood):
     """
     Exponential likelihood given by
@@ -403,6 +446,10 @@ class ExponentialLikelihood(Likelihood):
     def variance(self, f, X=None):
         return self.link(f).square()
 
+    def sample(self, f, X=None):
+        rate = self.link(f)
+        return torch.distributions.exponential.Exponential(rate).sample()
+
 class LaplaceLikelihood(Likelihood):
     """
     Laplace likelihood given by
@@ -434,6 +481,9 @@ class LaplaceLikelihood(Likelihood):
 
     def variance(self, f, X=None):
         return 2.0 * self.scale().square()
+
+    def sample(self, f, X=None):
+        return torch.distributions.laplace.Laplace(f, self.scale()).sample()
 
 class BernoulliLikelihood(Likelihood):
     """
@@ -468,14 +518,17 @@ class BernoulliLikelihood(Likelihood):
     def variance(self, f, X=None):
         return self.link(f) - self.link(f).square()
 
-    def predict(self, mu, var, X=None, full=False):
-        if self.link == inv_probit:
-            p = self.link(mu / torch.sqrt(1.0 + var))
-            if full:
-                return p.diagonal().reshape(-1,1), p-p.square() # TODO: correct?
-            return p, p-p.square()
-        else:
-            return super().predict(mu, var, X=X, full=full)
+    def sample(self, f, X=None):
+        return f
+
+    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+        if self.link != inv_probit:
+            return super().predict(mu, var, ci=ci, sigma=sigma, n=n, X=X)
+
+        p = self.link(mu / torch.sqrt(1.0 + var))
+        if ci is None and sigma is None:
+            return p
+        return p, p, p
 
 class BetaLikelihood(Likelihood):
     """
@@ -524,6 +577,12 @@ class BetaLikelihood(Likelihood):
         mixture = self.link(f)
         return (mixture - mixture.square()) / (self.scale() + 1.0)
 
+    def sample(self, f, X=None):
+        mixture = self.link(f)
+        alpha = mixture * self.scale()
+        beta = (1.0-mixture) * self.scale()
+        return torch.distributions.beta.Beta(alpha, beta).sample()
+
 class GammaLikelihood(Likelihood):
     """
     Gamma likelihood given by
@@ -568,6 +627,10 @@ class GammaLikelihood(Likelihood):
     def variance(self, f, X=None):
         return self.shape()*self.link(f).square()
 
+    def sample(self, f, X=None):
+        rate = 1.0/self.link(f)
+        return torch.distributions.gamma.Gamma(self.shape(), rate).sample()
+
 class PoissonLikelihood(Likelihood):
     """
     Poisson likelihood given by
@@ -582,6 +645,7 @@ class PoissonLikelihood(Likelihood):
     """
     def __init__(self, link=exp, quadratures=20):
         super().__init__(quadratures)
+        # TODO: the variational_expectation is tractable?
 
         self.link = link
 
@@ -607,6 +671,10 @@ class PoissonLikelihood(Likelihood):
 
     def variance(self, f, X=None):
         return self.link(f)
+
+    def sample(self, f, X=None):
+        rate = self.link(f)
+        return torch.distributions.poisson.Poisson(rate).sample()
 
 class WeibullLikelihood(Likelihood):
     """
@@ -652,6 +720,10 @@ class WeibullLikelihood(Likelihood):
         a = torch.lgamma(1.0 + 2.0/self.shape()).exp()
         b = torch.lgamma(1.0 + 1.0/self.shape()).exp()
         return f.square() * (a - b.square())
+
+    def sample(self, f, X=None):
+        scale = self.link(f)
+        return torch.distributions.weibull.Weibull(scale, self.shape()).sample()
 
 class LogLogisticLikelihood(Likelihood):
     """
@@ -701,6 +773,9 @@ class LogLogisticLikelihood(Likelihood):
         b = 1.0/torch.sinc(1.0/self.shape())
         return self.link(f).square() * (a - b.square())
 
+    def sample(self, f, X=None):
+        raise NotImplementedError()
+
 class LogGaussianLikelihood(Likelihood):
     """
     Log-Gaussian likelihood given by
@@ -739,6 +814,9 @@ class LogGaussianLikelihood(Likelihood):
     def variance(self, f, X=None):
         return (self.scale().square().exp() - 1.0) * torch.exp(2.0*f + self.scale().square())
 
+    def sample(self, f, X=None):
+        return torch.distributions.log_normal.LogNormal(f, self.scale()).sample()
+
 class ChiSquaredLikelihood(Likelihood):
     """
     Chi-squared likelihood given by
@@ -768,3 +846,6 @@ class ChiSquaredLikelihood(Likelihood):
 
     def variance(self, f, X=None):
         return 2.0*f
+
+    def sample(self, f, X=None):
+        raise NotImplementedError()
