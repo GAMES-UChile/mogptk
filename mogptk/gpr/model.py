@@ -372,11 +372,12 @@ class Exact(Model):
 
         super().__init__(kernel, X, y, GaussianLikelihood(torch.sqrt(variance)), jitter, mean)
 
+        self.eye = torch.eye(self.X.shape[0], device=config.device, dtype=config.dtype)
         self.log_marginal_likelihood_constant = 0.5*self.X.shape[0]*np.log(2.0*np.pi)
 
     def log_marginal_likelihood(self):
         Kff = self.kernel.K(self.X)
-        Kff += self._index_channel(self.likelihood.scale().square(), self.X).diagflat()  # NxN
+        Kff += self._index_channel(self.likelihood.scale().square(), self.X) * self.eye  # NxN
         if self.data_variance is not None:
             Kff += self.data_variance
         L = self._cholesky(Kff, add_jitter=True)  # NxN
@@ -400,7 +401,7 @@ class Exact(Model):
                 y = self.y  # Nx1
 
             Kff = self.kernel.K(self.X)
-            Kff += self._index_channel(self.likelihood.scale().square(), self.X).diagflat()  # NxN
+            Kff += self._index_channel(self.likelihood.scale().square(), self.X) * self.eye  # NxN
             if self.data_variance is not None:
                 Kff += self.data_variance
             Kfs = self.kernel.K(self.X,Xs)  # NxM
