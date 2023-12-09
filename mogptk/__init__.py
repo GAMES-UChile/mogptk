@@ -2,6 +2,7 @@
 .. include:: ./documentation.md
 """
 from .gpr.config import *
+from .gpr.model import CholeskyException
 from .util import *
 
 from .transformer import *

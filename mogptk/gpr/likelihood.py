@@ -91,6 +91,12 @@ class Likelihood(torch.nn.Module):
                     p._name = '%s[%d].%s' % (self.__class__.__name__, i, p._name)
         super().__setattr__(name, val)
 
+    def _channel_indices(self, X):
+        c = X[:,0].long()
+        m = [c==j for j in range(self.output_dims)]
+        r = [torch.nonzero(m[j], as_tuple=False).reshape(-1) for j in range(self.output_dims)]
+        return r
+
     def validate_y(self, y, X=None):
         """
         Validate whether the y input is within the likelihood's support.
@@ -237,12 +243,6 @@ class MultiOutputLikelihood(Likelihood):
     def name(self):
         return '%s%s' % (self.__class__.__name__, [likelihood.name() for likelihood in self.likelihoods])
 
-    def _channel_indices(self, X):
-        c = X[:,0].long()
-        m = [c==j for j in range(self.output_dims)]
-        r = [torch.nonzero(m[j], as_tuple=False).reshape(-1) for j in range(self.output_dims)]
-        return r
-
     def validate_y(self, y, X=None):
         if self.output_dims == 1:
             self.likelihoods[0].validate_y(y, X=X)
@@ -345,6 +345,8 @@ class GaussianLikelihood(Likelihood):
         super().__init__()
 
         self.scale = Parameter(scale, lower=config.positive_minimum)
+        if self.scale.ndim == 1:
+            self.output_dims = self.scale.shape[0]
 
     def log_prob(self, y, f, X=None):
         # y: Nx1
@@ -371,6 +373,21 @@ class GaussianLikelihood(Likelihood):
     def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
         if ci is None and sigma is None:
             return mu
+
+        if self.output_dims is not None:
+            # TODO: ugly
+            r = self._channel_indices(X)
+            lower = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
+            upper = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
+            for i in range(self.output_dims):
+                if sigma is None:
+                    ci = torch.tensor(ci, device=config.device, dtype=config.dtype)
+                    lower[r[i],:] = mu[r[i],:] + torch.sqrt(2.0)*self.scale()[i]*torch.erfinv(2.0*ci[0] - 1.0)
+                    upper[r[i],:] = mu[r[i],:] + torch.sqrt(2.0)*self.scale()[i]*torch.erfinv(2.0*ci[1] - 1.0)
+                else:
+                    lower[r[i],:] = mu[r[i],:] - sigma*self.scale()[i]
+                    upper[r[i],:] = mu[r[i],:] + sigma*self.scale()[i]
+            return mu, lower, upper  # Nx1
 
         if sigma is None:
             ci = torch.tensor(ci, device=config.device, dtype=config.dtype)
