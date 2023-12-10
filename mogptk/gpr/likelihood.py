@@ -147,20 +147,6 @@ class Likelihood(torch.nn.Module):
         # f: NxM
         raise NotImplementedError()
 
-    def variance(self, f, X=None):
-        """
-        Calculate the variance of the likelihood.
-
-        Args:
-            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
-
-        Returns:
-            torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-        """
-        # f: NxM
-        raise NotImplementedError()
-
     def sample(self, f, X=None):
         """
         Sample from likelihood distribution.
@@ -275,14 +261,6 @@ class MultiOutputLikelihood(Likelihood):
             res[r[i],:] = self.likelihoods[i].mean(f[r[i],:])
         return res  # NxM
 
-    def variance(self, f, X=None):
-        # f: NxM
-        r = self._channel_indices(X)
-        res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
-        for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].variance(f[r[i],:])
-        return res  # NxM
-
     def sample(self, f, X=None):
         # f: nxN
         r = self._channel_indices(X)
@@ -304,26 +282,6 @@ class MultiOutputLikelihood(Likelihood):
         for i in range(self.output_dims):
             res[r[i],:], lower[r[i],:], upper[r[i],:] = self.likelihoods[i].predict(mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
         return res, lower, upper  # Nx1
-
-    # TODO: predict is not possible?
-    #def predict(self, mu, var, X=None, full=False):
-    #    # mu: Nx1
-    #    # var: Nx1 or NxN
-    #    if self.output_dims == 1:
-    #        return self.likelihoods[0].predict(mu,var,full=full)
-
-    #    r = self._channel_indices(X)
-    #    Ey = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
-    #    Eyy = torch.empty(var.shape, device=config.device, dtype=config.dtype)
-    #    if full:
-    #        for i in range(self.output_dims):
-    #            r1 = r[i].reshape(-1,1)
-    #            r2 = r[i].reshape(1,-1)
-    #            Ey[r[i],:], Eyy[r1,r2] = self.likelihoods[i].predict(mu[r[i],:], var[r1,r2], full=True)
-    #    else:
-    #        for i in range(self.output_dims):
-    #            Ey[r[i],:], Eyy[r[i],:] = self.likelihoods[i].predict(mu[r[i],:], var[r[i],:], full=False)
-    #    return Ey, Eyy-Ey.square()
 
 class GaussianLikelihood(Likelihood):
     """
@@ -361,9 +319,6 @@ class GaussianLikelihood(Likelihood):
 
     def mean(self, f, X=None):
         return f
-
-    def variance(self, f, X=None):
-        return self.scale().square()
 
     def sample(self, f, X=None):
         return torch.distributions.normal.Normal(f, scale=self.scale()).sample()
@@ -432,11 +387,6 @@ class StudentTLikelihood(Likelihood):
             return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
         return f
 
-    def variance(self, f, X=None):
-        if self.dof <= 2.0:
-            return np.nan
-        return self.scale().square() * self.dof/(self.dof-2.0)
-
     def sample(self, f, X=None):
         return torch.distributions.studentT.StudentT(self.dof, f, self.scale()).sample()
 
@@ -473,9 +423,6 @@ class ExponentialLikelihood(Likelihood):
     def mean(self, f, X=None):
         return self.link(f)
 
-    def variance(self, f, X=None):
-        return self.link(f).square()
-
     def sample(self, f, X=None):
         rate = self.link(f)
         return torch.distributions.exponential.Exponential(rate).sample()
@@ -509,9 +456,6 @@ class LaplaceLikelihood(Likelihood):
     def mean(self, f, X=None):
         return f
 
-    def variance(self, f, X=None):
-        return 2.0 * self.scale().square()
-
     def sample(self, f, X=None):
         return torch.distributions.laplace.Laplace(f, self.scale()).sample()
 
@@ -544,9 +488,6 @@ class BernoulliLikelihood(Likelihood):
 
     def mean(self, f, X=None):
         return self.link(f)
-
-    def variance(self, f, X=None):
-        return self.link(f) - self.link(f).square()
 
     def sample(self, f, X=None):
         return f
@@ -603,10 +544,6 @@ class BetaLikelihood(Likelihood):
     def mean(self, f, X=None):
         return self.link(f)
 
-    def variance(self, f, X=None):
-        mixture = self.link(f)
-        return (mixture - mixture.square()) / (self.scale() + 1.0)
-
     def sample(self, f, X=None):
         mixture = self.link(f)
         alpha = mixture * self.scale()
@@ -654,9 +591,6 @@ class GammaLikelihood(Likelihood):
     def mean(self, f, X=None):
         return self.shape()*self.link(f)
 
-    def variance(self, f, X=None):
-        return self.shape()*self.link(f).square()
-
     def sample(self, f, X=None):
         rate = 1.0/self.link(f)
         return torch.distributions.gamma.Gamma(self.shape(), rate).sample()
@@ -697,9 +631,6 @@ class PoissonLikelihood(Likelihood):
         return p  # NxM
 
     def mean(self, f, X=None):
-        return self.link(f)
-
-    def variance(self, f, X=None):
         return self.link(f)
 
     def sample(self, f, X=None):
@@ -746,11 +677,6 @@ class WeibullLikelihood(Likelihood):
     def mean(self, f, X=None):
         return f * torch.lgamma(1.0 + 1.0/self.shape()).exp()
 
-    def variance(self, f, X=None):
-        a = torch.lgamma(1.0 + 2.0/self.shape()).exp()
-        b = torch.lgamma(1.0 + 1.0/self.shape()).exp()
-        return f.square() * (a - b.square())
-
     def sample(self, f, X=None):
         scale = self.link(f)
         return torch.distributions.weibull.Weibull(scale, self.shape()).sample()
@@ -796,13 +722,6 @@ class LogLogisticLikelihood(Likelihood):
     def mean(self, f, X=None):
         return self.link(f) / torch.sinc(1.0/self.shape())
 
-    def variance(self, f, X=None):
-        if self.shape() <= 2.0:
-            return np.nan
-        a = 1.0/torch.sinc(2.0/self.shape())
-        b = 1.0/torch.sinc(1.0/self.shape())
-        return self.link(f).square() * (a - b.square())
-
     def sample(self, f, X=None):
         raise NotImplementedError()
 
@@ -841,9 +760,6 @@ class LogGaussianLikelihood(Likelihood):
     def mean(self, f, X=None):
         return torch.exp(f + 0.5*self.scale().square())
 
-    def variance(self, f, X=None):
-        return (self.scale().square().exp() - 1.0) * torch.exp(2.0*f + self.scale().square())
-
     def sample(self, f, X=None):
         return torch.distributions.log_normal.LogNormal(f, self.scale()).sample()
 
@@ -873,9 +789,6 @@ class ChiSquaredLikelihood(Likelihood):
 
     def mean(self, f, X=None):
         return f
-
-    def variance(self, f, X=None):
-        return 2.0*f
 
     def sample(self, f, X=None):
         raise NotImplementedError()
