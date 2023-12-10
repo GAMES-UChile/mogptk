@@ -239,7 +239,8 @@ class MultiOutputLikelihood(Likelihood):
         self.likelihoods = torch.nn.ModuleList(likelihoods)
 
     def name(self):
-        return '%s%s' % (self.__class__.__name__, [likelihood.name() for likelihood in self.likelihoods])
+        names = [likelihood.name() for likelihood in self.likelihoods]
+        return '%s[%s]' % (self.__class__.__name__, names.join(','))
 
     def validate_y(self, y, X=None):
         if self.output_dims == 1:

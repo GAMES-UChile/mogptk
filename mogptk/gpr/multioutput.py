@@ -18,6 +18,10 @@ class IndependentMultiOutputKernel(MultiOutputKernel):
 
     def __getitem__(self, key):
         return self.kernels[key]
+
+    def name(self):
+        names = [kernel.name() for kernel in self.kernels]
+        return '%s[%s]' % (self.__class__.__name__, names.join(','))
     
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
@@ -480,7 +484,8 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
         return self.kernels[key]
 
     def name(self):
-        return '%s%s' % (self.__class__.__name__, [kernel.name() for kernel in self.kernels])
+        names = [kernel.name() for kernel in self.kernels]
+        return '%s[%s]' % (self.__class__.__name__, names.join(','))
 
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
