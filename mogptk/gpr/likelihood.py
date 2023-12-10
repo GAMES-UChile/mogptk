@@ -202,7 +202,6 @@ class Likelihood(torch.nn.Module):
         if ci is None:
             return mu
 
-        # TODO: can we use MCMC or something more efficient?
         samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) #nxN
         samples_y = self.sample(samples_f, X=X) # nxN
         samples_y, _ = samples_y.sort(dim=0)
