@@ -7501,7 +7501,10 @@ pre{overflow-x:scroll}
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">mogptk</span>
+<span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
 </pre></div>
 </div>
 </div>
@@ -7860,10 +7863,10 @@ pre{overflow-x:scroll}
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [8]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [9]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="p">[</span><span class="s1">'Date'</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">'Date'</span><span class="p">])</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="p">[</span><span class="s1">'Date'</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">'Date'</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s1">'</span><span class="si">%d</span><span class="s1">/%m/%Y'</span><span class="p">)</span>
 <span class="n">df</span><span class="p">[</span><span class="s1">'Time'</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">'Time'</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s1">'%H.%M.%S'</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -7886,7 +7889,7 @@ pre{overflow-x:scroll}
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [9]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [10]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="n">mogptk</span><span class="o">.</span><span class="n">LoadDataFrame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">x_col</span><span class="o">=</span><span class="s1">'Date'</span><span class="p">,</span> <span class="n">y_col</span><span class="o">=</span><span class="p">[</span><span class="s1">'CO(GT)'</span><span class="p">,</span> <span class="s1">'PT08.S1(CO)'</span><span class="p">])</span>
@@ -7901,14 +7904,14 @@ pre{overflow-x:scroll}
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[9]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[10]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
 <pre>         Date  CO(GT)
-0     12694.0     2.6
-1     12694.0     2.0
-2     12694.0     2.2
-3     12694.0     2.2
-4     12694.0     1.6
+0     12487.0     2.6
+1     12487.0     2.0
+2     12487.0     2.2
+3     12487.0     2.2
+4     12487.0     1.6
 ...       ...     ...
 9352  12877.0     3.1
 9353  12877.0     2.4
@@ -7918,11 +7921,11 @@ pre{overflow-x:scroll}
 
 [9357 rows x 2 columns]
          Date  PT08.S1(CO)
-0     12694.0       1360.0
-1     12694.0       1292.0
-2     12694.0       1402.0
-3     12694.0       1376.0
-4     12694.0       1272.0
+0     12487.0       1360.0
+1     12487.0       1292.0
+2     12487.0       1402.0
+3     12487.0       1376.0
+4     12487.0       1272.0
 ...       ...          ...
 9352  12877.0       1314.0
 9353  12877.0       1163.0
@@ -7951,7 +7954,7 @@ pre{overflow-x:scroll}
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [10]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [11]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mogptk</span><span class="o">.</span><span class="n">LoadDataFrame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">x_col</span><span class="o">=</span><span class="p">[</span><span class="s1">'Date'</span><span class="p">,</span> <span class="s1">'Time'</span><span class="p">],</span> <span class="n">y_col</span><span class="o">=</span><span class="s1">'NMHC(GT)'</span><span class="p">))</span>
@@ -7965,14 +7968,14 @@ pre{overflow-x:scroll}
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[10]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[11]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
 <pre>         Date  CO(GT)
-0     12694.0     2.6
-1     12694.0     2.0
-2     12694.0     2.2
-3     12694.0     2.2
-4     12694.0     1.6
+0     12487.0     2.6
+1     12487.0     2.0
+2     12487.0     2.2
+3     12487.0     2.2
+4     12487.0     1.6
 ...       ...     ...
 9352  12877.0     3.1
 9353  12877.0     2.4
@@ -7982,11 +7985,11 @@ pre{overflow-x:scroll}
 
 [9357 rows x 2 columns]
          Date  PT08.S1(CO)
-0     12694.0       1360.0
-1     12694.0       1292.0
-2     12694.0       1402.0
-3     12694.0       1376.0
-4     12694.0       1272.0
+0     12487.0       1360.0
+1     12487.0       1292.0
+2     12487.0       1402.0
+3     12487.0       1376.0
+4     12487.0       1272.0
 ...       ...          ...
 9352  12877.0       1314.0
 9353  12877.0       1163.0
@@ -7996,11 +7999,11 @@ pre{overflow-x:scroll}
 
 [9357 rows x 2 columns]
          Date      Time  NMHC(GT)
-0     12694.0 -613590.0     150.0
-1     12694.0 -613589.0     112.0
-2     12694.0 -613588.0      88.0
-3     12694.0 -613587.0      80.0
-4     12694.0 -613586.0      51.0
+0     12487.0 -613590.0     150.0
+1     12487.0 -613589.0     112.0
+2     12487.0 -613588.0      88.0
+3     12487.0 -613587.0      80.0
+4     12487.0 -613586.0      51.0
 ...       ...       ...       ...
 9352  12877.0 -613598.0    -200.0
 9353  12877.0 -613597.0    -200.0
@@ -8018,7 +8021,7 @@ pre{overflow-x:scroll}
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [11]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [12]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># How many channels do we have?</span>
@@ -8033,7 +8036,7 @@ pre{overflow-x:scroll}
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[11]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[12]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
 <pre>3</pre>
 </div>
@@ -8045,7 +8048,7 @@ pre{overflow-x:scroll}
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [12]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [13]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># And how many input dimensions do each of these channels have?</span>
@@ -8060,7 +8063,7 @@ pre{overflow-x:scroll}
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[12]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[13]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
 <pre>[1, 1, 2]</pre>
 </div>
@@ -8072,7 +8075,7 @@ pre{overflow-x:scroll}
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [13]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [14]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># What are the channel's names?</span>
@@ -8087,7 +8090,7 @@ pre{overflow-x:scroll}
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[13]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[14]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
 <pre>['CO(GT)', 'PT08.S1(CO)', 'NMHC(GT)']</pre>
 </div>
@@ -8110,7 +8113,7 @@ pre{overflow-x:scroll}
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [14]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [15]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -8124,14 +8127,14 @@ pre{overflow-x:scroll}
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[14]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[15]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
 <pre>         Date  CO(GT)
-0     12694.0     2.6
-1     12694.0     2.0
-2     12694.0     2.2
-3     12694.0     2.2
-4     12694.0     1.6
+0     12487.0     2.6
+1     12487.0     2.0
+2     12487.0     2.2
+3     12487.0     2.2
+4     12487.0     1.6
 ...       ...     ...
 9352  12877.0     3.1
 9353  12877.0     2.4
@@ -8149,7 +8152,7 @@ pre{overflow-x:scroll}
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [15]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [16]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span><span class="p">[</span><span class="s1">'CO(GT)'</span><span class="p">]</span>
@@ -8163,14 +8166,14 @@ pre{overflow-x:scroll}
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[15]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[16]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
 <pre>         Date  CO(GT)
-0     12694.0     2.6
-1     12694.0     2.0
-2     12694.0     2.2
-3     12694.0     2.2
-4     12694.0     1.6
+0     12487.0     2.6
+1     12487.0     2.0
+2     12487.0     2.2
+3     12487.0     2.2
+4     12487.0     1.6
 ...       ...     ...
 9352  12877.0     3.1
 9353  12877.0     2.4
@@ -8199,7 +8202,7 @@ pre{overflow-x:scroll}
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [16]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [17]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span><span class="o">.</span><span class="n">get_train_data</span><span class="p">()</span>
@@ -8213,32 +8216,32 @@ pre{overflow-x:scroll}
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[16]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[17]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>([Serie([[12694.],
-         [12694.],
-         [12694.],
+<pre>([array([[12487.],
+         [12487.],
+         [12487.],
          ...,
          [12877.],
          [12877.],
          [12877.]]),
-  Serie([[12694.],
-         [12694.],
-         [12694.],
+  array([[12487.],
+         [12487.],
+         [12487.],
          ...,
          [12877.],
          [12877.],
          [12877.]]),
-  Serie([[  12694., -613590.],
-         [  12694., -613589.],
-         [  12694., -613588.],
+  array([[  12487., -613590.],
+         [  12487., -613589.],
+         [  12487., -613588.],
          ...,
          [  12877., -613596.],
          [  12877., -613595.],
          [  12877., -613594.]])],
- [Serie([2.6, 2. , 2.2, ..., 2.4, 2.1, 2.2]),
-  Serie([1360., 1292., 1402., ..., 1142., 1003., 1071.]),
-  Serie([ 150.,  112.,   88., ..., -200., -200., -200.])])</pre>
+ [array([2.6, 2. , 2.2, ..., 2.4, 2.1, 2.2]),
+  array([1360., 1292., 1402., ..., 1142., 1003., 1071.]),
+  array([ 150.,  112.,   88., ..., -200., -200., -200.])])</pre>
 </div>
 </div>
 </div>
@@ -8259,7 +8262,7 @@ pre{overflow-x:scroll}
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [17]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [18]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span><span class="o">.</span><span class="n">get_train_data</span><span class="p">(</span><span class="n">transformed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -8273,25 +8276,25 @@ pre{overflow-x:scroll}
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[17]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[18]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>([Serie([[12694.],
-         [12694.],
-         [12694.],
+<pre>([array([[12487.],
+         [12487.],
+         [12487.],
          ...,
          [12877.],
          [12877.],
          [12877.]]),
-  Serie([[12694.],
-         [12694.],
-         [12694.],
+  array([[12487.],
+         [12487.],
+         [12487.],
          ...,
          [12877.],
          [12877.],
          [12877.]]),
-  Serie([[  12694., -613590.],
-         [  12694., -613589.],
-         [  12694., -613588.],
+  array([[  12487., -613590.],
+         [  12487., -613589.],
+         [  12487., -613588.],
          ...,
          [  12877., -613596.],
          [  12877., -613595.],
