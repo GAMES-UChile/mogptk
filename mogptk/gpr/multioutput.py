@@ -479,6 +479,9 @@ class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
     def __getitem__(self, key):
         return self.kernels[key]
 
+    def name(self):
+        return '%s%s' % (self.__class__.__name__, [kernel.name() for kernel in self.kernels])
+
     def Ksub(self, i, j, X1, X2=None):
         # X has shape (data_points,input_dims)
         X1, X2 = self._active_input(X1, X2)

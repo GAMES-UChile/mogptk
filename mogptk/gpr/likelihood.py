@@ -202,11 +202,9 @@ class Likelihood(torch.nn.Module):
         if ci is None:
             return mu
 
-        # TODO: naive way of estimating the quantiles, can we use MCMC or something more efficient?
-        # TODO: is this correct???
+        # TODO: can we use MCMC or something more efficient?
         samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) #nxN
         samples_y = self.sample(samples_f, X=X) # nxN
-        #samples_y = self.sample(mu.T.repeat(n,1), X=X) # nxN
         samples_y, _ = samples_y.sort(dim=0)
         lower = int(ci[0]*n + 0.5)
         upper = int(ci[1]*n + 0.5)

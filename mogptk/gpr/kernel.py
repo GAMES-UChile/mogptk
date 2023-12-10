@@ -218,7 +218,7 @@ class Kernels(Kernel):
             self.output_dims = output_dims[0]  # they are all equal
 
     def name(self):
-        return '%s.%s' % (self.__class__.__name__, self.kernels[0].name())
+        return '%s%s' % (self.__class__.__name__, [kernel.name() for kernel in self.kernels])
 
     def __getitem__(self, key):
         return self.kernels[key]
