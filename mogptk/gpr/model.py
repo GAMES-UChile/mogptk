@@ -340,7 +340,7 @@ class Model(torch.nn.Module):
             if ci is None and sigma is not None:
                 p = 0.5*(1.0 + float(torch.erf(torch.tensor(sigma/np.sqrt(2.0)))))
                 ci = [1.0-p, p]
-            mu = self.likelihood.predict(mu, var, ci, sigma=sigma, n=n, X=X)
+            mu = self.likelihood.predict(X, mu, var, ci, sigma=sigma, n=n)
             return mu
 
     def sample_f(self, Z, n=None, prior=False):
@@ -603,7 +603,7 @@ class OpperArchambeau(Model):
 
         if self.mean is not None:
             qf_mu = qf_mu - self.mean(self.X).reshape(-1,1)  # Sx1
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+        var_exp = self.likelihood.variational_expectation(self.X, y, qf_mu, qf_var_diag)
 
         #eye = torch.eye(q_lambda.shape[0], device=config.device, dtype=config.dtype)
         #qf_var = (1.0/q_lambda.square())*eye - invL.T.mm(invL)/q_lambda/q_lambda.T
@@ -812,7 +812,7 @@ class SparseHensman(Model):
             qf_sqrt = Lff.mm(self.q_sqrt().tril())
             qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
 
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+        var_exp = self.likelihood.variational_expectation(self.X, y, qf_mu, qf_var_diag)
         kl = self.kl_gaussian(self.q_mu(), self.q_sqrt())
         return var_exp - kl
 
