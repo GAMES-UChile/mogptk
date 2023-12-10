@@ -851,19 +851,19 @@ class Model:
                 if transformed:
                     y = data.Y_transformer.forward(y, x)
 
-                ax[j,0].plot(x, y, 'r--', lw=1)
-                legends.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent'))
+                ax[j,0].plot(x, y, 'g--', lw=1)
+                legends.append(plt.Line2D([0], [0], ls='--', color='g', label='Latent'))
 
             if data.has_test_data():
                 x, y = data.get_test_data(transformed=transformed)
                 x = x.astype(data.X_dtypes[0])
-                ax[j,0].plot(x, y, 'g.', ms=10)
-                legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Test data'))
+                ax[j,0].plot(x, y, 'r.', ms=10)
+                legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Test data'))
 
             x, y = data.get_train_data(transformed=transformed)
             x = x.astype(data.X_dtypes[0])
-            ax[j,0].plot(x, y, 'r.', ms=10)
-            legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Train data'))
+            ax[j,0].plot(x, y, 'k.', ms=10)
+            legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Train data'))
 
             if 0 < len(data.removed_ranges[0]):
                 for removed_range in data.removed_ranges[0]:

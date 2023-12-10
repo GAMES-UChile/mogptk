@@ -654,6 +654,31 @@ class Data:
         for i in range(len(self.removed_ranges)):
             self.removed_ranges[i] = []
         self.X_pred = None
+
+    def remove(self, n=None, pct=None):
+        """
+        Removes observations on the whole range. Either `n` observations are removed, or a percentage of the observations. In contrast to remove_randomly, this removes deterministically and is basically a cheap way to do subsampling.
+
+        Args:
+            n (int): Number of observations to remove.
+            pct (float): Percentage in interval [0,1] of observations to remove.
+
+        Examples:
+            >>> data.remove_randomly(50) # remove 50 observations
+
+            >>> data.remove_randomly(pct=0.9) # remove 90% of the observations
+        """
+        if n is None:
+            if pct is None:
+                n = 0
+            else:
+                n = int(pct * len(self.Y))
+        elif not isinstance(n, int) or isinstance(n, float) and not n.is_integer():
+            raise ValueError('n must be an integer')
+
+        idx = torch.linspace(0, len(self.Y)-1, n) + 0.1
+        idx = idx.to(torch.int64)
+        self.mask[idx] = False
     
     def remove_randomly(self, n=None, pct=None):
         """
@@ -1113,19 +1138,19 @@ class Data:
             if transformed:
                 y = self.Y_transformer.forward(y, x)
 
-            ax.plot(x, y, 'r--', lw=1)
-            legends.append(plt.Line2D([0], [0], ls='--', color='r', label='Latent'))
+            ax.plot(x, y, 'g--', lw=1)
+            legends.append(plt.Line2D([0], [0], ls='--', color='g', label='Latent'))
 
         if self.has_test_data():
             x, y = self.get_test_data(transformed=transformed)
             x = x.astype(self.X_dtypes[0])
-            ax.plot(x, y, 'g.', ms=10)
-            legends.append(plt.Line2D([0], [0], ls='', color='g', marker='.', ms=10, label='Test data'))
+            ax.plot(x, y, 'r.', ms=10)
+            legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Test data'))
 
         x, y = self.get_train_data(transformed=transformed)
         x = x.astype(self.X_dtypes[0])
-        ax.plot(x, y, 'r.', ms=10)
-        legends.append(plt.Line2D([0], [0], ls='', color='r', marker='.', ms=10, label='Train data'))
+        ax.plot(x, y, 'k.', ms=10)
+        legends.append(plt.Line2D([0], [0], ls='', color='k', marker='.', ms=10, label='Train data'))
 
         if 0 < len(self.removed_ranges[0]):
             for removed_range in self.removed_ranges[0]:
