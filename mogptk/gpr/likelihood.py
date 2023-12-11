@@ -446,10 +446,17 @@ class ExponentialLikelihood(Likelihood):
             p = -y/self.link(f) - self.link(f).log()
         return p  # NxQ
 
+    def variational_expectation(self, X, y, mu, var):
+        # y,mu,var: Nx1
+        if self.link != exp:
+            super().variational_expectation(X, y, mu, var)
+
+        p = -mu - y * torch.exp(var/2.0 - mu)
+        return p.sum()
+
     def conditional_mean(self, X, f):
         return self.link(f)
 
-    #TODO: implement variational_expectation
     #TODO: implement predict?
 
     def conditional_sample(self, X, f):
