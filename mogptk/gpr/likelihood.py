@@ -670,10 +670,16 @@ class PoissonLikelihood(Likelihood):
         p -= self.link(f)
         return p  # NxQ
 
+    def variational_expectation(self, X, y, mu, var):
+        # y,mu,var: Nx1
+        if self.link != exp:
+            super().variational_expectation(X, y, mu, var)
+
+        p = y*mu - torch.exp(var/2.0 + mu) - torch.lgamma(y+1.0)
+        return p.sum()
+
     def conditional_mean(self, X, f):
         return self.link(f)
-
-    #TODO: implement variational_expectation
 
     def conditional_sample(self, X, f):
         if self.link != exp:
