@@ -167,11 +167,11 @@ class Likelihood(torch.nn.Module):
             f (torch.tensor): Posterior values for f of shape (data_points,quadratures).
 
         Returns:
-            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,quadratures).
         """
         raise NotImplementedError()
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         """
         Sample from likelihood distribution.
 
@@ -203,17 +203,17 @@ class Likelihood(torch.nn.Module):
             n (int): Number of samples used from distribution to estimate quantile.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-            torch.tensor: Lower confidence boundary of shape (data_points,).
-            torch.tensor: Upper confidence boundary of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,1).
+            torch.tensor: Lower confidence boundary of shape (data_points,1).
+            torch.tensor: Upper confidence boundary of shape (data_points,1).
         """
         # mu,var: Nx1
         mu = self.quadrature(mu, var, lambda f: self.conditional_mean(X,f))
         if ci is None:
             return mu
 
-        samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) # nxN
-        samples_y = self.sample(X, samples_f) # nxN
+        samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) # nxNx1
+        samples_y = self.conditional_sample(X, samples_f) # nxNx1
         if samples_y is None:
             return mu, mu, mu
         samples_y, _ = samples_y.sort(dim=0)
@@ -287,11 +287,11 @@ class MultiOutputLikelihood(Likelihood):
             res[r[i],:] = self.likelihoods[i].conditional_mean(X, f[r[i],:])
         return res  # NxQ
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         # f: nxN
         r = self._channel_indices(X)
         for i in range(self.output_dims):
-            f[:,r[i]] = self.likelihoods[i].sample(X, f[:,r[i]])
+            f[:,r[i]] = self.likelihoods[i].conditional_sample(X, f[:,r[i]])
         return f  # nxN
 
     def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
@@ -318,7 +318,7 @@ class GaussianLikelihood(Likelihood):
     with \\(\\sigma\\) the scale.
 
     Args:
-        scale (float): Scale.
+        scale (float,torch.tensor): Scale as float or as tensor of shape (output_dims,) when considering a multi-output Gaussian likelihood.
 
     Attributes:
         scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
@@ -345,36 +345,36 @@ class GaussianLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return f
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         return torch.distributions.normal.Normal(f, scale=self.scale()).sample()
 
     def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
-        # TODO: doesn't use var
         if ci is None and sigma is None:
             return mu
 
         if self.output_dims is not None:
-            # TODO: ugly
+            var = self.scale()**2
             r = self._channel_indices(X)
             lower = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
             upper = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
             for i in range(self.output_dims):
                 if sigma is None:
                     ci = torch.tensor(ci, device=config.device, dtype=config.dtype)
-                    lower[r[i],:] = mu[r[i],:] + torch.sqrt(2.0)*self.scale()[i]*torch.erfinv(2.0*ci[0] - 1.0)
+                    lower[r[i],:] = mu[r[i],:] + torch.sqrt(2.0*var[i])*self.scale()[i]*torch.erfinv(2.0*ci[0] - 1.0)
                     upper[r[i],:] = mu[r[i],:] + torch.sqrt(2.0)*self.scale()[i]*torch.erfinv(2.0*ci[1] - 1.0)
                 else:
                     lower[r[i],:] = mu[r[i],:] - sigma*self.scale()[i]
                     upper[r[i],:] = mu[r[i],:] + sigma*self.scale()[i]
             return mu, lower, upper  # Nx1
 
+        var += self.scale()**2
         if sigma is None:
             ci = torch.tensor(ci, device=config.device, dtype=config.dtype)
-            lower = mu + torch.sqrt(2.0)*self.scale()*torch.erfinv(2.0*ci[0] - 1.0)
-            upper = mu + torch.sqrt(2.0)*self.scale()*torch.erfinv(2.0*ci[1] - 1.0)
+            lower = mu + torch.sqrt(2.0*var)*torch.erfinv(2.0*ci[0] - 1.0)
+            upper = mu + torch.sqrt(2.0*var)*torch.erfinv(2.0*ci[1] - 1.0)
         else:
-            lower = mu - sigma*self.scale()
-            upper = mu + sigma*self.scale()
+            lower = mu - sigma*var.sqrt()
+            upper = mu + sigma*var.sqrt()
         return mu, lower, upper
 
 class StudentTLikelihood(Likelihood):
@@ -412,7 +412,9 @@ class StudentTLikelihood(Likelihood):
             return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
         return f
 
-    def sample(self, X, f):
+    # TODO: implement predict for certain values of dof
+
+    def conditional_sample(self, X, f):
         return torch.distributions.studentT.StudentT(self.dof, f, self.scale()).sample()
 
 class ExponentialLikelihood(Likelihood):
@@ -447,10 +449,10 @@ class ExponentialLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.link(f)
 
-    #TODO: has tractable var exp?
-    #TODO: can impl predict?
+    #TODO: implement variational_expectation
+    #TODO: implement predict?
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         if self.link != exp:
             raise ValueError("only exponential link function is supported")
         rate = 1.0/self.link(f)
@@ -484,7 +486,9 @@ class LaplaceLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return f
 
-    def sample(self, X, f):
+    #TODO: implement predict
+
+    def conditional_sample(self, X, f):
         return torch.distributions.laplace.Laplace(f, self.scale()).sample()
 
 class BernoulliLikelihood(Likelihood):
@@ -499,8 +503,8 @@ class BernoulliLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     """
-    def __init__(self, link=inv_probit, quadratures=20):
-        super().__init__(quadratures)
+    def __init__(self, link=inv_probit):
+        super().__init__()
         self.link = link
 
     def validate_y(self, X, y):
@@ -516,7 +520,7 @@ class BernoulliLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.link(f)
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         return None
 
     def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
@@ -570,7 +574,7 @@ class BetaLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.link(f)
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         if self.link != inv_probit:
             raise ValueError("only inverse probit link function is supported")
         mixture = self.link(f)
@@ -618,9 +622,9 @@ class GammaLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.shape()*self.link(f)
 
-    # TODO: the variational_expectation is tractable?
+    #TODO: implement variational_expectation
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         if self.link != exp:
             raise ValueError("only exponential link function is supported")
         rate = 1.0/self.link(f)
@@ -662,9 +666,9 @@ class PoissonLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.link(f)
 
-    #TODO: has tractable var exp?
+    #TODO: implement variational_expectation
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         if self.link != exp:
             raise ValueError("only exponential link function is supported")
         rate = self.link(f)
@@ -709,7 +713,7 @@ class WeibullLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.link(f) * torch.lgamma(1.0 + 1.0/self.shape()).exp()
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         if self.link != exp:
             raise ValueError("only exponential link function is supported")
         scale = self.link(f)
@@ -755,7 +759,7 @@ class LogLogisticLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.link(f) / torch.sinc(1.0/self.shape())
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         if self.link != exp:
             raise ValueError("only exponential link function is supported")
         return log_logistic_distribution(f, 1.0/self.shape()).sample().log()
@@ -794,7 +798,10 @@ class LogGaussianLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return torch.exp(f + 0.5*self.scale().square())
 
-    def sample(self, X, f):
+    #TODO: implement variational_expectation?
+    #TODO: implement predict
+
+    def conditional_sample(self, X, f):
         return torch.distributions.log_normal.LogNormal(f, self.scale()).sample().log()
 
 class ChiSquaredLikelihood(Likelihood):
@@ -827,7 +834,8 @@ class ChiSquaredLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.link(f)
 
-    def sample(self, X, f):
+    def conditional_sample(self, X, f):
         if self.link != exp:
             raise ValueError("only exponential link function is supported")
         return torch.distributions.chi2.Chi2(self.link(f)).sample().log()
+

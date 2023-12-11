@@ -122,7 +122,6 @@ class ConstantMean(Mean):
     """
     def __init__(self):
         super().__init__()
-
         self.bias = Parameter(0.0)
 
     def mean(self, X):
@@ -145,7 +144,6 @@ class LinearMean(Mean):
     """
     def __init__(self, input_dims=1):
         super().__init__()
-
         self.bias = Parameter(0.0)
         self.slope = Parameter(torch.zeros(input_dims))
 

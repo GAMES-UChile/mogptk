@@ -295,11 +295,11 @@ class Model(torch.nn.Module):
         Evaluate kernel at `X1` and `X2` and return the NumPy representation.
 
         Args:
-            X1 (torch.tensor): Input of shape (data_points0,input_dims).
-            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+            X1 (torch.tensor): Input of shape (data_points1,input_dims).
+            X2 (torch.tensor): Input of shape (data_points2,input_dims).
 
         Returns:
-            numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
+            numpy.ndarray: Kernel matrix of shape (data_points1,data_points2).
         """
         with torch.inference_mode():
             return self.kernel(X1, X2)
@@ -313,8 +313,8 @@ class Model(torch.nn.Module):
             full (bool): Return the full variance matrix as opposed to the diagonal.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior of shape (data_points,).
-            torch.tensor: Variance of the predictive posterior of shape (data_points,) or (data_points,data_points).
+            torch.tensor: Mean of the predictive posterior of shape (data_points,1).
+            torch.tensor: Variance of the predictive posterior of shape (data_points,1) or (data_points,data_points).
         """
         raise NotImplementedError()
 
@@ -329,9 +329,9 @@ class Model(torch.nn.Module):
             n (int): Number of samples used from distribution to estimate quantile.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior of shape (data_points,).
-            torch.tensor: Lower confidence boundary of the predictive posterior of shape (data_points,).
-            torch.tensor: Upper confidence boundary of the predictive posterior of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior of shape (data_points,1).
+            torch.tensor: Lower confidence boundary of the predictive posterior of shape (data_points,1).
+            torch.tensor: Upper confidence boundary of the predictive posterior of shape (data_points,1).
         """
         with torch.inference_mode():
             X = self._check_input(X)  # MxD
@@ -344,7 +344,7 @@ class Model(torch.nn.Module):
 
     def sample_f(self, Z, n=None, prior=False):
         """
-        Sample from model.
+        Sample f values from model.
 
         Args:
             Z (torch.tensor): Input of shape (data_points,input_dims).
@@ -352,7 +352,7 @@ class Model(torch.nn.Module):
             prior (boolean): Sample from prior instead of posterior.
 
         Returns:
-            torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
+            torch.tensor: Samples of shape (data_points,n) or (data_points,) if `n` is not given.
         """
         with torch.inference_mode():
             Z = self._check_input(Z)  # MxD
@@ -390,7 +390,7 @@ class Exact(Model):
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
         variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.
-        data_variance (torch.tensor): Assign different and fixed variances per data point. These are added to the kernel's diagonal while still training an additional Gaussian variance.
+        data_variance (torch.tensor): Assign different and fixed variances per data point of shape (data_points,). These are added to the kernel's diagonal while still training an additional Gaussian variance.
         jitter (float): Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
     """

@@ -636,6 +636,7 @@ class Model:
             ci = [ci, 1.0-ci]
         if ci is not None:
             ci = [max(0.0, ci[0]), min(1.0, ci[1])]
+
         mu, lower, upper = self.gpr.predict_y(x, ci, sigma=sigma, n=n)
         mu = mu.cpu().numpy()
         lower = lower.cpu().numpy()
@@ -699,8 +700,7 @@ class Model:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            list: samples of shape len(X) for each channel if n is given.
-            numpy.ndarray: sample of shape len(X) for each channel if n is None.
+            numpy.ndarray,list: samples for each channel of shape (data_points,n) or (data_points,). Returns a list when there is more than one channel.
 
         Examples:
             >>> model.sample(n=10)
