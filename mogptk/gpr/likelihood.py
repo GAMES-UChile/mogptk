@@ -421,7 +421,7 @@ class ExponentialLikelihood(Likelihood):
     """
     Exponential likelihood given by
 
-    $$ p(y|f) = h(f) e^{-h(f)y} $$
+    $$ p(y|f) = 1/h(f) e^{-y/h(f)} $$
 
     with \\(h\\) the link function and \\(y \\in [0.0,\\infty)\\).
 
@@ -492,6 +492,13 @@ class LaplaceLikelihood(Likelihood):
 
     def conditional_mean(self, X, f):
         return f
+
+    #def variational_expectation(self, X, y, mu, var):
+    #    # TODO: doesn't seem right
+    #    # y,mu,var: Nx1
+    #    p = -y/self.scale() + mu/self.scale() - torch.log(2.0*self.scale())
+    #    p += torch.sqrt(2.0*var/np.pi)/self.scale()
+    #    return p.sum()
 
     #TODO: implement predict
 
