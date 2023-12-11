@@ -7,3 +7,7 @@ dist/
 mogptk.egg-info/
 examples/test*
 examples/experiments
+*.aux
+*.fdb_latexmk
+*.fls
+*.log

@@ -1,0 +1,634 @@
+\documentclass[5p,11pt]{article}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\title{MOGPTK notes}
+\author{Taco de Wolff}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+\subsection{Notation}
+We state that
+$$ y = f(\bm{x}) + \epsilon$$
+with
+$$\epsilon \sim \mathcal{N}(0,\sigma^2)$$
+where
+$$ f(\bm{x}) \sim \mathcal{GP}(m(\bm{x}), K(\bm{x},\bm{x}')) $$
+
+We write $K_{ab} = K(a,b)$ and (for inducing point models) $Q_{ab} = K_{au}K_{uu}^{-1}K_{ub}$ with $u$ the inducing points.
+
+\subsection{Bayes' theorem}
+Bayes' theorem states that
+$$ p(\bm{f}|\bm{y}) = \frac{p(\bm{y}|\bm{f}) p(\bm{f})}{p(\bm{y})}$$
+with $p(\bm{y}|\bm{f})$ the likelihood and $p(\bm{y}$ the evidence or marginal likelihood.
+\begin{equation}
+\label{eq:marginal_likelihood}
+p(\bm{y}) = \int p(\bm{y}|\bm{f}) p(\bm{f}) df
+\end{equation}
+
+\subsection{Matrix inversion lemma}
+$$ (Z+UWV^T)^{-1} = Z^{-1} - Z^{-1}U(W^{-1} + V^TZ^{-1}U)^{-1}V^TZ^{-1} $$
+
+\subsection{Matrix determinant lemma}
+$$ |Z+UWV^T| = |W^{-1} + V^TZ^{-1}U|\;|W|\;|Z| $$
+
+\subsection{Gaussian linear transformation}
+\begin{equation}
+\label{eq:gauss_linear}
+    \begin{aligned}
+&\int \mathcal{N}(\bm{y}|A\bm{z}, B) \cdot \mathcal{N}(\bm{z}|\bm{\mu},\; \Sigma) d\bm{z}\\
+&= \int \mathcal{N}(\bm{y}|A\bm{\mu},\; A\Sigma A^T + B) \cdot \mathcal{N}(\bm{z}|\bm{\mu},\; \Sigma) d\bm{z}\\
+&= \mathcal{N}(\bm{y}|A\bm{\mu},\; A\Sigma A^T + B)
+    \end{aligned}
+\end{equation}
+
+\subsection{Marginal Gaussian properties}
+Given the joint Gaussian distribution
+\begin{equation}
+\begin{bmatrix}\bm{x}\\ \bm{y}\end{bmatrix} \sim \mathcal{N}\left(\begin{bmatrix}\bm{\mu}_x\\ \bm{\mu}_y\end{bmatrix}, \begin{bmatrix}A & C\\C^T & B\end{bmatrix} \right)
+\end{equation}
+we have
+\begin{equation}
+\label{eq:marginal_gauss}
+    \begin{aligned}
+    \bm{x} &\sim \mathcal{N}(\bm{\mu}_x,\; A) \\
+    \bm{x}|\bm{y} &\sim \mathcal{N}(\bm{\mu}_x + CB^{-1}(\bm{y}-\bm{\mu}_y),\; A-CB^{-1}C^T) \\
+    \bm{y}|\bm{x} &\sim \mathcal{N}(\bm{\mu}_y + C^TA^{-1}(\bm{x}-\bm{\mu}_x),\; B-C^TA^{-1}C)
+    \end{aligned}
+\end{equation}
+
+As stated by Bishop page 93, this is equivalent to given
+\begin{equation}
+%\label{eq:marginal_gauss}
+    \begin{aligned}
+\bm{x} &\sim \mathcal{N}(\bm{x}|\bm{\mu}_x,\; A) \\
+\bm{y}|\bm{x} &\sim \mathcal{N}(\bm{y}|Z\bm{x}+\bm{z},\; L)     \end{aligned}
+\end{equation}
+then
+\begin{equation}
+    \begin{aligned}
+\bm{y} &\sim \mathcal{N}(\bm{y}|Z\bm{\mu}_x+\bm{z},\; L + ZAZ^T) \\
+\bm{x}|\bm{y} &\sim \mathcal{N}(\bm{x}|\Sigma (Z^TL^{-1}(\bm{y}-\bm{z}) + A^{-1}\bm{\mu}_x),\; \Sigma)
+    \end{aligned}
+\end{equation}
+with
+$$\Sigma = (A^{-1} + Z^TL^{-1}Z)^{-1}$$
+
+\subsection{Kullback-Leibler}
+For $\mathrm{KL}(Q\;||\;P)$ where $Q$ and $P$ are both Gaussian
+$$ Q \sim \mathcal{N}(\bm{\mu}_q,\; \Sigma_q) \;\;\;\;\;\;\;\; P \sim \mathcal{N}(\bm{\mu}_p,\; \Sigma_p) $$
+the Kullback-Leibler divergences reduces down to
+\begin{equation}
+    \begin{aligned}
+    \mathrm{KL}(Q\;||\;P) &= \frac{1}{2}\left( \mathrm{Tr}(\Sigma_p^{-1}\Sigma_q) + (\bm{\mu}_p - \bm{\mu}_q)^T\Sigma_p^{-1}(\bm{\mu}_p - \bm{\mu}_q) - k + \log \frac{|\Sigma_p|}{|\Sigma_q|} \right)
+    \end{aligned}
+\end{equation}
+where $k$ is the dimension of the distributions.
+
+Note that if we have $L_pL_p^T = \Sigma_p$ and $L_qL_q^T = \Sigma_q$, then we can rewrite the trace as
+$$ \mathrm{Tr}(\Sigma_p^{-1}\Sigma_q) = \mathrm{Tr}\left((L_p^{-1}L_q)^{\circ2}\right) $$
+where $A^{\circ2}$ is the element-wise square of matrix $A$. Also note that $|\Sigma_p| = |L_pL_p^T| = |L_p|\;|L_p^T| = |L_p|^2$.
+
+\subsection{Gaussian quadratures}
+Using Gauss-Hermite quadratures, we can approximate infinite integrals as sums of $m$ terms, where $m$ can be chosen. Higher $m$ will be a more accurate approximation but more costly to calculate. We can state that
+$$ \int g(x) e^{-x^2} dx \approx \sum_{j=1}^m w_j g(t_j) $$
+where position $\bm{t}$ and weight $\bm{w}$ are specific to an nth-degree quadrature.
+
+\subsection{Integrals}
+$$ \int_{-\infty}^\infty x e^{-ax^2} dx = 0 $$
+
+$$ \int_{-\infty}^\infty e^{-(ax^2 + bx +c)} dx = \sqrt{\frac{\pi}{a}} e^{\frac{b^2}{4a} - c} $$
+
+$$ \int_0^\infty x^n e^{-ax^2} dx = \frac{\Gamma\left(\frac{n+1}{2}\right)}{2\left(a^{\frac{n+1}{2}}\right)} $$
+
+$$ \int_0^\infty x e^{-ax^2} dx = \frac{1}{2a} $$
+
+
+\newpage
+\section{Exact}
+Using a Gaussian likelihood and a prior
+\begin{equation}
+    \begin{aligned}
+    \bm{y}|\bm{f} &\sim \mathcal{N}(\bm{f},\;\sigma^2I) \\
+    \bm{f} &\sim \mathcal{N}(\bm{0},\;K_{ff}),
+    \end{aligned}
+\end{equation}
+the marginal likelihood of Eq.~\ref{eq:marginal_likelihood} is tractable. Using Eq.~\ref{eq:marginal_gauss} we obtain
+$$ \bm{y} \sim \mathcal{N}(\bm{0},K_{ff}+\sigma^2I) $$
+
+\paragraph{Objective}
+Maximize log marginal likelihood:
+$$ \log p(\bm{y}) = -\frac{1}{2}\bm{y}^T(K_{ff}+\sigma^2I)^{-1}\bm{y}-\frac{1}{2}\log |K_{ff}+\sigma^2I| - \frac{n}{2}\log 2 \pi $$
+
+\paragraph{Prediction} Given the noisy joint distribution
+\begin{equation}
+\begin{bmatrix}\bm{y}\\ \bm{f_*}\end{bmatrix} \sim \mathcal{N}\left(\bm{0}, \begin{bmatrix}K_{ff}+\sigma^2I & K_{f*}\\K_{*f} & K_{**}\end{bmatrix} \right)
+\end{equation}
+with the predictive distribution defined as
+$$ \bm{f}_*|\bm{y} \sim \mathcal{N}(K_{*f}(K_{ff}+\sigma^2I)^{-1}\bm{y},\; K_{**}-K_{*f}(K_{ff}+\sigma^2I)^{-1}K_{f*}) $$
+
+We can verify the non-diagonal terms by noting that $cov(\bm{y},\bm{f}_*) = cov(\bm{f},\bm{f}_*) = K_{f*}$.
+
+\newpage
+\section{Titsias}
+We propose a set of induction points $\bm{u}$ at locations $Z$ and write the (augmented) joint model as
+$$ p(\bm{y},\bm{f},\bm{u}) = p(\bm{y}|\bm{f},\bm{u}) p(\bm{f}|\bm{u}) p(\bm{u}) $$
+which is equivalent to our exact model by marginalizing out $\bm{u}$. Assuming that $\bm{u}$ is a sufficient statistic for $\bm{f}$ such that $\bm{y}$ and $\bm{u}$ and independent, we obtain $ p(\bm{y}|\bm{f},\bm{u}) \approx p(\bm{y}|\bm{f})$ with
+$$ \bm{y}|\bm{f} \sim \mathcal{N}(\bm{f},\; \sigma^2I) $$
+with the inducing prior as
+$$ \bm{u} \sim \mathcal{N}(\bm{0},\; K_{uu}) $$
+
+We can write the joint Gaussian model as
+\begin{equation}
+\begin{bmatrix}\bm{y}\\ \bm{f}\\ \bm{u}\end{bmatrix} \sim \mathcal{N}\left(\bm{0}, \begin{bmatrix}K_{ff}+\sigma^2I & K_{ff} & K_{fu}\\ K_{ff} & K_{ff} & K_{fu}\\ K_{uf} & K_{uf} & K_{uu}\end{bmatrix} \right)
+\end{equation}
+and it follows using Eq.~\ref{eq:marginal_gauss} that
+$$ \bm{f}|\bm{u} \sim \mathcal{N}(K_{fu}K_{uu}^{-1}\bm{u},\; K_{ff}-K_{fu}K_{uu}^{-1}K_{uf}) $$
+
+\paragraph{Objective} The exact marginal likelihood and posterior of the joint model can marginalize out the inducing points $\bm{u}$ and become the classical exact model which prohibits the learning of the inducing locations $Z$. The assumption earlier that $\bm{u}$ is a sufficient statistic for $\bm{f}$ such that $\bm{y}$ and $\bm{u}$ and independent, allows to learn these inducing locations but prohibits us to calculate the posterior or marginal likelihood exactly.
+
+Instead, we introduce a variational distribution $q$ that approaches the full posterior as
+\begin{equation}
+    p(\bm{f},\bm{u}|\bm{y}) \approx q(\bm{f},\bm{u}) = p(\bm{f}|\bm{u}) q(\bm{u})
+\end{equation}
+
+Since we cannot optimize the marginal likelihood $p(\bm{y})$ as its distribution is unknown, we optimize the evidence lower bound (ELBO) which can be derived by writing out the Kullback-Leibler divergence between $q(\bm{f},\bm{u})$ and $p(\bm{f},\bm{u}|\bm{y})$. In other words, we try to minimize the divergence between the true posterior and the variational posterior.
+\begin{equation}
+    \begin{aligned}
+\mathrm{KL}(q(\bm{f},\bm{u})\;||\;p(\bm{f},\bm{u}|\bm{y})) &= \iint q(\bm{f},\bm{u}) \log \frac{q(\bm{f},\bm{u})}{p(\bm{f},\bm{u}|\bm{y})} d\bm{f} d\bm{u}\\
+&= \iint q(\bm{f},\bm{u}) \log \frac{q(\bm{f},\bm{u})p(\bm{y})}{p(\bm{f},\bm{u},\bm{y})} d\bm{f} d\bm{u}\\
+&= \iint q(\bm{f},\bm{u}) \left( \log \frac{q(\bm{f},\bm{u})}{p(\bm{f},\bm{u},\bm{y})} + \log p(\bm{y})\right) d\bm{f} d\bm{u}\\
+&= \iint q(\bm{f},\bm{u}) \log \frac{q(\bm{f},\bm{u})}{p(\bm{f},\bm{u},\bm{y})} d\bm{f} d\bm{u} + \log p(\bm{y})\\
+    \end{aligned}
+\end{equation}
+As the KL-divergence cannot be calculated, instead of minimizing it directly we maximize the ELBO. We continue
+\begin{equation}
+    \begin{aligned}
+\log p(\bm{y}) &= \mathrm{KL}(q(\bm{f},\bm{u})\;||\;p(\bm{f},\bm{u}|\bm{y})) - \iint q(\bm{f},\bm{u}) \log \frac{q(\bm{f},\bm{u})}{p(\bm{f},\bm{u},\bm{y})} d\bm{f} d\bm{u}\\
+&= \mathrm{KL}(q(\bm{f},\bm{u})\;||\;p(\bm{f},\bm{u}|\bm{y})) + \iint q(\bm{f},\bm{u}) \log \frac{p(\bm{f},\bm{u},\bm{y})}{q(\bm{f},\bm{u})} d\bm{f} d\bm{u}\\
+&\geq \iint q(\bm{f},\bm{u}) \log \frac{p(\bm{f},\bm{u},\bm{y})}{q(\bm{f},\bm{u})} d\bm{f} d\bm{u} = \mathrm{ELBO}\\
+    &= \iint p(\bm{f}|\bm{u}) q(\bm{u}) \log \frac{p(\bm{y}|\bm{f},\bm{u})p(\bm{f}|\bm{u})p(\bm{u})}{p(\bm{f}|\bm{u}) q(\bm{u})} d\bm{f} d\bm{u}\\
+    &= \iint p(\bm{f}|\bm{u}) q(\bm{u}) \log \frac{p(\bm{y}|\bm{f},\bm{u})p(\bm{u})}{q(\bm{u})} d\bm{f} d\bm{u}\\
+    &= \int q(\bm{u}) \left( \int p(\bm{f}|\bm{u}) \log p(\bm{y}|\bm{f},\bm{u}) d\bm{f} + \frac{p(\bm{u})}{q(\bm{u})} \right) d\bm{u}\\
+    &= \log \mathcal{N}(\bm{0},\; Q_{ff}+\sigma^2I) - \frac{1}{2\sigma^2}\mathrm{Tr}(K_{ff} - Q_{ff})\\
+    \end{aligned}
+\end{equation}
+
+See Appendix A in Titsias' 2009 technical report for a derivation of the last line. The ELBO can be written out as
+\begin{equation}
+    \begin{aligned}
+    \mathrm{ELBO} &= \log \mathcal{N}(\bm{0},\;Q_{ff}+\sigma^2I) - \frac{1}{2\sigma^2}\mathrm{Tr}(K_{ff} - Q_{ff})\\
+    &= -\frac{n}{2} \log 2\pi - \frac{1}{2}\log\left|Q_{ff}+\sigma^2I\right| - \frac{1}{2}\bm{y}^T(Q_{ff}+\sigma^2I)^{-1}\bm{y} - \frac{1}{2\sigma^2}\mathrm{Tr}(K_{ff} - Q_{ff})\\
+    \end{aligned}
+\end{equation}
+
+\paragraph{Prediction} We approximate the posterior as
+\begin{equation}
+    \begin{aligned}
+p(\bm{f}_*|\bm{y}) &= \int p(\bm{f}_*,\bm{u}|\bm{y}) d\bm{u}\\
+&\approx \int q(\bm{f}_*,\bm{u}) d\bm{u}\\
+&= \int p(\bm{f}_*|\bm{u})q(\bm{u}) d\bm{u} = q(\bm{f}_*)
+    \end{aligned}
+\end{equation}
+remember that
+$$ \bm{f}_*|\bm{u} \sim \mathcal{N}(K_{*u}K_{uu}^{-1}\bm{u},\; K_{**}-K_{*u}K_{uu}^{-1}K_{u*}) $$
+we take $q(\bm{u})$ as (see Appendix A of Titsias' 2009 technical report)
+$$ q(\bm{u}) = \mathcal{N}\left(\frac{K_{uu}}{\sigma^2}\left(K_{uu} + \frac{K_{uf}K_{fu}}{\sigma^2}\right)^{-1}K_{uf}\bm{y},\; K_{uu}\left(K_{uu} + \frac{K_{uf}K_{fu}}{\sigma^2}\right)^{-1}K_{uu}\right) $$
+
+Using the Gaussian linear transformation of Eq.\ref{eq:gauss_linear}, the predictive distribution results in
+$$ q(\bm{f}_*) = \int p(\bm{f}_*|\bm{u})q(\bm{u}) d\bm{u} = \mathcal{N}(\bm{\mu}_*,\; \Sigma_*) $$
+where
+\begin{equation}
+    \begin{aligned}
+        \bm{\mu}_* &= \frac{1}{\sigma^2}K_{*u}(K_{uu}+\frac{1}{\sigma^2}K_{uf}K_{fu})^{-1}K_{uf}\bm{y}\\
+        &= \frac{1}{\sigma^2}K_{*u}K_{uu}^{-\frac{1}{2}}(\frac{1}{\sigma^2}K_{uu}^{-\frac{1}{2}}K_{uf}K_{fu}K_{uu}^{-\frac{1}{2}} + I)^{-1}K_{uu}^{-\frac{1}{2}}K_{uf}\bm{y}
+    \end{aligned}
+\end{equation}
+and
+\begin{equation}
+    \begin{aligned}
+        \Sigma_* &= K_{**}-Q_{*f}(Q_{ff}+\sigma^2I)^{-1}Q_{f*}\\
+        &= K_{**}-Q_{**}+K_{*u}(K_{uu}+\frac{1}{\sigma^2}K_{uf}K_{fu})^{-1}K_{u*}\\
+        &= K_{**}-Q_{**}+K_{*u}K_{uu}^{-\frac{1}{2}}(\frac{1}{\sigma^2}K_{uu}^{-\frac{1}{2}}K_{uf}K_{fu}K_{uu}^{-\frac{1}{2}} + I)^{-1}K_{uu}^{-\frac{1}{2}}K_{u*}
+    \end{aligned}
+\end{equation}
+
+\newpage
+\section{Hensman}
+We introduce a variational distribution that approximates the posterior as
+$$ p(\bm{f}|\bm{y}) \approx q(\bm{f}) = \mathcal{N}(\bm{\mu}_q,\; \Sigma_q) $$
+and we take the likelihood $p(\bm{y}|\bm{f})$ to be a known distribution that is not necessarily Gaussian.
+
+\paragraph{Objective} We will want to minimize the divergence between the exact posterior and the variational distribution, that is to minimize the Kullback-Leibler divergence defined as
+\begin{equation}
+    \begin{aligned}
+\mathrm{KL}(q(\bm{f})\;||\;p(\bm{f}|\bm{y})) &= \int q(\bm{f}) \log \frac{q(\bm{f})}{p(\bm{f}|\bm{y})} d\bm{f}\\
+&= \int q(\bm{f}) \log \frac{q(\bm{f})p(\bm{y})}{p(\bm{f},\bm{y})} d\bm{f}\\
+&= \int q(\bm{f}) \left( \log \frac{q(\bm{f})}{p(\bm{f})} - \log (p(\bm{y}|\bm{f})) + \log p(\bm{y})\right) d\bm{f}\\
+&= \int q(\bm{f}) \log \frac{q(\bm{f})}{p(\bm{f})} d\bm{f} - \int q(\bm{f}) \log p(\bm{y}|\bm{f}) d\bm{f} + \log p(\bm{y})\\
+&= -\mathrm{ELBO} + \log p(\bm{y})
+    \end{aligned}
+\end{equation}
+Since we cannot calculate the KL-divergence, we maximize the evidence lower bound (ELBO) instead in order to approximate our objective of maximizing $p(\bm{y})$. 
+\begin{equation}
+\label{eq:variational_elbo}
+    \begin{aligned}
+    \mathrm{ELBO} &= \int q(\bm{f}) \log p(\bm{y}|\bm{f}) d\bm{f} -\int q(\bm{f}) \log \frac{q(\bm{f})}{p(\bm{f})} d\bm{f}\\
+    &= \int q(\bm{f}) \log p(\bm{y}|\bm{f}) d\bm{f} - \mathrm{KL}(q(\bm{f})\;||\;p(\bm{f}))
+    \end{aligned}
+\end{equation}
+
+The second term is the Kullback-Leibler divergence between two known Gaussians (see Variational model above) as we remember that $p(\bm{f}) = \mathcal{N}(\bm{0},\; K_{ff})$. The first term can be calculated by remembering that
+$$ \bm{y}|\bm{f} \sim \mathcal{N}(\bm{f},\; \sigma^2I) $$
+
+As the likelihood is not necessarily Gaussian, we use Gaussian quadratures to calculate the integral.
+
+\paragraph{Prediction} From the joint model
+\begin{equation}
+\begin{bmatrix}\bm{f}\\ \bm{f}_*\end{bmatrix} \sim \mathcal{N}\left(\bm{0}, \begin{bmatrix}K_{ff} & K_{f*}\\ K_{*f} & K_{**}\end{bmatrix} \right)
+\end{equation}
+it follows using Eq.~\ref{eq:marginal_gauss} that
+$$ \bm{f}_*|\bm{f} \sim \mathcal{N}(K_{*f}K_{ff}^{-1}\bm{f},\; K_{**}-K_{*f}K_{ff}^{-1}K_{f*}) $$
+so that our predictive distribution can be written as
+\begin{equation}
+    \begin{aligned}
+    p(\bm{f}_*|\bm{y}) &= \int p(\bm{f}_*|\bm{f},\bm{y}) p(\bm{f}|\bm{y}) d\bm{f}\\
+    &= \int p(\bm{f}_*|\bm{f}) p(\bm{f}|\bm{y}) d\bm{f}\\
+    &\approx \int p(\bm{f}_*|\bm{f}) q(\bm{f}) d\bm{f} = q(\bm{f}_*)\\
+    \end{aligned}
+\end{equation}
+
+Using the Gaussian linear transformation of Eq.\ref{eq:gauss_linear}, the predictive distribution results in
+$$ q(\bm{f}_*) = \mathcal{N}(K_{*f}K_{ff}^{-1}\bm{\mu}_q,\; K_{**}-Q_{**}+K_{*f}K_{ff}^{-1}\Sigma_qK_{ff}^{-1}K_{f*}) $$
+
+\paragraph{Reparametrization}
+In general, this model is difficult to optimize since optimizing the kernel parameters and the variational parameters are optimized as separate terms. We can reduce the optimization space and improve training results by reparametrizing $\bm{\mu}_q \to L\bm{\mu}_q$ and $\Sigma_q \to L\Sigma_qL^t$ where $LL^T = K_{ff}$. It follows that
+$$ q(\bm{f}) = \mathcal{N}(L\bm{\mu}_q,\; L\Sigma_qL^T) $$
+$$ q(\bm{f}_*) = \mathcal{N}(K_{*f}L^{-T}\bm{\mu}_q,\; K_{**} - Q_{**} + K_{*f}L^{-T}\Sigma_qL^{-1}K_{f*}) $$
+
+The Kullback-Leibler divergence part of the ELBO simplifies to
+$$ \mathrm{KL}(q(\bm{f})\;||\;p(\bm{f})) = \mathrm{KL}(\mathcal{N}(\bm{\mu}_q,\; \Sigma_q)\;||\;\mathcal{N}(0,\; I)) $$
+
+\newpage
+\section{Sparse Hensman}
+See the Variational model for a basis, however now we introduce $\bm{u}$ as our inducing variables. Remember, we use the variational parameters $\bm{\mu}_q$ and $\Sigma_q$ to specify our prior
+$$ q(\bm{u}) = \mathcal{N}(\bm{\mu}_q, \Sigma_q) $$
+
+\paragraph{Objective} Our derivation is very similar to the variational model above (see Eq.~\ref{eq:variational_elbo}), but our ELBO now incorporates the inducing variables and becomes
+\begin{equation}
+\begin{aligned}
+\mathrm{ELBO} &= \iint q(\bm{f},\bm{u}) \log p(\bm{y}|\bm{f}) d\bm{f} d\bm{u} - \mathrm{KL}(q(\bm{f},\bm{u})\;||\;p(\bm{f},\bm{u}))\\
+&= \int \left(\int q(\bm{f},\bm{u}) d\bm{u} \right) \log p(\bm{y}|\bm{f}) d\bm{f} - \iint q(\bm{f},\bm{u}) \log \frac{q(\bm{f},\bm{u})}{p(\bm{f},\bm{u})} d\bm{f} d\bm{u}\\
+&= \int q(\bm{f}) \log p(\bm{y}|\bm{f}) d\bm{f} - \iint q(\bm{f},\bm{u}) \log \frac{p(\bm{f}|\bm{u})q(\bm{u})}{p(\bm{f}|\bm{u})p(\bm{u})} d\bm{f} d\bm{u}\\
+&= \int q(\bm{f}) \log p(\bm{y}|\bm{f}) d\bm{f} - \int \left(\int q(\bm{f},\bm{u}) d\bm{f}\right) \log \frac{q(\bm{u})}{p(\bm{u})} d\bm{u}\\
+&= \int q(\bm{f}) \log p(\bm{y}|\bm{f}) d\bm{f} - \int q(\bm{u}) \log \frac{q(\bm{u})}{p(\bm{u})} d\bm{u}\\
+&= \int q(\bm{f}) \log p(\bm{y}|\bm{f}) d\bm{f} - \mathrm{KL}(q(\bm{u})\;||\;p(\bm{u}))\\
+\end{aligned}
+\end{equation}
+
+The second term is the Kullback-Leibler divergence between two known Gaussians (see Variational model above) as we remember that $p(\bm{u}) = \mathcal{N}(\bm{0},\; K_{uu})$. The first term can be calculated by remembering that
+$$ \bm{y}|\bm{f} \sim \mathcal{N}(\bm{f},\; \sigma^2I) $$
+and
+\begin{equation}
+\label{eq:q_f}
+q(\bm{f}) = \int p(\bm{f}|\bm{u})q(\bm{u}) d\bm{u}
+\end{equation}
+Then from our joint model
+\begin{equation}
+\begin{bmatrix}\bm{u}\\ \bm{f}\end{bmatrix} \sim \mathcal{N}\left(\bm{0}, \begin{bmatrix}K_{uu} & K_{uf}\\ K_{fu} & K_{ff}\end{bmatrix} \right)
+\end{equation}
+and using Eq.~\ref{eq:marginal_gauss} we obtain
+$$ p(\bm{f}|\bm{u}) = \mathcal{N}(K_{fu}K_{uu}^{-1}\bm{u},\; K_{ff}-K_{fu}K_{uu}^{-1}K_{uf}) $$
+Now using the Gaussian linear transformation rule on Eq.~\ref{eq:q_f}, we obtain our predictive distribution
+$$ q(\bm{f}) = \mathcal{N}(K_{fu}K_{uu}^{-1}\bm{\mu}_q,\; K_{ff} - Q_{ff} + K_{fu}K_{uu}^{-1}\Sigma_qK_{uu}^{-1}K_{uf}) $$
+
+As the likelihood is not necessarily Gaussian, we use Gaussian quadratures to calculate the integral, see the Variational model above.
+
+\paragraph{Prediction} From $q(\bm{f})$ above, our predictive distribution is
+$$ q(\bm{f}_*) = \mathcal{N}(K_{*u}K_{uu}^{-1}\bm{\mu}_q,\; K_{**} - Q_{**} + K_{*u}K_{uu}^{-1}\Sigma_qK_{uu}^{-1}K_{u*}) $$
+
+\paragraph{Reparametrization}
+In general, this model is difficult to optimize since optimizing the kernel parameters and the variational parameters are optimized as separate terms. We can reduce the optimization space and improve training results by reparametrizing $\bm{\mu}_q \to L\bm{\mu}_q$ and $\Sigma_q \to L\Sigma_qL^t$ where $LL^T = K_{uu}$. It follows that
+$$ q(\bm{u}) = \mathcal{N}(L\bm{\mu}_q,\; L\Sigma_qL^T) $$
+$$ q(\bm{f}) = \mathcal{N}(K_{fu}L^{-T}\bm{\mu}_q,\; K_{ff} - Q_{ff} + K_{fu}L^{-T}\Sigma_qL^{-1}K_{uf}) $$
+$$ q(\bm{f}_*) = \mathcal{N}(K_{*u}L^{-T}\bm{\mu}_q,\; K_{**} - Q_{**} + K_{*u}L^{-T}\Sigma_qL^{-1}K_{u*}) $$
+
+The Kullback-Leibler divergence part of the ELBO simplifies to
+$$ \mathrm{KL}(q(\bm{u})\;||\;p(\bm{u})) = \mathrm{KL}(\mathcal{N}(\bm{\mu}_q,\; \Sigma_q)\;||\;\mathcal{N}(0,\; I)) $$
+
+
+\newpage
+\section{Appendix: likelihoods}
+The ELBO contains the following term
+$$ \int \log p(\bm{y}|\bm{f}) q(\bm{f}) d\bm{f} $$
+where $q(\bm{f}) = \mathcal{N}(\bm{\mu},\; \Sigma)$ and the likelihood $p(\bm{y}|\bm{f})$ can be of any distribution. We rewrite the integral to allow for solving using Gaussian quadratures.
+\begin{equation}
+    \begin{aligned}
+    &\int \log p(\bm{y}|\bm{f}) q(\bm{f}) d\bm{f}\\
+    &= \sum_{i=1}^n \int \log p(y_i|f_i) q(f_i) df_i\\
+    &= \sum_{i=1}^n \int \log p(y_i|f_i) \frac{1}{\sqrt{2\pi\Sigma_{ii}}}e^{-\frac{1}{2}(f_i-\mu_i)^2\Sigma_{ii}^{-1}} df_i\\
+    &= \sum_{i=1}^n \int \log p(y_i|\mu_i+\sqrt{2\Sigma_{ii}}x_i) \frac{1}{\sqrt{\pi}}e^{-x_i^2} dx_i\\
+    &\approx \sum_{i=1}^n \sum_{j=1}^m w_j g_i(t_j)
+    \end{aligned}
+\end{equation}
+where $x_i = \frac{1}{\sqrt{2\Sigma_{ii}}}(f_i-\mu_i)$ and $dx_i = \frac{1}{\sqrt{2\Sigma_{ii}}}df_i$ so that our function $g$ is defined as
+$$ g_i(t_j) = \frac{1}{\sqrt{\pi}} \log p(y_i|\mu_i+\sqrt{2\Sigma_{ii}}t_j) $$
+
+\subsection{Gaussian}
+Given the following Gaussian likelihood
+$$ p(y_i|f_i) = \mathcal{N}(y_i|f_i,\; \sigma^2I) $$
+the function $g$ becomes
+$$ g_i(t_j) = \frac{1}{\sqrt{\pi}} \left( -\frac{1}{2} \log (2\pi\sigma^2) - \frac{1}{2\sigma^2}(y_i-\mu_i-\sqrt{2\Sigma_{ii}}t_j)^2 \right) $$
+
+\paragraph{Exact} The exact solution exists as
+\begin{equation}
+    \begin{aligned}
+    &\sum_{i=1}^n \int \log p(y_i|f_i) q(f_i) df_i\\
+    &= \sum_{i=1}^n \int \left( -\frac{1}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}(y_i-f_i)^2 \right) \frac{1}{\sqrt{2\pi\Sigma_{ii}}}e^{-\frac{1}{2}\frac{(f_i-\mu_i)^2}{\Sigma_{ii}}} df_i\\
+    &= \sum_{i=1}^n \left( -\frac{1}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2} \frac{1}{\sqrt{2\pi\Sigma_{ii}}} \int (y_i-f_i)^2 e^{-\frac{1}{2}\frac{(f_i-\mu_i)^2}{\Sigma_{ii}}} df_i \right)\\
+    &= \sum_{i=1}^n \left( -\frac{1}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2} \frac{1}{\sqrt{2\pi\Sigma_{ii}}} \int x_i^2 e^{-\frac{1}{2\Sigma_{ii}}(x_i+y_i-\mu_i)^2} dx_i \right)\\
+    \end{aligned}
+\end{equation}
+We can expand the integral in the second term using known definite integrals of exponentials, defining $a = 1/(2\Sigma_{ii})$, $b = 2(y_i-\mu_i)/(2\Sigma_{ii})$, and $c = (y_i-\mu_i)^2/(2\Sigma_{ii})$, as
+\begin{equation}
+    \begin{aligned}
+    &\int x_i^2 e^{-\frac{1}{2\Sigma_{ii}}(x_i+y_i-\mu_i)^2} dx_i\\
+    &= \int x_i^2 e^{-\frac{1}{2\Sigma_{ii}}\left(x_i^2+x_i(2y_i-2\mu_i)+(y_i-\mu_i)^2\right)} dx_i\\
+    &= e^{-c} \int x_i^2 e^{-ax_i^2-bx_i} dx_i\\
+    &= e^{-c} \cdot \frac{\sqrt{\pi}(2a+b^2)}{4a^{5/2}} e^{b^2/4a} && \text{\small(known definitive integral)} \\
+    &= \frac{\sqrt{\pi}\left(\frac{2}{2\Sigma_{ii}}+4\frac{(y_i-\mu_i)^2}{4\Sigma_{ii}^2)}\right)}{4(2\Sigma_{ii})^{-5/2}} e^{\frac{4(y_i-\mu_i)^2}{4\Sigma_{ii}^2}\frac{2\Sigma_{ii}}{4} - \frac{(y_i-\mu_i)^2}{2\Sigma_{ii}}}\\
+    &= \frac{\sqrt{\pi}\left(\frac{1}{\Sigma_{ii}}+\frac{(y_i-\mu_i)^2}{\Sigma_{ii}^2)}\right)}{4(2\Sigma_{ii})^{-5/2}}\\
+    &= \sqrt{2\pi\Sigma_{ii}} \left((y_i-\mu_i)^2 + \Sigma_{ii}\right)
+    \end{aligned}
+\end{equation}
+so that
+$$ \sum_{i=1}^n \int \log p(y_i|f_i) q(f_i) df_i = \sum_{i=1}^n \left( -\frac{1}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}\left( (y_i-\mu_i)^2 + \Sigma_{ii}\right) \right)$$
+
+\subsection{Student-T}
+Given the following Student-T likelihood
+$$ p(y_i|f_i) = \frac{\Gamma(\frac{\nu+1}{2})}{\sqrt{\nu\pi\sigma^2}\,\Gamma(\frac{\nu}{2})}\left(1+\frac{1}{\nu}\left(\frac{y_i-f_i}{\sigma}\right)^2\right)^{-\frac{\nu+1}{2}} $$
+with scale $\sigma$ and degrees-of-freedom $\nu$, the function $g$ becomes
+\begin{equation}
+    \begin{aligned}
+    g_i(t_j) = \frac{1}{\sqrt{\pi}} \Bigg[ \log \Gamma\left(\frac{\nu+1}{2}\right) - \frac{1}{2} \log(\nu\pi\sigma^2) - \log \Gamma\left(\frac{\nu}{2}\right) \\
+- \frac{\nu+1}{2}\log\left( 1+\frac{1}{\nu}\left(\frac{y_i-\mu_i-\sqrt{2\Sigma_{ii}}t_j}{\sigma}\right)^2 \right) \Bigg] 
+    \end{aligned}
+\end{equation}
+
+\subsection{Laplace}
+Given the following Laplace likelihood
+$$ p(y_i|f_i) = \frac{1}{2\sigma}e^{-\frac{1}{\sigma}|y_i-f_i|} $$
+with scale $\sigma$, the function $g$ becomes
+$$ g_i(t_j) = \frac{1}{\sqrt{\pi}} \left( -\log(2\sigma) - \frac{|y_i-\mu_i-\sqrt{2\Sigma_{ii}}t_j|}{\sigma} \right) $$
+
+\paragraph{Exact} The exact solution exists as
+\begin{equation}
+    \begin{aligned}
+    &\sum_{i=1}^n \int_{-\infty}^\infty \log p(y_i|f_i) q(f_i) df_i\\
+    &= \sum_{i=1}^n \int_{-\infty}^\infty \left( -\log(2\sigma) - \frac{|y_i-f_i|}{\sigma} \right) \frac{1}{\sqrt{2\pi\Sigma_{ii}}} e^{-\frac{1}{2}\frac{(f_i-\mu_i)^2}{\Sigma_{ii}}} df_i\\
+    &= \sum_{i=1}^n -\log(2\sigma) - \frac{1}{\sigma\sqrt{2\pi\Sigma_{ii}}} \int_{-\infty}^\infty |y_i-f_i|e^{-\frac{1}{2}\frac{(f_i-\mu_i)^2}{\Sigma_{ii}}} df_i \\
+    &= \sum_{i=1}^n -\log(2\sigma) + \frac{1}{\sigma\sqrt{2\pi\Sigma_{ii}}} \int_{\infty}^{-\infty} |z_i|e^{-\frac{1}{2}\frac{(y_i-z_i-\mu_i)^2}{\Sigma_{ii}}} dz_i \\
+    &= \sum_{i=1}^n -\log(2\sigma) + \frac{2}{\sigma\sqrt{2\pi\Sigma_{ii}}} \int_0^{-\infty} z_i e^{-\frac{1}{2}\frac{(y_i-z_i-\mu_i)^2}{\Sigma_{ii}}} dz_i \\
+    &= \sum_{i=1}^n -\log(2\sigma) - \frac{2}{\sigma\sqrt{2\pi\Sigma_{ii}}} \int_0^\infty (y_i - x_i - \mu_i) e^{-\frac{1}{2}\frac{x_i^2}{\Sigma_{ii}}} dx_i \\
+    &= \sum_{i=1}^n -\log(2\sigma) - \frac{y_i}{\sigma} + \frac{\mu_i}{\sigma} + \frac{2}{\sigma\sqrt{2\pi\Sigma_{ii}}} \int_0^\infty x_i e^{-\frac{1}{2}\frac{x_i^2}{\Sigma_{ii}}} dx_i \\
+    &= \sum_{i=1}^n -\log(2\sigma) - \frac{y_i}{\sigma} + \frac{\mu_i}{\sigma} + \frac{2}{\sigma\sqrt{2\pi\Sigma_{ii}}} \frac{2\Sigma_{ii}}{2} \\
+    &= \sum_{i=1}^n -\log(2\sigma) - \frac{y_i}{\sigma} + \frac{\mu_i}{\sigma} + \frac{1}{\sigma}\sqrt{\frac{2\Sigma_{ii}}{\pi}} \\
+    \end{aligned}
+\end{equation}
+
+DOESN'T SEEM TO WORK!
+
+\subsection{Gamma}
+Given the following Gamma likelihood
+$$ p(y_i|f_i) = \frac{1}{\Gamma(k)h(f)^k} y_i^{k-1} e^{-\frac{y_i}{h(f_i)}} $$
+with scale $h(f)$ and shape $k$, where $h$ is the link function, the function $g$ becomes
+$$ g_i(t_j) = \frac{1}{\sqrt{\pi}} \left( -\log \Gamma(k) - k\log{h(f_i)} + (k-1)\log(y_i) - \frac{y_i}{h(f_i)} \right) $$
+
+\paragraph{Exact} The exact solution exists when $h(\cdot) = e^\cdot$.
+\begin{equation}
+    \begin{aligned}
+    &\sum_{i=1}^n \int \log p(y_i|f_i) q(f_i) df_i\\
+    &= \sum_{i=1}^n \int \left( -\log \Gamma(k) - k f_i + (k-1)\log y_i - y_i e^{-f_i} \right) \frac{1}{\sqrt{2\pi\Sigma_{ii}}} e^{-\frac{1}{2}\frac{(f_i-\mu_i)^2}{\Sigma_{ii}}} df_i\\
+    &= \sum_{i=1}^n \int \left( -\log \Gamma(k) - k (x_i + \mu_i) + (k-1)\log y_i - y_i e^{-x_i - \mu_i} \right) \frac{1}{\sqrt{2\pi\Sigma_{ii}}} e^{-\frac{1}{2}\frac{x_i^2}{\Sigma_{ii}}} dx_i\\
+    &= \sum_{i=1}^n \left( -\log \Gamma(k) + (k-1)\log y_i - \frac{1}{\sqrt{2\pi\Sigma_{ii}}} \left( \int k (x_i + \mu_i) e^{-\frac{1}{2}\frac{x_i^2}{\Sigma_{ii}}} dx_i + \int y_i e^{-x_i - \mu_i} e^{-\frac{1}{2}\frac{x_i^2}{\Sigma_{ii}}} dx_i \right) \right)\\
+    &= \sum_{i=1}^n \left( -\log \Gamma(k) + (k-1)\log y_i - k \mu_i - \frac{1}{\sqrt{2\pi\Sigma_{ii}}} \int y_i e^{-\frac{1}{2}\frac{x_i^2}{\Sigma_{ii}} - x_i - \mu_i} dx_i \right)\\
+    &= \sum_{i=1}^n \left( -\log \Gamma(k) + (k-1)\log y_i - k \mu_i - y_i e^{\frac{1}{2}\Sigma_{ii} - \mu_i} \right)\\
+    \end{aligned}
+\end{equation}
+
+\subsection{Exponential}
+Given the following exponential likelihood
+$$ p(y_i|f_i) = \frac{1}{h(f_i)}e^{-\frac{1}{h(f_i)}y_i} $$
+with scale $h(f_i)$ where $h$ is the link function.
+
+\paragraph{Exact} The exact solution exists when $h(\cdot) = e^\cdot$.
+\begin{equation}
+    \begin{aligned}
+    &\sum_{i=1}^n \int \log p(y_i|f_i) q(f_i) df_i\\
+    &= \sum_{i=1}^n \int (-f_i - y_i e^{-f_i}) \frac{1}{\sqrt{2\pi\Sigma_{ii}}}e^{-\frac{1}{2}\frac{(f_i-\mu_i)^2}{\Sigma_{ii}}} df_i\\
+    &= \sum_{i=1}^n \int (-x_i - \mu_i - y_i e^{-x_i-\mu_i}) \frac{1}{\sqrt{2\pi\Sigma_{ii}}}e^{-\frac{1}{2\Sigma_{ii}} x_i^2} dx_i\\
+    &= \sum_{i=1}^n -\frac{1}{\sqrt{2\pi\Sigma_{ii}}} \left( \int x_i e^{-\frac{1}{2\Sigma_{ii}} x_i^2} dx_i + \int \mu_i e^{-\frac{1}{2\Sigma_{ii}} x_i^2} dx_i + \int y_i e^{-x_i-\mu_i} e^{-\frac{1}{2\Sigma_{ii}} x_i^2} dx_i \right)\\
+    &= \sum_{i=1}^n -\frac{1}{\sqrt{2\pi\Sigma_{ii}}} \left( 0 + \mu_i \sqrt{2\pi\Sigma_{ii}} + y_i e^{-\mu_i} \int e^{-\frac{1}{2\Sigma_{ii}} x_i^2 - x_i} dx_i \right)\\
+    &= \sum_{i=1}^n -\frac{1}{\sqrt{2\pi\Sigma_{ii}}} \left( 0 + \mu_i \sqrt{2\pi\Sigma_{ii}} + y_i e^{-\mu_i} \sqrt{2\pi\Sigma_{ii}} e^{\frac{1}{4}2\Sigma_{ii}} \right)\\
+    &= \sum_{i=1}^n \left( -\mu_i - y_i e^{\frac{1}{2}\Sigma_{ii} - \mu_i} \right) \\
+    \end{aligned}
+\end{equation}
+
+\subsection{Poisson}
+Given the following Poisson likelihood
+$$ p(y_i|f_i) = \frac{h(f_i)^{y_i} e^{-h(f_i)}}{\Gamma(1+y_i)} $$
+with scale $h(f_i)$ where $h$ is the link function.
+
+\paragraph{Exact} The exact solution exists when $h(\cdot) = e^\cdot$.
+\begin{equation}
+    \begin{aligned}
+    &\sum_{i=1}^n \int \log p(y_i|f_i) q(f_i) df_i\\
+    &= \sum_{i=1}^n \int \left( f_i y_i - e^{f_i} - \log \Gamma(1+y_i) \right) \frac{1}{\sqrt{2\pi\Sigma_{ii}}}e^{-\frac{1}{2}\frac{(f_i-\mu_i)^2}{\Sigma_{ii}}} df_i\\
+    &= \sum_{i=1}^n \int \left( (x_i + \mu_i) y_i - e^{x_i + \mu_i} - \log \Gamma(1+y_i) \right) \frac{1}{\sqrt{2\pi\Sigma_{ii}}}e^{-\frac{1}{2\Sigma_{ii}}x_i^2} dx_i\\
+    &= \sum_{i=1}^n \frac{1}{\sqrt{2\pi\Sigma_{ii}}} \left( \int (x_i + \mu_i) y_i e^{-\frac{1}{2\Sigma_{ii}}x_i^2} dx_i - \int e^{x_i + \mu_i} e^{-\frac{1}{2\Sigma_{ii}}x_i^2} dx_i - \int \log \Gamma(1+y_i) e^{-\frac{1}{2\Sigma_{ii}}x_i^2} dx_i \right)\\
+    &= \sum_{i=1}^n \frac{1}{\sqrt{2\pi\Sigma_{ii}}} \left( \mu_i y_i \sqrt{2\pi\Sigma_{ii}} - \int e^{-\frac{1}{2\Sigma_{ii}}x_i^2 + x_i + \mu_i} dx_i - \log \Gamma(1+y_i) \sqrt{2\pi\Sigma_{ii}} \right)\\
+    &= \sum_{i=1}^n \left( \mu_i y_i - e^{\frac{1}{2}\Sigma_{ii} + \mu_i} - \log \Gamma(1+y_i) \right) \\
+    \end{aligned}
+\end{equation}
+ 
+
+\newpage
+\section{Appendix: predictive distribution}
+Given our predictive posterior $p(\bm{f}_*|\bm{y}) \approx q(\bm{f}_*) \sim \mathcal{N}(\bm{\mu}, \Sigma)$, we can obtain a prediction of $\bm{y}_*$ using
+$$ p(\bm{y}_*|\bm{y}) = \int p(\bm{y}_*|\bm{f}_*) q(\bm{f}_*) d\bm{f}_* $$
+where $p(\bm{y}_*|\bm{f}_*)$ is our likelihood.
+
+As our predictive distribution is usually not Gaussian, we can calculate its mean and variance by
+\begin{equation}
+    \begin{aligned}
+        \bm{\mu}_* = \mathbb{E}[Y_*] &= \int \bm{y}_* p(\bm{y}_*|\bm{y}) d\bm{y}_*\\
+        \bm{\sigma}^2_* = \mathrm{Var}[Y_*] &= \int (\bm{y}_*-\bm{\mu}_*)^2 p(\bm{y}_*|\bm{y}) d\bm{y}_* = \mathbb{E}[Y_*^2] - \mathbb{E}[Y_*]^2
+    \end{aligned}
+\end{equation}
+
+Both can be solved using Gaussian quadratures as follows, with $f_j = \mu_j+\sqrt{2\Sigma_{jj}}x_j$.
+\begin{equation}
+    \begin{aligned}
+        {\mu_i}_* &= \int y_i \int p({y_i}_*|f_i) p(f_i|y_i) df_i dy_i\\
+        &\approx \int y_i \left[ \Sigma_{j=1}^m \frac{w_j}{\sqrt{\pi}} p({y_i}_*|\mu_j+\sqrt{2\Sigma_{jj}}x_j) \right ] dy_i \\
+        &= \Sigma_{j=1}^m \frac{w_j}{\sqrt{\pi}} \int y_i p({y_i}_*|f_j) dy_i\\
+        {\sigma^2_i}_* &\approx \Sigma_{j=1}^m \frac{w_j}{\sqrt{\pi}} \int y_i^2 p({y_i}_*|f_j) dy_i - {\mu_i}^2_*\\
+    \end{aligned}
+\end{equation}
+
+We now find the solution of the integrals in ${\mu_i}_*$ and ${\sigma^2_i}_*$ for various likelihoods.
+
+\subsection{Gaussian}
+\begin{equation}
+    \begin{aligned}
+        \int y_i p({y_i}_*|f_j) dy_i &= \int y_i \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{1}{2\sigma^2}(y_i-f_j)^2} dy_i\\
+        &= \frac{1}{\sqrt{2\pi\sigma^2}}f_j\sqrt{\frac{\pi}{\frac{1}{2\sigma^2}}}\\
+        &= f_j
+     \end{aligned}
+\end{equation}
+\begin{equation}
+    \begin{aligned}
+        \int y_i^2 p({y_i}_*|f_j) dy_i &= \int y_i^2 \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{1}{2\sigma^2}(y_i-f_j)^2} dy_i\\
+        &= \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{1}{2\sigma^2}f_j^2}\int y_i^2e^{-\frac{1}{2\sigma^2}y_i^2 + \frac{1}{\sigma^2}f_jy_i}dy_i\\
+        &= \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{1}{2\sigma^2}f_j^2} \sqrt{\pi}\frac{\frac{1}{\sigma^2}+\frac{1}{\sigma^4}f_j^2}{4(\frac{1}{2\sigma^2})^{5/2}}e^{\frac{\frac{1}{\sigma^4}f_j^2}{4\frac{1}{2\sigma^2}}}\\
+        &= \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{1}{2\sigma^2}} \sqrt{2\pi\sigma^2}(\sigma^2+f_j^2)e^{\frac{1}{2\sigma^2}f_j^2}\\
+        &= \sigma^2 + f_j^2
+     \end{aligned}
+\end{equation}
+
+\paragraph{Exact}
+\begin{equation}
+    \begin{aligned}
+        \int p(\bm{y}_*|\bm{f}_*) q(\bm{f}_*) d\bm{f}_* &= \int \mathcal{N}(\bm{y}_*|\bm{0},\sigma^2) \mathcal{N}(\bm{f}_*|\bm{\mu},\Sigma) d\bm{f}_*\\
+        &= \mathcal{N}(\bm{\mu}, \Sigma + \sigma^2)
+    \end{aligned}
+\end{equation}
+where $\bm{\mu}_* = \bm{\mu}$ and $\Sigma_* = \Sigma + \sigma^2$.
+
+\subsection{Student-T}
+Given $t(x)$ the probability density function of a scaled Student-T distribution (where $x = y_i-f_i$ and with scale parameter $\sigma$ and degrees-of-freedom $\nu$), we note that the density function of the Student-T distribution is
+$$ t(x) = \frac{\Gamma\left(\frac{\nu+1}{2}\right)}{\Gamma(\nu/2)\sqrt{\nu\pi\sigma^2}}\left(1+\frac{x^2}{\nu\sigma^2}\right)^{-\frac{\nu+1}{2}}$$
+and its derivative to $x$ is given as
+\begin{equation}
+    \begin{aligned}
+        \frac{d}{dx}t(x) &= \frac{\Gamma\left(\frac{\nu+1}{2}\right)}{\Gamma(\nu/2)\sqrt{\nu\pi\sigma^2}}\left(-\frac{\nu+1}{2}\left(1+\frac{x^2}{\nu\sigma^2}\right)^{-\frac{\nu+1}{2}-1}\frac{2x}{\nu\sigma^2}\right)\\
+        &= -\frac{\nu+1}{2}\left(1+\frac{x^2}{\nu\sigma^2}\right)^{-1}\frac{2x}{\nu\sigma^2} t(x)\\
+        &= -\frac{(\nu+1)}{\nu\sigma^2+x^2}xt(x)\\
+     \end{aligned}
+\end{equation}
+rewriting and then using the product rule, we continue
+\begin{equation}
+    \begin{aligned}
+        xt(x) &= -\frac{\nu\sigma^2+x^2}{(\nu+1)} \frac{d}{dx}t(x)\\
+        &= \frac{d}{dx} \left(\frac{\nu\sigma^2+x^2}{(\nu-1)} t(x)\right)
+     \end{aligned}
+\end{equation}
+
+Now we can calculate the mean by changing variable with $x_i = y_i-f_j$ and noting that the definitive integral of the cumulative density function of $t(x)$ is one. We assume that $\nu > 1$, so that
+\begin{equation}
+    \begin{aligned}
+        \int y_i p({y_i}_*|f_j) dy_i &= \int y_i t(y_i-f_j) dy_i\\
+        &= \int x_i t(x_i) dx_i + f_j \int t(x_i) dx_i\\
+        &= \left[\frac{\nu\sigma^2+x^2}{\nu-1} t(x)\right]_{-\infty}^\infty + f_j\\
+        &= 0 + f_j
+     \end{aligned}
+\end{equation}
+
+For the variance we can do the same
+\begin{equation}
+    \begin{aligned}
+        \frac{d^2}{dx^2}t(x) &= -\frac{d}{dx} \frac{(\nu+1)}{\nu\sigma^2+x^2}xt(x)\\
+        &= \frac{\nu+1}{\left(\nu\sigma^2 + x^2\right)^2}\left((\nu+2)x^2 - \nu\sigma^2\right)t(x)\\
+     \end{aligned}
+\end{equation}
+rewriting and then using the product rule, we continue
+\begin{equation}
+    \begin{aligned}
+        x^2t(x) &= \frac{\nu\sigma^2}{\nu+2}t(x) + \frac{\left(\nu\sigma^2+x^2\right)^2}{(\nu+1)(\nu+2)}\frac{d}{dx}\left(-\frac{(\nu+1)}{\nu\sigma^2+x^2}xt(x)\right)\\
+        &= \frac{\nu\sigma^2}{\nu+2}t(x) + \frac{d}{dx}\left(-\frac{\nu\sigma^2+x^2}{\nu+2}xt(x)\right) + \frac{4}{\nu+2}x^2t(x)\\
+        &= \frac{\nu\sigma^2}{\nu-2}t(x) + \frac{d}{dx}\left(\frac{\nu\sigma^2+x^2}{2-\nu}xt(x)\right)
+     \end{aligned}
+\end{equation}
+
+Now we can calculate the variance, by changing variable with $x_i = y_i-f_j$ and assuming that $\nu > 2$, we obtain
+\begin{equation}
+    \begin{aligned}
+        \int y_i^2 p({y_i}_*|f_j) dy_i &= \int y_i^2 t(y_i-f_j) dy_i\\
+        &= \int x_i^2 t(x_i) dx_i + 2f_j \int x_it(x_i)dx_i + f_j^2 \int t(x_i) dx_i\\
+        &= \int \frac{\nu\sigma^2}{\nu-2}t(x_i) + \left[\frac{\nu\sigma^2+x_i^2}{2-\nu}x_it(x_i)\right]_{-\infty}^\infty + 0 + f_j^2\\
+        &= \frac{\nu\sigma^2}{\nu-2} + 0 + f_j^2
+     \end{aligned}
+\end{equation}
+
+\subsection{Laplace}
+\begin{equation}
+    \begin{aligned}
+        \int y_i p({y_i}_*|f_j)dy_i &= \int y_i \frac{1}{2\sigma} e^{-\frac{|y_i-f_j|}{\sigma}} dy_i\\
+        &= \frac{1}{2\sigma} \int (x_i+f_j) e^{-\frac{|x_i|}{\sigma}} dx_i\\
+        &= \frac{1}{2\sigma} \int x_i e^{-\frac{|x_i|}{\sigma}} dx_i + \frac{1}{2\sigma}f_j \int e^{-\frac{|x_i|}{\sigma}} dx_i\\
+        &= 0 + \frac{1}{2\sigma} f_j 2\int_0^{\infty} e^{-\frac{x_i}{\sigma}} dx_i\\
+        &= \frac{1}{2\sigma}f_j2\sigma = f_j
+    \end{aligned}
+\end{equation}
+\begin{equation}
+    \begin{aligned}
+        \int y_i^2 p({y_i}_*|f_j)dy_i &= \int y_i^2 \frac{1}{2\sigma} e^{-\frac{|y_i-f_j|}{\sigma}} dy_i\\
+        &= \frac{1}{2\sigma} \int (x_i+f_j)^2 e^{-\frac{|x_i|}{\sigma}} dx_i\\
+        &= \frac{1}{2\sigma} \left( \int x_i^2 e^{-\frac{|x_i|}{\sigma}} dx_i + 2f_j\int x_i e^{-\frac{|x_i|}{\sigma}} dx_i + f_j^2\int e^{-\frac{|x_i|}{\sigma}} dx_i\right)\\
+        &= \frac{1}{2\sigma} \left( 2\int_0^{\infty} x_i^2 e^{-\frac{x_i}{\sigma}} dx_i + 0 + f_j^22\sigma\right)\\
+        &= \frac{1}{2\sigma} \left( 4\sigma^3 + f_j^22\sigma\right)\\
+        &= 2\sigma^2 + f_j^2\\
+    \end{aligned}
+\end{equation}
+
+\subsection{Gamma}
+\begin{equation}
+    \begin{aligned}
+        \int y_i p({y_i}_*|f_j)dy_i &= \int y_i \frac{(y_i-f_i)^{k-1}}{\Gamma(k)\sigma^k}e^{-(y_i-f_i)/\sigma} dy_i\\
+        &= \frac{1}{\Gamma(k)\sigma^k} \int (x_i+f_j) x_i^{k-1}e^{-x_i/\sigma} dx_i\\
+        &= \frac{1}{\Gamma(k)\sigma^k} \left( \int x_i^ke^{-x_i/\sigma} dx_i + f_j \int x_i^{k-1} e^{-x_i/\sigma} dx_i \right) \\
+        &= \mathrm{TODO}
+    \end{aligned}
+\end{equation}
+\begin{equation}
+    \begin{aligned}
+        \int y_i^2 p({y_i}_*|f_j)dy_i &= \int y_i^2 \frac{(y_i-f_i)^{k-1}}{\Gamma(k)\sigma^k}e^{-(y_i-f_i)/\sigma} dy_i\\
+        &= \mathrm{TODO}
+    \end{aligned}
+\end{equation}
+
+\subsection{Bernoulli}
+With $\phi$ the link function and $y_i \in \{0,1\}$, we have
+\begin{equation}
+    \begin{aligned}
+        \int y_i p({y_i}_*|f_j)dy_i &= \int y_i \phi(f_j)^{y_i} (1-\phi(f_j))^{1-y_i} dy_i\\
+        &= \int \phi(f_j)dy_i \\
+        &= \phi(f_j)
+    \end{aligned}
+\end{equation}
+\begin{equation}
+    \begin{aligned}
+        \int y_i^2 p({y_i}_*|f_j)dy_i &= \phi(f_j)
+    \end{aligned}
+\end{equation}
+
+\paragraph{Inverse probit}
+$$ \phi(x) = \frac{1}{2}\left(1 + \mathrm{erf}(x / \sqrt{2})\right) $$
+
+The integral of the error function with a Gaussian density function is known and used below.
+\begin{equation}
+    \begin{aligned}
+        \int p(y_i|f_j) q(f_j) df_j &= \int \frac{1}{2}\left( 1 + \mathrm{erf}(f_j/\sqrt{2})\right) \frac{1}{\sqrt{2\pi\Sigma_{ii}}}e^{-\frac{1}{2\Sigma_{ii}}(f_j-\mu_i)^2} df_j\\
+        &= \frac{1}{2} + \frac{1}{2}\int \mathrm{erf}(f_j/\sqrt{2})\frac{1}{\sqrt{2\pi\Sigma_{ii}}}e^{-\frac{1}{2\Sigma_{ii}}(f_j-\mu_i)^2} df_j\\
+        &= \frac{1}{2} + \frac{1}{2}\mathrm{erf}\left(\frac{\mu_i/\sqrt{2}}{\sqrt{1+2\Sigma_{ii}/2}}\right)\\
+        &= \phi\left(\frac{\mu_i}{\sqrt{1+\Sigma_{ii}}}\right)\\
+    \end{aligned}
+\end{equation}
+
+
+\paragraph{Logistic}
+$$ \phi(x) = \frac{1}{1+e^{-x}} $$
+\end{document}
