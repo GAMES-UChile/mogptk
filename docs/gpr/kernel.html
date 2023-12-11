@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L1-L435" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L1-L435" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import copy
@@ -250,7 +250,7 @@ class Kernels(Kernel):
 
     def name(self):
         names = [kernel.name() for kernel in self.kernels]
-        return &#39;%s[%s]&#39; % (self.__class__.__name__, names.join(&#39;,&#39;))
+        return &#39;[%s]&#39; % (&#39;,&#39;.join(names),)
 
     def __getitem__(self, key):
         return self.kernels[key]
@@ -490,7 +490,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L232-L246" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L232-L246" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AddKernel(Kernels):
     &#34;&#34;&#34;
@@ -546,7 +546,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L278-L292" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L278-L292" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AutomaticRelevanceDeterminationKernel(MulKernel):
     &#34;&#34;&#34;
@@ -599,7 +599,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L5-L191" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L5-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernel(torch.nn.Module):
     &#34;&#34;&#34;
@@ -823,7 +823,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L165-L170" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L165-L170" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def average(X1, X2=None):
@@ -841,7 +841,7 @@ def average(X1, X2=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L172-L177" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L172-L177" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def distance(X1, X2=None):
@@ -859,7 +859,7 @@ def distance(X1, X2=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L179-L185" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L179-L185" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def squared_distance(X1, X2=None):
@@ -879,7 +879,7 @@ def squared_distance(X1, X2=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L115-L117" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L115-L117" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def active_dims(self):
@@ -909,7 +909,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L138-L150" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L138-L150" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -944,7 +944,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L152-L163" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L152-L163" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K_diag(self, X1):
     &#34;&#34;&#34;
@@ -968,7 +968,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L112-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L112-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clone(self):
     return copy.deepcopy(self)</code></pre>
@@ -982,7 +982,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L132-L136" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L132-L136" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def iterkernels(self):
     &#34;&#34;&#34;
@@ -999,7 +999,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L20-L21" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L20-L21" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     return self.__class__.__name__</code></pre>
@@ -1022,7 +1022,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L193-L230" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L193-L230" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernels(Kernel):
     &#34;&#34;&#34;
@@ -1053,7 +1053,7 @@ def active_dims(self):
 
     def name(self):
         names = [kernel.name() for kernel in self.kernels]
-        return &#39;%s[%s]&#39; % (self.__class__.__name__, names.join(&#39;,&#39;))
+        return &#39;[%s]&#39; % (&#39;,&#39;.join(names),)
 
     def __getitem__(self, key):
         return self.kernels[key]
@@ -1083,11 +1083,11 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L220-L222" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L220-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     names = [kernel.name() for kernel in self.kernels]
-    return &#39;%s[%s]&#39; % (self.__class__.__name__, names.join(&#39;,&#39;))</code></pre>
+    return &#39;[%s]&#39; % (&#39;,&#39;.join(names),)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1119,7 +1119,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L264-L276" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L264-L276" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MixtureKernel(AddKernel):
     &#34;&#34;&#34;
@@ -1168,7 +1168,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L248-L262" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L248-L262" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MulKernel(Kernels):
     &#34;&#34;&#34;
@@ -1227,7 +1227,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L296-L435" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L296-L435" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputKernel(Kernel):
     &#34;&#34;&#34;
@@ -1408,7 +1408,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L412-L423" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L412-L423" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     &#34;&#34;&#34;
@@ -1442,7 +1442,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/kernel.py#L425-L435" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/kernel.py#L425-L435" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub_diag(self, i, X1):
     &#34;&#34;&#34;

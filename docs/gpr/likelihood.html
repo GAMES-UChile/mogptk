@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L1-L882" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L1-L870" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -57,6 +57,14 @@ def exp(x):
     &#34;&#34;&#34;
     return torch.exp(x)
 
+def probit(x):
+    &#34;&#34;&#34;
+    The probit link function given by
+
+    $$ y = \\sqrt{2} \\operatorname{erf}^{-1}(2x-1)\\right) $$
+    &#34;&#34;&#34;
+    return np.sqrt(2)*torch.erfinv(2.0*x - 1.0)
+
 def inv_probit(x):
     &#34;&#34;&#34;
     The inverse probit link function given by
@@ -66,14 +74,24 @@ def inv_probit(x):
     jitter = 1e-3
     return 0.5*(1.0+torch.erf(x/np.sqrt(2.0))) * (1.0-2.0*jitter) + jitter
 
-# also inv_logit or sigmoid
-def logistic(x):
+# also inv_logit or logistic
+def sigmoid(x):
     &#34;&#34;&#34;
     The logistic, inverse logit, or sigmoid link function given by
 
     $$ y = \\frac{1}{1 + e^{-x}} $$
     &#34;&#34;&#34;
     return 1.0/(1.0+torch.exp(-x))
+
+def log_logistic_distribution(loc, scale):
+    return torch.distributions.transformed_distribution.TransformedDistribution(
+        base_distribution=torch.distributions.uniform.Uniform(0.0,1.0),
+        transforms=[
+            torch.distributions.transforms.SigmoidTransform().inv,
+            torch.distributions.transforms.AffineTransform(loc=loc, scale=scale),
+            torch.distributions.transforms.ExpTransform(),
+        ],
+    )
 
 class GaussHermiteQuadrature:
     def __init__(self, deg=20, t_scale=None, w_scale=None):
@@ -100,7 +118,6 @@ class Likelihood(torch.nn.Module):
     &#34;&#34;&#34;
     def __init__(self, quadratures=20):
         super().__init__()
-
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = None
 
@@ -128,85 +145,78 @@ class Likelihood(torch.nn.Module):
         r = [torch.nonzero(m[j], as_tuple=False).reshape(-1) for j in range(self.output_dims)]
         return r
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         &#34;&#34;&#34;
         Validate whether the y input is within the likelihood&#39;s support.
         &#34;&#34;&#34;
         pass
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         &#34;&#34;&#34;
-        Calculate the log probability
+        Calculate the log probability density
 
         $$ \\log(p(y|f)) $$
 
         with \\(p(y|f)\\) our likelihood.
+
+        Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
+            y (torch.tensor): Values for y of shape (data_points,).
+            f (torch.tensor): values for f of shape (data_points,quadratures).
+
+        Returns:
+            torch.tensor: Log probability density of shape (data_points,quadratures).
         &#34;&#34;&#34;
-        # y: Nx1
-        # f: NxM
         raise NotImplementedError()
 
-    def variational_expectation(self, y, mu, var, X=None):
+    def variational_expectation(self, X, y, mu, var):
         &#34;&#34;&#34;
         Calculate the variational expectation
 
-        $$ \\int \\log(p(y|f)) \\; q(f) \\; df $$
+        $$ \\int \\log(p(y|X,f)) \\; q(f) \\; df $$
 
         where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate the integral.
 
         Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
             y (torch.tensor): Values for y of shape (data_points,).
             mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,1).
             var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,1).
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
-        &#34;&#34;&#34;
-        # y,mu,var: Nx1
-        q = self.quadrature(mu, var, lambda f: self.log_prob(y,f,X=X))  # Nx1
-        return q.sum()  # sum over N
-
-    def mean(self, f, X=None):
-        &#34;&#34;&#34;
-        Calculate the mean of the likelihood.
-
-        Args:
-            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Expected log density of shape ().
         &#34;&#34;&#34;
-        # f: NxM
-        raise NotImplementedError()
+        q = self.quadrature(mu, var, lambda f: self.log_prob(X,y,f))
+        return q.sum()
 
-    def variance(self, f, X=None):
+    def conditional_mean(self, X, f):
         &#34;&#34;&#34;
-        Calculate the variance of the likelihood.
+        Calculate the mean of the likelihood conditional on \\(f\\).
 
         Args:
-            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+            X (torch.tensor): Input of shape (data_points,input_dims).
+            f (torch.tensor): Posterior values for f of shape (data_points,quadratures).
 
         Returns:
-            torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,quadratures).
         &#34;&#34;&#34;
-        # f: NxM
         raise NotImplementedError()
 
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
         &#34;&#34;&#34;
         Sample from likelihood distribution.
 
         Args:
-            f (torch.tensor): Samples for f of shape (data_points,n).
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+            X (torch.tensor): Input of shape (data_points,input_dims).
+            f (torch.tensor): Samples of f values of shape (n,data_points).
 
         Returns:
-            torch.tensor: Samples of shape (data_points,n).
+            torch.tensor: Samples of shape (n,data_points).
         &#34;&#34;&#34;
         # f: nxN
         raise NotImplementedError()
 
-    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+    def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
         &#34;&#34;&#34;
         Calculate the mean and variance of the predictive distribution
 
@@ -216,26 +226,27 @@ class Likelihood(torch.nn.Module):
         where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate both integrals.
 
         Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
             mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,1).
             var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,1).
             ci (list of float): Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.
             sigma (float): Number of standard deviations of the confidence interval. Only used for short-path for Gaussian likelihood.
             n (int): Number of samples used from distribution to estimate quantile.
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-            torch.tensor: Lower confidence boundary of shape (data_points,).
-            torch.tensor: Upper confidence boundary of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,1).
+            torch.tensor: Lower confidence boundary of shape (data_points,1).
+            torch.tensor: Upper confidence boundary of shape (data_points,1).
         &#34;&#34;&#34;
         # mu,var: Nx1
-        mu = self.quadrature(mu, var, lambda f: self.mean(f, X=X))
+        mu = self.quadrature(mu, var, lambda f: self.conditional_mean(X,f))
         if ci is None:
             return mu
 
-        # TODO: can we use MCMC or something more efficient?
-        samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) #nxN
-        samples_y = self.sample(samples_f, X=X) # nxN
+        samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) # nxNx1
+        samples_y = self.conditional_sample(X, samples_f) # nxNx1
+        if samples_y is None:
+            return mu, mu, mu
         samples_y, _ = samples_y.sort(dim=0)
         lower = int(ci[0]*n + 0.5)
         upper = int(ci[1]*n + 0.5)
@@ -271,91 +282,63 @@ class MultiOutputLikelihood(Likelihood):
 
     def name(self):
         names = [likelihood.name() for likelihood in self.likelihoods]
-        return &#39;%s[%s]&#39; % (self.__class__.__name__, names.join(&#39;,&#39;))
+        return &#39;[%s]&#39; % (&#39;,&#39;.join(names),)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if self.output_dims == 1:
-            self.likelihoods[0].validate_y(y, X=X)
+            self.likelihoods[0].validate_y(X, y)
             return
 
         r = self._channel_indices(X)
         for i in range(self.output_dims):
-            self.likelihoods[i].validate_y(y[r[i],:], X=X)
+            self.likelihoods[i].validate_y(X, y[r[i],:])
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].log_prob(y[r[i],:], f[r[i],:])
-        return res  # NxM
+            res[r[i],:] = self.likelihoods[i].log_prob(X, y[r[i],:], f[r[i],:])
+        return res  # NxQ
 
-    def variational_expectation(self, y, mu, var, X=None):
+    def variational_expectation(self, X, y, mu, var):
         # y,mu,var: Nx1
         q = torch.tensor(0.0, dtype=config.dtype, device=config.device)
         r = self._channel_indices(X)
         for i in range(self.output_dims):
-            q += self.likelihoods[i].variational_expectation(y[r[i],:], mu[r[i],:], var[r[i],:]).sum()  # sum over N
+            q += self.likelihoods[i].variational_expectation(X, y[r[i],:], mu[r[i],:], var[r[i],:]).sum()  # sum over N
         return q
 
-    def mean(self, f, X=None):
-        # f: NxM
+    def conditional_mean(self, X, f):
+        # f: NxQ
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].mean(f[r[i],:])
-        return res  # NxM
+            res[r[i],:] = self.likelihoods[i].conditional_mean(X, f[r[i],:])
+        return res  # NxQ
 
-    def variance(self, f, X=None):
-        # f: NxM
-        r = self._channel_indices(X)
-        res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
-        for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].variance(f[r[i],:])
-        return res  # NxM
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
         # f: nxN
         r = self._channel_indices(X)
         for i in range(self.output_dims):
-            f[:,r[i]] = self.likelihoods[i].sample(f[:,r[i]])
+            f[:,r[i]] = self.likelihoods[i].conditional_sample(X, f[:,r[i]])
         return f  # nxN
 
-    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+    def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
         # mu,var: Nx1
         r = self._channel_indices(X)
         res = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
         if ci is None:
             for i in range(self.output_dims):
-                res[r[i],:] = self.likelihoods[i].predict(mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
+                res[r[i],:] = self.likelihoods[i].predict(X, mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
             return res
 
         lower = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
         upper = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:], lower[r[i],:], upper[r[i],:] = self.likelihoods[i].predict(mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
+            res[r[i],:], lower[r[i],:], upper[r[i],:] = self.likelihoods[i].predict(X, mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
         return res, lower, upper  # Nx1
-
-    # TODO: predict is not possible?
-    #def predict(self, mu, var, X=None, full=False):
-    #    # mu: Nx1
-    #    # var: Nx1 or NxN
-    #    if self.output_dims == 1:
-    #        return self.likelihoods[0].predict(mu,var,full=full)
-
-    #    r = self._channel_indices(X)
-    #    Ey = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
-    #    Eyy = torch.empty(var.shape, device=config.device, dtype=config.dtype)
-    #    if full:
-    #        for i in range(self.output_dims):
-    #            r1 = r[i].reshape(-1,1)
-    #            r2 = r[i].reshape(1,-1)
-    #            Ey[r[i],:], Eyy[r1,r2] = self.likelihoods[i].predict(mu[r[i],:], var[r1,r2], full=True)
-    #    else:
-    #        for i in range(self.output_dims):
-    #            Ey[r[i],:], Eyy[r[i],:] = self.likelihoods[i].predict(mu[r[i],:], var[r[i],:], full=False)
-    #    return Ey, Eyy-Ey.square()
 
 class GaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -366,66 +349,63 @@ class GaussianLikelihood(Likelihood):
     with \\(\\sigma\\) the scale.
 
     Args:
-        scale (float): Scale.
+        scale (float,torch.tensor): Scale as float or as tensor of shape (output_dims,) when considering a multi-output Gaussian likelihood.
 
     Attributes:
         scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
     def __init__(self, scale=1.0):
         super().__init__()
-
         self.scale = Parameter(scale, lower=config.positive_minimum)
         if self.scale.ndim == 1:
             self.output_dims = self.scale.shape[0]
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         p = -0.5 * (np.log(2.0*np.pi) + 2.0*self.scale().log() + ((y-f)/self.scale()).square())
-        return p  # NxM
+        return p  # NxQ
 
-    def variational_expectation(self, y, mu, var, X=None):
+    def variational_expectation(self, X, y, mu, var):
         # y,mu,var: Nx1
         p = -((y-mu).square() + var) / self.scale().square()
         p -= np.log(2.0 * np.pi)
         p -= 2.0*self.scale().log()
         return 0.5*p.sum()  # sum over N
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return f
 
-    def variance(self, f, X=None):
-        return self.scale().square()
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
         return torch.distributions.normal.Normal(f, scale=self.scale()).sample()
 
-    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+    def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
         if ci is None and sigma is None:
             return mu
 
         if self.output_dims is not None:
-            # TODO: ugly
+            var = self.scale()**2
             r = self._channel_indices(X)
             lower = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
             upper = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
             for i in range(self.output_dims):
                 if sigma is None:
                     ci = torch.tensor(ci, device=config.device, dtype=config.dtype)
-                    lower[r[i],:] = mu[r[i],:] + torch.sqrt(2.0)*self.scale()[i]*torch.erfinv(2.0*ci[0] - 1.0)
+                    lower[r[i],:] = mu[r[i],:] + torch.sqrt(2.0*var[i])*self.scale()[i]*torch.erfinv(2.0*ci[0] - 1.0)
                     upper[r[i],:] = mu[r[i],:] + torch.sqrt(2.0)*self.scale()[i]*torch.erfinv(2.0*ci[1] - 1.0)
                 else:
                     lower[r[i],:] = mu[r[i],:] - sigma*self.scale()[i]
                     upper[r[i],:] = mu[r[i],:] + sigma*self.scale()[i]
             return mu, lower, upper  # Nx1
 
+        var += self.scale()**2
         if sigma is None:
             ci = torch.tensor(ci, device=config.device, dtype=config.dtype)
-            lower = mu + torch.sqrt(2.0)*self.scale()*torch.erfinv(2.0*ci[0] - 1.0)
-            upper = mu + torch.sqrt(2.0)*self.scale()*torch.erfinv(2.0*ci[1] - 1.0)
+            lower = mu + torch.sqrt(2.0*var)*torch.erfinv(2.0*ci[0] - 1.0)
+            upper = mu + torch.sqrt(2.0*var)*torch.erfinv(2.0*ci[1] - 1.0)
         else:
-            lower = mu - sigma*self.scale()
-            upper = mu + sigma*self.scale()
+            lower = mu - sigma*var.sqrt()
+            upper = mu + sigma*var.sqrt()
         return mu, lower, upper
 
 class StudentTLikelihood(Likelihood):
@@ -446,37 +426,33 @@ class StudentTLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, dof=3, scale=1.0, quadratures=20):
         super().__init__(quadratures)
-
         self.dof = torch.tensor(dof, device=config.device, dtype=config.dtype)
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         p = -0.5 * (self.dof+1.0)*torch.log1p(((y-f)/self.scale()).square()/self.dof)
         p += torch.lgamma((self.dof+1.0)/2.0)
         p -= torch.lgamma(self.dof/2.0)
-        p -= 0.5 * torch.log(self.dof*np.pi*self.scale().square())
-        return p  # NxM
+        p -= 0.5 * (torch.log(self.dof) + np.log(np.pi) + self.scale().square().log())
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         if self.dof &lt;= 1.0:
             return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
         return f
 
-    def variance(self, f, X=None):
-        if self.dof &lt;= 2.0:
-            return np.nan
-        return self.scale().square() * self.dof/(self.dof-2.0)
+    # TODO: implement predict for certain values of dof
 
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
         return torch.distributions.studentT.StudentT(self.dof, f, self.scale()).sample()
 
 class ExponentialLikelihood(Likelihood):
     &#34;&#34;&#34;
     Exponential likelihood given by
 
-    $$ p(y|f) = h(f) e^{-h(f)y} $$
+    $$ p(y|f) = 1/h(f) e^{-y/h(f)} $$
 
     with \\(h\\) the link function and \\(y \\in [0.0,\\infty)\\).
 
@@ -486,31 +462,39 @@ class ExponentialLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt; 0.0):
             raise ValueError(&#34;y must be positive&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         if self.link == exp:
             p = -y/self.link(f) - f
         else:
             p = -y/self.link(f) - self.link(f).log()
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def variational_expectation(self, X, y, mu, var):
+        # y,mu,var: Nx1
+        if self.link != exp:
+            super().variational_expectation(X, y, mu, var)
+
+        p = -mu - y * torch.exp(var/2.0 - mu)
+        return p.sum()
+
+    def conditional_mean(self, X, f):
         return self.link(f)
 
-    def variance(self, f, X=None):
-        return self.link(f).square()
+    #TODO: implement predict?
 
-    def sample(self, f, X=None):
-        rate = self.link(f)
-        return torch.distributions.exponential.Exponential(rate).sample()
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
+        rate = 1.0/self.link(f)
+        return torch.distributions.exponential.Exponential(rate).sample().log()
 
 class LaplaceLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -529,22 +513,27 @@ class LaplaceLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, scale=1.0, quadratures=20):
         super().__init__(quadratures)
-
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         p = -torch.log(2.0*self.scale()) - (y-f).abs()/self.scale()
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return f
 
-    def variance(self, f, X=None):
-        return 2.0 * self.scale().square()
+    #def variational_expectation(self, X, y, mu, var):
+    #    # TODO: doesn&#39;t seem right
+    #    # y,mu,var: Nx1
+    #    p = -y/self.scale() + mu/self.scale() - torch.log(2.0*self.scale())
+    #    p += torch.sqrt(2.0*var/np.pi)/self.scale()
+    #    return p.sum()
 
-    def sample(self, f, X=None):
+    #TODO: implement predict
+
+    def conditional_sample(self, X, f):
         return torch.distributions.laplace.Laplace(f, self.scale()).sample()
 
 class BernoulliLikelihood(Likelihood):
@@ -559,33 +548,29 @@ class BernoulliLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     &#34;&#34;&#34;
-    def __init__(self, link=inv_probit, quadratures=20):
-        super().__init__(quadratures)
-
+    def __init__(self, link=inv_probit):
+        super().__init__()
         self.link = link
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any((y != 0.0) &amp; (y != 1.0)):
             raise ValueError(&#34;y must have only 0.0 and 1.0 values&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         p = self.link(f)
-        return torch.log(torch.where(0.5 &lt;= y, p, 1.0-p))  # NxM
+        return torch.log(torch.where(0.5 &lt;= y, p, 1.0-p))  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return self.link(f)
 
-    def variance(self, f, X=None):
-        return self.link(f) - self.link(f).square()
+    def conditional_sample(self, X, f):
+        return None
 
-    def sample(self, f, X=None):
-        return f
-
-    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+    def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
         if self.link != inv_probit:
-            return super().predict(mu, var, ci=ci, sigma=sigma, n=n, X=X)
+            return super().predict(X, mu, var, ci=ci, sigma=sigma, n=n)
 
         p = self.link(mu / torch.sqrt(1.0 + var))
         if ci is None and sigma is None:
@@ -610,40 +595,37 @@ class BetaLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, scale=1.0, link=inv_probit, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any((y &lt;= 0.0) | (1.0 &lt;= y)):
             raise ValueError(&#34;y must be in the range (0.0,1.0)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         mixture = self.link(f)
         alpha = mixture * self.scale()
-        beta = (1.0-mixture) * self.scale()
+        beta = self.scale() - alpha
 
         p = (alpha-1.0)*y.log()
         p += (beta-1.0)*torch.log1p(-y)
         p += torch.lgamma(alpha+beta)
         p -= torch.lgamma(alpha)
         p -= torch.lgamma(beta)
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return self.link(f)
 
-    def variance(self, f, X=None):
-        mixture = self.link(f)
-        return (mixture - mixture.square()) / (self.scale() + 1.0)
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
+        if self.link != inv_probit:
+            raise ValueError(&#34;only inverse probit link function is supported&#34;)
         mixture = self.link(f)
         alpha = mixture * self.scale()
-        beta = (1.0-mixture) * self.scale()
-        return torch.distributions.beta.Beta(alpha, beta).sample()
+        beta = self.scale() - alpha
+        return probit(torch.distributions.beta.Beta(alpha, beta).sample())
 
 class GammaLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -663,17 +645,16 @@ class GammaLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.shape = Parameter(shape, lower=config.positive_minimum)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt;= 0.0):
             raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         p = -y/self.link(f)
         p += (self.shape()-1.0)*y.log()
         p -= torch.lgamma(self.shape())
@@ -681,17 +662,27 @@ class GammaLikelihood(Likelihood):
             p -= self.shape()*f
         else:
             p -= self.shape()*self.link(f).log()
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def variational_expectation(self, X, y, mu, var):
+        # y,mu,var: Nx1
+        if self.link != exp:
+            super().variational_expectation(X, y, mu, var)
+
+        p = -self.shape()*mu
+        p -= torch.lgamma(self.shape())
+        p += (self.shape() - 1.0) * y.log()
+        p -= y * torch.exp(var/2.0 - mu)
+        return p.sum()
+
+    def conditional_mean(self, X, f):
         return self.shape()*self.link(f)
 
-    def variance(self, f, X=None):
-        return self.shape()*self.link(f).square()
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
         rate = 1.0/self.link(f)
-        return torch.distributions.gamma.Gamma(self.shape(), rate).sample()
+        return torch.distributions.gamma.Gamma(self.shape(), rate).sample().log()
 
 class PoissonLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -707,36 +698,41 @@ class PoissonLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, link=exp, quadratures=20):
         super().__init__(quadratures)
-        # TODO: the variational_expectation is tractable?
-
         self.link = link
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt; 0.0):
             raise ValueError(&#34;y must be in the range [0.0,inf)&#34;)
         if not torch.all(y == y.long()):
             raise ValueError(&#34;y must have integer count values&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         if self.link == exp:
             p = y*f
         else:
             p = y*self.link(f).log()
         p -= torch.lgamma(y+1.0)
         p -= self.link(f)
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def variational_expectation(self, X, y, mu, var):
+        # y,mu,var: Nx1
+        if self.link != exp:
+            super().variational_expectation(X, y, mu, var)
+
+        p = y*mu - torch.exp(var/2.0 + mu) - torch.lgamma(y+1.0)
+        return p.sum()
+
+    def conditional_mean(self, X, f):
         return self.link(f)
 
-    def variance(self, f, X=None):
-        return self.link(f)
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
         rate = self.link(f)
-        return torch.distributions.poisson.Poisson(rate).sample()
+        return torch.distributions.poisson.Poisson(rate).sample().log()
 
 class WeibullLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -756,36 +752,32 @@ class WeibullLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.shape = Parameter(shape, lower=config.positive_minimum)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt;= 0.0):
             raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         if self.link == exp:
             p = -self.shape()*f
         else:
             p = -self.shape()*self.link(f).log()
         p += self.shape().log() + (self.shape()-1.0)*y.log()
         p -= (y/self.link(f))**self.shape()
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
-        return f * torch.lgamma(1.0 + 1.0/self.shape()).exp()
+    def conditional_mean(self, X, f):
+        return self.link(f) * torch.lgamma(1.0 + 1.0/self.shape()).exp()
 
-    def variance(self, f, X=None):
-        a = torch.lgamma(1.0 + 2.0/self.shape()).exp()
-        b = torch.lgamma(1.0 + 1.0/self.shape()).exp()
-        return f.square() * (a - b.square())
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
         scale = self.link(f)
-        return torch.distributions.weibull.Weibull(scale, self.shape()).sample()
+        return torch.distributions.weibull.Weibull(scale, self.shape()).sample().log()
 
 class LogLogisticLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -805,17 +797,16 @@ class LogLogisticLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.shape = Parameter(shape, lower=config.positive_minimum)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt; 0.0):
             raise ValueError(&#34;y must be in the range [0.0,inf)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         if self.link == exp:
             p = -self.shape()*f
         else:
@@ -823,20 +814,15 @@ class LogLogisticLikelihood(Likelihood):
         p -= 2.0*torch.log1p((y/self.link(f))**self.shape())
         p += self.shape().log()
         p += (self.shape()-1.0)*y.log()
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return self.link(f) / torch.sinc(1.0/self.shape())
 
-    def variance(self, f, X=None):
-        if self.shape() &lt;= 2.0:
-            return np.nan
-        a = 1.0/torch.sinc(2.0/self.shape())
-        b = 1.0/torch.sinc(1.0/self.shape())
-        return self.link(f).square() * (a - b.square())
-
-    def sample(self, f, X=None):
-        raise NotImplementedError()
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
+        return log_logistic_distribution(f, 1.0/self.shape()).sample().log()
 
 class LogGaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -855,29 +841,28 @@ class LogGaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, scale=1.0, quadratures=20):
         super().__init__(quadratures)
-
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt;= 0.0):
             raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         logy = y.log()
         p = -0.5 * (np.log(2.0*np.pi) + 2.0*self.scale().log() + ((logy-f)/self.scale()).square())
         p -= logy
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return torch.exp(f + 0.5*self.scale().square())
 
-    def variance(self, f, X=None):
-        return (self.scale().square().exp() - 1.0) * torch.exp(2.0*f + self.scale().square())
+    #TODO: implement variational_expectation?
+    #TODO: implement predict
 
-    def sample(self, f, X=None):
-        return torch.distributions.log_normal.LogNormal(f, self.scale()).sample()
+    def conditional_sample(self, X, f):
+        return torch.distributions.log_normal.LogNormal(f, self.scale()).sample().log()
 
 class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -888,29 +873,31 @@ class ChiSquaredLikelihood(Likelihood):
     with \\(y \\in (0.0,\\infty)\\).
 
     Args:
+        link (function): Link function to map function values to the support of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     &#34;&#34;&#34;
-    def __init__(self, quadratures=20):
+    def __init__(self, link=exp, quadratures=20):
         super().__init__(quadratures)
+        self.link = link
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt;= 0.0):
             raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
+        f = self.link(f)
         p = -0.5*f*np.log(2.0) - torch.lgamma(f/2.0) + (f/2.0-1.0)*y.log() - 0.5*y
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
-        return f
+    def conditional_mean(self, X, f):
+        return self.link(f)
 
-    def variance(self, f, X=None):
-        return 2.0*f
-
-    def sample(self, f, X=None):
-        raise NotImplementedError()</code></pre>
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
+        return torch.distributions.chi2.Chi2(self.link(f)).sample().log()</code></pre>
 </details>
 </section>
 <section>
@@ -929,7 +916,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L21-L27" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L21-L27" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def exp(x):
     &#34;&#34;&#34;
@@ -949,7 +936,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L5-L11" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L5-L11" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def identity(x):
     &#34;&#34;&#34;
@@ -969,7 +956,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L29-L36" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L37-L44" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def inv_probit(x):
     &#34;&#34;&#34;
@@ -981,8 +968,49 @@ class ChiSquaredLikelihood(Likelihood):
     return 0.5*(1.0+torch.erf(x/np.sqrt(2.0))) * (1.0-2.0*jitter) + jitter</code></pre>
 </details>
 </dd>
-<dt id="mogptk.gpr.likelihood.logistic"><code class="name flex">
-<span>def <span class="ident">logistic</span></span>(<span>x)</span>
+<dt id="mogptk.gpr.likelihood.log_logistic_distribution"><code class="name flex">
+<span>def <span class="ident">log_logistic_distribution</span></span>(<span>loc, scale)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L55-L63" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def log_logistic_distribution(loc, scale):
+    return torch.distributions.transformed_distribution.TransformedDistribution(
+        base_distribution=torch.distributions.uniform.Uniform(0.0,1.0),
+        transforms=[
+            torch.distributions.transforms.SigmoidTransform().inv,
+            torch.distributions.transforms.AffineTransform(loc=loc, scale=scale),
+            torch.distributions.transforms.ExpTransform(),
+        ],
+    )</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.likelihood.probit"><code class="name flex">
+<span>def <span class="ident">probit</span></span>(<span>x)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The probit link function given by</p>
+<p><span><span class="MathJax_Preview"> y = \sqrt{2} \operatorname{erf}^{-1}(2x-1)\right) </span><script type="math/tex; mode=display"> y = \sqrt{2} \operatorname{erf}^{-1}(2x-1)\right) </script></span></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L29-L35" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def probit(x):
+    &#34;&#34;&#34;
+    The probit link function given by
+
+    $$ y = \\sqrt{2} \\operatorname{erf}^{-1}(2x-1)\\right) $$
+    &#34;&#34;&#34;
+    return np.sqrt(2)*torch.erfinv(2.0*x - 1.0)</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.likelihood.sigmoid"><code class="name flex">
+<span>def <span class="ident">sigmoid</span></span>(<span>x)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The logistic, inverse logit, or sigmoid link function given by</p>
@@ -990,9 +1018,9 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L39-L45" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L47-L53" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def logistic(x):
+<pre><code class="python">def sigmoid(x):
     &#34;&#34;&#34;
     The logistic, inverse logit, or sigmoid link function given by
 
@@ -1010,7 +1038,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L13-L19" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L13-L19" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def square(x):
     &#34;&#34;&#34;
@@ -1028,7 +1056,7 @@ class ChiSquaredLikelihood(Likelihood):
 <dl>
 <dt id="mogptk.gpr.likelihood.BernoulliLikelihood"><code class="flex name class">
 <span>class <span class="ident">BernoulliLikelihood</span></span>
-<span>(</span><span>link=&lt;function inv_probit&gt;, quadratures=20)</span>
+<span>(</span><span>link=&lt;function inv_probit&gt;)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Bernoulli likelihood given by</p>
@@ -1045,7 +1073,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L519-L562" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L508-L547" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class BernoulliLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1059,33 +1087,29 @@ class ChiSquaredLikelihood(Likelihood):
         link (function): Link function to map function values to the support of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     &#34;&#34;&#34;
-    def __init__(self, link=inv_probit, quadratures=20):
-        super().__init__(quadratures)
-
+    def __init__(self, link=inv_probit):
+        super().__init__()
         self.link = link
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any((y != 0.0) &amp; (y != 1.0)):
             raise ValueError(&#34;y must have only 0.0 and 1.0 values&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         p = self.link(f)
-        return torch.log(torch.where(0.5 &lt;= y, p, 1.0-p))  # NxM
+        return torch.log(torch.where(0.5 &lt;= y, p, 1.0-p))  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return self.link(f)
 
-    def variance(self, f, X=None):
-        return self.link(f) - self.link(f).square()
+    def conditional_sample(self, X, f):
+        return None
 
-    def sample(self, f, X=None):
-        return f
-
-    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+    def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
         if self.link != inv_probit:
-            return super().predict(mu, var, ci=ci, sigma=sigma, n=n, X=X)
+            return super().predict(X, mu, var, ci=ci, sigma=sigma, n=n)
 
         p = self.link(mu / torch.sqrt(1.0 + var))
         if ci is None and sigma is None:
@@ -1101,12 +1125,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -1138,7 +1161,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L564-L615" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L549-L597" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class BetaLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1158,40 +1181,37 @@ class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, scale=1.0, link=inv_probit, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any((y &lt;= 0.0) | (1.0 &lt;= y)):
             raise ValueError(&#34;y must be in the range (0.0,1.0)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         mixture = self.link(f)
         alpha = mixture * self.scale()
-        beta = (1.0-mixture) * self.scale()
+        beta = self.scale() - alpha
 
         p = (alpha-1.0)*y.log()
         p += (beta-1.0)*torch.log1p(-y)
         p += torch.lgamma(alpha+beta)
         p -= torch.lgamma(alpha)
         p -= torch.lgamma(beta)
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return self.link(f)
 
-    def variance(self, f, X=None):
-        mixture = self.link(f)
-        return (mixture - mixture.square()) / (self.scale() + 1.0)
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
+        if self.link != inv_probit:
+            raise ValueError(&#34;only inverse probit link function is supported&#34;)
         mixture = self.link(f)
         alpha = mixture * self.scale()
-        beta = (1.0-mixture) * self.scale()
-        return torch.distributions.beta.Beta(alpha, beta).sample()</code></pre>
+        beta = self.scale() - alpha
+        return probit(torch.distributions.beta.Beta(alpha, beta).sample())</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1202,12 +1222,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -1215,7 +1234,7 @@ class ChiSquaredLikelihood(Likelihood):
 </dd>
 <dt id="mogptk.gpr.likelihood.ChiSquaredLikelihood"><code class="flex name class">
 <span>class <span class="ident">ChiSquaredLikelihood</span></span>
-<span>(</span><span>quadratures=20)</span>
+<span>(</span><span>link=&lt;function exp&gt;, quadratures=20)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Chi-squared likelihood given by</p>
@@ -1223,6 +1242,8 @@ class ChiSquaredLikelihood(Likelihood):
 <p>with <span><span class="MathJax_Preview">y \in (0.0,\infty)</span><script type="math/tex">y \in (0.0,\infty)</script></span>.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>link</code></strong> :&ensp;<code>function</code></dt>
+<dd>Link function to map function values to the support of the likelihood.</dd>
 <dt><strong><code>quadratures</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of quadrature points to use when approximating using Gauss-Hermite quadratures.</dd>
 </dl>
@@ -1230,7 +1251,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L851-L882" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L836-L869" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1241,29 +1262,31 @@ class ChiSquaredLikelihood(Likelihood):
     with \\(y \\in (0.0,\\infty)\\).
 
     Args:
+        link (function): Link function to map function values to the support of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     &#34;&#34;&#34;
-    def __init__(self, quadratures=20):
+    def __init__(self, link=exp, quadratures=20):
         super().__init__(quadratures)
+        self.link = link
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt;= 0.0):
             raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
+        f = self.link(f)
         p = -0.5*f*np.log(2.0) - torch.lgamma(f/2.0) + (f/2.0-1.0)*y.log() - 0.5*y
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
-        return f
+    def conditional_mean(self, X, f):
+        return self.link(f)
 
-    def variance(self, f, X=None):
-        return 2.0*f
-
-    def sample(self, f, X=None):
-        raise NotImplementedError()</code></pre>
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
+        return torch.distributions.chi2.Chi2(self.link(f)).sample().log()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1274,12 +1297,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -1291,7 +1313,7 @@ class ChiSquaredLikelihood(Likelihood):
 </code></dt>
 <dd>
 <div class="desc"><p>Exponential likelihood given by</p>
-<p><span><span class="MathJax_Preview"> p(y|f) = h(f) e^{-h(f)y} </span><script type="math/tex; mode=display"> p(y|f) = h(f) e^{-h(f)y} </script></span></p>
+<p><span><span class="MathJax_Preview"> p(y|f) = 1/h(f) e^{-y/h(f)} </span><script type="math/tex; mode=display"> p(y|f) = 1/h(f) e^{-y/h(f)} </script></span></p>
 <p>with <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> the link function and <span><span class="MathJax_Preview">y \in [0.0,\infty)</span><script type="math/tex">y \in [0.0,\infty)</script></span>.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -1304,13 +1326,13 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L444-L482" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L420-L466" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ExponentialLikelihood(Likelihood):
     &#34;&#34;&#34;
     Exponential likelihood given by
 
-    $$ p(y|f) = h(f) e^{-h(f)y} $$
+    $$ p(y|f) = 1/h(f) e^{-y/h(f)} $$
 
     with \\(h\\) the link function and \\(y \\in [0.0,\\infty)\\).
 
@@ -1320,31 +1342,39 @@ class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt; 0.0):
             raise ValueError(&#34;y must be positive&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         if self.link == exp:
             p = -y/self.link(f) - f
         else:
             p = -y/self.link(f) - self.link(f).log()
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def variational_expectation(self, X, y, mu, var):
+        # y,mu,var: Nx1
+        if self.link != exp:
+            super().variational_expectation(X, y, mu, var)
+
+        p = -mu - y * torch.exp(var/2.0 - mu)
+        return p.sum()
+
+    def conditional_mean(self, X, f):
         return self.link(f)
 
-    def variance(self, f, X=None):
-        return self.link(f).square()
+    #TODO: implement predict?
 
-    def sample(self, f, X=None):
-        rate = self.link(f)
-        return torch.distributions.exponential.Exponential(rate).sample()</code></pre>
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
+        rate = 1.0/self.link(f)
+        return torch.distributions.exponential.Exponential(rate).sample().log()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1355,12 +1385,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -1392,7 +1421,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L617-L663" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L599-L654" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GammaLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1412,17 +1441,16 @@ class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.shape = Parameter(shape, lower=config.positive_minimum)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt;= 0.0):
             raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         p = -y/self.link(f)
         p += (self.shape()-1.0)*y.log()
         p -= torch.lgamma(self.shape())
@@ -1430,17 +1458,27 @@ class ChiSquaredLikelihood(Likelihood):
             p -= self.shape()*f
         else:
             p -= self.shape()*self.link(f).log()
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def variational_expectation(self, X, y, mu, var):
+        # y,mu,var: Nx1
+        if self.link != exp:
+            super().variational_expectation(X, y, mu, var)
+
+        p = -self.shape()*mu
+        p -= torch.lgamma(self.shape())
+        p += (self.shape() - 1.0) * y.log()
+        p -= y * torch.exp(var/2.0 - mu)
+        return p.sum()
+
+    def conditional_mean(self, X, f):
         return self.shape()*self.link(f)
 
-    def variance(self, f, X=None):
-        return self.shape()*self.link(f).square()
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
         rate = 1.0/self.link(f)
-        return torch.distributions.gamma.Gamma(self.shape(), rate).sample()</code></pre>
+        return torch.distributions.gamma.Gamma(self.shape(), rate).sample().log()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1451,12 +1489,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -1471,7 +1508,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L47-L61" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L65-L79" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussHermiteQuadrature:
     def __init__(self, deg=20, t_scale=None, w_scale=None):
@@ -1500,8 +1537,8 @@ class ChiSquaredLikelihood(Likelihood):
 <p>with <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span> the scale.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>scale</code></strong> :&ensp;<code>float</code></dt>
-<dd>Scale.</dd>
+<dt><strong><code>scale</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
+<dd>Scale as float or as tensor of shape (output_dims,) when considering a multi-output Gaussian likelihood.</dd>
 </dl>
 <h2 id="attributes">Attributes</h2>
 <dl>
@@ -1512,7 +1549,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L329-L398" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L312-L378" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1523,66 +1560,63 @@ class ChiSquaredLikelihood(Likelihood):
     with \\(\\sigma\\) the scale.
 
     Args:
-        scale (float): Scale.
+        scale (float,torch.tensor): Scale as float or as tensor of shape (output_dims,) when considering a multi-output Gaussian likelihood.
 
     Attributes:
         scale (mogptk.gpr.parameter.Parameter): Scale \\(\\sigma\\).
     &#34;&#34;&#34;
     def __init__(self, scale=1.0):
         super().__init__()
-
         self.scale = Parameter(scale, lower=config.positive_minimum)
         if self.scale.ndim == 1:
             self.output_dims = self.scale.shape[0]
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         p = -0.5 * (np.log(2.0*np.pi) + 2.0*self.scale().log() + ((y-f)/self.scale()).square())
-        return p  # NxM
+        return p  # NxQ
 
-    def variational_expectation(self, y, mu, var, X=None):
+    def variational_expectation(self, X, y, mu, var):
         # y,mu,var: Nx1
         p = -((y-mu).square() + var) / self.scale().square()
         p -= np.log(2.0 * np.pi)
         p -= 2.0*self.scale().log()
         return 0.5*p.sum()  # sum over N
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return f
 
-    def variance(self, f, X=None):
-        return self.scale().square()
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
         return torch.distributions.normal.Normal(f, scale=self.scale()).sample()
 
-    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+    def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
         if ci is None and sigma is None:
             return mu
 
         if self.output_dims is not None:
-            # TODO: ugly
+            var = self.scale()**2
             r = self._channel_indices(X)
             lower = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
             upper = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
             for i in range(self.output_dims):
                 if sigma is None:
                     ci = torch.tensor(ci, device=config.device, dtype=config.dtype)
-                    lower[r[i],:] = mu[r[i],:] + torch.sqrt(2.0)*self.scale()[i]*torch.erfinv(2.0*ci[0] - 1.0)
+                    lower[r[i],:] = mu[r[i],:] + torch.sqrt(2.0*var[i])*self.scale()[i]*torch.erfinv(2.0*ci[0] - 1.0)
                     upper[r[i],:] = mu[r[i],:] + torch.sqrt(2.0)*self.scale()[i]*torch.erfinv(2.0*ci[1] - 1.0)
                 else:
                     lower[r[i],:] = mu[r[i],:] - sigma*self.scale()[i]
                     upper[r[i],:] = mu[r[i],:] + sigma*self.scale()[i]
             return mu, lower, upper  # Nx1
 
+        var += self.scale()**2
         if sigma is None:
             ci = torch.tensor(ci, device=config.device, dtype=config.dtype)
-            lower = mu + torch.sqrt(2.0)*self.scale()*torch.erfinv(2.0*ci[0] - 1.0)
-            upper = mu + torch.sqrt(2.0)*self.scale()*torch.erfinv(2.0*ci[1] - 1.0)
+            lower = mu + torch.sqrt(2.0*var)*torch.erfinv(2.0*ci[0] - 1.0)
+            upper = mu + torch.sqrt(2.0*var)*torch.erfinv(2.0*ci[1] - 1.0)
         else:
-            lower = mu - sigma*self.scale()
-            upper = mu + sigma*self.scale()
+            lower = mu - sigma*var.sqrt()
+            upper = mu + sigma*var.sqrt()
         return mu, lower, upper</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -1594,12 +1628,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -1629,7 +1662,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L484-L517" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L468-L506" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LaplaceLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -1648,22 +1681,27 @@ class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, scale=1.0, quadratures=20):
         super().__init__(quadratures)
-
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         p = -torch.log(2.0*self.scale()) - (y-f).abs()/self.scale()
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return f
 
-    def variance(self, f, X=None):
-        return 2.0 * self.scale().square()
+    #def variational_expectation(self, X, y, mu, var):
+    #    # TODO: doesn&#39;t seem right
+    #    # y,mu,var: Nx1
+    #    p = -y/self.scale() + mu/self.scale() - torch.log(2.0*self.scale())
+    #    p += torch.sqrt(2.0*var/np.pi)/self.scale()
+    #    return p.sum()
 
-    def sample(self, f, X=None):
+    #TODO: implement predict
+
+    def conditional_sample(self, X, f):
         return torch.distributions.laplace.Laplace(f, self.scale()).sample()</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -1675,12 +1713,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -1701,7 +1738,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L63-L211" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L81-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Likelihood(torch.nn.Module):
     &#34;&#34;&#34;
@@ -1712,7 +1749,6 @@ class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, quadratures=20):
         super().__init__()
-
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = None
 
@@ -1740,85 +1776,78 @@ class ChiSquaredLikelihood(Likelihood):
         r = [torch.nonzero(m[j], as_tuple=False).reshape(-1) for j in range(self.output_dims)]
         return r
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         &#34;&#34;&#34;
         Validate whether the y input is within the likelihood&#39;s support.
         &#34;&#34;&#34;
         pass
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         &#34;&#34;&#34;
-        Calculate the log probability
+        Calculate the log probability density
 
         $$ \\log(p(y|f)) $$
 
         with \\(p(y|f)\\) our likelihood.
+
+        Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
+            y (torch.tensor): Values for y of shape (data_points,).
+            f (torch.tensor): values for f of shape (data_points,quadratures).
+
+        Returns:
+            torch.tensor: Log probability density of shape (data_points,quadratures).
         &#34;&#34;&#34;
-        # y: Nx1
-        # f: NxM
         raise NotImplementedError()
 
-    def variational_expectation(self, y, mu, var, X=None):
+    def variational_expectation(self, X, y, mu, var):
         &#34;&#34;&#34;
         Calculate the variational expectation
 
-        $$ \\int \\log(p(y|f)) \\; q(f) \\; df $$
+        $$ \\int \\log(p(y|X,f)) \\; q(f) \\; df $$
 
         where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate the integral.
 
         Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
             y (torch.tensor): Values for y of shape (data_points,).
             mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,1).
             var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,1).
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
-        &#34;&#34;&#34;
-        # y,mu,var: Nx1
-        q = self.quadrature(mu, var, lambda f: self.log_prob(y,f,X=X))  # Nx1
-        return q.sum()  # sum over N
-
-    def mean(self, f, X=None):
-        &#34;&#34;&#34;
-        Calculate the mean of the likelihood.
-
-        Args:
-            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Expected log density of shape ().
         &#34;&#34;&#34;
-        # f: NxM
-        raise NotImplementedError()
+        q = self.quadrature(mu, var, lambda f: self.log_prob(X,y,f))
+        return q.sum()
 
-    def variance(self, f, X=None):
+    def conditional_mean(self, X, f):
         &#34;&#34;&#34;
-        Calculate the variance of the likelihood.
+        Calculate the mean of the likelihood conditional on \\(f\\).
 
         Args:
-            f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+            X (torch.tensor): Input of shape (data_points,input_dims).
+            f (torch.tensor): Posterior values for f of shape (data_points,quadratures).
 
         Returns:
-            torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,quadratures).
         &#34;&#34;&#34;
-        # f: NxM
         raise NotImplementedError()
 
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
         &#34;&#34;&#34;
         Sample from likelihood distribution.
 
         Args:
-            f (torch.tensor): Samples for f of shape (data_points,n).
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+            X (torch.tensor): Input of shape (data_points,input_dims).
+            f (torch.tensor): Samples of f values of shape (n,data_points).
 
         Returns:
-            torch.tensor: Samples of shape (data_points,n).
+            torch.tensor: Samples of shape (n,data_points).
         &#34;&#34;&#34;
         # f: nxN
         raise NotImplementedError()
 
-    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+    def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
         &#34;&#34;&#34;
         Calculate the mean and variance of the predictive distribution
 
@@ -1828,26 +1857,27 @@ class ChiSquaredLikelihood(Likelihood):
         where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate both integrals.
 
         Args:
+            X (torch.tensor): Input of shape (data_points,input_dims).
             mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,1).
             var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,1).
             ci (list of float): Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.
             sigma (float): Number of standard deviations of the confidence interval. Only used for short-path for Gaussian likelihood.
             n (int): Number of samples used from distribution to estimate quantile.
-            X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-            torch.tensor: Lower confidence boundary of shape (data_points,).
-            torch.tensor: Upper confidence boundary of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,1).
+            torch.tensor: Lower confidence boundary of shape (data_points,1).
+            torch.tensor: Upper confidence boundary of shape (data_points,1).
         &#34;&#34;&#34;
         # mu,var: Nx1
-        mu = self.quadrature(mu, var, lambda f: self.mean(f, X=X))
+        mu = self.quadrature(mu, var, lambda f: self.conditional_mean(X,f))
         if ci is None:
             return mu
 
-        # TODO: can we use MCMC or something more efficient?
-        samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) #nxN
-        samples_y = self.sample(samples_f, X=X) # nxN
+        samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) # nxNx1
+        samples_y = self.conditional_sample(X, samples_f) # nxNx1
+        if samples_y is None:
+            return mu, mu, mu
         samples_y, _ = samples_y.sort(dim=0)
         lower = int(ci[0]*n + 0.5)
         upper = int(ci[1]*n + 0.5)
@@ -1875,65 +1905,121 @@ class ChiSquaredLikelihood(Likelihood):
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="mogptk.gpr.likelihood.Likelihood.log_prob"><code class="name flex">
-<span>def <span class="ident">log_prob</span></span>(<span>self, y, f, X=None)</span>
+<dt id="mogptk.gpr.likelihood.Likelihood.conditional_mean"><code class="name flex">
+<span>def <span class="ident">conditional_mean</span></span>(<span>self, X, f)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Calculate the log probability</p>
-<p><span><span class="MathJax_Preview"> \log(p(y|f)) </span><script type="math/tex; mode=display"> \log(p(y|f)) </script></span></p>
-<p>with <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> our likelihood.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L106-L116" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def log_prob(self, y, f, X=None):
-    &#34;&#34;&#34;
-    Calculate the log probability
-
-    $$ \\log(p(y|f)) $$
-
-    with \\(p(y|f)\\) our likelihood.
-    &#34;&#34;&#34;
-    # y: Nx1
-    # f: NxM
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
-<dt id="mogptk.gpr.likelihood.Likelihood.mean"><code class="name flex">
-<span>def <span class="ident">mean</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Calculate the mean of the likelihood.</p>
+<div class="desc"><p>Calculate the mean of the likelihood conditional on <span><span class="MathJax_Preview">f</span><script type="math/tex">f</script></span>.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>f</code></strong> :&ensp;<code>torch.tensor</code></dt>
-<dd>Posterior values for f of shape (data_points,input_dims).</dd>
 <dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
-<dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
+<dd>Input of shape (data_points,input_dims).</dd>
+<dt><strong><code>f</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Posterior values for f of shape (data_points,quadratures).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>torch.tensor</code></dt>
-<dd>Mean of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,).</dd>
+<dd>Mean of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,quadratures).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L136-L148" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L161-L172" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def mean(self, f, X=None):
+<pre><code class="python">def conditional_mean(self, X, f):
     &#34;&#34;&#34;
-    Calculate the mean of the likelihood.
+    Calculate the mean of the likelihood conditional on \\(f\\).
 
     Args:
-        f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
-        X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+        X (torch.tensor): Input of shape (data_points,input_dims).
+        f (torch.tensor): Posterior values for f of shape (data_points,quadratures).
 
     Returns:
-        torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
+        torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,quadratures).
     &#34;&#34;&#34;
-    # f: NxM
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.likelihood.Likelihood.conditional_sample"><code class="name flex">
+<span>def <span class="ident">conditional_sample</span></span>(<span>self, X, f)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sample from likelihood distribution.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims).</dd>
+<dt><strong><code>f</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Samples of f values of shape (n,data_points).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Samples of shape (n,data_points).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L174-L186" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def conditional_sample(self, X, f):
+    &#34;&#34;&#34;
+    Sample from likelihood distribution.
+
+    Args:
+        X (torch.tensor): Input of shape (data_points,input_dims).
+        f (torch.tensor): Samples of f values of shape (n,data_points).
+
+    Returns:
+        torch.tensor: Samples of shape (n,data_points).
+    &#34;&#34;&#34;
+    # f: nxN
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.likelihood.Likelihood.log_prob"><code class="name flex">
+<span>def <span class="ident">log_prob</span></span>(<span>self, X, y, f)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the log probability density</p>
+<p><span><span class="MathJax_Preview"> \log(p(y|f)) </span><script type="math/tex; mode=display"> \log(p(y|f)) </script></span></p>
+<p>with <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> our likelihood.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims).</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Values for y of shape (data_points,).</dd>
+<dt><strong><code>f</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>values for f of shape (data_points,quadratures).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Log probability density of shape (data_points,quadratures).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L123-L139" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def log_prob(self, X, y, f):
+    &#34;&#34;&#34;
+    Calculate the log probability density
+
+    $$ \\log(p(y|f)) $$
+
+    with \\(p(y|f)\\) our likelihood.
+
+    Args:
+        X (torch.tensor): Input of shape (data_points,input_dims).
+        y (torch.tensor): Values for y of shape (data_points,).
+        f (torch.tensor): values for f of shape (data_points,quadratures).
+
+    Returns:
+        torch.tensor: Log probability density of shape (data_points,quadratures).
+    &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -1945,14 +2031,14 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L76-L77" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L93-L94" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     return self.__class__.__name__</code></pre>
 </details>
 </dd>
 <dt id="mogptk.gpr.likelihood.Likelihood.predict"><code class="name flex">
-<span>def <span class="ident">predict</span></span>(<span>self, mu, var, ci=None, sigma=None, n=10000, X=None)</span>
+<span>def <span class="ident">predict</span></span>(<span>self, X, mu, var, ci=None, sigma=None, n=10000)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the mean and variance of the predictive distribution</p>
@@ -1961,6 +2047,8 @@ class ChiSquaredLikelihood(Likelihood):
 <p>where <span><span class="MathJax_Preview">q(f) \sim \mathcal{N}(\mu,\Sigma)</span><script type="math/tex">q(f) \sim \mathcal{N}(\mu,\Sigma)</script></span> and <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> our likelihood. By default this uses Gauss-Hermite quadratures to approximate both integrals.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims).</dd>
 <dt><strong><code>mu</code></strong> :&ensp;<code>torch.tensor</code></dt>
 <dd>Mean of the posterior <span><span class="MathJax_Preview">q(f)</span><script type="math/tex">q(f)</script></span> of shape (data_points,1).</dd>
 <dt><strong><code>var</code></strong> :&ensp;<code>torch.tensor</code></dt>
@@ -1971,24 +2059,22 @@ class ChiSquaredLikelihood(Likelihood):
 <dd>Number of standard deviations of the confidence interval. Only used for short-path for Gaussian likelihood.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of samples used from distribution to estimate quantile.</dd>
-<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
-<dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>torch.tensor</code></dt>
-<dd>Mean of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,).</dd>
+<dd>Mean of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,1).</dd>
 <dt><code>torch.tensor</code></dt>
-<dd>Lower confidence boundary of shape (data_points,).</dd>
+<dd>Lower confidence boundary of shape (data_points,1).</dd>
 <dt><code>torch.tensor</code></dt>
-<dd>Upper confidence boundary of shape (data_points,).</dd>
+<dd>Upper confidence boundary of shape (data_points,1).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L178-L211" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L188-L222" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+<pre><code class="python">def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
     &#34;&#34;&#34;
     Calculate the mean and variance of the predictive distribution
 
@@ -1998,163 +2084,97 @@ class ChiSquaredLikelihood(Likelihood):
     where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate both integrals.
 
     Args:
+        X (torch.tensor): Input of shape (data_points,input_dims).
         mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,1).
         var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,1).
         ci (list of float): Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.
         sigma (float): Number of standard deviations of the confidence interval. Only used for short-path for Gaussian likelihood.
         n (int): Number of samples used from distribution to estimate quantile.
-        X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
 
     Returns:
-        torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-        torch.tensor: Lower confidence boundary of shape (data_points,).
-        torch.tensor: Upper confidence boundary of shape (data_points,).
+        torch.tensor: Mean of the predictive posterior \\(p(y|f)\\) of shape (data_points,1).
+        torch.tensor: Lower confidence boundary of shape (data_points,1).
+        torch.tensor: Upper confidence boundary of shape (data_points,1).
     &#34;&#34;&#34;
     # mu,var: Nx1
-    mu = self.quadrature(mu, var, lambda f: self.mean(f, X=X))
+    mu = self.quadrature(mu, var, lambda f: self.conditional_mean(X,f))
     if ci is None:
         return mu
 
-    # TODO: can we use MCMC or something more efficient?
-    samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) #nxN
-    samples_y = self.sample(samples_f, X=X) # nxN
+    samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) # nxNx1
+    samples_y = self.conditional_sample(X, samples_f) # nxNx1
+    if samples_y is None:
+        return mu, mu, mu
     samples_y, _ = samples_y.sort(dim=0)
     lower = int(ci[0]*n + 0.5)
     upper = int(ci[1]*n + 0.5)
     return mu, samples_y[lower,:], samples_y[upper,:]</code></pre>
 </details>
 </dd>
-<dt id="mogptk.gpr.likelihood.Likelihood.sample"><code class="name flex">
-<span>def <span class="ident">sample</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sample from likelihood distribution.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>f</code></strong> :&ensp;<code>torch.tensor</code></dt>
-<dd>Samples for f of shape (data_points,n).</dd>
-<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
-<dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>torch.tensor</code></dt>
-<dd>Samples of shape (data_points,n).</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L164-L176" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def sample(self, f, X=None):
-    &#34;&#34;&#34;
-    Sample from likelihood distribution.
-
-    Args:
-        f (torch.tensor): Samples for f of shape (data_points,n).
-        X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
-
-    Returns:
-        torch.tensor: Samples of shape (data_points,n).
-    &#34;&#34;&#34;
-    # f: nxN
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
 <dt id="mogptk.gpr.likelihood.Likelihood.validate_y"><code class="name flex">
-<span>def <span class="ident">validate_y</span></span>(<span>self, y, X=None)</span>
+<span>def <span class="ident">validate_y</span></span>(<span>self, X, y)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Validate whether the y input is within the likelihood's support.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L100-L104" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L117-L121" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def validate_y(self, y, X=None):
+<pre><code class="python">def validate_y(self, X, y):
     &#34;&#34;&#34;
     Validate whether the y input is within the likelihood&#39;s support.
     &#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
-<dt id="mogptk.gpr.likelihood.Likelihood.variance"><code class="name flex">
-<span>def <span class="ident">variance</span></span>(<span>self, f, X=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Calculate the variance of the likelihood.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>f</code></strong> :&ensp;<code>torch.tensor</code></dt>
-<dd>Posterior values for f of shape (data_points,input_dims).</dd>
-<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
-<dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>torch.tensor</code></dt>
-<dd>Variance of the predictive posterior <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> of shape (data_points,).</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L150-L162" class="git-link">Browse git</a>
-</summary>
-<pre><code class="python">def variance(self, f, X=None):
-    &#34;&#34;&#34;
-    Calculate the variance of the likelihood.
-
-    Args:
-        f (torch.tensor): Posterior values for f of shape (data_points,input_dims).
-        X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
-
-    Returns:
-        torch.tensor: Variance of the predictive posterior \\(p(y|f)\\) of shape (data_points,).
-    &#34;&#34;&#34;
-    # f: NxM
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
 <dt id="mogptk.gpr.likelihood.Likelihood.variational_expectation"><code class="name flex">
-<span>def <span class="ident">variational_expectation</span></span>(<span>self, y, mu, var, X=None)</span>
+<span>def <span class="ident">variational_expectation</span></span>(<span>self, X, y, mu, var)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the variational expectation</p>
-<p><span><span class="MathJax_Preview"> \int \log(p(y|f)) \; q(f) \; df </span><script type="math/tex; mode=display"> \int \log(p(y|f)) \; q(f) \; df </script></span></p>
+<p><span><span class="MathJax_Preview"> \int \log(p(y|X,f)) \; q(f) \; df </span><script type="math/tex; mode=display"> \int \log(p(y|X,f)) \; q(f) \; df </script></span></p>
 <p>where <span><span class="MathJax_Preview">q(f) \sim \mathcal{N}(\mu,\Sigma)</span><script type="math/tex">q(f) \sim \mathcal{N}(\mu,\Sigma)</script></span> and <span><span class="MathJax_Preview">p(y|f)</span><script type="math/tex">p(y|f)</script></span> our likelihood. By default this uses Gauss-Hermite quadratures to approximate the integral.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims).</dd>
 <dt><strong><code>y</code></strong> :&ensp;<code>torch.tensor</code></dt>
 <dd>Values for y of shape (data_points,).</dd>
 <dt><strong><code>mu</code></strong> :&ensp;<code>torch.tensor</code></dt>
 <dd>Mean of the posterior <span><span class="MathJax_Preview">q(f)</span><script type="math/tex">q(f)</script></span> of shape (data_points,1).</dd>
 <dt><strong><code>var</code></strong> :&ensp;<code>torch.tensor</code></dt>
 <dd>Variance of the posterior <span><span class="MathJax_Preview">q(f)</span><script type="math/tex">q(f)</script></span> of shape (data_points,1).</dd>
-<dt><strong><code>X</code></strong> :&ensp;<code>torch.tensor</code></dt>
-<dd>Input of shape (data_points,input_dims) needed for multi-output likelihood.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Expected log density of shape ().</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L118-L134" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L141-L159" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def variational_expectation(self, y, mu, var, X=None):
+<pre><code class="python">def variational_expectation(self, X, y, mu, var):
     &#34;&#34;&#34;
     Calculate the variational expectation
 
-    $$ \\int \\log(p(y|f)) \\; q(f) \\; df $$
+    $$ \\int \\log(p(y|X,f)) \\; q(f) \\; df $$
 
     where \\(q(f) \\sim \\mathcal{N}(\\mu,\\Sigma)\\) and \\(p(y|f)\\) our likelihood. By default this uses Gauss-Hermite quadratures to approximate the integral.
 
     Args:
+        X (torch.tensor): Input of shape (data_points,input_dims).
         y (torch.tensor): Values for y of shape (data_points,).
         mu (torch.tensor): Mean of the posterior \\(q(f)\\) of shape (data_points,1).
         var (torch.tensor): Variance of the posterior \\(q(f)\\) of shape (data_points,1).
-        X (torch.tensor): Input of shape (data_points,input_dims) needed for multi-output likelihood.
+
+    Returns:
+        torch.tensor: Expected log density of shape ().
     &#34;&#34;&#34;
-    # y,mu,var: Nx1
-    q = self.quadrature(mu, var, lambda f: self.log_prob(y,f,X=X))  # Nx1
-    return q.sum()  # sum over N</code></pre>
+    q = self.quadrature(mu, var, lambda f: self.log_prob(X,y,f))
+    return q.sum()</code></pre>
 </details>
 </dd>
 </dl>
@@ -2183,7 +2203,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L810-L849" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L796-L834" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LogGaussianLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2202,29 +2222,28 @@ class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, scale=1.0, quadratures=20):
         super().__init__(quadratures)
-
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt;= 0.0):
             raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         logy = y.log()
         p = -0.5 * (np.log(2.0*np.pi) + 2.0*self.scale().log() + ((logy-f)/self.scale()).square())
         p -= logy
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return torch.exp(f + 0.5*self.scale().square())
 
-    def variance(self, f, X=None):
-        return (self.scale().square().exp() - 1.0) * torch.exp(2.0*f + self.scale().square())
+    #TODO: implement variational_expectation?
+    #TODO: implement predict
 
-    def sample(self, f, X=None):
-        return torch.distributions.log_normal.LogNormal(f, self.scale()).sample()</code></pre>
+    def conditional_sample(self, X, f):
+        return torch.distributions.log_normal.LogNormal(f, self.scale()).sample().log()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2235,12 +2254,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -2272,7 +2290,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L759-L808" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L751-L794" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LogLogisticLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2292,17 +2310,16 @@ class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.shape = Parameter(shape, lower=config.positive_minimum)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt; 0.0):
             raise ValueError(&#34;y must be in the range [0.0,inf)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         if self.link == exp:
             p = -self.shape()*f
         else:
@@ -2310,20 +2327,15 @@ class ChiSquaredLikelihood(Likelihood):
         p -= 2.0*torch.log1p((y/self.link(f))**self.shape())
         p += self.shape().log()
         p += (self.shape()-1.0)*y.log()
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         return self.link(f) / torch.sinc(1.0/self.shape())
 
-    def variance(self, f, X=None):
-        if self.shape() &lt;= 2.0:
-            return np.nan
-        a = 1.0/torch.sinc(2.0/self.shape())
-        b = 1.0/torch.sinc(1.0/self.shape())
-        return self.link(f).square() * (a - b.square())
-
-    def sample(self, f, X=None):
-        raise NotImplementedError()</code></pre>
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
+        return log_logistic_distribution(f, 1.0/self.shape()).sample().log()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2334,12 +2346,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -2360,7 +2371,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L213-L327" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L224-L310" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2392,91 +2403,63 @@ class ChiSquaredLikelihood(Likelihood):
 
     def name(self):
         names = [likelihood.name() for likelihood in self.likelihoods]
-        return &#39;%s[%s]&#39; % (self.__class__.__name__, names.join(&#39;,&#39;))
+        return &#39;[%s]&#39; % (&#39;,&#39;.join(names),)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if self.output_dims == 1:
-            self.likelihoods[0].validate_y(y, X=X)
+            self.likelihoods[0].validate_y(X, y)
             return
 
         r = self._channel_indices(X)
         for i in range(self.output_dims):
-            self.likelihoods[i].validate_y(y[r[i],:], X=X)
+            self.likelihoods[i].validate_y(X, y[r[i],:])
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].log_prob(y[r[i],:], f[r[i],:])
-        return res  # NxM
+            res[r[i],:] = self.likelihoods[i].log_prob(X, y[r[i],:], f[r[i],:])
+        return res  # NxQ
 
-    def variational_expectation(self, y, mu, var, X=None):
+    def variational_expectation(self, X, y, mu, var):
         # y,mu,var: Nx1
         q = torch.tensor(0.0, dtype=config.dtype, device=config.device)
         r = self._channel_indices(X)
         for i in range(self.output_dims):
-            q += self.likelihoods[i].variational_expectation(y[r[i],:], mu[r[i],:], var[r[i],:]).sum()  # sum over N
+            q += self.likelihoods[i].variational_expectation(X, y[r[i],:], mu[r[i],:], var[r[i],:]).sum()  # sum over N
         return q
 
-    def mean(self, f, X=None):
-        # f: NxM
+    def conditional_mean(self, X, f):
+        # f: NxQ
         r = self._channel_indices(X)
         res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].mean(f[r[i],:])
-        return res  # NxM
+            res[r[i],:] = self.likelihoods[i].conditional_mean(X, f[r[i],:])
+        return res  # NxQ
 
-    def variance(self, f, X=None):
-        # f: NxM
-        r = self._channel_indices(X)
-        res = torch.empty(f.shape, device=config.device, dtype=config.dtype)
-        for i in range(self.output_dims):
-            res[r[i],:] = self.likelihoods[i].variance(f[r[i],:])
-        return res  # NxM
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
         # f: nxN
         r = self._channel_indices(X)
         for i in range(self.output_dims):
-            f[:,r[i]] = self.likelihoods[i].sample(f[:,r[i]])
+            f[:,r[i]] = self.likelihoods[i].conditional_sample(X, f[:,r[i]])
         return f  # nxN
 
-    def predict(self, mu, var, ci=None, sigma=None, n=10000, X=None):
+    def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
         # mu,var: Nx1
         r = self._channel_indices(X)
         res = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
         if ci is None:
             for i in range(self.output_dims):
-                res[r[i],:] = self.likelihoods[i].predict(mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
+                res[r[i],:] = self.likelihoods[i].predict(X, mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
             return res
 
         lower = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
         upper = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
         for i in range(self.output_dims):
-            res[r[i],:], lower[r[i],:], upper[r[i],:] = self.likelihoods[i].predict(mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
-        return res, lower, upper  # Nx1
-
-    # TODO: predict is not possible?
-    #def predict(self, mu, var, X=None, full=False):
-    #    # mu: Nx1
-    #    # var: Nx1 or NxN
-    #    if self.output_dims == 1:
-    #        return self.likelihoods[0].predict(mu,var,full=full)
-
-    #    r = self._channel_indices(X)
-    #    Ey = torch.empty(mu.shape, device=config.device, dtype=config.dtype)
-    #    Eyy = torch.empty(var.shape, device=config.device, dtype=config.dtype)
-    #    if full:
-    #        for i in range(self.output_dims):
-    #            r1 = r[i].reshape(-1,1)
-    #            r2 = r[i].reshape(1,-1)
-    #            Ey[r[i],:], Eyy[r1,r2] = self.likelihoods[i].predict(mu[r[i],:], var[r1,r2], full=True)
-    #    else:
-    #        for i in range(self.output_dims):
-    #            Ey[r[i],:], Eyy[r[i],:] = self.likelihoods[i].predict(mu[r[i],:], var[r[i],:], full=False)
-    #    return Ey, Eyy-Ey.square()</code></pre>
+            res[r[i],:], lower[r[i],:], upper[r[i],:] = self.likelihoods[i].predict(X, mu[r[i],:], var[r[i],:], ci=ci, sigma=sigma, n=n)
+        return res, lower, upper  # Nx1</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2493,11 +2476,11 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L241-L243" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L252-L254" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     names = [likelihood.name() for likelihood in self.likelihoods]
-    return &#39;%s[%s]&#39; % (self.__class__.__name__, names.join(&#39;,&#39;))</code></pre>
+    return &#39;[%s]&#39; % (&#39;,&#39;.join(names),)</code></pre>
 </details>
 </dd>
 </dl>
@@ -2505,12 +2488,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -2535,7 +2517,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L665-L708" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L656-L704" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class PoissonLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2551,36 +2533,41 @@ class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, link=exp, quadratures=20):
         super().__init__(quadratures)
-        # TODO: the variational_expectation is tractable?
-
         self.link = link
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt; 0.0):
             raise ValueError(&#34;y must be in the range [0.0,inf)&#34;)
         if not torch.all(y == y.long()):
             raise ValueError(&#34;y must have integer count values&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         if self.link == exp:
             p = y*f
         else:
             p = y*self.link(f).log()
         p -= torch.lgamma(y+1.0)
         p -= self.link(f)
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def variational_expectation(self, X, y, mu, var):
+        # y,mu,var: Nx1
+        if self.link != exp:
+            super().variational_expectation(X, y, mu, var)
+
+        p = y*mu - torch.exp(var/2.0 + mu) - torch.lgamma(y+1.0)
+        return p.sum()
+
+    def conditional_mean(self, X, f):
         return self.link(f)
 
-    def variance(self, f, X=None):
-        return self.link(f)
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
         rate = self.link(f)
-        return torch.distributions.poisson.Poisson(rate).sample()</code></pre>
+        return torch.distributions.poisson.Poisson(rate).sample().log()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2591,12 +2578,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -2628,7 +2614,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L400-L442" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L380-L418" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class StudentTLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2648,30 +2634,26 @@ class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, dof=3, scale=1.0, quadratures=20):
         super().__init__(quadratures)
-
         self.dof = torch.tensor(dof, device=config.device, dtype=config.dtype)
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         p = -0.5 * (self.dof+1.0)*torch.log1p(((y-f)/self.scale()).square()/self.dof)
         p += torch.lgamma((self.dof+1.0)/2.0)
         p -= torch.lgamma(self.dof/2.0)
-        p -= 0.5 * torch.log(self.dof*np.pi*self.scale().square())
-        return p  # NxM
+        p -= 0.5 * (torch.log(self.dof) + np.log(np.pi) + self.scale().square().log())
+        return p  # NxQ
 
-    def mean(self, f, X=None):
+    def conditional_mean(self, X, f):
         if self.dof &lt;= 1.0:
             return torch.full(f.shape, np.nan, device=config.device, dtype=config.dtype)
         return f
 
-    def variance(self, f, X=None):
-        if self.dof &lt;= 2.0:
-            return np.nan
-        return self.scale().square() * self.dof/(self.dof-2.0)
+    # TODO: implement predict for certain values of dof
 
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
         return torch.distributions.studentT.StudentT(self.dof, f, self.scale()).sample()</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -2683,12 +2665,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -2720,7 +2701,7 @@ class ChiSquaredLikelihood(Likelihood):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/likelihood.py#L710-L757" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/likelihood.py#L706-L749" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class WeibullLikelihood(Likelihood):
     &#34;&#34;&#34;
@@ -2740,36 +2721,32 @@ class ChiSquaredLikelihood(Likelihood):
     &#34;&#34;&#34;
     def __init__(self, shape=1.0, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.shape = Parameter(shape, lower=config.positive_minimum)
 
-    def validate_y(self, y, X=None):
+    def validate_y(self, X, y):
         if torch.any(y &lt;= 0.0):
             raise ValueError(&#34;y must be in the range (0.0,inf)&#34;)
 
-    def log_prob(self, y, f, X=None):
+    def log_prob(self, X, y, f):
         # y: Nx1
-        # f: NxM
+        # f: NxQ
         if self.link == exp:
             p = -self.shape()*f
         else:
             p = -self.shape()*self.link(f).log()
         p += self.shape().log() + (self.shape()-1.0)*y.log()
         p -= (y/self.link(f))**self.shape()
-        return p  # NxM
+        return p  # NxQ
 
-    def mean(self, f, X=None):
-        return f * torch.lgamma(1.0 + 1.0/self.shape()).exp()
+    def conditional_mean(self, X, f):
+        return self.link(f) * torch.lgamma(1.0 + 1.0/self.shape()).exp()
 
-    def variance(self, f, X=None):
-        a = torch.lgamma(1.0 + 2.0/self.shape()).exp()
-        b = torch.lgamma(1.0 + 1.0/self.shape()).exp()
-        return f.square() * (a - b.square())
-
-    def sample(self, f, X=None):
+    def conditional_sample(self, X, f):
+        if self.link != exp:
+            raise ValueError(&#34;only exponential link function is supported&#34;)
         scale = self.link(f)
-        return torch.distributions.weibull.Weibull(scale, self.shape()).sample()</code></pre>
+        return torch.distributions.weibull.Weibull(scale, self.shape()).sample().log()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2780,12 +2757,11 @@ class ChiSquaredLikelihood(Likelihood):
 <ul class="hlist">
 <li><code><b><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></b></code>:
 <ul class="hlist">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>
@@ -2810,7 +2786,9 @@ class ChiSquaredLikelihood(Likelihood):
 <li><code><a title="mogptk.gpr.likelihood.exp" href="#mogptk.gpr.likelihood.exp">exp</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.identity" href="#mogptk.gpr.likelihood.identity">identity</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.inv_probit" href="#mogptk.gpr.likelihood.inv_probit">inv_probit</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.logistic" href="#mogptk.gpr.likelihood.logistic">logistic</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.log_logistic_distribution" href="#mogptk.gpr.likelihood.log_logistic_distribution">log_logistic_distribution</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.probit" href="#mogptk.gpr.likelihood.probit">probit</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.sigmoid" href="#mogptk.gpr.likelihood.sigmoid">sigmoid</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.square" href="#mogptk.gpr.likelihood.square">square</a></code></li>
 </ul>
 </li>
@@ -2843,13 +2821,12 @@ class ChiSquaredLikelihood(Likelihood):
 <li>
 <h4><code><a title="mogptk.gpr.likelihood.Likelihood" href="#mogptk.gpr.likelihood.Likelihood">Likelihood</a></code></h4>
 <ul class="">
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_mean" href="#mogptk.gpr.likelihood.Likelihood.conditional_mean">conditional_mean</a></code></li>
+<li><code><a title="mogptk.gpr.likelihood.Likelihood.conditional_sample" href="#mogptk.gpr.likelihood.Likelihood.conditional_sample">conditional_sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.log_prob" href="#mogptk.gpr.likelihood.Likelihood.log_prob">log_prob</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.mean" href="#mogptk.gpr.likelihood.Likelihood.mean">mean</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.name" href="#mogptk.gpr.likelihood.Likelihood.name">name</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.predict" href="#mogptk.gpr.likelihood.Likelihood.predict">predict</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.sample" href="#mogptk.gpr.likelihood.Likelihood.sample">sample</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.validate_y" href="#mogptk.gpr.likelihood.Likelihood.validate_y">validate_y</a></code></li>
-<li><code><a title="mogptk.gpr.likelihood.Likelihood.variance" href="#mogptk.gpr.likelihood.Likelihood.variance">variance</a></code></li>
 <li><code><a title="mogptk.gpr.likelihood.Likelihood.variational_expectation" href="#mogptk.gpr.likelihood.Likelihood.variational_expectation">variational_expectation</a></code></li>
 </ul>
 </li>

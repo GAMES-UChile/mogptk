@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/mean.py#L1-L153" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L1-L151" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 from . import Parameter, config
@@ -123,7 +123,7 @@ class MultiOutputMean(Mean):
 
     def name(self):
         names = [mean.name() for mean in self.means]
-        return &#39;%s[%s]&#39; % (self.__class__.__name__, names.join(&#39;,&#39;))
+        return &#39;[%s]&#39; % (&#39;,&#39;.join(names),)
 
     def _channel_indices(self, X):
         c = X[:,0].long()
@@ -153,7 +153,6 @@ class ConstantMean(Mean):
     &#34;&#34;&#34;
     def __init__(self):
         super().__init__()
-
         self.bias = Parameter(0.0)
 
     def mean(self, X):
@@ -176,7 +175,6 @@ class LinearMean(Mean):
     &#34;&#34;&#34;
     def __init__(self, input_dims=1):
         super().__init__()
-
         self.bias = Parameter(0.0)
         self.slope = Parameter(torch.zeros(input_dims))
 
@@ -210,7 +208,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/mean.py#L110-L129" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L110-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ConstantMean(Mean):
     &#34;&#34;&#34;
@@ -227,7 +225,6 @@ class LinearMean(Mean):
     &#34;&#34;&#34;
     def __init__(self):
         super().__init__()
-
         self.bias = Parameter(0.0)
 
     def mean(self, X):
@@ -271,7 +268,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/mean.py#L131-L153" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L130-L151" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearMean(Mean):
     &#34;&#34;&#34;
@@ -290,7 +287,6 @@ class LinearMean(Mean):
     &#34;&#34;&#34;
     def __init__(self, input_dims=1):
         super().__init__()
-
         self.bias = Parameter(0.0)
         self.slope = Parameter(torch.zeros(input_dims))
 
@@ -320,7 +316,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/mean.py#L4-L63" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L4-L63" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mean(torch.nn.Module):
     &#34;&#34;&#34;
@@ -413,7 +409,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/mean.py#L53-L63" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L53-L63" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean(self, X):
     &#34;&#34;&#34;
@@ -436,7 +432,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/mean.py#L24-L25" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L24-L25" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     return self.__class__.__name__</code></pre>
@@ -459,7 +455,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/mean.py#L65-L108" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L65-L108" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputMean(Mean):
     &#34;&#34;&#34;
@@ -491,7 +487,7 @@ class LinearMean(Mean):
 
     def name(self):
         names = [mean.name() for mean in self.means]
-        return &#39;%s[%s]&#39; % (self.__class__.__name__, names.join(&#39;,&#39;))
+        return &#39;[%s]&#39; % (&#39;,&#39;.join(names),)
 
     def _channel_indices(self, X):
         c = X[:,0].long()
@@ -521,11 +517,11 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/mean.py#L93-L95" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L93-L95" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     names = [mean.name() for mean in self.means]
-    return &#39;%s[%s]&#39; % (self.__class__.__name__, names.join(&#39;,&#39;))</code></pre>
+    return &#39;[%s]&#39; % (&#39;,&#39;.join(names),)</code></pre>
 </details>
 </dd>
 </dl>

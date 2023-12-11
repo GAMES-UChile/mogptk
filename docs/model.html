@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L1-L1064" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L1-L1069" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import os
 import time
@@ -642,7 +642,7 @@ class Model:
 
         Args:
             X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
-            ci (list of float): Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.
+            ci (float,list of float): Confidence interval as a percentage or the two quantile limits [lower, upper] in the range of [0,1].
             sigma (float): Number of standard deviations of the confidence interval. For non-Gaussian likelihoods this is converted to confidence interval percentages using the standard normal distribution.
             n (int): Number of samples used from distribution to estimate quantile.
             transformed (boolean): Return transformed data as used for training.
@@ -661,6 +661,12 @@ class Model:
         else:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
+
+        if isinstance(ci, float):
+            ci = (1.0-ci)/2.0
+            ci = [ci, 1.0-ci]
+        if ci is not None:
+            ci = [max(0.0, ci[0]), min(1.0, ci[1])]
 
         mu, lower, upper = self.gpr.predict_y(x, ci, sigma=sigma, n=n)
         mu = mu.cpu().numpy()
@@ -725,8 +731,7 @@ class Model:
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            list: samples of shape len(X) for each channel if n is given.
-            numpy.ndarray: sample of shape len(X) for each channel if n is None.
+            numpy.ndarray,list: samples for each channel of shape (data_points,n) or (data_points,). Returns a list when there is more than one channel.
 
         Examples:
             &gt;&gt;&gt; model.sample(n=10)
@@ -736,7 +741,7 @@ class Model:
         else:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
-        samples = self.gpr.sample_f(Z=x, n=n)
+        samples = self.gpr.sample_y(Z=x, n=n)
         samples = samples.cpu().numpy()
 
         i = 0
@@ -805,7 +810,7 @@ class Model:
             ax.legend(handles=legends)
         return fig, ax
 
-    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, transformed=False, n=10000):
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, ci=None, sigma=2, n=10000, transformed=False):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -815,10 +820,10 @@ class Model:
             figsize (tuple): Set the figure size.
             legend (boolean): Disable legend.
             errorbars (boolean): Plot data error bars if available.
+            ci (float,list of float): Confidence interval as a percentage or the two quantile limits [lower, upper] in the range of [0,1].
             sigma (float): Number of standard deviations to display upwards and downwards.
-            predict_y (boolean): Predict data values instead of function values.
-            transformed (boolean): Display transformed Y data as used for training.
             n (int): Number of samples used from distribution to estimate quantile.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -827,7 +832,7 @@ class Model:
         Examples:
             &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
         &#34;&#34;&#34;
-        X, Mu, Lower, Upper = self.predict(X, sigma=sigma, transformed=transformed, n=n)
+        X, Mu, Lower, Upper = self.predict(X, ci=ci, sigma=sigma, n=n, transformed=transformed)
         if len(self.dataset) == 1:
             X = [X]
             Mu = [Mu]
@@ -1118,7 +1123,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L62-L74" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L62-L74" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def LoadModel(filename):
     &#34;&#34;&#34;
@@ -1156,7 +1161,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L76-L100" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L76-L100" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact:
     &#34;&#34;&#34;
@@ -1205,7 +1210,7 @@ def _format_time(s):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L159-L178" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L159-L178" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman:
     &#34;&#34;&#34;
@@ -1248,7 +1253,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L20-L21" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L20-L21" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernels(dict):
     __getattr__ = dict.get</code></pre>
@@ -1293,7 +1298,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L180-L1032" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L180-L1037" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model:
     def __init__(self, dataset, kernel, inference=Exact(), mean=None, name=None):
@@ -1729,7 +1734,7 @@ dict(one=1, two=2)</p></div>
 
         Args:
             X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
-            ci (list of float): Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.
+            ci (float,list of float): Confidence interval as a percentage or the two quantile limits [lower, upper] in the range of [0,1].
             sigma (float): Number of standard deviations of the confidence interval. For non-Gaussian likelihoods this is converted to confidence interval percentages using the standard normal distribution.
             n (int): Number of samples used from distribution to estimate quantile.
             transformed (boolean): Return transformed data as used for training.
@@ -1748,6 +1753,12 @@ dict(one=1, two=2)</p></div>
         else:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
+
+        if isinstance(ci, float):
+            ci = (1.0-ci)/2.0
+            ci = [ci, 1.0-ci]
+        if ci is not None:
+            ci = [max(0.0, ci[0]), min(1.0, ci[1])]
 
         mu, lower, upper = self.gpr.predict_y(x, ci, sigma=sigma, n=n)
         mu = mu.cpu().numpy()
@@ -1812,8 +1823,7 @@ dict(one=1, two=2)</p></div>
             transformed (boolean): Return transformed data as used for training.
 
         Returns:
-            list: samples of shape len(X) for each channel if n is given.
-            numpy.ndarray: sample of shape len(X) for each channel if n is None.
+            numpy.ndarray,list: samples for each channel of shape (data_points,n) or (data_points,). Returns a list when there is more than one channel.
 
         Examples:
             &gt;&gt;&gt; model.sample(n=10)
@@ -1823,7 +1833,7 @@ dict(one=1, two=2)</p></div>
         else:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
-        samples = self.gpr.sample_f(Z=x, n=n)
+        samples = self.gpr.sample_y(Z=x, n=n)
         samples = samples.cpu().numpy()
 
         i = 0
@@ -1892,7 +1902,7 @@ dict(one=1, two=2)</p></div>
             ax.legend(handles=legends)
         return fig, ax
 
-    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, transformed=False, n=10000):
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, ci=None, sigma=2, n=10000, transformed=False):
         &#34;&#34;&#34;
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -1902,10 +1912,10 @@ dict(one=1, two=2)</p></div>
             figsize (tuple): Set the figure size.
             legend (boolean): Disable legend.
             errorbars (boolean): Plot data error bars if available.
+            ci (float,list of float): Confidence interval as a percentage or the two quantile limits [lower, upper] in the range of [0,1].
             sigma (float): Number of standard deviations to display upwards and downwards.
-            predict_y (boolean): Predict data values instead of function values.
-            transformed (boolean): Display transformed Y data as used for training.
             n (int): Number of samples used from distribution to estimate quantile.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -1914,7 +1924,7 @@ dict(one=1, two=2)</p></div>
         Examples:
             &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
         &#34;&#34;&#34;
-        X, Mu, Lower, Upper = self.predict(X, sigma=sigma, transformed=transformed, n=n)
+        X, Mu, Lower, Upper = self.predict(X, ci=ci, sigma=sigma, n=n, transformed=transformed)
         if len(self.dataset) == 1:
             X = [X]
             Mu = [Mu]
@@ -2176,7 +2186,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L362-L372" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L362-L372" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def AIC(self):
     &#34;&#34;&#34;
@@ -2207,7 +2217,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L350-L360" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L350-L360" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def BIC(self):
     &#34;&#34;&#34;
@@ -2247,7 +2257,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L660-L684" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L666-L690" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -2284,7 +2294,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L278-L280" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L278-L280" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def copy_parameters(self, other):
     print(&#34;DEPRECATED: use model.load_kernel_parameters() instead of model.copy_parameters()&#34;)
@@ -2312,7 +2322,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L386-L439" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L386-L439" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def error(self, method=&#39;MAE&#39;, use_all_data=False):
     &#34;&#34;&#34;
@@ -2378,7 +2388,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L262-L264" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L262-L264" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def get_parameters(self):
     print(&#34;DEPRECATED: use model.parameters() instead of model.get_parameters()&#34;)
@@ -2396,7 +2406,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L282-L294" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L282-L294" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def load_kernel_parameters(self, other):
     &#34;&#34;&#34;
@@ -2429,7 +2439,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L338-L348" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L338-L348" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -2460,7 +2470,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L374-L384" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L374-L384" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -2491,7 +2501,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L296-L306" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L296-L306" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def num_parameters(self):
     &#34;&#34;&#34;
@@ -2522,7 +2532,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L308-L318" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L308-L318" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def num_training_points(self):
     &#34;&#34;&#34;
@@ -2553,7 +2563,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L266-L276" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L266-L276" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def parameters(self):
     &#34;&#34;&#34;
@@ -2590,7 +2600,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L997-L1032" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L1002-L1037" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_correlation(self, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2658,7 +2668,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L892-L952" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L897-L957" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_gram(self, start=None, end=None, n=31, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2749,7 +2759,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L954-L995" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L959-L1000" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_kernel(self, dist=None, n=101, title=None, figsize=(12,12)):
     &#34;&#34;&#34;
@@ -2823,7 +2833,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L731-L775" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L736-L780" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def plot_losses(self, title=None, figsize=(12,4), legend=True, errors=True, log=False):
     &#34;&#34;&#34;
@@ -2873,7 +2883,7 @@ dict(one=1, two=2)</p></div>
 </details>
 </dd>
 <dt id="mogptk.model.Model.plot_prediction"><code class="name flex">
-<span>def <span class="ident">plot_prediction</span></span>(<span>self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, transformed=False, n=10000)</span>
+<span>def <span class="ident">plot_prediction</span></span>(<span>self, X=None, title=None, figsize=None, legend=True, errorbars=True, ci=None, sigma=2, n=10000, transformed=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot the data including removed observations, latent function, and predictions of this model for each channel.</p>
@@ -2889,14 +2899,14 @@ dict(one=1, two=2)</p></div>
 <dd>Disable legend.</dd>
 <dt><strong><code>errorbars</code></strong> :&ensp;<code>boolean</code></dt>
 <dd>Plot data error bars if available.</dd>
+<dt><strong><code>ci</code></strong> :&ensp;<code>float,list</code> of <code>float</code></dt>
+<dd>Confidence interval as a percentage or the two quantile limits [lower, upper] in the range of [0,1].</dd>
 <dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
 <dd>Number of standard deviations to display upwards and downwards.</dd>
-<dt><strong><code>predict_y</code></strong> :&ensp;<code>boolean</code></dt>
-<dd>Predict data values instead of function values.</dd>
-<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
-<dd>Display transformed Y data as used for training.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of samples used from distribution to estimate quantile.</dd>
+<dt><strong><code>transformed</code></strong> :&ensp;<code>boolean</code></dt>
+<dd>Display transformed Y data as used for training.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2911,9 +2921,9 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L777-L890" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L782-L895" class="git-link">Browse git</a>
 </summary>
-<pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, transformed=False, n=10000):
+<pre><code class="python">def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, ci=None, sigma=2, n=10000, transformed=False):
     &#34;&#34;&#34;
     Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -2923,10 +2933,10 @@ dict(one=1, two=2)</p></div>
         figsize (tuple): Set the figure size.
         legend (boolean): Disable legend.
         errorbars (boolean): Plot data error bars if available.
+        ci (float,list of float): Confidence interval as a percentage or the two quantile limits [lower, upper] in the range of [0,1].
         sigma (float): Number of standard deviations to display upwards and downwards.
-        predict_y (boolean): Predict data values instead of function values.
-        transformed (boolean): Display transformed Y data as used for training.
         n (int): Number of samples used from distribution to estimate quantile.
+        transformed (boolean): Display transformed Y data as used for training.
 
     Returns:
         matplotlib.figure.Figure: The figure.
@@ -2935,7 +2945,7 @@ dict(one=1, two=2)</p></div>
     Examples:
         &gt;&gt;&gt; fig, axes = dataset.plot(title=&#39;Title&#39;)
     &#34;&#34;&#34;
-    X, Mu, Lower, Upper = self.predict(X, sigma=sigma, transformed=transformed, n=n)
+    X, Mu, Lower, Upper = self.predict(X, ci=ci, sigma=sigma, n=n, transformed=transformed)
     if len(self.dataset) == 1:
         X = [X]
         Mu = [Mu]
@@ -3038,8 +3048,8 @@ dict(one=1, two=2)</p></div>
 <dl>
 <dt><strong><code>X</code></strong> :&ensp;<code>list, dict</code></dt>
 <dd>Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.</dd>
-<dt><strong><code>ci</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
-<dd>Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.</dd>
+<dt><strong><code>ci</code></strong> :&ensp;<code>float,list</code> of <code>float</code></dt>
+<dd>Confidence interval as a percentage or the two quantile limits [lower, upper] in the range of [0,1].</dd>
 <dt><strong><code>sigma</code></strong> :&ensp;<code>float</code></dt>
 <dd>Number of standard deviations of the confidence interval. For non-Gaussian likelihoods this is converted to confidence interval percentages using the standard normal distribution.</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
@@ -3064,7 +3074,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L608-L658" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L608-L664" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict(self, X=None, ci=None, sigma=2, n=10000, transformed=False):
     &#34;&#34;&#34;
@@ -3072,7 +3082,7 @@ dict(one=1, two=2)</p></div>
 
     Args:
         X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
-        ci (list of float): Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.
+        ci (float,list of float): Confidence interval as a percentage or the two quantile limits [lower, upper] in the range of [0,1].
         sigma (float): Number of standard deviations of the confidence interval. For non-Gaussian likelihoods this is converted to confidence interval percentages using the standard normal distribution.
         n (int): Number of samples used from distribution to estimate quantile.
         transformed (boolean): Return transformed data as used for training.
@@ -3091,6 +3101,12 @@ dict(one=1, two=2)</p></div>
     else:
         X = self.dataset._format_X(X)
     x = self._to_kernel_format(X)
+
+    if isinstance(ci, float):
+        ci = (1.0-ci)/2.0
+        ci = [ci, 1.0-ci]
+    if ci is not None:
+        ci = [max(0.0, ci[0]), min(1.0, ci[1])]
 
     mu, lower, upper = self.gpr.predict_y(x, ci, sigma=sigma, n=n)
     mu = mu.cpu().numpy()
@@ -3130,7 +3146,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L253-L260" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L253-L260" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self):
     &#34;&#34;&#34;
@@ -3160,10 +3176,8 @@ dict(one=1, two=2)</p></div>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>list</code></dt>
-<dd>samples of shape len(X) for each channel if n is given.</dd>
-<dt><code>numpy.ndarray</code></dt>
-<dd>sample of shape len(X) for each channel if n is None.</dd>
+<dt><code>numpy.ndarray,list</code></dt>
+<dd>samples for each channel of shape (data_points,n) or (data_points,). Returns a list when there is more than one channel.</dd>
 </dl>
 <h2 id="examples">Examples</h2>
 <pre><code class="language-python-repl">&gt;&gt;&gt; model.sample(n=10)
@@ -3171,7 +3185,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L686-L729" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L692-L734" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample(self, X=None, n=None, prior=False, transformed=False):
     &#34;&#34;&#34;
@@ -3184,8 +3198,7 @@ dict(one=1, two=2)</p></div>
         transformed (boolean): Return transformed data as used for training.
 
     Returns:
-        list: samples of shape len(X) for each channel if n is given.
-        numpy.ndarray: sample of shape len(X) for each channel if n is None.
+        numpy.ndarray,list: samples for each channel of shape (data_points,n) or (data_points,). Returns a list when there is more than one channel.
 
     Examples:
         &gt;&gt;&gt; model.sample(n=10)
@@ -3195,7 +3208,7 @@ dict(one=1, two=2)</p></div>
     else:
         X = self.dataset._format_X(X)
     x = self._to_kernel_format(X)
-    samples = self.gpr.sample_f(Z=x, n=n)
+    samples = self.gpr.sample_y(Z=x, n=n)
     samples = samples.cpu().numpy()
 
     i = 0
@@ -3235,7 +3248,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L320-L336" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L320-L336" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def save(self, filename):
     &#34;&#34;&#34;
@@ -3295,7 +3308,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L441-L579" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L441-L579" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def train(self, method=&#39;Adam&#39;, iters=500, verbose=False, error=None, plot=False, jit=None,
           **kwargs):
@@ -3456,7 +3469,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L125-L138" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L125-L138" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau:
     &#34;&#34;&#34;
@@ -3494,7 +3507,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L102-L123" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L102-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson:
     &#34;&#34;&#34;
@@ -3540,7 +3553,7 @@ dict(one=1, two=2)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/model.py#L140-L157" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/model.py#L140-L157" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias:
     &#34;&#34;&#34;

@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L1-L866" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L1-L885" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import sys
 import torch
@@ -132,7 +132,7 @@ class Model(torch.nn.Module):
 
         if issubclass(type(likelihood), MultiOutputLikelihood) and likelihood.output_dims != kernel.output_dims:
             raise ValueError(&#34;kernel and likelihood must have matching output dimensions&#34;)
-        likelihood.validate_y(y, X=X)
+        likelihood.validate_y(X, y)
 
         # limit to number of significant digits
         if config.dtype == torch.float32:
@@ -326,11 +326,11 @@ class Model(torch.nn.Module):
         Evaluate kernel at `X1` and `X2` and return the NumPy representation.
 
         Args:
-            X1 (torch.tensor): Input of shape (data_points0,input_dims).
-            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+            X1 (torch.tensor): Input of shape (data_points1,input_dims).
+            X2 (torch.tensor): Input of shape (data_points2,input_dims).
 
         Returns:
-            numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
+            numpy.ndarray: Kernel matrix of shape (data_points1,data_points2).
         &#34;&#34;&#34;
         with torch.inference_mode():
             return self.kernel(X1, X2)
@@ -344,8 +344,8 @@ class Model(torch.nn.Module):
             full (bool): Return the full variance matrix as opposed to the diagonal.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior of shape (data_points,).
-            torch.tensor: Variance of the predictive posterior of shape (data_points,) or (data_points,data_points).
+            torch.tensor: Mean of the predictive posterior of shape (data_points,1).
+            torch.tensor: Variance of the predictive posterior of shape (data_points,1) or (data_points,data_points).
         &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -360,9 +360,9 @@ class Model(torch.nn.Module):
             n (int): Number of samples used from distribution to estimate quantile.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior of shape (data_points,).
-            torch.tensor: Lower confidence boundary of the predictive posterior of shape (data_points,).
-            torch.tensor: Upper confidence boundary of the predictive posterior of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior of shape (data_points,1).
+            torch.tensor: Lower confidence boundary of the predictive posterior of shape (data_points,1).
+            torch.tensor: Upper confidence boundary of the predictive posterior of shape (data_points,1).
         &#34;&#34;&#34;
         with torch.inference_mode():
             X = self._check_input(X)  # MxD
@@ -371,12 +371,11 @@ class Model(torch.nn.Module):
             if ci is None and sigma is not None:
                 p = 0.5*(1.0 + float(torch.erf(torch.tensor(sigma/np.sqrt(2.0)))))
                 ci = [1.0-p, p]
-            mu = self.likelihood.predict(mu, var, ci, sigma=sigma, n=n, X=X)
-            return mu
+            return self.likelihood.predict(X, mu, var, ci, sigma=sigma, n=n)
 
     def sample_f(self, Z, n=None, prior=False):
         &#34;&#34;&#34;
-        Sample from model.
+        Sample f values from model.
 
         Args:
             Z (torch.tensor): Input of shape (data_points,input_dims).
@@ -384,7 +383,7 @@ class Model(torch.nn.Module):
             prior (boolean): Sample from prior instead of posterior.
 
         Returns:
-            torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
+            torch.tensor: Samples of shape (data_points,n) or (data_points,) if `n` is not given.
         &#34;&#34;&#34;
         with torch.inference_mode():
             Z = self._check_input(Z)  # MxD
@@ -393,23 +392,43 @@ class Model(torch.nn.Module):
             if n is None:
                 S = 1
 
-            # TODO: predict_y and non-Gaussian likelihoods
             if prior:
                 mu, var = self.mean(Z), self.kernel(Z)
             else:
-                mu, var = self.predict_f(Z, full=True)  # MxD, MxMxD
+                mu, var = self.predict_f(Z, full=True)  # Mx1, MxM
+
             eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             var += self.jitter * var.diagonal().mean() * eye  # MxM
-
-            u = torch.normal(
-                    torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
-                    torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
-            L = torch.linalg.cholesky(var)  # MxM
-            samples = mu + L.mm(u)  # MxS
+            samples_f = torch.distributions.multivariate_normal.MultivariateNormal(mu.reshape(-1), var).sample([S])
 
             if n is None:
-                samples = samples.squeeze()
-            return samples
+                samples_f = samples_f.squeeze()
+            return samples_f
+
+    def sample_y(self, Z, n=None):
+        &#34;&#34;&#34;
+        Sample y values from model.
+
+        Args:
+            Z (torch.tensor): Input of shape (data_points,input_dims).
+            n (int): Number of samples.
+
+        Returns:
+            torch.tensor: Samples of shape (data_points,n) or (data_points,) if `n` is not given.
+        &#34;&#34;&#34;
+        with torch.inference_mode():
+            Z = self._check_input(Z)  # MxD
+
+            S = n
+            if n is None:
+                S = 1
+
+            samples_f = self.sample_f(Z, n=S)
+            samples_y = self.likelihood.conditional_sample(Z, samples_f)
+
+            if n is None:
+                samples_y = samples_y.squeeze()
+            return samples_y
 
 class Exact(Model):
     &#34;&#34;&#34;
@@ -422,7 +441,7 @@ class Exact(Model):
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
         variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.
-        data_variance (torch.tensor): Assign different and fixed variances per data point. These are added to the kernel&#39;s diagonal while still training an additional Gaussian variance.
+        data_variance (torch.tensor): Assign different and fixed variances per data point of shape (data_points,). These are added to the kernel&#39;s diagonal while still training an additional Gaussian variance.
         jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
     &#34;&#34;&#34;
@@ -634,7 +653,7 @@ class OpperArchambeau(Model):
 
         if self.mean is not None:
             qf_mu = qf_mu - self.mean(self.X).reshape(-1,1)  # Sx1
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+        var_exp = self.likelihood.variational_expectation(self.X, y, qf_mu, qf_var_diag)
 
         #eye = torch.eye(q_lambda.shape[0], device=config.device, dtype=config.dtype)
         #qf_var = (1.0/q_lambda.square())*eye - invL.T.mm(invL)/q_lambda/q_lambda.T
@@ -843,7 +862,7 @@ class SparseHensman(Model):
             qf_sqrt = Lff.mm(self.q_sqrt().tril())
             qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
 
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+        var_exp = self.likelihood.variational_expectation(self.X, y, qf_mu, qf_var_diag)
         kl = self.kl_gaussian(self.q_mu(), self.q_sqrt())
         return var_exp - kl
 
@@ -928,7 +947,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L36-L69" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L36-L69" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def init_inducing_points(Z, X, method=&#39;grid&#39;, output_dims=None):
     &#34;&#34;&#34;
@@ -980,7 +999,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L71-L78" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L71-L78" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CholeskyException(Exception):
     def __init__(self, message, K, model):
@@ -1015,7 +1034,7 @@ class Hensman(SparseHensman):
 <dt><strong><code>variance</code></strong> :&ensp;<code>float,torch.tensor</code></dt>
 <dd>Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.</dd>
 <dt><strong><code>data_variance</code></strong> :&ensp;<code>torch.tensor</code></dt>
-<dd>Assign different and fixed variances per data point. These are added to the kernel's diagonal while still training an additional Gaussian variance.</dd>
+<dd>Assign different and fixed variances per data point of shape (data_points,). These are added to the kernel's diagonal while still training an additional Gaussian variance.</dd>
 <dt><strong><code>jitter</code></strong> :&ensp;<code>float</code></dt>
 <dd>Relative jitter of the diagonal's mean added to the kernel's diagonal before calculating the Cholesky.</dd>
 <dt><strong><code>mean</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="mean.html#mogptk.gpr.mean.Mean">Mean</a></code></dt>
@@ -1025,7 +1044,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L383-L463" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L402-L482" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Exact(Model):
     &#34;&#34;&#34;
@@ -1038,7 +1057,7 @@ class Hensman(SparseHensman):
         X (torch.tensor): Input data of shape (data_points,input_dims).
         y (torch.tensor): Output data of shape (data_points,).
         variance (float,torch.tensor): Gaussian likelihood initial variance. Passing a float will train a single variance for all channels. Passing a tensor of shape (channels,) will assign and train different variances per multi-output channel.
-        data_variance (torch.tensor): Assign different and fixed variances per data point. These are added to the kernel&#39;s diagonal while still training an additional Gaussian variance.
+        data_variance (torch.tensor): Assign different and fixed variances per data point of shape (data_points,). These are added to the kernel&#39;s diagonal while still training an additional Gaussian variance.
         jitter (float): Relative jitter of the diagonal&#39;s mean added to the kernel&#39;s diagonal before calculating the Cholesky.
         mean (mogptk.gpr.mean.Mean): Mean.
     &#34;&#34;&#34;
@@ -1128,6 +1147,7 @@ class Hensman(SparseHensman):
 <li><code><a title="mogptk.gpr.model.Model.predict_y" href="#mogptk.gpr.model.Model.predict_y">predict_y</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.sample_f" href="#mogptk.gpr.model.Model.sample_f">sample_f</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample_y" href="#mogptk.gpr.model.Model.sample_y">sample_y</a></code></li>
 </ul>
 </li>
 </ul>
@@ -1158,7 +1178,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L851-L866" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L870-L885" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Hensman(SparseHensman):
     &#34;&#34;&#34;
@@ -1197,6 +1217,7 @@ class Hensman(SparseHensman):
 <li><code><a title="mogptk.gpr.model.SparseHensman.predict_y" href="#mogptk.gpr.model.Model.predict_y">predict_y</a></code></li>
 <li><code><a title="mogptk.gpr.model.SparseHensman.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
 <li><code><a title="mogptk.gpr.model.SparseHensman.sample_f" href="#mogptk.gpr.model.Model.sample_f">sample_f</a></code></li>
+<li><code><a title="mogptk.gpr.model.SparseHensman.sample_y" href="#mogptk.gpr.model.Model.sample_y">sample_y</a></code></li>
 </ul>
 </li>
 </ul>
@@ -1220,7 +1241,7 @@ class Hensman(SparseHensman):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L80-L381" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L80-L400" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Model(torch.nn.Module):
     &#34;&#34;&#34;
@@ -1246,7 +1267,7 @@ class Hensman(SparseHensman):
 
         if issubclass(type(likelihood), MultiOutputLikelihood) and likelihood.output_dims != kernel.output_dims:
             raise ValueError(&#34;kernel and likelihood must have matching output dimensions&#34;)
-        likelihood.validate_y(y, X=X)
+        likelihood.validate_y(X, y)
 
         # limit to number of significant digits
         if config.dtype == torch.float32:
@@ -1440,11 +1461,11 @@ class Hensman(SparseHensman):
         Evaluate kernel at `X1` and `X2` and return the NumPy representation.
 
         Args:
-            X1 (torch.tensor): Input of shape (data_points0,input_dims).
-            X2 (torch.tensor): Input of shape (data_points1,input_dims).
+            X1 (torch.tensor): Input of shape (data_points1,input_dims).
+            X2 (torch.tensor): Input of shape (data_points2,input_dims).
 
         Returns:
-            numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
+            numpy.ndarray: Kernel matrix of shape (data_points1,data_points2).
         &#34;&#34;&#34;
         with torch.inference_mode():
             return self.kernel(X1, X2)
@@ -1458,8 +1479,8 @@ class Hensman(SparseHensman):
             full (bool): Return the full variance matrix as opposed to the diagonal.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior of shape (data_points,).
-            torch.tensor: Variance of the predictive posterior of shape (data_points,) or (data_points,data_points).
+            torch.tensor: Mean of the predictive posterior of shape (data_points,1).
+            torch.tensor: Variance of the predictive posterior of shape (data_points,1) or (data_points,data_points).
         &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -1474,9 +1495,9 @@ class Hensman(SparseHensman):
             n (int): Number of samples used from distribution to estimate quantile.
 
         Returns:
-            torch.tensor: Mean of the predictive posterior of shape (data_points,).
-            torch.tensor: Lower confidence boundary of the predictive posterior of shape (data_points,).
-            torch.tensor: Upper confidence boundary of the predictive posterior of shape (data_points,).
+            torch.tensor: Mean of the predictive posterior of shape (data_points,1).
+            torch.tensor: Lower confidence boundary of the predictive posterior of shape (data_points,1).
+            torch.tensor: Upper confidence boundary of the predictive posterior of shape (data_points,1).
         &#34;&#34;&#34;
         with torch.inference_mode():
             X = self._check_input(X)  # MxD
@@ -1485,12 +1506,11 @@ class Hensman(SparseHensman):
             if ci is None and sigma is not None:
                 p = 0.5*(1.0 + float(torch.erf(torch.tensor(sigma/np.sqrt(2.0)))))
                 ci = [1.0-p, p]
-            mu = self.likelihood.predict(mu, var, ci, sigma=sigma, n=n, X=X)
-            return mu
+            return self.likelihood.predict(X, mu, var, ci, sigma=sigma, n=n)
 
     def sample_f(self, Z, n=None, prior=False):
         &#34;&#34;&#34;
-        Sample from model.
+        Sample f values from model.
 
         Args:
             Z (torch.tensor): Input of shape (data_points,input_dims).
@@ -1498,7 +1518,7 @@ class Hensman(SparseHensman):
             prior (boolean): Sample from prior instead of posterior.
 
         Returns:
-            torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
+            torch.tensor: Samples of shape (data_points,n) or (data_points,) if `n` is not given.
         &#34;&#34;&#34;
         with torch.inference_mode():
             Z = self._check_input(Z)  # MxD
@@ -1507,23 +1527,43 @@ class Hensman(SparseHensman):
             if n is None:
                 S = 1
 
-            # TODO: predict_y and non-Gaussian likelihoods
             if prior:
                 mu, var = self.mean(Z), self.kernel(Z)
             else:
-                mu, var = self.predict_f(Z, full=True)  # MxD, MxMxD
+                mu, var = self.predict_f(Z, full=True)  # Mx1, MxM
+
             eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             var += self.jitter * var.diagonal().mean() * eye  # MxM
-
-            u = torch.normal(
-                    torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
-                    torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
-            L = torch.linalg.cholesky(var)  # MxM
-            samples = mu + L.mm(u)  # MxS
+            samples_f = torch.distributions.multivariate_normal.MultivariateNormal(mu.reshape(-1), var).sample([S])
 
             if n is None:
-                samples = samples.squeeze()
-            return samples</code></pre>
+                samples_f = samples_f.squeeze()
+            return samples_f
+
+    def sample_y(self, Z, n=None):
+        &#34;&#34;&#34;
+        Sample y values from model.
+
+        Args:
+            Z (torch.tensor): Input of shape (data_points,input_dims).
+            n (int): Number of samples.
+
+        Returns:
+            torch.tensor: Samples of shape (data_points,n) or (data_points,) if `n` is not given.
+        &#34;&#34;&#34;
+        with torch.inference_mode():
+            Z = self._check_input(Z)  # MxD
+
+            S = n
+            if n is None:
+                S = 1
+
+            samples_f = self.sample_f(Z, n=S)
+            samples_y = self.likelihood.conditional_sample(Z, samples_f)
+
+            if n is None:
+                samples_y = samples_y.squeeze()
+            return samples_y</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1547,30 +1587,30 @@ class Hensman(SparseHensman):
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>X1</code></strong> :&ensp;<code>torch.tensor</code></dt>
-<dd>Input of shape (data_points0,input_dims).</dd>
-<dt><strong><code>X2</code></strong> :&ensp;<code>torch.tensor</code></dt>
 <dd>Input of shape (data_points1,input_dims).</dd>
+<dt><strong><code>X2</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points2,input_dims).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>numpy.ndarray</code></dt>
-<dd>Kernel matrix of shape (data_points0,data_points1).</dd>
+<dd>Kernel matrix of shape (data_points1,data_points2).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L293-L305" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L293-L305" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
     Evaluate kernel at `X1` and `X2` and return the NumPy representation.
 
     Args:
-        X1 (torch.tensor): Input of shape (data_points0,input_dims).
-        X2 (torch.tensor): Input of shape (data_points1,input_dims).
+        X1 (torch.tensor): Input of shape (data_points1,input_dims).
+        X2 (torch.tensor): Input of shape (data_points2,input_dims).
 
     Returns:
-        numpy.ndarray: Kernel matrix of shape (data_points0,data_points1).
+        numpy.ndarray: Kernel matrix of shape (data_points1,data_points2).
     &#34;&#34;&#34;
     with torch.inference_mode():
         return self.kernel(X1, X2)</code></pre>
@@ -1587,7 +1627,7 @@ to :func:<code>torch.compile</code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L127-L129" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L127-L129" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def compile(self):
     if self._compiled_forward is None:
@@ -1610,7 +1650,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L124-L125" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L124-L125" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def forward(self, x=None):
     return -self.log_marginal_likelihood() - self.log_prior()</code></pre>
@@ -1630,7 +1670,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L256-L265" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L256-L265" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_marginal_likelihood(self):
     &#34;&#34;&#34;
@@ -1658,7 +1698,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L267-L276" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L267-L276" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def log_prior(self):
     &#34;&#34;&#34;
@@ -1685,7 +1725,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L278-L291" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L278-L291" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def loss(self):
     &#34;&#34;&#34;
@@ -1711,7 +1751,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L121-L122" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L121-L122" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     return self.__class__.__name__</code></pre>
@@ -1732,14 +1772,14 @@ registered hooks while the latter silently ignores them.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>torch.tensor</code></dt>
-<dd>Mean of the predictive posterior of shape (data_points,).</dd>
+<dd>Mean of the predictive posterior of shape (data_points,1).</dd>
 <dt><code>torch.tensor</code></dt>
-<dd>Variance of the predictive posterior of shape (data_points,) or (data_points,data_points).</dd>
+<dd>Variance of the predictive posterior of shape (data_points,1) or (data_points,data_points).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L307-L319" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L307-L319" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict_f(self, X, full=False):
     &#34;&#34;&#34;
@@ -1750,8 +1790,8 @@ registered hooks while the latter silently ignores them.</p>
         full (bool): Return the full variance matrix as opposed to the diagonal.
 
     Returns:
-        torch.tensor: Mean of the predictive posterior of shape (data_points,).
-        torch.tensor: Variance of the predictive posterior of shape (data_points,) or (data_points,data_points).
+        torch.tensor: Mean of the predictive posterior of shape (data_points,1).
+        torch.tensor: Variance of the predictive posterior of shape (data_points,1) or (data_points,data_points).
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -1775,16 +1815,16 @@ registered hooks while the latter silently ignores them.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>torch.tensor</code></dt>
-<dd>Mean of the predictive posterior of shape (data_points,).</dd>
+<dd>Mean of the predictive posterior of shape (data_points,1).</dd>
 <dt><code>torch.tensor</code></dt>
-<dd>Lower confidence boundary of the predictive posterior of shape (data_points,).</dd>
+<dd>Lower confidence boundary of the predictive posterior of shape (data_points,1).</dd>
 <dt><code>torch.tensor</code></dt>
-<dd>Upper confidence boundary of the predictive posterior of shape (data_points,).</dd>
+<dd>Upper confidence boundary of the predictive posterior of shape (data_points,1).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L321-L344" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L321-L343" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def predict_y(self, X, ci=None, sigma=None, n=10000):
     &#34;&#34;&#34;
@@ -1797,9 +1837,9 @@ registered hooks while the latter silently ignores them.</p>
         n (int): Number of samples used from distribution to estimate quantile.
 
     Returns:
-        torch.tensor: Mean of the predictive posterior of shape (data_points,).
-        torch.tensor: Lower confidence boundary of the predictive posterior of shape (data_points,).
-        torch.tensor: Upper confidence boundary of the predictive posterior of shape (data_points,).
+        torch.tensor: Mean of the predictive posterior of shape (data_points,1).
+        torch.tensor: Lower confidence boundary of the predictive posterior of shape (data_points,1).
+        torch.tensor: Upper confidence boundary of the predictive posterior of shape (data_points,1).
     &#34;&#34;&#34;
     with torch.inference_mode():
         X = self._check_input(X)  # MxD
@@ -1808,8 +1848,7 @@ registered hooks while the latter silently ignores them.</p>
         if ci is None and sigma is not None:
             p = 0.5*(1.0 + float(torch.erf(torch.tensor(sigma/np.sqrt(2.0)))))
             ci = [1.0-p, p]
-        mu = self.likelihood.predict(mu, var, ci, sigma=sigma, n=n, X=X)
-        return mu</code></pre>
+        return self.likelihood.predict(X, mu, var, ci, sigma=sigma, n=n)</code></pre>
 </details>
 </dd>
 <dt id="mogptk.gpr.model.Model.print_parameters"><code class="name flex">
@@ -1820,7 +1859,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L187-L239" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L187-L239" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_parameters(self, file=None):
     &#34;&#34;&#34;
@@ -1881,7 +1920,7 @@ registered hooks while the latter silently ignores them.</p>
 <span>def <span class="ident">sample_f</span></span>(<span>self, Z, n=None, prior=False)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Sample from model.</p>
+<div class="desc"><p>Sample f values from model.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>Z</code></strong> :&ensp;<code>torch.tensor</code></dt>
@@ -1894,16 +1933,16 @@ registered hooks while the latter silently ignores them.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>torch.tensor</code></dt>
-<dd>Samples of shape (data_points,samples) or (data_points,) if <code>n</code> is not given.</dd>
+<dd>Samples of shape (data_points,n) or (data_points,) if <code>n</code> is not given.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L346-L381" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L345-L375" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def sample_f(self, Z, n=None, prior=False):
     &#34;&#34;&#34;
-    Sample from model.
+    Sample f values from model.
 
     Args:
         Z (torch.tensor): Input of shape (data_points,input_dims).
@@ -1911,7 +1950,7 @@ registered hooks while the latter silently ignores them.</p>
         prior (boolean): Sample from prior instead of posterior.
 
     Returns:
-        torch.tensor: Samples of shape (data_points,samples) or (data_points,) if `n` is not given.
+        torch.tensor: Samples of shape (data_points,n) or (data_points,) if `n` is not given.
     &#34;&#34;&#34;
     with torch.inference_mode():
         Z = self._check_input(Z)  # MxD
@@ -1920,23 +1959,66 @@ registered hooks while the latter silently ignores them.</p>
         if n is None:
             S = 1
 
-        # TODO: predict_y and non-Gaussian likelihoods
         if prior:
             mu, var = self.mean(Z), self.kernel(Z)
         else:
-            mu, var = self.predict_f(Z, full=True)  # MxD, MxMxD
+            mu, var = self.predict_f(Z, full=True)  # Mx1, MxM
+
         eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
         var += self.jitter * var.diagonal().mean() * eye  # MxM
-
-        u = torch.normal(
-                torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
-                torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
-        L = torch.linalg.cholesky(var)  # MxM
-        samples = mu + L.mm(u)  # MxS
+        samples_f = torch.distributions.multivariate_normal.MultivariateNormal(mu.reshape(-1), var).sample([S])
 
         if n is None:
-            samples = samples.squeeze()
-        return samples</code></pre>
+            samples_f = samples_f.squeeze()
+        return samples_f</code></pre>
+</details>
+</dd>
+<dt id="mogptk.gpr.model.Model.sample_y"><code class="name flex">
+<span>def <span class="ident">sample_y</span></span>(<span>self, Z, n=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sample y values from model.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>Z</code></strong> :&ensp;<code>torch.tensor</code></dt>
+<dd>Input of shape (data_points,input_dims).</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code></dt>
+<dd>Number of samples.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>torch.tensor</code></dt>
+<dd>Samples of shape (data_points,n) or (data_points,) if <code>n</code> is not given.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L377-L400" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">def sample_y(self, Z, n=None):
+    &#34;&#34;&#34;
+    Sample y values from model.
+
+    Args:
+        Z (torch.tensor): Input of shape (data_points,input_dims).
+        n (int): Number of samples.
+
+    Returns:
+        torch.tensor: Samples of shape (data_points,n) or (data_points,) if `n` is not given.
+    &#34;&#34;&#34;
+    with torch.inference_mode():
+        Z = self._check_input(Z)  # MxD
+
+        S = n
+        if n is None:
+            S = 1
+
+        samples_f = self.sample_f(Z, n=S)
+        samples_y = self.likelihood.conditional_sample(Z, samples_f)
+
+        if n is None:
+            samples_y = samples_y.squeeze()
+        return samples_y</code></pre>
 </details>
 </dd>
 </dl>
@@ -1967,7 +2049,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L558-L646" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L577-L665" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class OpperArchambeau(Model):
     &#34;&#34;&#34;
@@ -2017,7 +2099,7 @@ registered hooks while the latter silently ignores them.</p>
 
         if self.mean is not None:
             qf_mu = qf_mu - self.mean(self.X).reshape(-1,1)  # Sx1
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+        var_exp = self.likelihood.variational_expectation(self.X, y, qf_mu, qf_var_diag)
 
         #eye = torch.eye(q_lambda.shape[0], device=config.device, dtype=config.dtype)
         #qf_var = (1.0/q_lambda.square())*eye - invL.T.mm(invL)/q_lambda/q_lambda.T
@@ -2074,7 +2156,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L582-L619" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L601-L638" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -2100,7 +2182,7 @@ registered hooks while the latter silently ignores them.</p>
 
     if self.mean is not None:
         qf_mu = qf_mu - self.mean(self.X).reshape(-1,1)  # Sx1
-    var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+    var_exp = self.likelihood.variational_expectation(self.X, y, qf_mu, qf_var_diag)
 
     #eye = torch.eye(q_lambda.shape[0], device=config.device, dtype=config.dtype)
     #qf_var = (1.0/q_lambda.square())*eye - invL.T.mm(invL)/q_lambda/q_lambda.T
@@ -2131,6 +2213,7 @@ registered hooks while the latter silently ignores them.</p>
 <li><code><a title="mogptk.gpr.model.Model.predict_y" href="#mogptk.gpr.model.Model.predict_y">predict_y</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.sample_f" href="#mogptk.gpr.model.Model.sample_f">sample_f</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample_y" href="#mogptk.gpr.model.Model.sample_y">sample_y</a></code></li>
 </ul>
 </li>
 </ul>
@@ -2165,7 +2248,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L465-L556" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L484-L575" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Snelson(Model):
     &#34;&#34;&#34;
@@ -2279,6 +2362,7 @@ registered hooks while the latter silently ignores them.</p>
 <li><code><a title="mogptk.gpr.model.Model.predict_y" href="#mogptk.gpr.model.Model.predict_y">predict_y</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.sample_f" href="#mogptk.gpr.model.Model.sample_f">sample_f</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample_y" href="#mogptk.gpr.model.Model.sample_y">sample_y</a></code></li>
 </ul>
 </li>
 </ul>
@@ -2313,7 +2397,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L747-L848" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L766-L867" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class SparseHensman(Model):
     &#34;&#34;&#34;
@@ -2383,7 +2467,7 @@ registered hooks while the latter silently ignores them.</p>
             qf_sqrt = Lff.mm(self.q_sqrt().tril())
             qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
 
-        var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+        var_exp = self.likelihood.variational_expectation(self.X, y, qf_mu, qf_var_diag)
         kl = self.kl_gaussian(self.q_mu(), self.q_sqrt())
         return var_exp - kl
 
@@ -2437,7 +2521,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L796-L817" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L815-L836" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -2458,7 +2542,7 @@ registered hooks while the latter silently ignores them.</p>
         qf_sqrt = Lff.mm(self.q_sqrt().tril())
         qf_var_diag = qf_sqrt.mm(qf_sqrt.T).diagonal().reshape(-1,1)
 
-    var_exp = self.likelihood.variational_expectation(y, qf_mu, qf_var_diag, X=self.X)
+    var_exp = self.likelihood.variational_expectation(self.X, y, qf_mu, qf_var_diag)
     kl = self.kl_gaussian(self.q_mu(), self.q_sqrt())
     return var_exp - kl</code></pre>
 </details>
@@ -2471,7 +2555,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L788-L794" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L807-L813" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def kl_gaussian(self, q_mu, q_sqrt):
     S_diag = q_sqrt.diagonal().square() # NxN
@@ -2497,6 +2581,7 @@ registered hooks while the latter silently ignores them.</p>
 <li><code><a title="mogptk.gpr.model.Model.predict_y" href="#mogptk.gpr.model.Model.predict_y">predict_y</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.sample_f" href="#mogptk.gpr.model.Model.sample_f">sample_f</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample_y" href="#mogptk.gpr.model.Model.sample_y">sample_y</a></code></li>
 </ul>
 </li>
 </ul>
@@ -2531,7 +2616,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L648-L745" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L667-L764" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Titsias(Model):
     &#34;&#34;&#34;
@@ -2647,7 +2732,7 @@ registered hooks while the latter silently ignores them.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/2fa11fc7a1bdecdbc55264de0d393dbe2844ccc6/mogptk/gpr/model.py#L680-L704" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/model.py#L699-L723" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def elbo(self):
     if self.mean is not None:
@@ -2691,6 +2776,7 @@ registered hooks while the latter silently ignores them.</p>
 <li><code><a title="mogptk.gpr.model.Model.predict_y" href="#mogptk.gpr.model.Model.predict_y">predict_y</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.sample_f" href="#mogptk.gpr.model.Model.sample_f">sample_f</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample_y" href="#mogptk.gpr.model.Model.sample_y">sample_y</a></code></li>
 </ul>
 </li>
 </ul>
@@ -2739,6 +2825,7 @@ registered hooks while the latter silently ignores them.</p>
 <li><code><a title="mogptk.gpr.model.Model.predict_y" href="#mogptk.gpr.model.Model.predict_y">predict_y</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.print_parameters" href="#mogptk.gpr.model.Model.print_parameters">print_parameters</a></code></li>
 <li><code><a title="mogptk.gpr.model.Model.sample_f" href="#mogptk.gpr.model.Model.sample_f">sample_f</a></code></li>
+<li><code><a title="mogptk.gpr.model.Model.sample_y" href="#mogptk.gpr.model.Model.sample_y">sample_y</a></code></li>
 </ul>
 </li>
 <li>
