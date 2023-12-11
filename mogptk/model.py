@@ -710,7 +710,7 @@ class Model:
         else:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
-        samples = self.gpr.sample_f(Z=x, n=n)
+        samples = self.gpr.sample_y(Z=x, n=n)
         samples = samples.cpu().numpy()
 
         i = 0

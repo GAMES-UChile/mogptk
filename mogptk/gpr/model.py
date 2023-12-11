@@ -361,23 +361,43 @@ class Model(torch.nn.Module):
             if n is None:
                 S = 1
 
-            # TODO: predict_y and non-Gaussian likelihoods
             if prior:
                 mu, var = self.mean(Z), self.kernel(Z)
             else:
-                mu, var = self.predict_f(Z, full=True)  # MxD, MxMxD
+                mu, var = self.predict_f(Z, full=True)  # Mx1, MxM
+
             eye = torch.eye(var.shape[0], device=config.device, dtype=config.dtype)
             var += self.jitter * var.diagonal().mean() * eye  # MxM
-
-            u = torch.normal(
-                    torch.zeros(Z.shape[0], S, device=config.device, dtype=config.dtype),
-                    torch.tensor(1.0, device=config.device, dtype=config.dtype))  # MxS
-            L = torch.linalg.cholesky(var)  # MxM
-            samples = mu + L.mm(u)  # MxS
+            samples_f = torch.distributions.multivariate_normal.MultivariateNormal(mu.reshape(-1), var).sample([S])
 
             if n is None:
-                samples = samples.squeeze()
-            return samples
+                samples_f = samples_f.squeeze()
+            return samples_f
+
+    def sample_y(self, Z, n=None):
+        """
+        Sample y values from model.
+
+        Args:
+            Z (torch.tensor): Input of shape (data_points,input_dims).
+            n (int): Number of samples.
+
+        Returns:
+            torch.tensor: Samples of shape (data_points,n) or (data_points,) if `n` is not given.
+        """
+        with torch.inference_mode():
+            Z = self._check_input(Z)  # MxD
+
+            S = n
+            if n is None:
+                S = 1
+
+            samples_f = self.sample_f(Z, n=S)
+            samples_y = self.likelihood.conditional_sample(Z, samples_f)
+
+            if n is None:
+                samples_y = samples_y.squeeze()
+            return samples_y
 
 class Exact(Model):
     """
