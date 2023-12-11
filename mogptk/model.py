@@ -611,7 +611,7 @@ class Model:
 
         Args:
             X (list, dict): Array of shape (data_points,), (data_points,input_dims), or [(data_points,)] * input_dims per channel with prediction X values. If a dictionary is passed, the index is the channel index or name.
-            ci (list of float): Two percentages [lower, upper] in the range of [0,1] that represent the confidence interval.
+            ci (float,list of float): Confidence interval as a percentage or the two quantile limits [lower, upper] in the range of [0,1].
             sigma (float): Number of standard deviations of the confidence interval. For non-Gaussian likelihoods this is converted to confidence interval percentages using the standard normal distribution.
             n (int): Number of samples used from distribution to estimate quantile.
             transformed (boolean): Return transformed data as used for training.
@@ -631,6 +631,11 @@ class Model:
             X = self.dataset._format_X(X)
         x = self._to_kernel_format(X)
 
+        if isinstance(ci, float):
+            ci = (1.0-ci)/2.0
+            ci = [ci, 1.0-ci]
+        if ci is not None:
+            ci = [max(0.0, ci[0]), min(1.0, ci[1])]
         mu, lower, upper = self.gpr.predict_y(x, ci, sigma=sigma, n=n)
         mu = mu.cpu().numpy()
         lower = lower.cpu().numpy()
@@ -774,7 +779,7 @@ class Model:
             ax.legend(handles=legends)
         return fig, ax
 
-    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, sigma=2, transformed=False, n=10000):
+    def plot_prediction(self, X=None, title=None, figsize=None, legend=True, errorbars=True, ci=None, sigma=2, n=10000, transformed=False):
         """
         Plot the data including removed observations, latent function, and predictions of this model for each channel.
 
@@ -784,10 +789,10 @@ class Model:
             figsize (tuple): Set the figure size.
             legend (boolean): Disable legend.
             errorbars (boolean): Plot data error bars if available.
+            ci (float,list of float): Confidence interval as a percentage or the two quantile limits [lower, upper] in the range of [0,1].
             sigma (float): Number of standard deviations to display upwards and downwards.
-            predict_y (boolean): Predict data values instead of function values.
-            transformed (boolean): Display transformed Y data as used for training.
             n (int): Number of samples used from distribution to estimate quantile.
+            transformed (boolean): Display transformed Y data as used for training.
 
         Returns:
             matplotlib.figure.Figure: The figure.
@@ -796,7 +801,7 @@ class Model:
         Examples:
             >>> fig, axes = dataset.plot(title='Title')
         """
-        X, Mu, Lower, Upper = self.predict(X, sigma=sigma, transformed=transformed, n=n)
+        X, Mu, Lower, Upper = self.predict(X, ci=ci, sigma=sigma, n=n, transformed=transformed)
         if len(self.dataset) == 1:
             X = [X]
             Mu = [Mu]

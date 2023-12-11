@@ -26,6 +26,14 @@ def exp(x):
     """
     return torch.exp(x)
 
+def probit(x):
+    """
+    The probit link function given by
+
+    $$ y = \\sqrt{2} \\operatorname{erf}^{-1}(2x-1)\\right) $$
+    """
+    return np.sqrt(2)*torch.erfinv(2.0*x - 1.0)
+
 def inv_probit(x):
     """
     The inverse probit link function given by
@@ -35,14 +43,24 @@ def inv_probit(x):
     jitter = 1e-3
     return 0.5*(1.0+torch.erf(x/np.sqrt(2.0))) * (1.0-2.0*jitter) + jitter
 
-# also inv_logit or sigmoid
-def logistic(x):
+# also inv_logit or logistic
+def sigmoid(x):
     """
     The logistic, inverse logit, or sigmoid link function given by
 
     $$ y = \\frac{1}{1 + e^{-x}} $$
     """
     return 1.0/(1.0+torch.exp(-x))
+
+def log_logistic_distribution(loc, scale):
+    return torch.distributions.transformed_distribution.TransformedDistribution(
+        base_distribution=torch.distributions.uniform.Uniform(0.0,1.0),
+        transforms=[
+            torch.distributions.transforms.SigmoidTransform().inv,
+            torch.distributions.transforms.AffineTransform(loc=loc, scale=scale),
+            torch.distributions.transforms.ExpTransform(),
+        ],
+    )
 
 class GaussHermiteQuadrature:
     def __init__(self, deg=20, t_scale=None, w_scale=None):
@@ -69,7 +87,6 @@ class Likelihood(torch.nn.Module):
     """
     def __init__(self, quadratures=20):
         super().__init__()
-
         self.quadrature = GaussHermiteQuadrature(deg=quadratures, t_scale=np.sqrt(2), w_scale=1.0/np.sqrt(np.pi))
         self.output_dims = None
 
@@ -197,6 +214,8 @@ class Likelihood(torch.nn.Module):
 
         samples_f = torch.distributions.normal.Normal(mu, var).sample([n]) # nxN
         samples_y = self.sample(X, samples_f) # nxN
+        if samples_y is None:
+            return mu, mu, mu
         samples_y, _ = samples_y.sort(dim=0)
         lower = int(ci[0]*n + 0.5)
         upper = int(ci[1]*n + 0.5)
@@ -306,7 +325,6 @@ class GaussianLikelihood(Likelihood):
     """
     def __init__(self, scale=1.0):
         super().__init__()
-
         self.scale = Parameter(scale, lower=config.positive_minimum)
         if self.scale.ndim == 1:
             self.output_dims = self.scale.shape[0]
@@ -331,6 +349,7 @@ class GaussianLikelihood(Likelihood):
         return torch.distributions.normal.Normal(f, scale=self.scale()).sample()
 
     def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
+        # TODO: doesn't use var
         if ci is None and sigma is None:
             return mu
 
@@ -376,7 +395,6 @@ class StudentTLikelihood(Likelihood):
     """
     def __init__(self, dof=3, scale=1.0, quadratures=20):
         super().__init__(quadratures)
-
         self.dof = torch.tensor(dof, device=config.device, dtype=config.dtype)
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
@@ -386,7 +404,7 @@ class StudentTLikelihood(Likelihood):
         p = -0.5 * (self.dof+1.0)*torch.log1p(((y-f)/self.scale()).square()/self.dof)
         p += torch.lgamma((self.dof+1.0)/2.0)
         p -= torch.lgamma(self.dof/2.0)
-        p -= 0.5 * torch.log(self.dof*np.pi*self.scale().square())
+        p -= 0.5 * (torch.log(self.dof) + np.log(np.pi) + self.scale().square().log())
         return p  # NxQ
 
     def conditional_mean(self, X, f):
@@ -411,7 +429,6 @@ class ExponentialLikelihood(Likelihood):
     """
     def __init__(self, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
 
     def validate_y(self, X, y):
@@ -430,9 +447,14 @@ class ExponentialLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.link(f)
 
+    #TODO: has tractable var exp?
+    #TODO: can impl predict?
+
     def sample(self, X, f):
-        rate = self.link(f)
-        return torch.distributions.exponential.Exponential(rate).sample()
+        if self.link != exp:
+            raise ValueError("only exponential link function is supported")
+        rate = 1.0/self.link(f)
+        return torch.distributions.exponential.Exponential(rate).sample().log()
 
 class LaplaceLikelihood(Likelihood):
     """
@@ -451,7 +473,6 @@ class LaplaceLikelihood(Likelihood):
     """
     def __init__(self, scale=1.0, quadratures=20):
         super().__init__(quadratures)
-
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
     def log_prob(self, X, y, f):
@@ -480,7 +501,6 @@ class BernoulliLikelihood(Likelihood):
     """
     def __init__(self, link=inv_probit, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
 
     def validate_y(self, X, y):
@@ -497,7 +517,7 @@ class BernoulliLikelihood(Likelihood):
         return self.link(f)
 
     def sample(self, X, f):
-        return f
+        return None
 
     def predict(self, X, mu, var, ci=None, sigma=None, n=10000):
         if self.link != inv_probit:
@@ -526,7 +546,6 @@ class BetaLikelihood(Likelihood):
     """
     def __init__(self, scale=1.0, link=inv_probit, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
@@ -539,7 +558,7 @@ class BetaLikelihood(Likelihood):
         # f: NxQ
         mixture = self.link(f)
         alpha = mixture * self.scale()
-        beta = (1.0-mixture) * self.scale()
+        beta = self.scale() - alpha
 
         p = (alpha-1.0)*y.log()
         p += (beta-1.0)*torch.log1p(-y)
@@ -552,10 +571,12 @@ class BetaLikelihood(Likelihood):
         return self.link(f)
 
     def sample(self, X, f):
+        if self.link != inv_probit:
+            raise ValueError("only inverse probit link function is supported")
         mixture = self.link(f)
         alpha = mixture * self.scale()
-        beta = (1.0-mixture) * self.scale()
-        return torch.distributions.beta.Beta(alpha, beta).sample()
+        beta = self.scale() - alpha
+        return probit(torch.distributions.beta.Beta(alpha, beta).sample())
 
 class GammaLikelihood(Likelihood):
     """
@@ -575,7 +596,6 @@ class GammaLikelihood(Likelihood):
     """
     def __init__(self, shape=1.0, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.shape = Parameter(shape, lower=config.positive_minimum)
 
@@ -598,9 +618,13 @@ class GammaLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.shape()*self.link(f)
 
+    # TODO: the variational_expectation is tractable?
+
     def sample(self, X, f):
+        if self.link != exp:
+            raise ValueError("only exponential link function is supported")
         rate = 1.0/self.link(f)
-        return torch.distributions.gamma.Gamma(self.shape(), rate).sample()
+        return torch.distributions.gamma.Gamma(self.shape(), rate).sample().log()
 
 class PoissonLikelihood(Likelihood):
     """
@@ -616,8 +640,6 @@ class PoissonLikelihood(Likelihood):
     """
     def __init__(self, link=exp, quadratures=20):
         super().__init__(quadratures)
-        # TODO: the variational_expectation is tractable?
-
         self.link = link
 
     def validate_y(self, X, y):
@@ -640,9 +662,13 @@ class PoissonLikelihood(Likelihood):
     def conditional_mean(self, X, f):
         return self.link(f)
 
+    #TODO: has tractable var exp?
+
     def sample(self, X, f):
+        if self.link != exp:
+            raise ValueError("only exponential link function is supported")
         rate = self.link(f)
-        return torch.distributions.poisson.Poisson(rate).sample()
+        return torch.distributions.poisson.Poisson(rate).sample().log()
 
 class WeibullLikelihood(Likelihood):
     """
@@ -662,7 +688,6 @@ class WeibullLikelihood(Likelihood):
     """
     def __init__(self, shape=1.0, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.shape = Parameter(shape, lower=config.positive_minimum)
 
@@ -682,11 +707,13 @@ class WeibullLikelihood(Likelihood):
         return p  # NxQ
 
     def conditional_mean(self, X, f):
-        return f * torch.lgamma(1.0 + 1.0/self.shape()).exp()
+        return self.link(f) * torch.lgamma(1.0 + 1.0/self.shape()).exp()
 
     def sample(self, X, f):
+        if self.link != exp:
+            raise ValueError("only exponential link function is supported")
         scale = self.link(f)
-        return torch.distributions.weibull.Weibull(scale, self.shape()).sample()
+        return torch.distributions.weibull.Weibull(scale, self.shape()).sample().log()
 
 class LogLogisticLikelihood(Likelihood):
     """
@@ -706,7 +733,6 @@ class LogLogisticLikelihood(Likelihood):
     """
     def __init__(self, shape=1.0, link=exp, quadratures=20):
         super().__init__(quadratures)
-
         self.link = link
         self.shape = Parameter(shape, lower=config.positive_minimum)
 
@@ -730,7 +756,9 @@ class LogLogisticLikelihood(Likelihood):
         return self.link(f) / torch.sinc(1.0/self.shape())
 
     def sample(self, X, f):
-        raise NotImplementedError()
+        if self.link != exp:
+            raise ValueError("only exponential link function is supported")
+        return log_logistic_distribution(f, 1.0/self.shape()).sample().log()
 
 class LogGaussianLikelihood(Likelihood):
     """
@@ -749,7 +777,6 @@ class LogGaussianLikelihood(Likelihood):
     """
     def __init__(self, scale=1.0, quadratures=20):
         super().__init__(quadratures)
-
         self.scale = Parameter(scale, lower=config.positive_minimum)
 
     def validate_y(self, X, y):
@@ -768,7 +795,7 @@ class LogGaussianLikelihood(Likelihood):
         return torch.exp(f + 0.5*self.scale().square())
 
     def sample(self, X, f):
-        return torch.distributions.log_normal.LogNormal(f, self.scale()).sample()
+        return torch.distributions.log_normal.LogNormal(f, self.scale()).sample().log()
 
 class ChiSquaredLikelihood(Likelihood):
     """
@@ -779,10 +806,12 @@ class ChiSquaredLikelihood(Likelihood):
     with \\(y \\in (0.0,\\infty)\\).
 
     Args:
+        link (function): Link function to map function values to the support of the likelihood.
         quadratures (int): Number of quadrature points to use when approximating using Gauss-Hermite quadratures.
     """
-    def __init__(self, quadratures=20):
+    def __init__(self, link=exp, quadratures=20):
         super().__init__(quadratures)
+        self.link = link
 
     def validate_y(self, X, y):
         if torch.any(y <= 0.0):
@@ -791,11 +820,14 @@ class ChiSquaredLikelihood(Likelihood):
     def log_prob(self, X, y, f):
         # y: Nx1
         # f: NxQ
+        f = self.link(f)
         p = -0.5*f*np.log(2.0) - torch.lgamma(f/2.0) + (f/2.0-1.0)*y.log() - 0.5*y
         return p  # NxQ
 
     def conditional_mean(self, X, f):
-        return f
+        return self.link(f)
 
     def sample(self, X, f):
-        raise NotImplementedError()
+        if self.link != exp:
+            raise ValueError("only exponential link function is supported")
+        return torch.distributions.chi2.Chi2(self.link(f)).sample().log()

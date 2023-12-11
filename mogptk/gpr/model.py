@@ -101,7 +101,7 @@ class Model(torch.nn.Module):
 
         if issubclass(type(likelihood), MultiOutputLikelihood) and likelihood.output_dims != kernel.output_dims:
             raise ValueError("kernel and likelihood must have matching output dimensions")
-        likelihood.validate_y(y, X=X)
+        likelihood.validate_y(X, y)
 
         # limit to number of significant digits
         if config.dtype == torch.float32:
@@ -340,8 +340,7 @@ class Model(torch.nn.Module):
             if ci is None and sigma is not None:
                 p = 0.5*(1.0 + float(torch.erf(torch.tensor(sigma/np.sqrt(2.0)))))
                 ci = [1.0-p, p]
-            mu = self.likelihood.predict(X, mu, var, ci, sigma=sigma, n=n)
-            return mu
+            return self.likelihood.predict(X, mu, var, ci, sigma=sigma, n=n)
 
     def sample_f(self, Z, n=None, prior=False):
         """
