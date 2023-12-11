@@ -92,7 +92,7 @@ class MultiOutputMean(Mean):
 
     def name(self):
         names = [mean.name() for mean in self.means]
-        return '%s[%s]' % (self.__class__.__name__, names.join(','))
+        return '[%s]' % (','.join(names),)
 
     def _channel_indices(self, X):
         c = X[:,0].long()

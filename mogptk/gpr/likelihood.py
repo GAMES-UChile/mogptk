@@ -251,7 +251,7 @@ class MultiOutputLikelihood(Likelihood):
 
     def name(self):
         names = [likelihood.name() for likelihood in self.likelihoods]
-        return '%s[%s]' % (self.__class__.__name__, names.join(','))
+        return '[%s]' % (','.join(names),)
 
     def validate_y(self, X, y):
         if self.output_dims == 1:

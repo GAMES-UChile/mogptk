@@ -219,7 +219,7 @@ class Kernels(Kernel):
 
     def name(self):
         names = [kernel.name() for kernel in self.kernels]
-        return '%s[%s]' % (self.__class__.__name__, names.join(','))
+        return '[%s]' % (','.join(names),)
 
     def __getitem__(self, key):
         return self.kernels[key]
