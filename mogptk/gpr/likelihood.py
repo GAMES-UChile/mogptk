@@ -626,10 +626,19 @@ class GammaLikelihood(Likelihood):
             p -= self.shape()*self.link(f).log()
         return p  # NxQ
 
+    def variational_expectation(self, X, y, mu, var):
+        # y,mu,var: Nx1
+        if self.link != exp:
+            super().variational_expectation(X, y, mu, var)
+
+        p = -self.shape()*mu
+        p -= torch.lgamma(self.shape())
+        p += (self.shape() - 1.0) * y.log()
+        p -= y * torch.exp(var/2.0 - mu)
+        return p.sum()
+
     def conditional_mean(self, X, f):
         return self.shape()*self.link(f)
-
-    #TODO: implement variational_expectation
 
     def conditional_sample(self, X, f):
         if self.link != exp:
