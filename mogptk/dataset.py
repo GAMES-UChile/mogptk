@@ -100,10 +100,6 @@ def LoadDataFrame(df, x_col=0, y_col=1, y_err_col=None, name=None):
     if len(df.index) == 0:
         raise ValueError("dataframe cannot be empty")
 
-    input_dims = len(x_col)
-    x_data = df[x_col]
-    x_labels = [str(item) for item in x_col]
-
     dataset = DataSet()
     for i in range(len(y_col)):
         cols = x_col + [y_col[i]]
@@ -116,12 +112,12 @@ def LoadDataFrame(df, x_col=0, y_col=1, y_err_col=None, name=None):
             y_err = channel[y_err_col[i]].values
 
         dataset.append(Data(
-            channel[x_col].values,
+            [channel[col].values for col in x_col],
             channel[y_col[i]].values,
             Y_err=y_err,
             name=name[i],
-            x_labels=x_labels,
-            y_label=str(y_col[i]),
+            x_labels=x_col,
+            y_label=y_col[i],
         ))
     if dataset.get_output_dims() == 1:
         return dataset[0]
