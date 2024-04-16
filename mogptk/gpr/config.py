@@ -43,9 +43,9 @@ def use_gpu(n=None):
     Use the GPU instead of the CPU for tensor calculations. This is the default if a GPU is available. If you have more than one GPU, you can use a specific GPU by setting `n`.
     """
     if not torch.cuda.is_available():
-        logger.error("CUDA is not available")
+        print("CUDA is not available")
     elif n is not None and (not isinstance(n, int) or n < 0 or torch.cuda.device_count() <= n):
-        logger.error("CUDA GPU '%s' is not available" % (n,))
+        print("CUDA GPU '%s' is not available" % (n,))
     elif n is None:
         config.device = torch.device('cuda', torch.cuda.current_device())
     else:
