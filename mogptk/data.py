@@ -484,8 +484,8 @@ class Data:
         
             >>> data.filter('2016-01-15', '2016-06-15')
         """
-        start = self._normalize_x_val(start)
-        end = self._normalize_x_val(end)
+        start = self._normalize_x_val(start, dim=dim)
+        end = self._normalize_x_val(end, dim=dim)
         
         if dim is not None:
             ind = np.logical_and(self.X[:,dim] >= start[dim], self.X[:,dim] < end[dim])
@@ -745,12 +745,18 @@ class Data:
             >>> data.remove_range('2016-01-15', '2016-06-15')
         """
         if start is None:
-            start = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
+            if dim is None:
+                start = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
+            else:
+                start = [np.min(self.X[:,i]) if i == dim else None for i in range(self.get_input_dims())]
         if end is None:
-            end = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
+            if dim is None:
+                end = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
+            else:
+                end = [np.max(self.X[:,i]) if i == dim else None for i in range(self.get_input_dims())]
 
-        start = self._normalize_x_val(start)
-        end = self._normalize_x_val(end)
+        start = self._normalize_x_val(start, dim=dim)
+        end = self._normalize_x_val(end, dim=dim)
 
         if dim is not None:
             mask = np.logical_and(self.X[:,dim] >= start[dim], self.X[:,dim] <= end[dim])
@@ -772,8 +778,8 @@ class Data:
             end (float): End percentage in interval [0,1].
             dim (int): Input dimension to apply to, if not specified applies to all input dimensions.
         """
-        start = self._normalize_x_val(start)
-        end = self._normalize_x_val(end)
+        start = self._normalize_x_val(start, dim=dim)
+        end = self._normalize_x_val(end, dim=dim)
 
         xmin = [np.min(self.X[:,i]) for i in range(self.get_input_dims())]
         xmax = [np.max(self.X[:,i]) for i in range(self.get_input_dims())]
@@ -1289,14 +1295,21 @@ class Data:
             raise ValueError("value must be a scalar or a list of values for each input dimension")
         return val
 
-    def _normalize_x_val(self, val):
+    def _normalize_x_val(self, val, dim=None):
         # normalize input values for X axis, that is: expand to input_dims if a single value, convert values to appropriate dtype
+
         val = self._normalize_val(val)
-        for i in range(self.get_input_dims()):
+        if dim is not None:
             try:
-                val[i] = np.array(val[i]).astype(self.X_dtypes[i]).astype(np.float64)
+                val[dim] = np.array(val[dim]).astype(self.X_dtypes[dim]).astype(np.float64)
             except:
-                raise ValueError("value must be of type %s" % (self.X_dtypes[i],))
+                raise ValueError("value must be of type %s" % (self.X_dtypes[dim],))
+        else:
+            for i in range(self.get_input_dims()):
+                try:
+                    val[i] = np.array(val[i]).astype(self.X_dtypes[i]).astype(np.float64)
+                except:
+                    raise ValueError("value must be of type %s" % (self.X_dtypes[i],))
         return val
 
 def _is_iterable(val):
