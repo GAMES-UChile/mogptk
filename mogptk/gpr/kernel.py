@@ -229,6 +229,16 @@ class Kernels(Kernel):
         for kernel in self.kernels:
             yield kernel
 
+class ChangePointsKernel(Kernels):
+    """
+    Mixture of kernels, each with input-dependent weight. The weights are parametrized by sigmoid functions and thus enables "sigmoidal" transition between kernels w.r.t input values.
+
+    Args:
+        kernels (list of Kernel): Kernels.
+        change_points (list of floats): 
+        steepnesses (list of floats)
+    """
+
 class AddKernel(Kernels):
     """
     Addition kernel that sums kernels.
