@@ -229,16 +229,6 @@ class Kernels(Kernel):
         for kernel in self.kernels:
             yield kernel
 
-class ChangePointsKernel(Kernels):
-    """
-    Mixture of kernels, each with input-dependent weight. The weights are parametrized by sigmoid functions and thus enables "sigmoidal" transition between kernels w.r.t input values.
-
-    Args:
-        kernels (list of Kernel): Kernels.
-        change_points (list of floats): 
-        steepnesses (list of floats)
-    """
-
 class AddKernel(Kernels):
     """
     Addition kernel that sums kernels.
@@ -301,6 +291,91 @@ class AutomaticRelevanceDeterminationKernel(MulKernel):
             kernel.set_active_dims(i)
         super().__init__(*kernels)
 
+class ChangePointsKernel(Kernels):
+    """
+    Changepoint kernel that sums kernels with input-dependent weight functions. The weights are parametrized by sigmoid functions and thus enables smooth transition between kernels in the input domain (1D). Note that it often makes the resulting kernel nonstationary.
+
+    Args:
+        kernels (list of Kernel): Kernels.
+        locations (list of float): Location(s) in 1D input domain where covariance change is expected. This is to 'center' a sigmoid around the changepoint.
+        steepnesses (list of float): Slope(s) of the sigmoid(s) at the changepoint(s), must be positive. If a single value is given, it is assumed that all the transitions from one kernel to another are at the same rate w.r.t to input values (i.e sigmoids share the same steepness), otherwise they might be different.
+    """
+    def __init__(self, locations, steepnesses=1.0, *kernels):
+        if not isinstance(locations, list):
+            locations = [locations]
+        if len(kernels) != len(locations) + 1:
+            raise ValueError("Must pass one more kernel than the number of locations points. "
+                             f"Got {len(kernels)} kernels and {len(locations)} locations points."
+            )
+        if isinstance(steepnesses, list) and len(steepnesses) > 1:
+            if len(locations) != len(steepnesses):
+                raise ValueError("Must pass as many locations as steepness point(s). "
+                                f"Got {len(locations)} locations and {len(steepnesses)} steepness points."
+                )
+        if not torch.equal(torch.tensor(locations), torch.tensor(locations).sort(descending=False)[0]):
+            raise ValueError("'locations' must be sorted ascendingly and 'steepnesses' should be ordered correspondingly."
+            )
+        super().__init__(*kernels)
+
+        if self.input_dims != 1:
+            raise ValueError("Must pass kernels defined over a 1D input domain.")
+
+        self.locations = Parameter(locations)
+        # advice: constrain positivity with Parameter.to_transform(lower=1e-16)
+        self.steepness = Parameter(steepnesses, lower=config.positive_minimum)
+
+    def _weight_sigmoid(self, X):
+        return torch.sigmoid(self.steepness() * (X - self.locations()))
+    
+    # inspired by : https://www.tensorflow.org/probability/api_docs/python/tfp/math/psd_kernels/ChangePoint
+    def K(self, X1, X2=None):
+
+        N1 = X1.shape[0]
+
+        # input-dependent weights
+        weights_x1 = self._weight_sigmoid(X1) # N1xN_cp
+        
+        if X2 is None:
+            weights_x2 = self._weight_sigmoid(X1)
+            N2 = N1
+        else:
+            weights_x2 = self._weight_sigmoid(X2)
+            N2 = X2.shape[0]
+
+        # for multiplication broadcastability
+        weights_x1 = weights_x1.unsqueeze(dim=-2) # N1x1xN_cp
+        weights_x2 = weights_x2.unsqueeze(dim=0) # 1xN2xN_cp
+    
+        # a sigmoid (weight) increases 0->1 so complement to get 1->0
+        start_weights = weights_x1 * weights_x2 # N1xN2xN_cp
+        end_weights = (1.0 - weights_x1) * (1.0 - weights_x2) # N1xN2xN_cp
+
+        # ap/pre-pend ones
+        ones = torch.ones((N1, N2, 1))
+        start_weights = torch.cat((ones, start_weights), dim=-1) # N1xN2x(N_cp+1)
+        end_weights = torch.cat((end_weights, ones), dim=-1) # N1xN2x(N_cp+1)
+
+        # weighted sum of the kernels
+        kernel_stack = torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=-1) # N1xN2x(N_cp+1)
+
+        return torch.sum(start_weights * kernel_stack * end_weights, dim=-1)
+    
+    def K_diag(self, X1):
+        N1 = X1.shape[0]
+
+        # weights
+        weights_x1 = self._weight_sigmoid(X1)
+
+        # ap/pre-pend ones
+        ones = torch.ones((N1, 1))
+        start_weights = torch.cat((ones, weights_x1**2), dim=-1)
+        end_weights = torch.cat(((1.0 - weights_x1)**2, ones), dim=-1)
+
+        # weighted sum of kernels
+        kernel_stack = torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=-1)
+
+        return torch.sum(start_weights * kernel_stack * end_weights, dim=-1)
+    
 cb = None
 
 class MultiOutputKernel(Kernel):
