@@ -533,7 +533,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         X1, X2 = self._active_input(X1, X2)
         tau = self.squared_distance(X1,X2)  # NxMxD
 
-        # differences with the thesis from Parra is that it lacks a multiplication of 2*pi, lacks a minus in the exponencial function, and doesn't write the variance matrices as inverted
+        # differences with the thesis from Parra is that it lacks a multiplication of 2*pi, lacks a minus in the exponential function, and doesn't write the variance matrices as inverted
         if X2 is None:
             variances = 2.0*self.variance()[i] + self.base_variance()  # D
             magnitude = self.weight()[i]**2 * torch.sqrt(self.base_variance().prod()/variances.prod())  # scalar

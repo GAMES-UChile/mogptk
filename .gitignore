@@ -7,7 +7,11 @@ dist/
 mogptk.egg-info/
 examples/test*
 examples/experiments
+examples/data/smni_eeg/a_1_co2a0000364
+examples/data/bramblemet/*.csv
+tests/
 *.aux
 *.fdb_latexmk
 *.fls
 *.log
+*.venv/

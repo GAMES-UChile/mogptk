@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.6" />
 <title>mogptk.gpr.multioutput API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" crossorigin>
@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L1-L553" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L1-L553" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import numpy as np
@@ -564,7 +564,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         X1, X2 = self._active_input(X1, X2)
         tau = self.squared_distance(X1,X2)  # NxMxD
 
-        # differences with the thesis from Parra is that it lacks a multiplication of 2*pi, lacks a minus in the exponencial function, and doesn&#39;t write the variance matrices as inverted
+        # differences with the thesis from Parra is that it lacks a multiplication of 2*pi, lacks a minus in the exponential function, and doesn&#39;t write the variance matrices as inverted
         if X2 is None:
             variances = 2.0*self.variance()[i] + self.base_variance()  # D
             magnitude = self.weight()[i]**2 * torch.sqrt(self.base_variance().prod()/variances.prod())  # scalar
@@ -622,11 +622,11 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dd>Shift <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> of shape (output_dims,Rq).</dd>
 </dl>
 <p>[1] K.R. Ulrich et al, "GP Kernels for Cross-Spectrum Analysis", Advances in Neural Information Processing Systems 28, 2015</p>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L397-L454" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L397-L454" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class CrossSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -731,11 +731,11 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dd>Base variance <span><span class="MathJax_Preview">\Sigma_0</span><script type="math/tex">\Sigma_0</script></span> of shape (input_dims,).</dd>
 </dl>
 <p>[1] M.A. Álvarez and N.D. Lawrence, "Sparse Convolved Multiple Output Gaussian Processes", Advances in Neural Information Processing Systems 21, 2009</p>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L504-L553" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L504-L553" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class GaussianConvolutionProcessKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -769,7 +769,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
         X1, X2 = self._active_input(X1, X2)
         tau = self.squared_distance(X1,X2)  # NxMxD
 
-        # differences with the thesis from Parra is that it lacks a multiplication of 2*pi, lacks a minus in the exponencial function, and doesn&#39;t write the variance matrices as inverted
+        # differences with the thesis from Parra is that it lacks a multiplication of 2*pi, lacks a minus in the exponential function, and doesn&#39;t write the variance matrices as inverted
         if X2 is None:
             variances = 2.0*self.variance()[i] + self.base_variance()  # D
             magnitude = self.weight()[i]**2 * torch.sqrt(self.base_variance().prod()/variances.prod())  # scalar
@@ -820,11 +820,11 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dt><strong><code>output_dims</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of output dimensions.</dd>
 </dl>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L5-L39" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L5-L39" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class IndependentMultiOutputKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -878,7 +878,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L22-L24" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L22-L24" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     names = [kernel.name() for kernel in self.kernels]
@@ -924,11 +924,11 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dd>Weight <span><span class="MathJax_Preview">w</span><script type="math/tex">w</script></span> of shape (output_dims,Q,Rq).</dd>
 </dl>
 <p>[1] P. Goovaerts, "Geostatistics for Natural Resource Evaluation", Oxford University Press, 1997</p>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L456-L502" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L456-L502" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearModelOfCoregionalizationKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -994,7 +994,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L486-L488" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L486-L488" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     names = [kernel.name() for kernel in self.kernels]
@@ -1054,11 +1054,11 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> in hertz of shape (output_dims,).</dd>
 </dl>
 <p>[1] M. Altamirano, "Nonstationary Multi-Output Gaussian Processes via Harmonizable Spectral Mixtures, 2021</p>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L295-L395" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L295-L395" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputHarmonizableSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1216,11 +1216,11 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> in hertz of shape (output_dims,).</dd>
 </dl>
 <p>[1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017</p>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L41-L123" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L41-L123" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1362,11 +1362,11 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> in hertz of shape (output_dims,Q).</dd>
 </dl>
 <p>[1] G. Parra and F. Tobar, "Spectral Mixture Kernels for Multi-Output Gaussian Processes", Advances in Neural Information Processing Systems 31, 2017</p>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L125-L210" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L125-L210" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputSpectralMixtureKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1508,11 +1508,11 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 <dt><strong><code>phase</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Phase <span><span class="MathJax_Preview">\phi</span><script type="math/tex">\phi</script></span> in hertz of shape (output_dims,).</dd>
 </dl>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/multioutput.py#L212-L293" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/multioutput.py#L212-L293" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class UncoupledMultiOutputSpectralKernel(MultiOutputKernel):
     &#34;&#34;&#34;
@@ -1668,7 +1668,7 @@ class GaussianConvolutionProcessKernel(MultiOutputKernel):
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
 </footer>
 </body>
 </html>

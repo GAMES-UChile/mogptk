@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.6" />
 <title>mogptk.gpr.mean API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" crossorigin>
@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L1-L151" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/mean.py#L1-L151" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 from . import Parameter, config
@@ -204,11 +204,11 @@ class LinearMean(Mean):
 <dt><strong><code>bias</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Bias <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span>.</dd>
 </dl>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L110-L128" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/mean.py#L110-L128" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class ConstantMean(Mean):
     &#34;&#34;&#34;
@@ -264,11 +264,11 @@ class LinearMean(Mean):
 <dt><strong><code>slope</code></strong> :&ensp;<code><a title="mogptk.gpr.parameter.Parameter" href="parameter.html#mogptk.gpr.parameter.Parameter">Parameter</a></code></dt>
 <dd>Slope <span><span class="MathJax_Preview">a</span><script type="math/tex">a</script></span>.</dd>
 </dl>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L130-L151" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/mean.py#L130-L151" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class LinearMean(Mean):
     &#34;&#34;&#34;
@@ -312,11 +312,11 @@ class LinearMean(Mean):
 </code></dt>
 <dd>
 <div class="desc"><p>Defines a trainable mean function, complementary to the the way we also have a trainable covariance function (the kernel).</p>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L4-L63" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/mean.py#L4-L63" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Mean(torch.nn.Module):
     &#34;&#34;&#34;
@@ -409,7 +409,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L53-L63" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/mean.py#L53-L63" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def mean(self, X):
     &#34;&#34;&#34;
@@ -432,7 +432,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L24-L25" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/mean.py#L24-L25" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     return self.__class__.__name__</code></pre>
@@ -451,11 +451,11 @@ class LinearMean(Mean):
 <dt><strong><code>means</code></strong> :&ensp;<code><a title="mogptk.gpr.mean.Mean" href="#mogptk.gpr.mean.Mean">Mean</a></code></dt>
 <dd>List of means equal to the number of output dimensions.</dd>
 </dl>
-<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L65-L108" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/mean.py#L65-L108" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputMean(Mean):
     &#34;&#34;&#34;
@@ -517,7 +517,7 @@ class LinearMean(Mean):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/mean.py#L93-L95" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/mean.py#L93-L95" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     names = [mean.name() for mean in self.means]
@@ -575,7 +575,7 @@ class LinearMean(Mean):
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
 </footer>
 </body>
 </html>

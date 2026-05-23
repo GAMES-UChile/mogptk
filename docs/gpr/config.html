@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.6" />
 <title>mogptk.gpr.config API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" crossorigin>
@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/config.py#L1-L73" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/config.py#L1-L73" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 
@@ -74,9 +74,9 @@ def use_gpu(n=None):
     Use the GPU instead of the CPU for tensor calculations. This is the default if a GPU is available. If you have more than one GPU, you can use a specific GPU by setting `n`.
     &#34;&#34;&#34;
     if not torch.cuda.is_available():
-        logger.error(&#34;CUDA is not available&#34;)
+        print(&#34;CUDA is not available&#34;)
     elif n is not None and (not isinstance(n, int) or n &lt; 0 or torch.cuda.device_count() &lt;= n):
-        logger.error(&#34;CUDA GPU &#39;%s&#39; is not available&#34; % (n,))
+        print(&#34;CUDA GPU &#39;%s&#39; is not available&#34; % (n,))
     elif n is None:
         config.device = torch.device(&#39;cuda&#39;, torch.cuda.current_device())
     else:
@@ -119,7 +119,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/config.py#L54-L67" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/config.py#L54-L67" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def print_gpu_information():
     &#34;&#34;&#34;
@@ -145,7 +145,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/config.py#L69-L73" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/config.py#L69-L73" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def set_positive_minimum(val):
     &#34;&#34;&#34;
@@ -162,7 +162,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/config.py#L32-L39" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/config.py#L32-L39" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_cpu(n=None):
     &#34;&#34;&#34;
@@ -182,7 +182,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/config.py#L26-L30" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/config.py#L26-L30" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_double_precision():
     &#34;&#34;&#34;
@@ -199,16 +199,16 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/config.py#L41-L52" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/config.py#L41-L52" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_gpu(n=None):
     &#34;&#34;&#34;
     Use the GPU instead of the CPU for tensor calculations. This is the default if a GPU is available. If you have more than one GPU, you can use a specific GPU by setting `n`.
     &#34;&#34;&#34;
     if not torch.cuda.is_available():
-        logger.error(&#34;CUDA is not available&#34;)
+        print(&#34;CUDA is not available&#34;)
     elif n is not None and (not isinstance(n, int) or n &lt; 0 or torch.cuda.device_count() &lt;= n):
-        logger.error(&#34;CUDA GPU &#39;%s&#39; is not available&#34; % (n,))
+        print(&#34;CUDA GPU &#39;%s&#39; is not available&#34; % (n,))
     elif n is None:
         config.device = torch.device(&#39;cuda&#39;, torch.cuda.current_device())
     else:
@@ -223,7 +223,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/config.py#L12-L18" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/config.py#L12-L18" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_half_precision():
     &#34;&#34;&#34;
@@ -242,7 +242,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/config.py#L20-L24" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/config.py#L20-L24" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def use_single_precision():
     &#34;&#34;&#34;
@@ -264,7 +264,7 @@ def set_positive_minimum(val):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/5cd0869404b4ae3ea99d74e11d39e6b2938fb9f3/mogptk/gpr/config.py#L3-L9" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/config.py#L3-L9" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Config:
     dtype = torch.float64
@@ -278,15 +278,15 @@ def set_positive_minimum(val):
 <dl>
 <dt id="mogptk.gpr.config.Config.device"><code class="name">var <span class="ident">device</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
 <dt id="mogptk.gpr.config.Config.dtype"><code class="name">var <span class="ident">dtype</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
 <dt id="mogptk.gpr.config.Config.positive_minimum"><code class="name">var <span class="ident">positive_minimum</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
 </dl>
 </dd>
@@ -331,7 +331,7 @@ def set_positive_minimum(val):
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
 </footer>
 </body>
 </html>
