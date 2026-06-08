@@ -27,7 +27,7 @@
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L1-L435" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L1-L520" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">import torch
 import copy
@@ -322,6 +322,91 @@ class AutomaticRelevanceDeterminationKernel(MulKernel):
             kernel.set_active_dims(i)
         super().__init__(*kernels)
 
+class ChangePointsKernel(Kernels):
+    &#34;&#34;&#34;
+    Changepoint kernel that sums kernels with input-dependent weight functions. The weights are parametrized by sigmoid functions and thus enables smooth transition between kernels in the input domain (1D). Note that it often makes the resulting kernel nonstationary.
+
+    Args:
+        kernels (list of Kernel): Kernels.
+        locations (list of float): Location(s) in 1D input domain where covariance change is expected. This is to &#39;center&#39; a sigmoid around the changepoint.
+        steepnesses (list of float): Slope(s) of the sigmoid(s) at the changepoint(s), must be positive. If a single value is given, it is assumed that all the transitions from one kernel to another are at the same rate w.r.t to input values (i.e sigmoids share the same steepness), otherwise they might be different.
+    &#34;&#34;&#34;
+    def __init__(self, locations, steepnesses=1.0, *kernels):
+        if not isinstance(locations, list):
+            locations = [locations]
+        if len(kernels) != len(locations) + 1:
+            raise ValueError(&#34;Must pass one more kernel than the number of locations points. &#34;
+                             f&#34;Got {len(kernels)} kernels and {len(locations)} locations points.&#34;
+            )
+        if isinstance(steepnesses, list) and len(steepnesses) &gt; 1:
+            if len(locations) != len(steepnesses):
+                raise ValueError(&#34;Must pass as many locations as steepness point(s). &#34;
+                                f&#34;Got {len(locations)} locations and {len(steepnesses)} steepness points.&#34;
+                )
+        if not torch.equal(torch.tensor(locations), torch.tensor(locations).sort(descending=False)[0]):
+            raise ValueError(&#34;&#39;locations&#39; must be sorted ascendingly and &#39;steepnesses&#39; should be ordered correspondingly.&#34;
+            )
+        super().__init__(*kernels)
+
+        if self.input_dims != 1:
+            raise ValueError(&#34;Must pass kernels defined over a 1D input domain.&#34;)
+
+        self.locations = Parameter(locations)
+        # advice: constrain positivity with Parameter.to_transform(lower=1e-16)
+        self.steepness = Parameter(steepnesses, lower=config.positive_minimum)
+
+    def _weight_sigmoid(self, X):
+        return torch.sigmoid(self.steepness() * (X - self.locations()))
+    
+    # inspired by : https://www.tensorflow.org/probability/api_docs/python/tfp/math/psd_kernels/ChangePoint
+    def K(self, X1, X2=None):
+
+        N1 = X1.shape[0]
+
+        # input-dependent weights
+        weights_x1 = self._weight_sigmoid(X1) # N1xN_cp
+        
+        if X2 is None:
+            weights_x2 = self._weight_sigmoid(X1)
+            N2 = N1
+        else:
+            weights_x2 = self._weight_sigmoid(X2)
+            N2 = X2.shape[0]
+
+        # for multiplication broadcastability
+        weights_x1 = weights_x1.unsqueeze(dim=-2) # N1x1xN_cp
+        weights_x2 = weights_x2.unsqueeze(dim=0) # 1xN2xN_cp
+    
+        # a sigmoid (weight) increases 0-&gt;1 so complement to get 1-&gt;0
+        start_weights = weights_x1 * weights_x2 # N1xN2xN_cp
+        end_weights = (1.0 - weights_x1) * (1.0 - weights_x2) # N1xN2xN_cp
+
+        # ap/pre-pend ones
+        ones = torch.ones((N1, N2, 1))
+        start_weights = torch.cat((ones, start_weights), dim=-1) # N1xN2x(N_cp+1)
+        end_weights = torch.cat((end_weights, ones), dim=-1) # N1xN2x(N_cp+1)
+
+        # weighted sum of the kernels
+        kernel_stack = torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=-1) # N1xN2x(N_cp+1)
+
+        return torch.sum(start_weights * kernel_stack * end_weights, dim=-1)
+    
+    def K_diag(self, X1):
+        N1 = X1.shape[0]
+
+        # weights
+        weights_x1 = self._weight_sigmoid(X1)
+
+        # ap/pre-pend ones
+        ones = torch.ones((N1, 1))
+        start_weights = torch.cat((ones, weights_x1**2), dim=-1)
+        end_weights = torch.cat(((1.0 - weights_x1)**2, ones), dim=-1)
+
+        # weighted sum of kernels
+        kernel_stack = torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=-1)
+
+        return torch.sum(start_weights * kernel_stack * end_weights, dim=-1)
+    
 cb = None
 
 class MultiOutputKernel(Kernel):
@@ -490,7 +575,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L232-L246" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L232-L246" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AddKernel(Kernels):
     &#34;&#34;&#34;
@@ -546,7 +631,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L278-L292" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L278-L292" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class AutomaticRelevanceDeterminationKernel(MulKernel):
     &#34;&#34;&#34;
@@ -582,6 +667,129 @@ class MultiOutputKernel(Kernel):
 </li>
 </ul>
 </dd>
+<dt id="mogptk.gpr.kernel.ChangePointsKernel"><code class="flex name class">
+<span>class <span class="ident">ChangePointsKernel</span></span>
+<span>(</span><span>locations, steepnesses=1.0, *kernels)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Changepoint kernel that sums kernels with input-dependent weight functions. The weights are parametrized by sigmoid functions and thus enables smooth transition between kernels in the input domain (1D). Note that it often makes the resulting kernel nonstationary.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>kernels</code></strong> :&ensp;<code>list</code> of <code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></code></dt>
+<dd>Kernels.</dd>
+<dt><strong><code>locations</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>Location(s) in 1D input domain where covariance change is expected. This is to 'center' a sigmoid around the changepoint.</dd>
+<dt><strong><code>steepnesses</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>Slope(s) of the sigmoid(s) at the changepoint(s), must be positive. If a single value is given, it is assumed that all the transitions from one kernel to another are at the same rate w.r.t to input values (i.e sigmoids share the same steepness), otherwise they might be different.</dd>
+</dl>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L294-L377" class="git-link">Browse git</a>
+</summary>
+<pre><code class="python">class ChangePointsKernel(Kernels):
+    &#34;&#34;&#34;
+    Changepoint kernel that sums kernels with input-dependent weight functions. The weights are parametrized by sigmoid functions and thus enables smooth transition between kernels in the input domain (1D). Note that it often makes the resulting kernel nonstationary.
+
+    Args:
+        kernels (list of Kernel): Kernels.
+        locations (list of float): Location(s) in 1D input domain where covariance change is expected. This is to &#39;center&#39; a sigmoid around the changepoint.
+        steepnesses (list of float): Slope(s) of the sigmoid(s) at the changepoint(s), must be positive. If a single value is given, it is assumed that all the transitions from one kernel to another are at the same rate w.r.t to input values (i.e sigmoids share the same steepness), otherwise they might be different.
+    &#34;&#34;&#34;
+    def __init__(self, locations, steepnesses=1.0, *kernels):
+        if not isinstance(locations, list):
+            locations = [locations]
+        if len(kernels) != len(locations) + 1:
+            raise ValueError(&#34;Must pass one more kernel than the number of locations points. &#34;
+                             f&#34;Got {len(kernels)} kernels and {len(locations)} locations points.&#34;
+            )
+        if isinstance(steepnesses, list) and len(steepnesses) &gt; 1:
+            if len(locations) != len(steepnesses):
+                raise ValueError(&#34;Must pass as many locations as steepness point(s). &#34;
+                                f&#34;Got {len(locations)} locations and {len(steepnesses)} steepness points.&#34;
+                )
+        if not torch.equal(torch.tensor(locations), torch.tensor(locations).sort(descending=False)[0]):
+            raise ValueError(&#34;&#39;locations&#39; must be sorted ascendingly and &#39;steepnesses&#39; should be ordered correspondingly.&#34;
+            )
+        super().__init__(*kernels)
+
+        if self.input_dims != 1:
+            raise ValueError(&#34;Must pass kernels defined over a 1D input domain.&#34;)
+
+        self.locations = Parameter(locations)
+        # advice: constrain positivity with Parameter.to_transform(lower=1e-16)
+        self.steepness = Parameter(steepnesses, lower=config.positive_minimum)
+
+    def _weight_sigmoid(self, X):
+        return torch.sigmoid(self.steepness() * (X - self.locations()))
+    
+    # inspired by : https://www.tensorflow.org/probability/api_docs/python/tfp/math/psd_kernels/ChangePoint
+    def K(self, X1, X2=None):
+
+        N1 = X1.shape[0]
+
+        # input-dependent weights
+        weights_x1 = self._weight_sigmoid(X1) # N1xN_cp
+        
+        if X2 is None:
+            weights_x2 = self._weight_sigmoid(X1)
+            N2 = N1
+        else:
+            weights_x2 = self._weight_sigmoid(X2)
+            N2 = X2.shape[0]
+
+        # for multiplication broadcastability
+        weights_x1 = weights_x1.unsqueeze(dim=-2) # N1x1xN_cp
+        weights_x2 = weights_x2.unsqueeze(dim=0) # 1xN2xN_cp
+    
+        # a sigmoid (weight) increases 0-&gt;1 so complement to get 1-&gt;0
+        start_weights = weights_x1 * weights_x2 # N1xN2xN_cp
+        end_weights = (1.0 - weights_x1) * (1.0 - weights_x2) # N1xN2xN_cp
+
+        # ap/pre-pend ones
+        ones = torch.ones((N1, N2, 1))
+        start_weights = torch.cat((ones, start_weights), dim=-1) # N1xN2x(N_cp+1)
+        end_weights = torch.cat((end_weights, ones), dim=-1) # N1xN2x(N_cp+1)
+
+        # weighted sum of the kernels
+        kernel_stack = torch.stack([kernel(X1, X2) for kernel in self.kernels], dim=-1) # N1xN2x(N_cp+1)
+
+        return torch.sum(start_weights * kernel_stack * end_weights, dim=-1)
+    
+    def K_diag(self, X1):
+        N1 = X1.shape[0]
+
+        # weights
+        weights_x1 = self._weight_sigmoid(X1)
+
+        # ap/pre-pend ones
+        ones = torch.ones((N1, 1))
+        start_weights = torch.cat((ones, weights_x1**2), dim=-1)
+        end_weights = torch.cat(((1.0 - weights_x1)**2, ones), dim=-1)
+
+        # weighted sum of kernels
+        kernel_stack = torch.stack([kernel.K_diag(X1) for kernel in self.kernels], dim=-1)
+
+        return torch.sum(start_weights * kernel_stack * end_weights, dim=-1)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></li>
+<li><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></li>
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="mogptk.gpr.kernel.Kernels" href="#mogptk.gpr.kernel.Kernels">Kernels</a></b></code>:
+<ul class="hlist">
+<li><code><a title="mogptk.gpr.kernel.Kernels.K" href="#mogptk.gpr.kernel.Kernel.K">K</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.K_diag" href="#mogptk.gpr.kernel.Kernel.K_diag">K_diag</a></code></li>
+<li><code><a title="mogptk.gpr.kernel.Kernels.iterkernels" href="#mogptk.gpr.kernel.Kernel.iterkernels">iterkernels</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
 <dt id="mogptk.gpr.kernel.Kernel"><code class="flex name class">
 <span>class <span class="ident">Kernel</span></span>
 <span>(</span><span>input_dims=None, active_dims=None)</span>
@@ -599,7 +807,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L5-L191" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L5-L191" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernel(torch.nn.Module):
     &#34;&#34;&#34;
@@ -823,7 +1031,7 @@ class MultiOutputKernel(Kernel):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L165-L170" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L165-L170" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def average(X1, X2=None):
@@ -841,7 +1049,7 @@ def average(X1, X2=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L172-L177" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L172-L177" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def distance(X1, X2=None):
@@ -859,7 +1067,7 @@ def distance(X1, X2=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L179-L185" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L179-L185" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@staticmethod
 def squared_distance(X1, X2=None):
@@ -879,7 +1087,7 @@ def squared_distance(X1, X2=None):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L115-L117" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L115-L117" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">@property
 def active_dims(self):
@@ -909,7 +1117,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L138-L150" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L138-L150" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K(self, X1, X2=None):
     &#34;&#34;&#34;
@@ -944,7 +1152,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L152-L163" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L152-L163" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def K_diag(self, X1):
     &#34;&#34;&#34;
@@ -968,7 +1176,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L112-L113" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L112-L113" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def clone(self):
     return copy.deepcopy(self)</code></pre>
@@ -982,7 +1190,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L132-L136" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L132-L136" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def iterkernels(self):
     &#34;&#34;&#34;
@@ -999,7 +1207,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L20-L21" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L20-L21" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     return self.__class__.__name__</code></pre>
@@ -1022,7 +1230,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L193-L230" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L193-L230" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class Kernels(Kernel):
     &#34;&#34;&#34;
@@ -1071,6 +1279,7 @@ def active_dims(self):
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li><a title="mogptk.gpr.kernel.AddKernel" href="#mogptk.gpr.kernel.AddKernel">AddKernel</a></li>
+<li><a title="mogptk.gpr.kernel.ChangePointsKernel" href="#mogptk.gpr.kernel.ChangePointsKernel">ChangePointsKernel</a></li>
 <li><a title="mogptk.gpr.kernel.MulKernel" href="#mogptk.gpr.kernel.MulKernel">MulKernel</a></li>
 </ul>
 <h3>Methods</h3>
@@ -1083,7 +1292,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L220-L222" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L220-L222" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def name(self):
     names = [kernel.name() for kernel in self.kernels]
@@ -1119,7 +1328,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L264-L276" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L264-L276" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MixtureKernel(AddKernel):
     &#34;&#34;&#34;
@@ -1168,7 +1377,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L248-L262" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L248-L262" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MulKernel(Kernels):
     &#34;&#34;&#34;
@@ -1227,7 +1436,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L296-L435" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L381-L520" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">class MultiOutputKernel(Kernel):
     &#34;&#34;&#34;
@@ -1408,7 +1617,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L412-L423" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L497-L508" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub(self, i, j, X1, X2=None):
     &#34;&#34;&#34;
@@ -1442,7 +1651,7 @@ def active_dims(self):
 <details class="source">
 <summary>
 <span>Expand source code</span>
-<a href="https://github.com/GAMES-UChile/mogptk/blob/8bd5793ae6846aec7cb690acf1526af7836825d3/mogptk/gpr/kernel.py#L425-L435" class="git-link">Browse git</a>
+<a href="https://github.com/GAMES-UChile/mogptk/blob/d57e7d6c8a1cd615de5a38f5f00e9748062cc055/mogptk/gpr/kernel.py#L510-L520" class="git-link">Browse git</a>
 </summary>
 <pre><code class="python">def Ksub_diag(self, i, X1):
     &#34;&#34;&#34;
@@ -1490,6 +1699,9 @@ def active_dims(self):
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel" href="#mogptk.gpr.kernel.AutomaticRelevanceDeterminationKernel">AutomaticRelevanceDeterminationKernel</a></code></h4>
+</li>
+<li>
+<h4><code><a title="mogptk.gpr.kernel.ChangePointsKernel" href="#mogptk.gpr.kernel.ChangePointsKernel">ChangePointsKernel</a></code></h4>
 </li>
 <li>
 <h4><code><a title="mogptk.gpr.kernel.Kernel" href="#mogptk.gpr.kernel.Kernel">Kernel</a></code></h4>
