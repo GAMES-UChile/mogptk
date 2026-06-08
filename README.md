@@ -2,7 +2,14 @@
 
 **[Paper](https://doi.org/10.1016/j.neucom.2020.09.085) - [API Documentation](https://games-uchile.github.io/mogptk/) - [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials)**
 
-The Multi-Output Gaussian Process Toolkit is a Python toolkit for training and interpreting Gaussian process models with multiple data channels. It builds upon [PyTorch](https://pytorch.org/) to provide an easy way to train multi-output models effectively on CPUs and GPUs. The main authors are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar as part of the Center for Mathematical Modelling at the University of Chile.
+The Multi-Output Gaussian Process Toolkit is a Python toolkit for multichannel time series analysis. MOGPTK implements multioutput Gaussian process models with different covariance architectures, alongside pre-processing stages based on spectral analysis and visualisation tools. It supports GPU acceleration based on  [PyTorch](https://pytorch.org/) to provide a computationally efficient way to model training. The authors of the toolkit are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar, with contributions from the community of users. 
+
+The MOGPTK project started in 2020, hosted by the Center for Mathematical Modelling at the University of Chile. Since October 2024, the project has been hosted at Imperial College London. 
+
+Throughout its development, the project has been funded by: 
+- Center for Mathematical Modelling, Universidad de Chile (2020-2024)
+- Fondecyt grants from the National Agency for Research and Development, Chile (2020-2024)
+- Different awards from Google Research (2020-2024)
 
 ## Installation
 With [Anaconda](https://www.anaconda.com/distribution/) installed on your system, open a command prompt and create a virtual environment:
