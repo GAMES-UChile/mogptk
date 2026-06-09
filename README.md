@@ -15,7 +15,7 @@ Throughout its development, the project has been funded by:
 With [Anaconda](https://www.anaconda.com/distribution/) installed on your system, open a command prompt and create a virtual environment:
 
 ```
-conda create -n myenv python=3.7
+conda create -n myenv python=3.14
 conda activate myenv
 ```
 
@@ -149,6 +149,49 @@ Please use our publication at arXiv to cite our toolkit: [MOGPTK: The Multi-Outp
 - [H. Liu, et al., Scalable multi-task GPs with neural embedding of coregionalization](https://www.sciencedirect.com/science/article/abs/pii/S0950705122003641)
 - [L.M. Rivera-Muñoz, et al., Missing Data Estimation in a Low-Cost Sensor network for Measuring Air Quality](https://link.springer.com/article/10.1007/s11270-021-05363-1)
 - [G. Caballero, et al., Synergy of Sentinel-1 and Sentinel-2 Time Series for Cloud-Free Vegetation Water Content Mapping with Multi-Output Gaussian Processes](https://www.mdpi.com/2072-4292/15/7/1822)
+- [S.T. Yeh, X. Du, Optimal Tilt-Wing eVTOL Takeoff Trajectory Prediction Using Regression Generative Adversarial Networks](https://doi.org/10.3390/math12010026)
+- [A. Patharkar, et al., Predictive modeling of biomedical temporal data in healthcare applications: review and future directions](https://doi.org/10.3389/fphys.2024.1386760)
+- [M. Zhang, et al., A machine learning method for the prediction of ship motion trajectories in real operational conditions](https://doi.org/10.1016/j.oceaneng.2023.114905)
+- [D. Polke, et al., Adaptive Learning with Gaussian Process Regression: A Comprehensive Review of Methods and Applications](https://doi.org/10.3390/make8040101)
+- [O.A. Guerrero, G. Catañeda, How does government expenditure impact sustainable development? Studying the multidimensional link between budgets and development gaps](https://link.springer.com/article/10.1007/s11625-022-01095-1)
+- [A.U. Hassan, M.J. Aljaafreh, Predicting UV-Vis Spectra of Benzothio/Dithiophene Polymers for Photodetectors by Machine-Learning-Assisted Computational Studies](https://doi.org/10.3390/coatings15050558)
+- [J. Li, et al., Battery capacity trajectory prediction by capturing the correlation between different vehicles](https://doi.org/10.1016/j.energy.2022.125123)
+- [A.U. Hassan, M.J. Aljaafreh, A Machine Learning Study to Explore the Structural Basis of Non-Conjugated Compounds for Their Optical Activity Features](https://doi.org/10.1002/adts.202500140)
+- [Q. Li, M. Ludovski, Probabilistic spatiotemporal modeling of day-ahead wind power generation with input-warped Gaussian processes](https://doi.org/10.1016/j.spasta.2025.100906)
+- [R.R. Griffiths, et al., Modeling the Multiwavelength Variability of Mrk 335 Using Gaussian Processes](https://iopscience.iop.org/article/10.3847/1538-4357/abfa9f/meta)
+- [H.A.K. Kyhoiesh, et al., A machine learning-gaussian process screening of carbazole based donors to design efficient organic polymers for photovoltaic applications](https://doi.org/10.1016/j.jmgm.2025.109154)
+- [Z. Sun, et al., PEMFC Performance Prediction Based on Degradation Mechanism and Machine Learning](https://ieeexplore.ieee.org/abstract/document/10855573)
+- [J. Barahona, et al., Machine learning modeling of lung mechanics: Assessing the variability and propagation of uncertainty in respiratory-system compliance and airway resistance](https://doi.org/10.1016/j.cmpb.2023.107888)
+- [E. Daş, J.W. Burdick, An Active Learning Based Robot Kinematic Calibration Framework Using Gaussian Processes](https://doi.org/10.48550/arXiv.2303.03658)
+- [Y. Yang, et al., Designing strongly coupled polaritonic structures via statistical machine learning](https://doi.org/10.1073/pnas.2526690122)
+- [P. Zhou, et al., Long-term prediction enhancement based on multi-output Gaussian process regression integrated with production plans for oxygen supply network](https://doi.org/10.1016/j.compchemeng.2022.107844)
+- [L.M. Rivera-Muñoz, et al., Deep matrix factorization models for estimation of missing data in a low-cost sensor network to measure air quality](https://doi.org/10.1016/j.ecoinf.2022.101775)
+- [X. Li, et al., Time-optimal general asymmetric S-curve profile with low residual vibration](https://doi.org/10.1016/j.ymssp.2022.109978)
+- [C. Miao, Y. Wang, Multivariate Gaussian process regression for characterization of geo-data spatial variability from limited and non-co-located measurements](https://doi.org/10.1016/j.enggeo.2026.108611)
+- [A. Lerow, et al., Cluster-Specific Predictions with Multi-Task Gaussian Processes](https://www.jmlr.org/papers/v24/20-1321.html)
+- [T. Hoffbauer, et al., KernelMatmul: Scaling Gaussian Processes to Large Time Series](https://doi.org/10.1609/aaai.v39i16.33893)
+- [J. Rohmer, et al., Improved metamodels for predicting high-dimensional outputs by accounting for the dependence structure of the latent variables: application to marine flooding](https://link.springer.com/article/10.1007/s00477-023-02426-z)
+- [Y. Dai, et al., Graphical Multioutput Gaussian Process with Attention](https://proceedings.iclr.cc/paper_files/paper/2024/hash/826aea2253363fe04e8c4991b2a8869e-Abstract-Conference.html)
+- [E. Balzani, et al., A probabilistic framework for task-aligned intra- and inter-area neural manifold estimation](https://doi.org/10.48550/arXiv.2209.02816)
+- [V. Caro, et al., Modeling Neonatal EEG Using Multi-Output Gaussian Processes](https://ieeexplore.ieee.org/abstract/document/9734069)
+- [L. Xu, et al., Prediction for distributional outcomes in high-performance computing input/output variability](https://doi.org/10.1093/jrsssc/qlae001)
+- [R.R. Griffiths, Applications of Gaussian Processes at Extreme Lengthscales: From Molecules to Black Holes](https://www.proquest.com/openview/220275b1658d87362aedca7dabca06c5/1?pq-origsite=gscholar&cbl=2026366&diss=y)
+- [G. Yang, et al., Self-Evolving Offset-Free Model Predictive Control with Model–Plant Mismatch for Dynamic Working-Point Change Tasks in Industrial Processes](https://pubs.acs.org/doi/10.1021/acs.iecr.2c04642)
+- [Ó. García-Hinde, et al., A conditional one-output likelihood formulation for multitask Gaussian processes](https://doi.org/10.1016/j.neucom.2022.08.064)
+- [L. Liu, et al., Plane Cascade Aerodynamic Performance Prediction Based on Metric Learning for Multi-Output Gaussian Process Regression](https://doi.org/10.3390/sym15091692)
+- [Y. Chai, Uncertainty Quantification for Network Models: A Study in Synthetic Brain Models](https://ore.exeter.ac.uk/articles/thesis/Uncertainty_Quantification_for_Network_Models_A_Study_in_Synthetic_Brain_Models/30454622?file=59088764)
+- [A. Khanal, et al., Gaussian Process-Based Extended Kalman Filter for Trajectory Estimation in sUAV Traffic Management](https://doi.org/10.2514/6.2026-0545)
+- [D. Özese, et al, Tree-Based Sequential Sampling for Efficient Designs in Package Electrical Analysis](https://ieeexplore.ieee.org/abstract/document/10539229)
+- [F. Batsch, Active Learning with Gaussian Processes for the Investigation of Critical Scenarios in Autonomous Driving](https://pureportal.coventry.ac.uk/en/studentTheses/active-learning-with-gaussian-processes-for-the-investigation-of-/)
+- [V. Caro, et al., Modeling neonatal EEG using multi-output Gaussian processes](https://repositorio.uchile.cl/handle/2250/186592)
+- [Z. Sun, K. Chen, Leveraging Single Tasks for Better Generalization of Multitask Gaussian Process on Multivariate Time Series](https://doi.org/10.21203/rs.3.rs-4839107/v1)
+- [F. Tobar, et al., Data Science for Engineers: A Teaching Ecosystem](https://ieeexplore.ieee.org/abstract/document/9418568)
+- [F. Tobar, et al., Computationally-efficient initialisation of GPs: The generalised variogram method](https://doi.org/10.48550/arXiv.2210.05394)
+- [Q. Xu, et al., Revisiting Nonstationary Kernel Design for Multi-Output Gaussian Processes](https://openreview.net/forum?id=vFfujX5Ygn)
+
+## Books
+- [Michael Ludkovski, Jimmy Risk, Gaussian Process Models for Quantitative Finance](https://link.springer.com/book/10.1007/978-3-031-80874-6)
+
 
 ### Used in code
 - https://github.com/jdjmoon/TRF
