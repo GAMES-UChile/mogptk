@@ -112,9 +112,21 @@ Implemented likelihoods:
 See the [API documentation](https://games-uchile.github.io/mogptk/) for documentation of our toolkit, including usage and examples of functions and classes.
 
 
+## Development Roadmap
+
+MOGPTK is developed through a long-term roadmap that advances the toolkit as a general platform for probabilistic modelling of multichannel time series. While the software remains broadly applicable across scientific and engineering domains, recent collaborations and interactions with researchers working in the life sciences have motivated some of the scheduled improvements to the toolbox.
+
+Current development is organised around four complementary themes:
+
+- **Scale:** scalable probabilistic modelling for larger datasets and more channels.
+- **Represent:** richer probabilistic models and interpretable latent representations.
+- **Learn:** integration with modern AI methods for learning from limited or partially labelled data.
+- **Apply:** reproducible scientific workflows, benchmarking, visualisation, and high-quality tutorials.
+
 
 ## Contributing
-We accept and encourage contributions to the toolkit in the form of pull requests (PRs), bug reports and discussions (GitHub issues). Please consider starting an open discussion before proposing large PRs. For small PRs, we suggest that they address only one issue or add one new feature. All PRs should keep documentation and notebooks up to date. For more details, see our [Contribution Guidelines](CONTRIBUTING.md).
+
+We welcome contributions across all areas of the toolkit, including bug fixes, documentation, tutorials, performance improvements, new models, and scientific applications. We accept contributions through pull requests (PRs), bug reports, GitHub Discussions, and feature requests. Please consider starting an open discussion before proposing substantial new features. For smaller PRs, we recommend that each addresses a single issue or introduces one new feature. All PRs should keep documentation and notebooks up to date. For more details, see our [Contribution Guidelines](CONTRIBUTING.md).
 
 
 
