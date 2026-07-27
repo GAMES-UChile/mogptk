@@ -1,15 +1,14 @@
 # Multi-Output Gaussian Process Toolkit
 
-**[Paper](https://doi.org/10.1016/j.neucom.2020.09.085) - [API Documentation](https://games-uchile.github.io/mogptk/) - [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials)**
+**[Paper](https://doi.org/10.1016/j.neucom.2020.09.085) - [API Documentation](https://games-uchile.github.io/mogptk/) - [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials)  - [Code of Conduct](CODE_OF_CONDUCT.md)**
 
-The Multi-Output Gaussian Process Toolkit is a Python toolkit for multichannel time series analysis. MOGPTK implements multioutput Gaussian process models with different covariance architectures, alongside pre-processing stages based on spectral analysis and visualisation tools. It supports GPU acceleration based on  [PyTorch](https://pytorch.org/) to provide a computationally efficient way to model training. The authors of the toolkit are Taco de Wolff, Alejandro Cuevas, and Felipe Tobar, with contributions from the community of users. 
+MOGPTK (Multi-Output Gaussian Process Toolkit) is an open-source Python library for interpretable probabilistic modelling of multichannel time series. Built on PyTorch, it provides Gaussian process models with a range of covariance architectures, spectral analysis tools, GPU acceleration, and visualisation utilities for scientific applications underpinned by temporal observations.
 
-The MOGPTK project started in 2020, hosted by the Center for Mathematical Modelling at the University of Chile. Since October 2024, the project has been hosted at Imperial College London. 
+The project was initiated in 2020 at the Center for Mathematical Modelling, Universidad de Chile, and has been hosted at Imperial College London since October 2024. Development has benefited from research supported by:
 
-Throughout its development, the project has been funded by: 
-- Center for Mathematical Modelling, Universidad de Chile (2020-2024)
-- Fondecyt grants from the National Agency for Research and Development, Chile (2020-2024)
-- Different awards from Google Research (2020-2024)
+- Center for Mathematical Modelling, Universidad de Chile (2020–2024)
+- ANID Fondecyt research grants, Chile (2020–2024)
+- Google Research Awards (2020–2024)
 
 ## Installation
 With [Anaconda](https://www.anaconda.com/distribution/) installed on your system, open a command prompt and create a virtual environment:
@@ -31,7 +30,7 @@ In order to upgrade to a new version of MOGPTK or any of its dependencies, use `
 pip install --upgrade mogptk
 ```
 
-For developers of the library or for users who need the latest changes, we recommend cloning the git `master` or `develop` branch and to use the following command inside the repository folder:
+For developers of the library or for users who need the latest changes, we recommend cloning the git `master` or `develop` branch and using the following command inside the repository folder:
 
 ```
 pip install --upgrade -e .
@@ -40,9 +39,9 @@ pip install --upgrade -e .
 See [Tutorials & Examples](https://github.com/GAMES-UChile/mogptk#tutorials) to get started.
 
 ## Introduction
-This repository provides a toolkit to perform multi-output GP regression with kernels that are designed to utilize correlation information among channels in order to better model signals. The toolkit is mainly targeted to time-series, and includes plotting functions for the case of single input with multiple outputs (time series with several channels).
+This repository provides a toolkit to perform multi-output GP regression with kernels that are designed to utilise correlation information among channels in order to better model signals. The toolkit is mainly targeted at time series, and includes plotting functions for the case of single input with multiple outputs (time series with several channels).
 
-The main kernel corresponds to Multi Output Spectral Mixture Kernel, which correlates every pair of data points (irrespective of their channel of origin) to model the signals. This kernel is specified in detail in the following publication: G. Parra, F. Tobar, Spectral Mixture Kernels for Multi-Output Gaussian Processes, Advances in Neural Information Processing Systems, 2017. Proceedings link: https://papers.nips.cc/paper/7245-spectral-mixture-kernels-for-multi-output-gaussian-processes
+The main kernel corresponds to Multi Output Spectral Mixture Kernel, which correlates every pair of data points (irrespective of their channel of origin) to model the signals. This kernel is specified in detail in the following publication: G. Parra, F. Tobar, Spectral Mixture Kernels for Multi-Output Gaussian Processes, Advances in Neural Information Processing Systems, 2017. Available [here](https://papers.nips.cc/paper/7245-spectral-mixture-kernels-for-multi-output-gaussian-processes)
 
 The kernel learns the cross-channel correlations of the data, so it is particularly well-suited for the task of signal reconstruction in the event of sporadic data loss. All other included kernels can be derived from the Multi Output Spectral Mixture kernel by restricting some parameters or applying some transformations.
 
@@ -50,10 +49,10 @@ One of the main advantages of the present toolkit is the GPU support, which enab
 
 See [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://doi.org/10.1016/j.neucom.2020.09.085) for our publication in Neurocomputing.
 
-## Implementation
-Implemented models:
+## Features
+Implemented inference models:
 
-- Exact
+- Exact Gaussian process (maximum likelihood)
 - Snelson (E. Snelson, Z. Ghahramani, "Sparse Gaussian Processes using Pseudo-inputs", 2005)
 - OpperArchambeau (M. Opper, C. Archambeau, "The Variational Gaussian Approximation Revisited", 2009)
 - Titsias (Titsias, "Variational learning of induced variables in sparse Gaussian processes", 2009)
@@ -112,19 +111,15 @@ Implemented likelihoods:
 ## Documentation
 See the [API documentation](https://games-uchile.github.io/mogptk/) for documentation of our toolkit, including usage and examples of functions and classes.
 
-## Authors
-- Taco de Wolff
-- Alejandro Cuevas
-- Felipe Tobar
 
-## Users
-This is a list of users of this toolbox, feel free to add your project!
 
 ## Contributing
-We accept and encourage contributions to the toolkit in the form of pull requests (PRs), bug reports and discussions (GitHub issues). It is adviced to start an open discussion before proposing large PRs. For small PRs we suggest that they address only one issue or add one new feature. All PRs should keep documentation and notebooks up to date.
+We accept and encourage contributions to the toolkit in the form of pull requests (PRs), bug reports and discussions (GitHub issues). Please consider starting an open discussion before proposing large PRs. For small PRs, we suggest that they address only one issue or add one new feature. All PRs should keep documentation and notebooks up to date. For more details, see our [Contribution Guidelines](CONTRIBUTING.md).
 
-## Citing
-Please use our publication at arXiv to cite our toolkit: [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://doi.org/10.1016/j.neucom.2020.09.085). We recommend the following BibTeX entry:
+
+
+## Citing MOGPTK
+Please refer to the publication in Neurocomputing [MOGPTK: The Multi-Output Gaussian Process Toolkit](https://doi.org/10.1016/j.neucom.2020.09.085). We recommend the following BibTeX entry:
 
 ```
 @article{mogptk,
@@ -137,6 +132,16 @@ Please use our publication at arXiv to cite our toolkit: [MOGPTK: The Multi-Outp
     url = "https://github.com/GAMES-UChile/mogptk"
 }
 ```
+
+## Authors
+- Taco de Wolff
+- Alejandro Cuevas
+- Felipe Tobar
+
+## License
+Released under the [MIT license](LICENSE).
+
+
 
 ## Citations
 - [A.I. Cowen-Rivers, et al., SAMBA: Safe Model-Based & Active Reinforcement Learning](https://arxiv.org/abs/2006.09436)
@@ -201,6 +206,3 @@ Please use our publication at arXiv to cite our toolkit: [MOGPTK: The Multi-Outp
 - https://github.com/ArthurLeroy/MAGMAclust
 - https://github.com/nicdel-git/master_thesis
 
-
-## License
-Released under the [MIT license](LICENSE).
