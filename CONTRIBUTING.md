@@ -1,67 +1,81 @@
 # Contributing to MOGPTK
 
-Thank you for your interest in contributing to MOGPTK!
+Thank you for your interest in contributing to MOGPTK.
 
-MOGPTK is an open-source Python toolkit for interpretable probabilistic modelling of multichannel time series, with a particular focus on scientific and life-science applications. We welcome contributions from researchers, developers, students, and users at all levels of experience.
+MOGPTK is an open-source Python toolkit for interpretable probabilistic modelling of multichannel time series, with particular emphasis on scientific applications, including neuroscience, ecology, bioacoustics, biomedical imaging, and other life sciences.
 
-## How You Can Contribute
+We welcome contributions from researchers, developers, students, and users of all experience levels. Whether you are fixing a typo, improving the documentation, reporting a bug, or implementing a new model, your contribution is appreciated.
 
-There are many ways to contribute to the project, including:
+---
+
+## Ways to Contribute
+
+There are many ways to contribute, including:
 
 - Reporting bugs or unexpected behaviour.
 - Suggesting new features or improvements.
 - Improving the documentation.
-- Contributing tutorials or example notebooks.
-- Adding tests or improving test coverage.
-- Optimising existing implementations.
-- Implementing new models or algorithms.
-- Improving visualisation or usability.
+- Writing tutorials or example notebooks.
+- Adding or improving unit tests.
+- Improving performance or numerical stability.
+- Implementing new kernels, likelihoods, models, or algorithms.
+- Improving plotting, visualisation, or usability.
 
-Even small contributions are valuable.
+Not every contribution needs to involve writing code. Good bug reports, documentation improvements, and feature suggestions are all valuable.
+
+---
+
+## Before You Start
+
+For substantial new features or major changes, we recommend opening a GitHub Discussion or Issue before starting implementation. This helps ensure that the proposed contribution aligns with the project's goals and avoids duplicated effort.
+
+Smaller improvements and bug fixes can be submitted directly as Pull Requests.
 
 ---
 
 ## Reporting Issues
 
-If you encounter a bug or would like to request a feature, please open an issue on GitHub.
+If you encounter a bug or would like to request a feature, please open a GitHub Issue.
 
-When reporting a bug, please include:
+For bug reports, please include whenever possible:
 
-- A clear description of the problem.
-- Steps to reproduce it.
-- Your operating system.
-- Your Python version.
-- The installed MOGPTK version.
-- Any relevant error messages or stack traces.
+- a clear description of the problem;
+- steps to reproduce it;
+- your operating system;
+- your Python version;
+- your installed MOGPTK version;
+- any relevant error messages or stack traces.
+
+Minimal reproducible examples are especially helpful.
 
 ---
 
 ## Development Workflow
 
 1. Fork the repository.
-2. Create a new branch for your changes.
+2. Create a dedicated branch.
 
 ```bash
 git checkout -b feature/my-feature
 ```
 
 3. Make your changes.
-
-4. Run the test suite.
-
-5. Commit your changes with a descriptive commit message.
+4. Add or update tests where appropriate.
+5. Update any relevant documentation or notebooks.
+6. Run the test suite.
+7. Commit your changes using a clear commit message.
 
 ```bash
-git commit -m "Add feature for spectral reconstruction"
+git commit -m "Add spectral reconstruction model"
 ```
 
-6. Push your branch.
+8. Push your branch.
 
 ```bash
 git push origin feature/my-feature
 ```
 
-7. Open a Pull Request.
+9. Open a Pull Request.
 
 ---
 
@@ -69,26 +83,29 @@ git push origin feature/my-feature
 
 Please aim to:
 
-- Write clear and readable Python code.
-- Follow PEP 8 where practical.
-- Include docstrings for public functions and classes.
-- Add tests for new functionality whenever possible.
-- Keep pull requests focused on a single improvement.
+- write clear, readable Python code;
+- follow PEP 8 where practical;
+- include docstrings for public classes and functions;
+- add tests for new functionality whenever possible;
+- keep pull requests focused on a single feature or bug fix;
+- maintain backwards compatibility where feasible.
 
 ---
 
 ## Documentation
 
-Documentation improvements are always welcome.
+Documentation is an important part of MOGPTK.
 
-This includes:
+Contributions may include:
 
-- Tutorials
-- Example notebooks
-- API documentation
-- Installation instructions
-- Explanations of modelling concepts
-- Improvements to existing documentation
+- tutorials;
+- example notebooks;
+- API documentation;
+- installation instructions;
+- explanations of modelling concepts;
+- improvements to existing documentation.
+
+If a Pull Request introduces new functionality, please update the relevant documentation whenever appropriate.
 
 ---
 
@@ -96,10 +113,11 @@ This includes:
 
 When submitting a Pull Request, please:
 
-- Explain the motivation for your contribution.
-- Describe any important implementation decisions.
-- Reference any related GitHub issues when applicable.
-- Ensure that existing functionality is not unintentionally affected.
+- explain the motivation for your contribution;
+- describe any important implementation decisions;
+- reference any related GitHub Issues, where applicable;
+- ensure that tests pass;
+- update documentation if needed.
 
 Project maintainers may request revisions before merging.
 
@@ -116,4 +134,4 @@ By participating in this project, you agree to abide by our
 
 If you have questions about using or contributing to MOGPTK, feel free to open a GitHub Discussion or Issue.
 
-We appreciate every contribution that helps make MOGPTK more useful, reliable, and accessible to the scientific community.
+Thank you for helping improve MOGPTK and supporting the open-source scientific software community.
